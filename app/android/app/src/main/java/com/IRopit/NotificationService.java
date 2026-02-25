@@ -552,12 +552,11 @@ public class NotificationService extends NotificationListenerService {
         String appIcon = getAppIconBase64(packageName);
 
         // Skip SMS notifications already captured by SmsReceiver/BackgroundSmsService
-        // This prevents duplicate Firestore documents since BackgroundSmsService 
-        // already saved this SMS with a deterministic docId
+        // or by SentSmsObserver (outgoing SMS). This prevents duplicate Firestore documents.
         if (type.equals("sms")) {
             boolean alreadyCaptured = false;
             
-            // Check 1: sender-based dedup (if phone number available)
+            // Check 1: sender-based dedup for incoming SMS (if phone number available)
             if (extractedPhoneNumber != null) {
                 if (SmsReceiver.wasRecentlyCaptured(extractedPhoneNumber, postTime)) {
                     alreadyCaptured = true;
@@ -565,8 +564,18 @@ public class NotificationService extends NotificationListenerService {
                 }
             }
             
-            // Check 2: body-based dedup (works even without phone number)
-            // This catches cases where Google Messages shows contact name instead of number
+            // Check 2: outgoing SMS dedup (sent from phone or extension)
+            // SentSmsObserver and SmsRequestService both call markSentByExtension()
+            if (!alreadyCaptured && extractedPhoneNumber != null) {
+                if (SmsReceiver.wasSentByExtension(extractedPhoneNumber)) {
+                    alreadyCaptured = true;
+                    Log.i(TAG, "📱 SMS dedup: outgoing SMS to " + extractedPhoneNumber);
+                }
+            }
+            
+            // Check 3: body-based dedup (works even without phone number)
+            // Catches cases where Google Messages shows contact name instead of number,
+            // or when there's a race between SentSmsObserver and NotificationService
             if (!alreadyCaptured) {
                 if (SmsReceiver.wasBodyRecentlyCaptured(text)) {
                     alreadyCaptured = true;
@@ -575,18 +584,7 @@ public class NotificationService extends NotificationListenerService {
             }
             
             if (alreadyCaptured) {
-                Log.i(TAG, "📱 SMS already captured by SmsReceiver, skipping to avoid duplicate");
-                lastNotificationTime.put(key, now);
-                lastSmsContent.put(key, text);
-                return;
-            }
-        }
-
-        // Skip outgoing SMS notifications (sent from extension via SmsRequestService)
-        // These create "Message sent" notifications from the native SMS app
-        if (type.equals("sms") && extractedPhoneNumber != null) {
-            if (SmsReceiver.wasSentByExtension(extractedPhoneNumber)) {
-                Log.i(TAG, "📱 Skipping outgoing SMS notification (sent from extension) to: " + extractedPhoneNumber);
+                Log.i(TAG, "📱 SMS already captured, skipping to avoid duplicate");
                 lastNotificationTime.put(key, now);
                 lastSmsContent.put(key, text);
                 return;

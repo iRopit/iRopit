@@ -25,6 +25,7 @@ class MainActivity : ReactActivity() {
     // Register Call receiver dynamically  
     val callFilter = IntentFilter()
     callFilter.addAction("android.intent.action.PHONE_STATE")
+    callFilter.addAction("android.intent.action.NEW_OUTGOING_CALL")
     registerReceiver(callReceiver, callFilter)
     Log.d("MainActivity", "Call Receiver registered dynamically")
   }

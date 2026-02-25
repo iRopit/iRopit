@@ -224,10 +224,14 @@ public class FirebaseHelper {
         call.put("callType", callType); // backward compatibility
         call.put("timestamp", timestamp);
         call.put("duration", duration);
+        call.put("deviceId", deviceId);
+        call.put("deviceName", getDeviceName());
         call.put("createdAt", System.currentTimeMillis());
         call.put("read", false);
 
-        String docId = phoneNumber.replaceAll("[^0-9+]", "") + "_" + timestamp;
+        // Use stable docId: call_timestamp_phoneNumber (matches React Native callStore format)
+        String cleanPhone = phoneNumber.replaceAll("[^0-9+]", "");
+        String docId = ("call_" + timestamp + "_" + cleanPhone).replaceAll("[/\\.]", "_");
 
         db.collection("users")
                 .document(userId)

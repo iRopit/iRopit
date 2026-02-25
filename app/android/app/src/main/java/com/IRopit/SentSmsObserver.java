@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.IRopit.SmsReceiver;
+
 /**
  * ContentObserver that monitors the SMS content provider for outgoing (sent) messages.
  * When the user sends an SMS from the native phone SMS app, this observer detects it
@@ -289,6 +291,12 @@ public class SentSmsObserver extends ContentObserver {
                 
                 Log.i(TAG, "📤 New SENT SMS detected - To: " + address + ", Body length: " + body.length());
                 
+                // Track this outgoing SMS so NotificationService won't save it again
+                // (Google Messages posts a notification for sent SMS too)
+                SmsReceiver.trackBodyHash(body);
+                SmsReceiver.markSentByExtension(address, System.currentTimeMillis());
+                Log.d(TAG, "📤 Tracked outgoing SMS for dedup - body hash + phone: " + address);
+                
                 // Look up contact name
                 String contactName = getContactName(address);
                 
@@ -314,11 +322,16 @@ public class SentSmsObserver extends ContentObserver {
                                          String phoneNumber, String body, long timestamp,
                                          String contactName) {
         try {
-            // Generate docId matching the pattern used by BackgroundSmsService
+            // Generate docId - use "sms_" prefix (same as NotificationService/FirebaseHelper).
+            // When a user sends an SMS, BOTH SentSmsObserver AND NotificationService may capture it.
+            // NotificationService captures Google Messages' notification and uses this same docId formula.
+            // By using the same docId, both services write to the SAME Firestore document (merge),
+            // so only one notification appears in the extension.
+            // Note: We use just the text body for the hash (same as FirebaseHelper) to ensure matching.
             String bodyForHash = (body != null ? body : "").trim();
             int bodyHash = Math.abs(bodyForHash.hashCode());
             long dayBucket = timestamp / (24 * 60 * 60 * 1000);
-            String docId = "sms_sent_" + deviceId + "_" + dayBucket + "_" + bodyHash;
+            String docId = "sms_" + deviceId + "_" + dayBucket + "_" + bodyHash;
             
             Map<String, Object> smsData = new HashMap<>();
             smsData.put("id", docId);

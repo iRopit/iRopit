@@ -24293,6 +24293,10 @@ ${this.customData.serverResponse}`;
     });
   }
   function renderSMS(messages) {
+    if (currentConversation) {
+      updateTabBadges();
+      return;
+    }
     const selectedTab = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
     let filteredMessages = messages;
     if (selectedTab !== "all") {

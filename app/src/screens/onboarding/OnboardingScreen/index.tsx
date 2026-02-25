@@ -9,6 +9,7 @@ import {
   WelcomeStep,
   ThemeSelectionStep,
   LanguageSelectionStep,
+  PrivacyPolicyStep,
   PermissionsStep,
   OverviewStep,
   SecurityStep,
@@ -29,9 +30,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     selectedLanguage,
     permissions,
     isRTL,
+    privacyAccepted,
     getColors,
     setSelectedTheme,
     setSelectedLanguage,
+    setPrivacyAccepted,
     goNext,
     goBack,
     skip,
@@ -69,6 +72,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         );
       case 2:
         return (
+          <PrivacyPolicyStep
+            isRTL={isRTL}
+            colors={colors}
+            accepted={privacyAccepted}
+            onAccept={setPrivacyAccepted}
+          />
+        );
+      case 3:
+        return (
           <ThemeSelectionStep
             selectedTheme={selectedTheme}
             actualTheme={actualTheme}
@@ -79,7 +91,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             triggerHaptic={triggerHaptic}
           />
         );
-      case 3:
+      case 4:
         return (
           <PermissionsStep
             permissions={permissions}
@@ -90,9 +102,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             onRequestPermission={requestPermission}
           />
         );
-      case 4:
-        return <OverviewStep colors={colors} translate={translate} />;
       case 5:
+        return <OverviewStep colors={colors} translate={translate} />;
+      case 6:
         return (
           <SecurityStep colors={colors} translate={translate} isRTL={isRTL} />
         );
@@ -107,12 +119,16 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     if (currentStep === 0) return translate('onboarding.getStarted');
     if (currentStep === 1)
       return translate('onboarding.language.confirmLanguage');
-    if (currentStep === 2) return translate('onboarding.theme.setAppearance');
-    if (currentStep === 3) return translate('onboarding.permissions.continue');
-    if (currentStep === 4) return translate('common.next');
+    if (currentStep === 2) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
+    if (currentStep === 3) return translate('onboarding.theme.setAppearance');
+    if (currentStep === 4) return translate('onboarding.permissions.continue');
+    if (currentStep === 5) return translate('common.next');
     if (isLastStep) return translate('onboarding.overview.letsGo');
     return translate('common.next');
   };
+
+  // Check if the Next button should be disabled
+  const isNextDisabled = currentStep === 2 && !privacyAccepted;
 
   const isLastStep = currentStep === totalSteps - 1;
 
@@ -152,37 +168,54 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             size="lg"
             fullWidth
             isDark={actualTheme === 'dark'}
+            disabled={isNextDisabled}
             onPress={isLastStep ? handleComplete : goNext}
           />
 
-          {currentStep > 0 && currentStep < totalSteps - 1 && (
-            <View
-              style={{
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                gap: 12,
-                marginTop: 12,
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Button
-                  title={translate('common.previous')}
-                  variant="outline"
-                  size="md"
-                  fullWidth
-                  isDark={actualTheme === 'dark'}
-                  onPress={goBack}
-                />
+          {currentStep > 0 &&
+            currentStep < totalSteps - 1 &&
+            currentStep !== 2 && (
+              <View
+                style={{
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  gap: 12,
+                  marginTop: 12,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title={translate('common.previous')}
+                    variant="outline"
+                    size="md"
+                    fullWidth
+                    isDark={actualTheme === 'dark'}
+                    onPress={goBack}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title={translate('onboarding.skip')}
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    isDark={actualTheme === 'dark'}
+                    onPress={skip}
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  title={translate('onboarding.skip')}
-                  variant="ghost"
-                  size="md"
-                  fullWidth
-                  isDark={actualTheme === 'dark'}
-                  onPress={skip}
-                />
-              </View>
+            )}
+
+          {/* Privacy Policy step - back only, no skip */}
+          {currentStep === 2 && (
+            <View style={{ marginTop: 12 }}>
+              <Button
+                title={translate('common.previous')}
+                variant="outline"
+                size="md"
+                fullWidth
+                isDark={actualTheme === 'dark'}
+                onPress={goBack}
+              />
             </View>
           )}
 

@@ -17,6 +17,11 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     
+    <!-- Phone & Call Log Permissions -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
+    
     <!-- Notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
@@ -56,17 +61,15 @@
         </intent-filter>
       </receiver>
 
-      <!-- 
-      Call Receiver REMOVED - Call Log access removed for Google Play compliance
-      Calls are now captured via NotificationListenerService
+      <!-- Call Receiver - Captures incoming/outgoing calls and saves to Firebase -->
       <receiver
         android:name=".CallReceiver"
         android:exported="true">
         <intent-filter>
           <action android:name="android.intent.action.PHONE_STATE" />
+          <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
         </intent-filter>
       </receiver>
-      -->
 
       <!-- FCM default notification icon -->
       <meta-data

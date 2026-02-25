@@ -225,6 +225,20 @@ public class CallReceiver extends BroadcastReceiver {
         Log.d(TAG, "Final call data: number=" + number + ", name=" + name + ", type=" + type + ", duration=" + duration + ", date=" + callDate);
 
         sendEvent("onCallReceived", createCallMap(number, name, type, "ended", duration, callDate));
+        
+        // Also save directly to Firebase for when app is in background
+        // This ensures calls are captured even without an active React instance
+        try {
+            FirebaseHelper firebaseHelper = FirebaseHelper.getInstance(context);
+            if (firebaseHelper != null && firebaseHelper.isLoggedIn()) {
+                firebaseHelper.sendCallToFirestore(number, name, type, callDate, duration);
+                Log.d(TAG, "✅ Call saved to Firebase directly: " + number + " (" + type + ")");
+            } else {
+                Log.w(TAG, "Cannot save call to Firebase: user not logged in");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving call to Firebase", e);
+        }
     }
 
     private String getContactName(Context context, String phoneNumber) {

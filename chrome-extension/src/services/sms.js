@@ -661,6 +661,16 @@ export function updateSMSList(deviceId, newMessages) {
  * @param {Array} messages - Array of SMS messages
  */
 export function renderSMS(messages) {
+  // If a conversation is currently open, don't re-render the conversation list.
+  // This prevents the conversation detail view from being overwritten when
+  // onSnapshot fires (e.g., after marking messages as read).
+  // Data is already updated in state, so the list will be correct when the user goes back.
+  if (state.currentConversation) {
+    // Only update badges (unread counts) without touching the DOM
+    updateTabBadges();
+    return;
+  }
+
   // Filter by selected device tab
   const selectedTab =
     document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset

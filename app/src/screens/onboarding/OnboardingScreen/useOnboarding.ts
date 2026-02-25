@@ -74,6 +74,17 @@ export const useOnboarding = () => {
       granted: false,
     },
     {
+      id: 'phone',
+      name: 'Phone & Call Log',
+      nameAr: 'سجل المكالمات',
+      description:
+        'Track incoming, outgoing, and missed calls with duration and time',
+      descriptionAr: 'رصد المكالمات الواردة والصادرة والفائتة مع المدة والوقت',
+      icon: 'call-outline',
+      required: true,
+      granted: false,
+    },
+    {
       id: 'contacts',
       name: 'Contacts',
       nameAr: 'جهات الاتصال',
@@ -88,10 +99,11 @@ export const useOnboarding = () => {
   const settings = useSettingsStore();
   const isRTL = selectedLanguage === 'ar';
   const [allPermissionsGranted, setAllPermissionsGranted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [permissionsAlreadyHandled, setPermissionsAlreadyHandled] =
     useState(false);
 
-  const totalSteps = 6; // Welcome, Language, Theme, Permissions, Overview, Security
+  const totalSteps = 7; // Welcome, Language, PrivacyPolicy, Theme, Permissions, Overview, Security
 
   // Update actual theme when selection or system changes
   useEffect(() => {
@@ -167,6 +179,15 @@ export const useOnboarding = () => {
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS),
         ]).then(([read, receive]) => read && receive),
+        // phone: check READ_PHONE_STATE and READ_CALL_LOG
+        Promise.all([
+          PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+          ),
+          PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+          ),
+        ]).then(([phoneState, callLog]) => phoneState && callLog),
         PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CONTACTS),
       ]);
 
@@ -175,7 +196,8 @@ export const useOnboarding = () => {
       );
 
       // Check if required permissions are granted
-      const requiredGranted = checks[0] && checks[1] && checks[2] && checks[3]; // notificationListener, notifications, sendSms, readSms are required
+      const requiredGranted =
+        checks[0] && checks[1] && checks[2] && checks[3] && checks[4]; // notificationListener, notifications, sendSms, readSms, phone are required
       const allGranted = checks.every(c => c);
 
       setAllPermissionsGranted(allGranted);
@@ -332,6 +354,33 @@ export const useOnboarding = () => {
             console.error('Error requesting SMS permissions:', e);
           }
           return; // Skip the generic request below
+        case 'phone':
+          // Request READ_PHONE_STATE and READ_CALL_LOG together
+          try {
+            const phoneResults = await PermissionsAndroid.requestMultiple([
+              PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+              PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+            ]);
+            const phoneGranted =
+              phoneResults[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] ===
+                PermissionsAndroid.RESULTS.GRANTED &&
+              phoneResults[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] ===
+                PermissionsAndroid.RESULTS.GRANTED;
+            setPermissions(prev => {
+              const updated = prev.map(p =>
+                p.id === permissionId ? { ...p, granted: phoneGranted } : p,
+              );
+              const allGrantedNow = updated.every(
+                p => !p.required || p.granted,
+              );
+              setAllPermissionsGranted(allGrantedNow);
+              return updated;
+            });
+            triggerHaptic(phoneGranted ? 'success' : 'warning');
+          } catch (e) {
+            console.error('Error requesting phone permissions:', e);
+          }
+          return; // Skip the generic request below
         case 'contacts':
           permission = PermissionsAndroid.PERMISSIONS.READ_CONTACTS;
           break;
@@ -408,9 +457,9 @@ export const useOnboarding = () => {
       triggerHaptic('selection');
       let nextStep = currentStep + 1;
 
-      // Skip permissions step (step 3) if permissions were already handled
-      if (nextStep === 3 && permissionsAlreadyHandled) {
-        nextStep = 4; // Skip to Overview
+      // Skip permissions step (step 4) if permissions were already handled
+      if (nextStep === 4 && permissionsAlreadyHandled) {
+        nextStep = 5; // Skip to Overview
       }
 
       setCurrentStep(nextStep);
@@ -422,9 +471,9 @@ export const useOnboarding = () => {
       triggerHaptic('selection');
       let prevStep = currentStep - 1;
 
-      // Skip permissions step (step 3) if permissions were already handled
-      if (prevStep === 3 && permissionsAlreadyHandled) {
-        prevStep = 2; // Skip to Language selection
+      // Skip permissions step (step 4) if permissions were already handled
+      if (prevStep === 4 && permissionsAlreadyHandled) {
+        prevStep = 3; // Skip to Theme selection
       }
 
       setCurrentStep(prevStep);
@@ -457,6 +506,7 @@ export const useOnboarding = () => {
     permissions,
     isRTL,
     allPermissionsGranted,
+    privacyAccepted,
     permissionsAlreadyHandled,
 
     // Colors
@@ -466,6 +516,7 @@ export const useOnboarding = () => {
     setSelectedTheme,
     setSelectedLanguage,
     setShowThemeSheet,
+    setPrivacyAccepted,
     goNext,
     goBack,
     goToStep,

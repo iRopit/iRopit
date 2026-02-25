@@ -221,10 +221,14 @@ public class SmsRequestService extends Service {
     }
 
     private void saveSentMessage(String phoneNumber, String message) {
-        // Create a unique docId based on timestamp and phone number to avoid duplicates
+        // Use the same docId formula as all other SMS services
+        // so that if SentSmsObserver or NotificationService also captures this,
+        // they write to the SAME Firestore document (merge), avoiding duplicates
         long timestamp = System.currentTimeMillis();
-        String sanitizedPhone = phoneNumber.replaceAll("[^0-9+]", "");
-        String docId = "sms_sent_" + timestamp + "_" + sanitizedPhone;
+        String bodyForHash = (message != null ? message : "").trim();
+        int bodyHash = Math.abs(bodyForHash.hashCode());
+        long dayBucket = timestamp / (24 * 60 * 60 * 1000);
+        String docId = "sms_" + deviceId + "_" + dayBucket + "_" + bodyHash;
         
         // Get device name from SharedPreferences or use default
         SharedPreferences prefs = getSharedPreferences("ZyncITPrefs", MODE_PRIVATE);

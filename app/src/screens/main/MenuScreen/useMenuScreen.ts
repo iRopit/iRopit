@@ -62,8 +62,8 @@ export const useMenuScreen = (navigation: any) => {
             Alert.alert(
               isRTL ? 'تواصل معنا' : 'Contact Us',
               isRTL
-                ? 'لحذف حسابك نهائياً، تواصل معنا على support@iropit.app'
-                : 'To permanently delete your account, contact us at support@iropit.app',
+                ? 'لحذف حسابك نهائياً، تواصل معنا على iropitapp@gmail.com'
+                : 'To permanently delete your account, contact us at iropitapp@gmail.com',
             );
           },
         },
