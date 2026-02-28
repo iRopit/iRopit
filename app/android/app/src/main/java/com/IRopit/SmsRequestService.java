@@ -293,7 +293,7 @@ public class SmsRequestService extends Service {
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IRopit")
+            .setContentTitle("iRopit")
             .setContentText("Syncing SMS in background")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)

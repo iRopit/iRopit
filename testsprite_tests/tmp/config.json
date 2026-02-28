@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000/popup.html",
+  "executionArgs": {
+    "projectName": "ZyncIT",
+    "projectPath": "d:\\my work\\Dev\\ZyncIT",
+    "testIds": [],
+    "additionalInstruction": "",
+    "serverMode": "production",
+    "envs": {
+      "API_KEY": "sk-user-LkAsEcTnIY5R54ZVlYqQYaEFKgInIduMwblK8aEueXw4SaU3tjhaG1FLUiOSw_JN8qEAwRIEjzAPou9Ce80zbx7hwVc1KPgm5icEIIMK8SSFvInTQ3VDooDQUHuV3nRfMaE"
+    }
+  },
+  "serverPort": 56994,
+  "proxy": "http://5b153f1f-ccda-43c4-9a1f-dd483620a56d:xXmSEzgowaA3eBYJVwhymO5OGRt1MhkK@tun.testsprite.com:8080"
+}

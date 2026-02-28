@@ -123,7 +123,7 @@ public class NotificationService extends NotificationListenerService {
             );
 
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("IRopit")
+                .setContentTitle("iRopit")
                 .setContentText("Syncing notifications...")
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(pendingIntent)
@@ -149,10 +149,10 @@ public class NotificationService extends NotificationListenerService {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "IRopit Sync Service",
+                "iRopit Sync Service",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Keeps IRopit running to sync your notifications");
+            channel.setDescription("Keeps iRopit running to sync your notifications");
             channel.setShowBadge(false);
             
             NotificationManager manager = getSystemService(NotificationManager.class);

@@ -78,7 +78,7 @@ const AppContent = () => {
               '⚠️ SMS & Notifications Not Working',
               'Notification Access is required for SMS sync to work.\n\n' +
                 'Please enable it:\n' +
-                'Settings → Apps → Special Access → Notification Access → Enable IRopit\n\n' +
+                'Settings → Apps → Special Access → Notification Access → Enable iRopit\n\n' +
                 'Without this, SMS messages will NOT sync to the extension.',
               [
                 { text: 'Later', style: 'cancel' },

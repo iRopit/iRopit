@@ -201,7 +201,7 @@ const ServiceStatusBanner: React.FC<ServiceStatusBannerProps> = ({
         icon: 'cloud-offline-outline',
         title: 'خدمة الإشعارات غير متصلة',
         message:
-          'إذا كان جهازك Xiaomi/Redmi:\n1. افتح إعدادات AutoStart\n2. فعّل IRopit\n3. أعد تشغيل الهاتف',
+          'إذا كان جهازك Xiaomi/Redmi:\n1. افتح إعدادات AutoStart\n2. فعّل iRopit\n3. أعد تشغيل الهاتف',
         action: async () => {
           try {
             if (NotificationModule?.openAutoStartSettings) {

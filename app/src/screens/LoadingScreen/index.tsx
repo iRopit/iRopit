@@ -14,7 +14,7 @@ const LoadingScreen = () => {
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={[styles.appName, { color: colors.text }]}>IRopit</Text>
+        <Text style={[styles.appName, { color: colors.text }]}>iRopit</Text>
       </View>
       <ActivityIndicator
         size="large"

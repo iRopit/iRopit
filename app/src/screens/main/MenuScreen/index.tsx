@@ -67,7 +67,7 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
 
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: colors.text }]}>
-              {user?.displayName || 'IRopit User'}
+              {user?.displayName || 'iRopit User'}
             </Text>
             <Text
               style={[styles.profileEmail, { color: colors.textSecondary }]}
@@ -161,7 +161,7 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         ))}
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
-          IRopit v1.0.0
+          iRopit v1.0.0
         </Text>
       </ScrollView>
     </Container>

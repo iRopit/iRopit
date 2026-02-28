@@ -1,0 +1,142 @@
+version: "2"
+type: frontend
+tech_stack:
+  - language: JavaScript
+  - framework: Chrome Extension Manifest V3
+  - ui_library: Vanilla JS / Custom CSS
+  - other: Firebase Firestore, AES-256 encryption, esbuild
+routes:
+  - path: /popup.html
+    file: chrome-extension/popup/popup.html
+    auth_required: false
+    description: Main Chrome Extension popup entry point
+  - path: /popup.html#login
+    file: chrome-extension/src/popup.js
+    auth_required: false
+    description: Login view shown when user is not authenticated
+  - path: /popup.html#main
+    file: chrome-extension/src/popup.js
+    auth_required: true
+    description: Main popup view with tab navigation
+  - path: /popup.html#sms-detail
+    file: chrome-extension/src/services/sms.js
+    auth_required: true
+    description: SMS conversation detail view
+features:
+  - name: User Login
+    description: Login with email and password to Firebase Auth
+    files:
+      - chrome-extension/src/popup.js
+    entry_route: /popup.html
+    user_interactions:
+      - Open extension popup
+      - See login form with email and password fields
+      - Enter email address
+      - Enter password
+      - Click Login button
+      - See error message on invalid credentials
+      - Redirect to main view on success
+    api_calls:
+      - method: POST
+        endpoint: Firebase Auth signInWithEmailAndPassword
+    auth_required: false
+  - name: Notifications Tab
+    description: View synced Android device notifications in real-time
+    files:
+      - chrome-extension/src/popup.js
+    entry_route: /popup.html#main
+    user_interactions:
+      - Click Notifications tab
+      - See list of notifications with app icon, title, body, timestamp
+      - Scroll through notification list
+      - See empty state when no notifications
+    api_calls:
+      - method: GET
+        endpoint: Firestore users/{uid}/devices/{deviceId}/notifications onSnapshot
+    auth_required: true
+  - name: SMS Tab - Conversation List
+    description: View SMS conversations synced from Android phone
+    files:
+      - chrome-extension/src/services/sms.js
+    entry_route: /popup.html#main
+    user_interactions:
+      - Click SMS tab
+      - See list of SMS conversations sorted by latest message
+      - See unread conversation badges/indicators
+      - Click on a conversation to open detail
+      - Unread conversations show at top
+    api_calls:
+      - method: GET
+        endpoint: Firestore users/{uid}/devices/{deviceId}/notifications onSnapshot
+    auth_required: true
+  - name: SMS Conversation Detail
+    description: View full SMS conversation history and send replies
+    files:
+      - chrome-extension/src/services/sms.js
+    entry_route: /popup.html#sms-detail
+    user_interactions:
+      - Click on conversation in SMS list
+      - See conversation messages in chat bubble format
+      - See contact name or phone number as header
+      - Type reply message in input field
+      - Click Send button to send SMS via Android phone
+      - See sent message added to conversation
+      - Click back button to return to conversation list
+    api_calls:
+      - method: POST
+        endpoint: Firestore users/{uid}/devices/{deviceId}/sms (send command)
+      - method: GET
+        endpoint: Firestore users/{uid}/devices/{deviceId}/notifications onSnapshot
+    auth_required: true
+  - name: Calls Tab
+    description: View call history synced from Android phone
+    files:
+      - chrome-extension/src/popup.js
+    entry_route: /popup.html#main
+    user_interactions:
+      - Click Calls tab
+      - See list of calls with contact name, phone number, call type icon
+      - See call type (incoming/outgoing/missed/rejected)
+      - See call duration and timestamp
+      - See empty state when no calls
+    api_calls:
+      - method: GET
+        endpoint: Firestore users/{uid}/devices/{deviceId}/calls onSnapshot
+    auth_required: true
+  - name: Device Selection
+    description: Select which paired Android device to view data from
+    files:
+      - chrome-extension/src/popup.js
+    entry_route: /popup.html#main
+    user_interactions:
+      - See device selector dropdown or button in header
+      - Click to open device list
+      - Select a device from list
+      - View data refreshes for selected device
+    api_calls:
+      - method: GET
+        endpoint: Firestore users/{uid}/devices onSnapshot
+    auth_required: true
+  - name: Logout
+    description: Sign out of the Chrome Extension
+    files:
+      - chrome-extension/src/popup.js
+    entry_route: /popup.html#main
+    user_interactions:
+      - Click settings or logout button
+      - Confirm logout
+      - Redirected to login screen
+    api_calls:
+      - method: POST
+        endpoint: Firebase Auth signOut
+    auth_required: true
+known_limitations:
+  - issue: Extension popup requires Firebase authentication - unauthenticated state shows login form only
+    location: chrome-extension/src/popup.js
+    impact: Most features only testable when logged in with valid Firebase credentials
+  - issue: SMS send functionality requires a connected Android device with the iRopit app installed
+    location: chrome-extension/src/services/sms.js
+    impact: Send SMS feature may not work in isolation without real device
+  - issue: Real-time data requires active Firestore connection
+    location: chrome-extension/background/service-worker.js
+    impact: Data display tests require valid Firebase project credentials

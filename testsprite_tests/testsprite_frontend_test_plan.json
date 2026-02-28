@@ -1,0 +1,1404 @@
+[
+  {
+    "id": "TC001",
+    "title": "View notifications list with required fields",
+    "description": "Verifies that the Notifications tab shows a list of synced notifications including icon, title, body, and timestamp.",
+    "category": "Notifications Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" or \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Notifications tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Notifications\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"notification list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Open Notifications tab and verify each notification shows title/body/timestamp",
+    "description": "Verifies that at least one visible notification item presents the expected content fields (title, body, timestamp).",
+    "category": "Notifications Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" or \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Notifications tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"a notification item\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"notification timestamp\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Scroll through notifications list",
+    "description": "Verifies that the notifications list supports scrolling to view more items.",
+    "category": "Notifications Tab",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" or \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Notifications tab"
+      },
+      {
+        "type": "action",
+        "description": "Scroll to the bottom of the notification list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"notification list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Empty state shown when there are no notifications",
+    "description": "Verifies that the Notifications tab displays a clear empty state when no notifications exist.",
+    "category": "Notifications Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" or \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Notifications tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"No notifications\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"notification list\" is not visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Open SMS tab and verify conversation list is visible and sorted by latest message",
+    "description": "Verifies the SMS tab loads and presents a conversation list ordered by most recent message activity.",
+    "category": "SMS Tab - Conversation List",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" / \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"SMS\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"SMS\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"SMS conversation list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Unread conversations display an unread badge/indicator",
+    "description": "Verifies unread conversations are visually marked with a badge/indicator in the conversation list.",
+    "category": "SMS Tab - Conversation List",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" / \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"SMS\" tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"unread badge\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Unread\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Open SMS conversation detail and verify header and message history render",
+    "description": "Verifies a user can open a conversation detail view and see the contact header and existing messages displayed in chat bubbles.",
+    "category": "SMS Conversation Detail",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#sms-detail\""
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Verify conversation header shows contact name or phone number",
+    "description": "Verifies the conversation detail header displays an identifiable contact name or phone number.",
+    "category": "SMS Conversation Detail",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"conversation header with contact name or phone number\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Verify message history is displayed in chat bubble format",
+    "description": "Verifies the conversation detail shows a list of messages rendered as chat-style bubbles.",
+    "category": "SMS Conversation Detail",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"message list with chat bubbles\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Send an SMS reply successfully and see it appended in the conversation",
+    "description": "Verifies sending a reply from the detail view results in the sent message appearing in the conversation thread.",
+    "category": "SMS Conversation Detail",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Test reply message\" into the reply message input field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Send\" button"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "After sending, verify the sent message appears in the visible thread",
+    "description": "Verifies the UI shows the newly sent reply in the conversation after sending.",
+    "category": "SMS Conversation Detail",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Test reply message\" into the reply message input field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Send\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Test reply message\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Navigate back from SMS detail to conversation list",
+    "description": "Verifies the back control returns the user from the conversation detail view to the SMS conversation list.",
+    "category": "SMS Conversation Detail",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#sms-detail\""
+      },
+      {
+        "type": "action",
+        "description": "Click the back button to return to conversation list"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Back navigation returns to SMS list view and conversations are visible",
+    "description": "Verifies that after using back from the detail view, the SMS list is displayed again.",
+    "category": "SMS Conversation Detail",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"SMS\" tab"
+      },
+      {
+        "type": "action",
+        "description": "Click on a conversation in the SMS list"
+      },
+      {
+        "type": "action",
+        "description": "Click the back button to return to conversation list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"SMS conversation list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "View call history list with key fields visible",
+    "description": "Verifies that a logged-in user can open the Calls tab and see call items with expected details.",
+    "category": "Calls Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Calls\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify at least one call entry is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Call entry shows contact and phone number",
+    "description": "Verifies that at least one call entry displays a contact name (or placeholder) and a phone number.",
+    "category": "Calls Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a call contact name label is visible in the calls list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a phone number is visible in the calls list"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Call entry shows call type indicator (incoming/outgoing/missed/rejected)",
+    "description": "Verifies that calls list displays a visible call type indicator for at least one call item.",
+    "category": "Calls Tab",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a call type icon/indicator is visible on a call entry"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify one of the texts \"Incoming\", \"Outgoing\", \"Missed\", or \"Rejected\" is visible on a call entry (if type is shown as text)"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Call entry shows duration and timestamp",
+    "description": "Verifies that calls list displays call duration and a timestamp for at least one call item.",
+    "category": "Calls Tab",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a call duration value is visible on a call entry"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a call timestamp/date-time value is visible on a call entry"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Scroll through calls list to reveal additional items",
+    "description": "Verifies the calls list is scrollable and additional call entries can be revealed by scrolling.",
+    "category": "Calls Tab",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "action",
+        "description": "Scroll to the bottom of the calls list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify at least one call entry is visible near the bottom of the list"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Calls tab empty state when no calls exist",
+    "description": "Verifies that the Calls tab shows a clear empty state message when the user has no call history data.",
+    "category": "Calls Tab",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click Calls tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message indicating no calls is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no call entry rows are visible"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Select an online paired device and see data refresh",
+    "description": "Verifies the user can open the device selector, choose a paired device, and the main data view refreshes for that device.",
+    "category": "Device Selection",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Devices\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Device selector is visible on the main view header",
+    "description": "Verifies the main view shows a visible device selector control after login.",
+    "category": "Device Selection",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"device selector\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "Open device selector and see a list of paired devices",
+    "description": "Verifies clicking the device selector opens a visible list of paired devices.",
+    "category": "Device Selection",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"device list\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Selecting a device updates the selected device shown in the header",
+    "description": "Verifies that after selecting a device from the list, the header reflects the newly selected device.",
+    "category": "Device Selection",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "action",
+        "description": "Click the first device in the device list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"selected device name in header\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Switch devices and verify main content visibly changes",
+    "description": "Verifies switching from one device to another results in a visible change in the main content (notifications/SMS/calls area).",
+    "category": "Device Selection",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"main content area\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "action",
+        "description": "Click the second device in the device list"
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "Select an offline device and see offline/last-seen indicator",
+    "description": "Verifies selecting an offline device shows an offline indicator or last-seen timestamp in the UI.",
+    "category": "Device Selection",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "action",
+        "description": "Click an offline device in the device list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Offline\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC026",
+    "title": "Select an offline device and see warning that data will not refresh",
+    "description": "Verifies selecting an offline device shows a warning message and the UI indicates data is not refreshed for that device.",
+    "category": "Device Selection",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "action",
+        "description": "Click an offline device in the device list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Data may be out of date\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC027",
+    "title": "Device list can be opened and closed without changing selection",
+    "description": "Verifies the user can open the device list and dismiss it without selecting a device, keeping the current selection unchanged.",
+    "category": "Device Selection",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click the device selector in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"device list\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Press \"Escape\" key"
+      }
+    ]
+  },
+  {
+    "id": "TC028",
+    "title": "Switch theme to Dark mode and see immediate UI update",
+    "description": "Verifies the user can toggle Dark mode in Settings and the UI updates immediately.",
+    "category": "Settings & Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Toggle the \"Dark mode\" setting to On"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Dark mode\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC029",
+    "title": "Switch theme back to Light mode and see immediate UI update",
+    "description": "Verifies the user can toggle back to Light mode from Settings and the UI updates immediately.",
+    "category": "Settings & Preferences",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Toggle the \"Dark mode\" setting to Off"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Settings\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC030",
+    "title": "Change language to Arabic and verify Arabic text is shown",
+    "description": "Verifies the user can change the UI language to Arabic and see Arabic UI text.",
+    "category": "Settings & Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Select \"Arabic\" from the language dropdown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"الإعدادات\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC031",
+    "title": "Arabic RTL support: verify layout adjusts to RTL (if supported)",
+    "description": "Verifies that after switching to Arabic, the UI reflects RTL support via visible RTL cues if implemented.",
+    "category": "Settings & Preferences",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Select \"Arabic\" from the language dropdown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Back\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC032",
+    "title": "Open Privacy Policy from Settings and view its content",
+    "description": "Verifies the Privacy Policy can be opened from Settings and the policy content is displayed.",
+    "category": "Settings & Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Privacy Policy\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Privacy Policy\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC033",
+    "title": "Language change persists in current session after leaving and returning to Settings",
+    "description": "Verifies that after switching language, navigating away and back keeps the selected language during the same session.",
+    "category": "Settings & Preferences",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "action",
+        "description": "Select \"Arabic\" from the language dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"الإعدادات\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC034",
+    "title": "Settings screen loads and is usable after login",
+    "description": "Verifies Settings opens successfully from the main view and key controls are visible.",
+    "category": "Settings & Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /popup.html#login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"#main\""
+      },
+      {
+        "type": "action",
+        "description": "Click \"Settings\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Language\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Privacy Policy\" is visible"
+      }
+    ]
+  }
+]

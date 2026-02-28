@@ -36,7 +36,7 @@ public class BackgroundSmsService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     "sync_channel",
-                    "IRopit Sync",
+                    "iRopit Sync",
                     NotificationManager.IMPORTANCE_LOW
             );
             NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -152,7 +152,7 @@ public class BackgroundSmsService extends Service {
 
     private NotificationCompat.Builder createNotification() {
         return new NotificationCompat.Builder(this, "sync_channel")
-                .setContentTitle("IRopit")
+                .setContentTitle("iRopit")
                 .setContentText("Syncing messages...")
                 .setSmallIcon(R.drawable.ic_notification)
                 .setOngoing(true);
