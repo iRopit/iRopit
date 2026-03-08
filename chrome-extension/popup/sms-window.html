@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMS Conversation – iRopit</title>
+  <link rel="stylesheet" href="popup.css" />
+  <style>
+    html, body { width: 100% !important; height: 100% !important; max-height: 100% !important; overflow: hidden; }
+    body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: var(--background); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    .win-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 20px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      box-shadow: var(--shadow);
+    }
+    .win-avatar {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--primary); color: var(--primary-text);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 18px; flex-shrink: 0;
+    }
+    .win-info { flex: 1; min-width: 0; }
+    .win-name { font-size: 18px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .win-phone { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+    .win-count { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+
+    .messages-area {
+      flex: 1; overflow-y: auto; padding: 20px 24px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .message-bubble {
+      max-width: 72%; padding: 10px 14px; border-radius: 16px;
+      line-height: 1.5; font-size: 14px; position: relative;
+    }
+    .message-bubble.received {
+      align-self: flex-start; background: var(--surface);
+      border: 1px solid var(--border); border-bottom-left-radius: 4px;
+      color: var(--text);
+    }
+    .message-bubble.sent {
+      align-self: flex-end; background: var(--primary);
+      border-bottom-right-radius: 4px; color: var(--primary-text);
+    }
+    .message-text { word-break: break-word; white-space: pre-wrap; }
+    .message-footer {
+      display: flex; align-items: center; gap: 6px; margin-top: 4px;
+      font-size: 11px; opacity: 0.65;
+    }
+    .message-device { font-style: italic; }
+
+    .empty { flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-size: 15px; }
+
+    .dark-mode body { background: #1e1e2e; }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #1e1e2e; --surface: #2a2a3e; --text: #e2e8f0;
+        --text-secondary: #94a3b8; --border: #374151;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="win-header">
+    <div class="win-avatar" id="winAvatar">?</div>
+    <div class="win-info">
+      <div class="win-name" id="winName">Loading…</div>
+      <div class="win-phone" id="winPhone"></div>
+    </div>
+    <div class="win-count" id="winCount"></div>
+  </div>
+
+  <div class="messages-area" id="messagesArea">
+    <div class="empty" id="emptyState">Loading messages…</div>
+  </div>
+
+  <script src="sms-window.bundle.js"></script>
+</body>
+</html>

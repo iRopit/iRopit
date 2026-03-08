@@ -13,6 +13,7 @@ if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 const files = [
   "manifest.json",
   "firebase-config.js",
+  "content-script.js",
   "assets/icon16.png",
   "assets/icon32.png",
   "assets/icon48.png",
@@ -20,6 +21,8 @@ const files = [
   "popup/popup.html",
   "popup/popup.css",
   "popup/popup.bundle.js",
+  "popup/sms-window.html",
+  "popup/sms-window.bundle.js",
   "background/service-worker.js",
 ];
 

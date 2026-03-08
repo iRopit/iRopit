@@ -114,11 +114,14 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     if (Platform.OS !== 'android') return false;
 
     try {
-      // Request contacts and SEND_SMS permissions
+      // Request contacts, SEND_SMS, and call-related permissions
       // SEND_SMS is for sending SMS from Chrome Extension (core feature)
+      // READ_PHONE_STATE and READ_CALL_LOG are required for call history capture
       const permissions = [
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         PermissionsAndroid.PERMISSIONS.SEND_SMS,
+        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       ];
 
       const results = await PermissionsAndroid.requestMultiple(permissions);

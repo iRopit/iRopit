@@ -270,6 +270,7 @@ export function updateDeviceSelects() {
   updateChatDeviceTabs();
   updateSmsDeviceTabs();
   updateCallsDeviceTabs();
+  updateNotificationsDeviceTabs();
 }
 
 /**
@@ -463,6 +464,71 @@ export function updateCallsDeviceTabs() {
       if (state.allCallsData && state.allCallsData.length > 0) {
         callsModule.renderCalls(state.allCallsData);
       }
+    });
+  });
+}
+
+/**
+ * Update Notifications device tabs (filter notifications by device)
+ */
+export function updateNotificationsDeviceTabs() {
+  const devices = state.devices;
+  const notificationsDeviceTabs = document.getElementById("notificationsDeviceTabs");
+  if (!notificationsDeviceTabs) return;
+
+  // Show only mobile devices
+  const mobileDevices = devices.filter(
+    (d) =>
+      d.type === "mobile" ||
+      d.type === "phone" ||
+      d.platform === "android" ||
+      d.platform === "ios" ||
+      d.platform === "Android",
+  );
+
+  // Remember currently selected tab
+  const currentSelected =
+    notificationsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  const deviceTabsHTML = mobileDevices
+    .map((d) => {
+      const deviceName = getFriendlyDeviceName(d);
+      const platformIcon = getPlatformIcon(d.platform);
+      const isActive = currentSelected === d.id ? " active" : "";
+      return `
+        <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
+          ${platformIcon}
+          <span>${escapeHtml(deviceName)}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const allActive = currentSelected === "all" ? " active" : "";
+
+  notificationsDeviceTabs.innerHTML = `
+    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>All</span>
+    </button>
+    ${deviceTabsHTML}
+  `;
+
+  // Add click handlers to tabs
+  notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      notificationsDeviceTabs
+        .querySelectorAll(".device-tab")
+        .forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      // Re-render notifications with device filter
+      const notifsModule = await import("./notifications.js");
+      notifsModule.reRenderNotifications();
     });
   });
 }

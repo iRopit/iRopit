@@ -133,9 +133,13 @@ const SwipeableCallItem = ({
             ]}
           >
             <View style={[styles.avatar, { backgroundColor: avatarBgColor }]}>
-              <Text style={[styles.avatarText, { color: textColor }]}>
-                {getInitials(item.contactName || '', item.phoneNumber)}
-              </Text>
+              {getInitials(item.contactName || '', item.phoneNumber) === '??' ? (
+                <Ionicons name="person" size={22} color={textColor} />
+              ) : (
+                <Text style={[styles.avatarText, { color: textColor }]}>
+                  {getInitials(item.contactName || '', item.phoneNumber)}
+                </Text>
+              )}
             </View>
           </View>
 

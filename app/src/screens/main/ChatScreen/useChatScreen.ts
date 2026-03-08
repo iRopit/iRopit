@@ -19,7 +19,10 @@ const { FilePickerModule } = NativeModules;
 export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
   const { user } = useAuthStore();
-  const { currentDevice } = useDeviceStore();
+  const { currentDevice, devices } = useDeviceStore();
+
+  // null = 'All' tab
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -202,7 +205,6 @@ export const useChatScreen = () => {
             (currentDevice as any).nickname || currentDevice.name || 'Mobile',
           senderPlatform: (currentDevice as any).platform || 'android',
           receiverId: user.uid,
-          receiverDeviceId: null,
           content: type === 'image' ? '📷 Image' : `📎 ${fileName}`,
           type: type,
           fileUrl: downloadUrl,
@@ -214,7 +216,20 @@ export const useChatScreen = () => {
 
         // Encrypt message before sending
         fileMessageData = await encryptChatMessage(fileMessageData, user.uid);
-        await firestore().collection('chats').add(fileMessageData);
+        if (!selectedDeviceId) {
+          const otherDevices = devices.filter(d => d.id !== currentDevice.id);
+          if (otherDevices.length > 0) {
+            await Promise.all(
+              otherDevices.map(d =>
+                firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: d.id }),
+              ),
+            );
+          } else {
+            await firestore().collection('chats').add(fileMessageData);
+          }
+        } else {
+          await firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: selectedDeviceId });
+        }
       } catch (_error) {
         Alert.alert(
           isRTL ? 'خطأ' : 'Error',
@@ -223,7 +238,7 @@ export const useChatScreen = () => {
       }
       setIsUploading(false);
     },
-    [user?.uid, currentDevice, isRTL],
+    [user?.uid, currentDevice, isRTL, selectedDeviceId, devices],
   );
 
   // Subscribe to messages
@@ -246,14 +261,18 @@ export const useChatScreen = () => {
             rawMsgs.push({ id: doc.id, ...data } as Message);
           });
           rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-          // Filter messages: show only messages targeted to this device, from this device, or broadcast (no receiverDeviceId)
-          const filteredMsgs = rawMsgs.filter(msg => {
-            return (
-              !msg.receiverDeviceId || // broadcast to all
-              msg.receiverDeviceId === currentDevice.id || // targeted to this device
-              msg.senderDeviceId === currentDevice.id // sent from this device
-            );
-          });
+          // Filter: only messages sent from or directly to this device
+          const deviceMsgs = rawMsgs.filter(msg =>
+            msg.receiverDeviceId === currentDevice.id ||
+            msg.senderDeviceId === currentDevice.id,
+          );
+          // Further filter by selected device tab
+          const filteredMsgs = selectedDeviceId
+            ? deviceMsgs.filter(msg =>
+                msg.senderDeviceId === selectedDeviceId ||
+                msg.receiverDeviceId === selectedDeviceId,
+              )
+            : deviceMsgs;
           // Decrypt messages
           const decryptedMsgs = await Promise.all(
             filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
@@ -267,7 +286,7 @@ export const useChatScreen = () => {
       );
 
     return () => unsubscribe();
-  }, [user?.uid, currentDevice]);
+  }, [user?.uid, currentDevice, selectedDeviceId]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {
@@ -308,7 +327,21 @@ export const useChatScreen = () => {
     try {
       // Encrypt message before sending
       messageData = await encryptChatMessage(messageData, user.uid);
-      await firestore().collection('chats').add(messageData);
+      if (!selectedDeviceId) {
+        // 'All' tab — fan out to each other device individually
+        const otherDevices = devices.filter(d => d.id !== currentDevice.id);
+        if (otherDevices.length > 0) {
+          await Promise.all(
+            otherDevices.map(d =>
+              firestore().collection('chats').add({ ...messageData, receiverDeviceId: d.id }),
+            ),
+          );
+        } else {
+          await firestore().collection('chats').add(messageData);
+        }
+      } else {
+        await firestore().collection('chats').add({ ...messageData, receiverDeviceId: selectedDeviceId });
+      }
       setInputText('');
       setReplyTo(null);
     } catch (_error) {
@@ -317,7 +350,7 @@ export const useChatScreen = () => {
         isRTL ? 'فشل في إرسال الرسالة' : 'Failed to send message',
       );
     }
-  }, [inputText, user?.uid, currentDevice, replyTo, isRTL]);
+  }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices]);
 
   // Delete all messages
   const deleteAllMessages = useCallback(async () => {
@@ -396,6 +429,9 @@ export const useChatScreen = () => {
     keyboardHeight,
     user,
     currentDevice,
+    devices,
+    selectedDeviceId,
+    setSelectedDeviceId,
 
     // Theme
     colors,

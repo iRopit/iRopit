@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   getDocs,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -526,6 +527,10 @@ export function renderCalls(calls) {
     });
   });
 
+  // Wire the "Clear All" button (use onclick to avoid stacking listeners on re-renders)
+  const clearCallsBtn = document.getElementById("clearAllCallsBtn");
+  if (clearCallsBtn) clearCallsBtn.onclick = clearAllCalls;
+
   updateTabBadges();
 }
 
@@ -628,4 +633,58 @@ async function showCallHistory(phoneNumber) {
     state.setCurrentCallConversation(null);
     renderCalls(state.allCallsData);
   });
+}
+
+/**
+ * Clear call logs from Firestore and local state for the selected device (or all)
+ */
+export async function clearAllCalls() {
+  const user = state.currentUser;
+  if (!user) return;
+
+  const selectedTab =
+    document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  const isAll = selectedTab === "all";
+  const confirmMsg = isAll
+    ? "Clear call history for ALL devices? This cannot be undone."
+    : "Clear call history for the selected device? This cannot be undone.";
+
+  if (!confirm(confirmMsg)) return;
+
+  const deviceIds = isAll
+    ? Object.keys(state.allCallsByDevice)
+    : [selectedTab];
+
+  try {
+    for (const deviceId of deviceIds) {
+      const calls = state.allCallsByDevice[deviceId] || [];
+      if (calls.length === 0) continue;
+      const batch = writeBatch(db);
+      calls.forEach((call) => {
+        const callRef = doc(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          deviceId,
+          "calls",
+          call.id,
+        );
+        batch.delete(callRef);
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error("[Calls] Failed to delete calls from Firestore:", error);
+  }
+
+  // Clear local state for affected devices
+  deviceIds.forEach((id) => state.setCallsByDevice(id, []));
+  // Rebuild merged allCallsData from remaining devices
+  let remaining = [];
+  Object.values(state.allCallsByDevice).forEach((calls) => { remaining = remaining.concat(calls); });
+  remaining.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  state.setAllCallsData(remaining);
+  renderCalls(remaining);
+  updateTabBadges();
 }

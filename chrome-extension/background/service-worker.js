@@ -17,6 +17,7 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  addDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 // Firebase config - imported from external file
@@ -87,6 +88,7 @@ async function loadDeviceId() {
 
 // Start listening for new notifications from ALL user devices
 async function startListening() {
+  refreshContextMenuDevices();
   if (!currentUser) {
     console.log("ZyncIT: Cannot start listening - no user");
     return;
@@ -391,8 +393,9 @@ function listenToDevice(deviceId, deviceName) {
 
   unsubscribeNotifications.push(unsub);
 
-  // Also listen for calls from this device
+  // Also listen for calls and SMS from this device
   listenForCallsFromDevice(deviceId, deviceName);
+  listenForSMSFromDevice(deviceId, deviceName);
 }
 
 // Listen for calls from a specific device
@@ -446,6 +449,119 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 
   unsubscribeNotifications.push(unsub);
 }
+
+// ─── OTP Detection & Forwarding ──────────────────────────────────────────────
+
+/**
+ * Extract OTP code from SMS text.
+ * Returns the first 4-8 digit sequence found near OTP-related keywords,
+ * or null if no OTP pattern matches.
+ */
+function extractOTP(text) {
+  if (!text || typeof text !== "string") return null;
+
+  // Must contain an OTP-related keyword (English or Arabic)
+  const hasOTPKeyword =
+    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|passcode|تحقق|secret|مفتاح)\b/i
+      .test(text);
+  if (!hasOTPKeyword) return null;
+
+  // Extract standalone 4-8 digit number (prefer longer codes first, e.g. 6-digit)
+  const match = text.match(/\b(\d{4,8})\b/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Send the detected OTP to the content script running in the active focused tab.
+ */
+async function sendOTPToActiveTab(otp, sender, body) {
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!activeTab || !activeTab.id) return;
+
+    // content scripts cannot run on chrome:// or other restricted URLs
+    if (!activeTab.url || activeTab.url.startsWith("chrome")) return;
+
+    chrome.tabs.sendMessage(
+      activeTab.id,
+      { type: "otpDetected", otp, sender, body },
+      () => {
+        if (chrome.runtime.lastError) {
+          // Content script not injected yet on this page — ignore
+        }
+      }
+    );
+  } catch (err) {
+    console.warn("ZyncIT: Could not send OTP to active tab:", err);
+  }
+}
+
+/**
+ * Listen for new incoming SMS from a specific mobile device.
+ * When an OTP is detected in the SMS body, forward it to the active tab
+ * and show a Chrome notification.
+ */
+function listenForSMSFromDevice(deviceId, deviceName) {
+  if (!currentUser) return;
+
+  let isFirstSMSSnapshot = true;
+  const seenSMSIds = new Set();
+
+  const smsQuery = query(
+    collection(db, "users", currentUser.uid, "devices", deviceId, "sms"),
+    orderBy("timestamp", "desc"),
+    limit(20),
+  );
+
+  const unsub = onSnapshot(
+    smsQuery,
+    (snapshot) => {
+      // On first load, mark everything as seen and exit
+      if (isFirstSMSSnapshot) {
+        isFirstSMSSnapshot = false;
+        snapshot.docs.forEach((d) => seenSMSIds.add(d.id));
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== "added") return;
+
+        const docId = change.doc.id;
+        if (seenSMSIds.has(docId)) return;
+        seenSMSIds.add(docId);
+
+        const sms = change.doc.data();
+        const body = sms.body || sms.message || sms.content || sms.text || "";
+        const sender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
+
+        const otp = extractOTP(body);
+        if (!otp) return;
+
+        console.log("ZyncIT: 🔑 OTP detected from", deviceName, ":", otp, "sender:", sender);
+
+        // Show Chrome notification
+        const notifId = `iropit_otp_${Date.now()}`;
+        chrome.notifications.create(notifId, {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+          title: `OTP from ${sender || deviceName}`,
+          message: `${otp} — Copied to clipboard`,
+          priority: 2,
+        }, () => { void chrome.runtime.lastError; });
+
+        // Forward OTP to the active browser tab (content script handles clipboard + paste)
+        sendOTPToActiveTab(otp, sender, body);
+      });
+    },
+    (error) => {
+      console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
+    },
+  );
+
+  unsubscribeNotifications.push(unsub);
+}
+
+// ─── Chrome Notification Display ─────────────────────────────────────────────
 
 // Show Chrome notification
 function showNotification(data) {
@@ -706,8 +822,219 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Handle extension install/update
 chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === "install") {
-  } else if (details.reason === "update") {
+  // Context menus will be built when auth fires startListening
+});
+
+// ─── Context Menu: Send Page to Device ───────────────────────────────────────
+
+// Tracked mobile devices for context menu [ { id, name } ]
+let contextMenuDevices = [];
+let _buildMenuTimer = null;
+
+/** Build (or rebuild) the right-click context menu entries. Debounced to avoid duplicate-ID errors. */
+function buildContextMenus() {
+  if (_buildMenuTimer) clearTimeout(_buildMenuTimer);
+  _buildMenuTimer = setTimeout(() => {
+    _buildMenuTimer = null;
+    chrome.contextMenus.removeAll(() => {
+      // Root item — send page/link
+      chrome.contextMenus.create({
+        id: "iropit_root",
+        title: "iRopit: Send page to...",
+        contexts: ["page", "link"],
+      }, () => { void chrome.runtime.lastError; });
+
+      chrome.contextMenus.create({
+        id: "iropit_all",
+        parentId: "iropit_root",
+        title: "📱 All devices",
+        contexts: ["page", "link"],
+      }, () => { void chrome.runtime.lastError; });
+
+      if (contextMenuDevices.length > 0) {
+        chrome.contextMenus.create({
+          id: "iropit_sep",
+          parentId: "iropit_root",
+          type: "separator",
+          contexts: ["page", "link"],
+        }, () => { void chrome.runtime.lastError; });
+        contextMenuDevices.forEach((device) => {
+          chrome.contextMenus.create({
+            id: `iropit_dev_${device.id}`,
+            parentId: "iropit_root",
+            title: device.name,
+            contexts: ["page", "link"],
+          }, () => { void chrome.runtime.lastError; });
+        });
+      }
+
+      // Root item — send selected text
+      chrome.contextMenus.create({
+        id: "iropit_sel_root",
+        title: "iRopit: Send selection to...",
+        contexts: ["selection"],
+      }, () => { void chrome.runtime.lastError; });
+
+      chrome.contextMenus.create({
+        id: "iropit_sel_all",
+        parentId: "iropit_sel_root",
+        title: "📱 All devices",
+        contexts: ["selection"],
+      }, () => { void chrome.runtime.lastError; });
+
+      if (contextMenuDevices.length > 0) {
+        chrome.contextMenus.create({
+          id: "iropit_sel_sep",
+          parentId: "iropit_sel_root",
+          type: "separator",
+          contexts: ["selection"],
+        }, () => { void chrome.runtime.lastError; });
+        contextMenuDevices.forEach((device) => {
+          chrome.contextMenus.create({
+            id: `iropit_sel_dev_${device.id}`,
+            parentId: "iropit_sel_root",
+            title: device.name,
+            contexts: ["selection"],
+          }, () => { void chrome.runtime.lastError; });
+        });
+      }
+    });
+  }, 300);
+}
+
+/** Refresh device list and rebuild menus whenever devices change. */
+async function refreshContextMenuDevices() {
+  if (!currentUser) return;
+  try {
+    const snap = await getDocs(
+      query(collection(db, "devices"), where("userId", "==", currentUser.uid)),
+    );
+    const mobile = [];
+    snap.forEach((d) => {
+      const dev = d.data();
+      if (
+        dev.platform !== "chrome" &&
+        dev.platform !== "chrome-extension" &&
+        !dev.id?.startsWith("ext_")
+      ) {
+        let name = dev.nickname;
+        if (!name) {
+          if (dev.name && /[a-zA-Z]/.test(dev.name) && !/^[A-Z0-9]+$/.test(dev.name)) {
+            name = dev.name;
+          } else {
+            const p = (dev.platform || "").toLowerCase();
+            name = p === "ios" ? "iPhone" : p === "android" ? "Android" : "Device";
+          }
+        }
+        mobile.push({ id: dev.id, name });
+      }
+    });
+    contextMenuDevices = mobile;
+    buildContextMenus();
+  } catch (e) {
+    console.warn("ZyncIT: Could not refresh context menu devices:", e);
+  }
+}
+
+/** Send text content (URL or selected text) as a chat message to one or all devices. */
+async function sendTextToDevice(content, targetDeviceId) {
+  if (!currentUser) return;
+  const base = {
+    senderId: currentUser.uid,
+    senderDeviceId: currentDeviceId || "ext_sw",
+    senderPlatform: "chrome-extension",
+    senderName: currentUser.displayName || "Extension",
+    receiverId: currentUser.uid,
+    content,
+    type: "text",
+    read: false,
+    timestamp: Date.now(),
+    participants: [currentUser.uid],
+  };
+
+  try {
+    if (!targetDeviceId) {
+      if (contextMenuDevices.length === 0) {
+        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+      } else {
+        await Promise.all(
+          contextMenuDevices.map((dev) =>
+            addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
+          )
+        );
+      }
+    } else {
+      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    console.log("ZyncIT: ✅ Text sent:", content.slice(0, 50), "→", targetDeviceId || "all");
+  } catch (e) {
+    console.error("ZyncIT: Failed to send text:", e);
+  }
+}
+
+/** Send a URL as a chat message to one or all devices. */
+async function sendPageToDevice(url, targetDeviceId) {
+  if (!currentUser) return;
+  const content = url;
+  const base = {
+    senderId: currentUser.uid,
+    senderDeviceId: currentDeviceId || "ext_sw",
+    senderPlatform: "chrome-extension",
+    senderName: currentUser.displayName || "Extension",
+    receiverId: currentUser.uid,
+    content,
+    type: "text",
+    read: false,
+    timestamp: Date.now(),
+    participants: [currentUser.uid],
+  };
+
+  try {
+    if (!targetDeviceId) {
+      // Send to each mobile device individually
+      if (contextMenuDevices.length === 0) {
+        // Fallback: broadcast with no specific receiver
+        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+      } else {
+        await Promise.all(
+          contextMenuDevices.map((dev) =>
+            addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
+          )
+        );
+      }
+    } else {
+      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    console.log("ZyncIT: ✅ Page sent:", url, "→", targetDeviceId || "all");
+  } catch (e) {
+    console.error("ZyncIT: Failed to send page:", e);
+  }
+}
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  const menuId = String(info.menuItemId);
+
+  // Selected text menu
+  if (menuId === "iropit_sel_all") {
+    if (info.selectionText) sendTextToDevice(info.selectionText, null);
+    return;
+  }
+  if (menuId.startsWith("iropit_sel_dev_")) {
+    const deviceId = menuId.replace("iropit_sel_dev_", "");
+    if (info.selectionText) sendTextToDevice(info.selectionText, deviceId);
+    return;
+  }
+
+  // Page/link menu
+  const url = info.linkUrl || info.pageUrl || tab?.url;
+  if (!url) return;
+
+  if (menuId === "iropit_all") {
+    sendPageToDevice(url, null);
+  } else if (menuId.startsWith("iropit_dev_")) {
+    const deviceId = menuId.replace("iropit_dev_", "");
+    sendPageToDevice(url, deviceId);
   }
 });
 
@@ -737,6 +1064,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Auth state should update automatically, but force restart listening
     if (currentUser) {
       startListening();
+      refreshContextMenuDevices();
     }
     sendResponse({ success: true });
   }

@@ -1039,7 +1039,7 @@ export function showConversation(phoneNumber) {
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <div class="conversation-name">${escapeHtml(contactName)}</div>
+          <div class="conversation-name sms-expand-btn" title="Open in full window" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(contactName)}</div>
           <div class="conversation-phone">${
             phoneNumber !== contactName &&
             !phoneNumber.startsWith("contact_") &&
@@ -1133,6 +1133,31 @@ export function showConversation(phoneNumber) {
     renderSMS(state.allSMSMessages);
   });
 
+  // Open full window when sender name is clicked
+  document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
+    // Store conversation data in chrome.storage.local so the new window can read it
+    const payload = {
+      smsWindowPhone: phoneNumber,
+      smsWindowContact: contactName,
+      smsWindowMessages: conversation.map(m => ({
+        id: m.id,
+        body: m.body || "",
+        timestamp: m.timestamp || 0,
+        direction: m.direction || "",
+        type: m.type || "",
+        deviceName: m.deviceName || "",
+      })),
+    };
+    chrome.storage.local.set(payload, () => {
+      chrome.windows.create({
+        url: chrome.runtime.getURL("popup/sms-window.html"),
+        type: "popup",
+        width: 800,
+        height: 700,
+      });
+    });
+  });
+
   // Add send message handler
   const sendBtn = document.getElementById("sendConversationSms");
   const messageInput = document.getElementById("conversationMessageInput");
@@ -1167,6 +1192,48 @@ async function sendConversationMessage(phoneNumber, inputElement) {
 
   const user = state.currentUser;
 
+  // Resolve the actual phone number from the conversation grouping key.
+  // The grouping key can be:
+  //   - "contact_<name>" for contacts with multiple numbers (strip prefix → still a name!)
+  //   - "sender_<name>" for text/shortcode senders like "Orange", "HSBC"
+  //   - A normalized numeric string e.g. "0501234567"
+  let actualPhoneNumber;
+
+  if (phoneNumber.startsWith("sender_")) {
+    // Text/shortcode senders cannot receive SMS replies
+    showToast("Cannot send SMS to this type of sender", "error");
+    return;
+  } else if (phoneNumber.startsWith("contact_")) {
+    // Contact grouped by name (has multiple numbers) – look up the real phone from messages
+    const contactName = phoneNumber.replace("contact_", "");
+    const msgs = state.allSMSMessages.filter(
+      (msg) => (msg.contactName || msg.title || "").trim() === contactName,
+    );
+    const recentMsg =
+      msgs.length > 0
+        ? msgs.reduce((latest, m) =>
+            (m.timestamp || 0) > (latest.timestamp || 0) ? m : latest,
+          )
+        : null;
+    actualPhoneNumber = recentMsg
+      ? recentMsg.phoneNumber || recentMsg.sender || ""
+      : "";
+    if (!actualPhoneNumber || !isPhoneNumberLike(actualPhoneNumber)) {
+      showToast("Cannot determine phone number for this contact", "error");
+      return;
+    }
+  } else {
+    // Numeric key – find raw phone from messages to preserve country code format
+    const msgs = state.allSMSMessages.filter((msg) => {
+      const rawPhone = msg.phoneNumber || msg.sender || "";
+      return normalizePhoneNumber(rawPhone) === phoneNumber;
+    });
+    actualPhoneNumber =
+      msgs.length > 0
+        ? msgs[0].phoneNumber || msgs[0].sender || phoneNumber
+        : phoneNumber;
+  }
+
   const devicesQuery = query(
     collection(db, "devices"),
     where("userId", "==", user.uid),
@@ -1194,9 +1261,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
       userId: user.uid,
       fromDeviceId: await getDeviceId(),
       toDeviceId: deviceId,
-      phoneNumber: phoneNumber.startsWith("contact_")
-        ? phoneNumber.replace("contact_", "")
-        : phoneNumber,
+      phoneNumber: actualPhoneNumber,
       message: message,
       status: "pending",
       timestamp: timestamp,
@@ -1204,7 +1269,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
 
     const newSmsMessage = {
       id: docRef.id,
-      phoneNumber: phoneNumber,
+      phoneNumber: actualPhoneNumber,
       body: message,
       type: "sent",
       direction: "outgoing",

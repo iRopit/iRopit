@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import firestore from '@react-native-firebase/firestore';
+import Clipboard from '@react-native-clipboard/clipboard';
+import { Platform, ToastAndroid } from 'react-native';
 import { ChatMessage } from '../types';
 import { COLLECTIONS, PAGE_SIZE } from '../constants';
 import { useAuthStore } from './authStore';
@@ -12,6 +14,7 @@ import {
   uploadDocument,
   UploadResult 
 } from '../services/fileService';
+import { decryptChatMessage } from '../services/cryptoService';
 
 interface ChatState {
   messages: ChatMessage[];
@@ -54,6 +57,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isLoading: true });
 
+    let isFirstSnapshot = true;
+
     const unsubscribe = firestore()
       .collection(COLLECTIONS.CHATS)
       .where('participants', 'array-contains', user.uid)
@@ -66,7 +71,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
             messages.push({ id: doc.id, ...doc.data() } as ChatMessage);
           });
           // Reverse to show oldest first
-          set({ messages: messages.reverse(), isLoading: false });
+          const sorted = messages.reverse();
+
+          // Auto-copy new messages from Chrome extension to clipboard
+          if (isFirstSnapshot) {
+            // Skip initial load — all docs come as 'added' on first snapshot
+            isFirstSnapshot = false;
+          } else {
+            const newFromExtension = (snapshot.docChanges() as any[])
+              .filter((change) => change.type === 'added')
+              .map((change) => ({ id: change.doc.id, ...change.doc.data() }))
+              .filter((msg: any) =>
+                (msg.senderPlatform === 'chrome-extension' ||
+                  (msg.senderDeviceId || '').startsWith('ext_')) &&
+                msg.type === 'text' &&
+                msg.content
+              );
+            if (newFromExtension.length > 0) {
+              const newest = newFromExtension[newFromExtension.length - 1] as any;
+              decryptChatMessage(newest, user.uid).then((decrypted: any) => {
+                const text = decrypted.content || newest.content;
+                Clipboard.setString(text);
+                if (Platform.OS === 'android') {
+                  ToastAndroid.show('📋 Copied from extension', ToastAndroid.SHORT);
+                }
+              }).catch(() => {
+                Clipboard.setString(newest.content);
+              });
+            }
+          }
+
+          set({ messages: sorted, isLoading: false });
         },
         (error) => {
           set({ error: error.message, isLoading: false });

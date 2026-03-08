@@ -10,7 +10,12 @@ import {
   Image,
   Modal,
   Dimensions,
+  Alert,
+  ToastAndroid,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { EmptyState, ScreenTitle } from '../../../components/shared';
 import { Container, AnimatedListItem } from '../../../components';
@@ -31,6 +36,9 @@ const ChatScreen = () => {
     keyboardHeight,
     user,
     currentDevice,
+    devices,
+    selectedDeviceId,
+    setSelectedDeviceId,
     colors,
     isRTL,
     isDarkMode,
@@ -96,7 +104,23 @@ const ChatScreen = () => {
               styles.messageBubble,
               { backgroundColor: isMyMessage ? colors.primary : surfaceColor },
             ]}
-            onLongPress={() => setReplyMessage(item)}
+            onLongPress={() => {
+              const options: { text: string; onPress: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [];
+              if ((!msgType || msgType === 'text') && item.content) {
+                options.push({
+                  text: 'Copy Text',
+                  onPress: () => {
+                    Clipboard.setString(item.content);
+                    if (Platform.OS === 'android') {
+                      ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
+                    }
+                  },
+                });
+              }
+              options.push({ text: 'Reply', onPress: () => setReplyMessage(item) });
+              options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
+              Alert.alert('Message Options', undefined, options);
+            }}
           >
             {msgType === 'image' && fileUrl && (
               <TouchableOpacity onPress={() => setPreviewImage(fileUrl)}>
@@ -216,6 +240,49 @@ const ChatScreen = () => {
         rightComponent={renderDeleteButton()}
       />
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+
+      {/* Device tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}
+      >
+        <TouchableOpacity
+          onPress={() => setSelectedDeviceId(null)}
+          style={[
+            { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginRight: 6,
+              backgroundColor: !selectedDeviceId ? colors.primary : surfaceColor },
+          ]}
+        >
+          <Text style={{ color: !selectedDeviceId ? colors.textInverse : textColor, fontSize: 13, fontWeight: '600' }}>
+            {isRTL ? 'الكل' : 'All'}
+          </Text>
+        </TouchableOpacity>
+        {devices
+          .filter(d => d.id !== currentDevice?.id)
+          .map(d => (
+            <TouchableOpacity
+              key={d.id}
+              onPress={() => setSelectedDeviceId(d.id)}
+              style={[
+                { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginRight: 6,
+                  backgroundColor: selectedDeviceId === d.id ? colors.primary : surfaceColor },
+              ]}
+            >
+              <Text style={{ color: selectedDeviceId === d.id ? colors.textInverse : textColor, fontSize: 13, fontWeight: '600' }}>
+                {(d as any).nickname || d.name || d.model || d.id}
+              </Text>
+            </TouchableOpacity>
+          ))
+        }
+      </ScrollView>
+
       {isLoading && messages.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -263,8 +330,6 @@ const ChatScreen = () => {
         style={[
           styles.inputContainer,
           { backgroundColor: surfaceColor },
-          Platform.OS === 'android' &&
-            keyboardHeight > 0 && { marginBottom: keyboardHeight - 70 },
         ]}
       >
         <TouchableOpacity
@@ -336,6 +401,7 @@ const ChatScreen = () => {
           </TouchableOpacity>
         )}
       </View>
+      </KeyboardAvoidingView>
 
       {/* Image Preview Modal */}
       <Modal

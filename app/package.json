@@ -1,6 +1,6 @@
 {
   "name": "ZyncIT",
-  "version": "0.0.1",
+  "version": "M1.0.1",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

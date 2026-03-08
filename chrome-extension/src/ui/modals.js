@@ -191,14 +191,27 @@ function renderContacts(contacts) {
     return;
   }
 
-  contactsList.innerHTML = contacts
+  // Expand contacts with multiple phone numbers into one row per number
+  const rows = [];
+  contacts.forEach((contact) => {
+    const phones =
+      contact.phoneNumbers && contact.phoneNumbers.length > 0
+        ? contact.phoneNumbers
+        : [contact.phoneNumber];
+    const uniquePhones = [...new Set(phones.filter(Boolean))];
+    uniquePhones.forEach((phone) => {
+      rows.push({ contact, phone });
+    });
+  });
+
+  contactsList.innerHTML = rows
     .map(
-      (contact) => `
-    <div class="contact-item" data-phone="${escapeHtml(contact.phoneNumber)}" data-name="${escapeHtml(contact.name)}">
+      ({ contact, phone }) => `
+    <div class="contact-item" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(contact.name)}">
       <div class="contact-avatar">${getInitials(contact.name)}</div>
       <div class="contact-info">
         <div class="contact-name">${escapeHtml(contact.name)}</div>
-        <div class="contact-phone">${escapeHtml(contact.phoneNumber)}</div>
+        <div class="contact-phone">${escapeHtml(phone)}</div>
       </div>
     </div>
   `,

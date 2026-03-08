@@ -161,7 +161,7 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         ))}
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
-          iRopit v1.0.0
+          iRopit vM1.0.1
         </Text>
       </ScrollView>
     </Container>

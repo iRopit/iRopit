@@ -3,7 +3,14 @@
   "name": "iRopit",
   "description": "Sync SMS, Calls and Chat between your devices seamlessly",
   "version": "1.0.0",
-  "permissions": ["storage", "notifications", "identity", "alarms"],
+  "permissions": ["storage", "notifications", "identity", "alarms", "clipboardWrite", "activeTab", "tabs", "contextMenus"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "host_permissions": [
     "https://*.firebaseio.com/*",
     "https://*.googleapis.com/*",

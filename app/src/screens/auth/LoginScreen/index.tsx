@@ -230,7 +230,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               opacity: 0.6,
             }}
           >
-            v1.1.0-notif-fix
+            vM1.0.1
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

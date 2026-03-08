@@ -31,6 +31,21 @@ import { encryptChatMessage, decryptChatMessage } from "./cryptoService.js";
 // Push notifications are now handled automatically by Cloud Function onNewChatMessage
 
 /**
+ * Convert plain text with URLs into HTML with clickable links.
+ * Escapes HTML first, then wraps URLs in <a> tags.
+ */
+function linkifyText(text) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/gi,
+    (url) => {
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`;
+    },
+  );
+}
+
+/**
  * Subscribe to chat messages
  */
 export function subscribeToChat() {
@@ -42,6 +57,10 @@ export function subscribeToChat() {
     where("participants", "array-contains", user.uid),
     limit(100),
   );
+
+  // Track message IDs we've already seen to detect truly new ones
+  const seenMessageIds = new Set();
+  let initialLoadDone = false;
 
   const unsub = onSnapshot(q, async (snapshot) => {
     const rawMessages = [];
@@ -57,6 +76,26 @@ export function subscribeToChat() {
     const messages = await Promise.all(
       rawMessages.map((msg) => decryptChatMessage(msg, user.uid)),
     );
+
+    // Auto-copy new messages from mobile to browser clipboard
+    if (initialLoadDone) {
+      const newFromMobile = messages.filter(
+        (msg) =>
+          !seenMessageIds.has(msg.id) &&
+          msg.senderPlatform !== "chrome-extension" &&
+          !(msg.senderDeviceId || "").startsWith("ext_") &&
+          msg.type === "text" &&
+          msg.content,
+      );
+      if (newFromMobile.length > 0) {
+        const newest = newFromMobile[newFromMobile.length - 1];
+        navigator.clipboard.writeText(newest.content).catch(() => {});
+      }
+    }
+
+    // Mark all current messages as seen
+    messages.forEach((msg) => seenMessageIds.add(msg.id));
+    initialLoadDone = true;
 
     state.setCachedChatMessages(messages);
     renderChatMessages(messages);
@@ -80,11 +119,10 @@ export function renderChatMessages(messages) {
   let filteredMessages = messages;
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => {
-      // Show messages sent TO this device, FROM this device, or broadcast to all devices
+      // Show only messages sent TO or FROM this specific device
       return (
         msg.senderDeviceId === selectedTab ||
-        msg.receiverDeviceId === selectedTab ||
-        !msg.receiverDeviceId // broadcast messages (sent to "All") should appear in every device tab
+        msg.receiverDeviceId === selectedTab
       );
     });
   }
@@ -138,7 +176,7 @@ export function renderChatMessages(messages) {
       }
       // Text
       else {
-        content = `<div>${escapeHtml(msg.content)}</div>`;
+        content = `<div>${linkifyText(msg.content)}</div>`;
       }
 
       // Get device name from devices list
@@ -158,25 +196,36 @@ export function renderChatMessages(messages) {
         msg.senderPlatform === "chrome-extension" ||
         (msg.senderDeviceId && msg.senderDeviceId.startsWith("ext_"));
 
+      const direction = isSentFromExtension ? "sent" : "received";
       return `
-        <div class="chat-message ${isSentFromExtension ? "sent" : "received"}" 
-             data-msg-id="${escapeHtml(msg.id)}" 
-             data-msg-content="${escapeHtml(msg.content || "")}" 
-             data-msg-sender="${escapeHtml(msg.senderId)}">
-          ${
-            showDeviceName && deviceName
-              ? `<div class="chat-message-device">${deviceName}</div>`
-              : ""
-          }
-          ${
-            msg.replyTo
-              ? `<div class="chat-reply-preview">↩ ${escapeHtml(
-                  msg.replyTo.content.substring(0, 50),
-                )}${msg.replyTo.content.length > 50 ? "..." : ""}</div>`
-              : ""
-          }
-          ${content}
-          <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
+        <div class="chat-message-wrapper ${direction}">
+          <div class="chat-message ${direction}" 
+               data-msg-id="${escapeHtml(msg.id)}" 
+               data-msg-content="${escapeHtml(msg.content || "")}" 
+               data-msg-sender="${escapeHtml(msg.senderId)}">
+            ${
+              showDeviceName && deviceName
+                ? `<div class="chat-message-device">${deviceName}</div>`
+                : ""
+            }
+            ${
+              msg.replyTo
+                ? `<div class="chat-reply-preview">↩ ${escapeHtml(
+                    msg.replyTo.content.substring(0, 50),
+                  )}${msg.replyTo.content.length > 50 ? "..." : ""}</div>`
+                : ""
+            }
+            ${content}
+            <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
+          </div>
+          <div class="chat-message-actions">
+            <button class="chat-action-btn copy-msg-btn" title="Copy text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     })
@@ -185,6 +234,20 @@ export function renderChatMessages(messages) {
   // Add click listeners for reply
   chatMessages.querySelectorAll(".chat-message").forEach((el) => {
     el.addEventListener("click", () => setReplyTo(el));
+  });
+
+  // Copy button handlers
+  chatMessages.querySelectorAll(".copy-msg-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msgEl = btn.closest(".chat-message-wrapper")?.querySelector(".chat-message");
+      const text = msgEl?.dataset.msgContent || "";
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied!", "success");
+      }).catch(() => {
+        showToast("Copy failed", "error");
+      });
+    });
   });
 
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -230,7 +293,17 @@ export async function sendChatMessage() {
   try {
     // Encrypt message before sending
     messageData = await encryptChatMessage(messageData, user.uid);
-    await addDoc(collection(db, "chats"), messageData);
+    if (selectedDeviceTab === "all" && state.devices.length > 0) {
+      // Fan out to each known device individually so each device only sees its own messages
+      await Promise.all(
+        state.devices.map(async (dev) => {
+          const perDevice = { ...messageData, receiverDeviceId: dev.id };
+          await addDoc(collection(db, "chats"), perDevice);
+        })
+      );
+    } else {
+      await addDoc(collection(db, "chats"), messageData);
+    }
     chatInput.value = "";
     clearReply();
 

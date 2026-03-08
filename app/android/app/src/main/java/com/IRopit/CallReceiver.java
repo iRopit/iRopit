@@ -83,6 +83,12 @@ public class CallReceiver extends BroadcastReceiver {
             
         } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
             // Call answered or outgoing call started
+            // For outgoing calls on Android 10+, NEW_OUTGOING_CALL is not fired,
+            // so callStartTime may still be 0 here. Set it now if needed.
+            if (!isIncoming && callStartTime == 0) {
+                callStartTime = System.currentTimeMillis();
+                Log.d(TAG, "Outgoing call started (OFFHOOK), setting callStartTime: " + callStartTime);
+            }
             String contactName = getContactName(context, lastNumber);
             if (isIncoming) {
                 sendEvent("onCallReceived", createCallMap(lastNumber, contactName, "incoming", "answered", 0));
