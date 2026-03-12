@@ -76,7 +76,7 @@ export function formatTime(timestamp) {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-GB");
 }
 
 /**

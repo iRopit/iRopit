@@ -215,6 +215,7 @@
                                 <span>All</span>
                             </button>
                         </div>
+                        <div class="chat-main">
                         <!-- Chat Messages Area -->
                         <div id="chatMessages" class="chat-messages">
                             <div class="empty-state">
@@ -280,6 +281,7 @@
                                 </div>
                             </div>
                         </div>
+                        </div><!-- /.chat-main -->
                     </div>
 
                     <!-- SMS Tab -->
@@ -297,9 +299,17 @@
                                 <span>All</span>
                             </button>
                         </div>
+                        <div class="sms-main">
                         <div class="content-header">
                             <h3>Messages</h3>
                             <div class="header-actions">
+                                <button id="smsSelectBtn" class="btn btn-small btn-secondary" title="Select messages">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                        <polyline points="9 11 12 14 22 4" />
+                                    </svg>
+                                </button>
                                 <button id="markAllReadBtn" class="btn btn-small btn-secondary"
                                     title="Mark all as read">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -307,7 +317,7 @@
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                 </button>
-                                <button id="deleteAllSmsBtn" class="btn btn-small btn-danger" title="Delete all">
+                                <button id="deleteAllSmsBtn" class="btn btn-small btn-danger" title="Delete">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <polyline points="3 6 5 6 21 6" />
@@ -315,8 +325,32 @@
                                             d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                     </svg>
                                 </button>
+                                <button id="exportSmsBtn" class="btn btn-small btn-secondary" title="Export SMS to CSV">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
                                 <button id="newSmsBtn" class="btn btn-small btn-primary">New SMS</button>
                             </div>
+                        </div>
+                        <div id="smsSelectToolbar" class="sms-select-toolbar" style="display:none;">
+                            <label class="sms-select-all-label">
+                                <input type="checkbox" id="smsSelectAll" />
+                                <span>Select All</span>
+                            </label>
+                            <button id="smsDeleteSelectedBtn" class="btn btn-small btn-danger" disabled>
+                                Delete (<span id="smsSelectedCount">0</span>)
+                            </button>
+                        </div>
+                        <div class="notif-search-bar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="text" id="smsSearchInput" class="notif-search-input" placeholder="Search messages..." />
                         </div>
                         <div id="smsList" class="list">
                             <div class="empty-state">
@@ -328,6 +362,7 @@
                                 <span>Messages from your phone will appear here</span>
                             </div>
                         </div>
+                        </div><!-- /.sms-main -->
                     </div>
 
                     <!-- Calls Tab -->
@@ -345,8 +380,18 @@
                                 <span>All</span>
                             </button>
                         </div>
+                        <div class="calls-main">
                         <div class="content-header">
                             <h3>Call History</h3>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                            <button id="exportCallsBtn" class="btn btn-small btn-secondary" title="Export calls to CSV">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
                             <button id="clearAllCallsBtn" class="clear-all-btn" title="Clear all call logs">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="3 6 5 6 21 6"/>
@@ -356,6 +401,14 @@
                                 </svg>
                                 Clear All
                             </button>
+                            </div>
+                        </div>
+                        <div class="notif-search-bar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="text" id="callsSearchInput" class="notif-search-input" placeholder="Search calls..." />
                         </div>
                         <div id="callsList" class="list">
                             <div class="empty-state">
@@ -368,6 +421,7 @@
                                 <span>Call history from your phone will appear here</span>
                             </div>
                         </div>
+                        </div><!-- /.calls-main -->
                     </div>
 
                     <!-- Notifications Tab -->
@@ -385,14 +439,7 @@
                                 <span>All</span>
                             </button>
                         </div>
-                        <!-- Notification Search Bar -->
-                        <div class="notif-search-bar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
-                                <circle cx="11" cy="11" r="8"/>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                            </svg>
-                            <input type="text" id="notifSearchInput" class="notif-search-input" placeholder="Search notifications..." />
-                        </div>
+                        <div class="notif-main">
                         <!-- Notification Detail View (hidden by default) -->
                         <div id="notifDetailView" style="display:none; flex-direction:column; flex:1; min-height:0;">
                             <div class="content-header">
@@ -408,6 +455,14 @@
                         <div id="notifMainView" style="display:flex; flex-direction:column; flex:1; min-height:0;">
                         <div class="content-header">
                             <h3>Notifications</h3>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                            <button id="exportNotifBtn" class="btn btn-small btn-secondary" title="Export Notifications to CSV">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
                             <button id="clearAllNotifBtn" class="clear-all-btn" title="Clear all notifications">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="3 6 5 6 21 6"/>
@@ -417,6 +472,15 @@
                                 </svg>
                                 Clear All
                             </button>
+                            </div>
+                        </div>
+                        <!-- Notification Search Bar -->
+                        <div class="notif-search-bar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="text" id="notifSearchInput" class="notif-search-input" placeholder="Search notifications..." />
                         </div>
                         <div id="notificationsList" class="list">
                             <div class="empty-state">
@@ -430,6 +494,7 @@
                             </div>
                         </div>
                         </div><!-- /notifMainView -->
+                        </div><!-- /.notif-main -->
                     </div>
 
                     <!-- Devices Tab -->
@@ -682,7 +747,7 @@
 
                             <!-- About Section -->
                             <div class="settings-footer">
-                                <p class="settings-version">iRopit vC1.0.3</p>
+                                <p class="settings-version">iRopit vC1.1.14</p>
                                 <p class="settings-tagline" data-i18n="settings_tagline">Sync your SMS and calls across
                                     all devices</p>
                             </div>

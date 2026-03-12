@@ -49,6 +49,27 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+
+        <!-- Share: any single file (images, videos, documents, APKs, etc.) -->
+        <intent-filter>
+            <action android:name="android.intent.action.SEND" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="*/*" />
+        </intent-filter>
+
+        <!-- Share: plain text / URLs -->
+        <intent-filter>
+            <action android:name="android.intent.action.SEND" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="text/plain" />
+        </intent-filter>
+
+        <!-- Share: multiple files of any type -->
+        <intent-filter>
+            <action android:name="android.intent.action.SEND_MULTIPLE" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="*/*" />
+        </intent-filter>
       </activity>
 
       <!-- SMS Receiver - Fallback for when SMS notifications are disabled -->
@@ -95,6 +116,12 @@
       <!-- SMS Request Foreground Service -->
       <service
         android:name=".SmsRequestService"
+        android:foregroundServiceType="remoteMessaging"
+        android:exported="false" />
+
+      <!-- Call Request Foreground Service -->
+      <service
+        android:name=".CallRequestService"
         android:foregroundServiceType="remoteMessaging"
         android:exported="false" />
 

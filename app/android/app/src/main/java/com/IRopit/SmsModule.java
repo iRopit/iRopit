@@ -139,6 +139,16 @@ public class SmsModule extends ReactContextBaseJavaModule {
                 reactContext.startService(intent);
             }
             Log.d(TAG, "SmsRequestService started");
+
+            // Also start CallRequestService
+            Intent callIntent = new Intent(reactContext, CallRequestService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                reactContext.startForegroundService(callIntent);
+            } else {
+                reactContext.startService(callIntent);
+            }
+            Log.d(TAG, "CallRequestService started");
+
             promise.resolve(true);
         } catch (Exception e) {
             Log.e(TAG, "Failed to start SmsRequestService: " + e.getMessage());
@@ -151,6 +161,8 @@ public class SmsModule extends ReactContextBaseJavaModule {
         try {
             Intent intent = new Intent(reactContext, SmsRequestService.class);
             reactContext.stopService(intent);
+            Intent callIntent = new Intent(reactContext, CallRequestService.class);
+            reactContext.stopService(callIntent);
             Log.d(TAG, "SmsRequestService stopped");
             promise.resolve(true);
         } catch (Exception e) {

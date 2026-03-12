@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../../store/authStore';
 import { AuthStackParamList } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { APP_VERSION } from '../../../constants';
 import { Button, Input, Divider } from '../../../components';
 import { useLoading, useToggle } from '../../../hooks';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -230,7 +231,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               opacity: 0.6,
             }}
           >
-            vM1.0.1
+            {`v${APP_VERSION}`}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

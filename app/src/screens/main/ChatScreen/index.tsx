@@ -14,7 +14,10 @@ import {
   ToastAndroid,
   KeyboardAvoidingView,
   ScrollView,
+  Share,
+  Linking,
 } from 'react-native';
+import RNBlobUtil from 'react-native-blob-util';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { EmptyState, ScreenTitle } from '../../../components/shared';
@@ -25,6 +28,30 @@ import { useChatScreen } from './useChatScreen';
 
 const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const handleDownloadImage = async (url: string) => {
+    if (Platform.OS === 'android') {
+      try {
+        const fileName = `iRopit_${Date.now()}.jpg`;
+        ToastAndroid.show('Downloading...', ToastAndroid.SHORT);
+        await RNBlobUtil.config({
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            path: `${RNBlobUtil.fs.dirs.DownloadDir}/${fileName}`,
+            description: 'Image downloaded by iRopit',
+            mime: 'image/jpeg',
+            title: fileName,
+          },
+        }).fetch('GET', url);
+        ToastAndroid.show('Image saved to Downloads', ToastAndroid.LONG);
+      } catch {
+        ToastAndroid.show('Download failed', ToastAndroid.SHORT);
+      }
+    } else {
+      Share.share({ url }).catch(() => Linking.openURL(url));
+    }
+  };
 
   const {
     messages,
@@ -117,19 +144,43 @@ const ChatScreen = () => {
                   },
                 });
               }
+              if (msgType === 'image' && fileUrl) {
+                options.push({
+                  text: 'Save / Share Image',
+                  onPress: () => {
+                    Share.share(
+                      Platform.OS === 'ios'
+                        ? { url: fileUrl }
+                        : { message: fileUrl, title: 'Save Image' },
+                    ).catch(() => Linking.openURL(fileUrl));
+                  },
+                });
+              }
               options.push({ text: 'Reply', onPress: () => setReplyMessage(item) });
               options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
               Alert.alert('Message Options', undefined, options);
             }}
           >
             {msgType === 'image' && fileUrl && (
-              <TouchableOpacity onPress={() => setPreviewImage(fileUrl)}>
-                <Image
-                  source={{ uri: fileUrl }}
-                  style={styles.chatImage}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity onPress={() => setPreviewImage(fileUrl)}>
+                  <Image
+                    source={{ uri: fileUrl }}
+                    style={styles.chatImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.imageDownloadBtn,
+                    { backgroundColor: isMyMessage ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.25)' },
+                  ]}
+                  onPress={() => handleDownloadImage(fileUrl)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             )}
 
             {msgType === 'file' && fileUrl && (
@@ -431,6 +482,28 @@ const ChatScreen = () => {
             onPress={() => setPreviewImage(null)}
           >
             <Ionicons name="close" size={32} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {/* Download button */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 50,
+              left: 20,
+              zIndex: 10,
+              padding: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              borderRadius: 24,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+            onPress={() => previewImage && handleDownloadImage(previewImage)}
+          >
+            <Ionicons name="download-outline" size={24} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Save Image</Text>
           </TouchableOpacity>
 
           {previewImage && (

@@ -21,12 +21,16 @@ import {
   renderSMS,
   markAllSmsAsRead,
   deleteAllSms,
+  toggleSelectionMode,
+  setSelectAll,
+  deleteSelectedConversations,
+  exportSMSToCSV,
   startPolling,
   stopPolling,
   stopSMSListener,
 } from "./services/sms.js";
-import { loadCalls } from "./services/calls.js";
-import { loadNotifications } from "./services/notifications.js";
+import { loadCalls, clearAllCalls, exportCallsToCSV } from "./services/calls.js";
+import { loadNotifications, exportNotificationsToCSV } from "./services/notifications.js";
 import { subscribeToChat, initChatListeners } from "./services/chat.js";
 import {
   loadUserSettings,
@@ -152,6 +156,19 @@ function init() {
   // Action buttons
   markAllReadBtn?.addEventListener("click", markAllSmsAsRead);
   deleteAllSmsBtn?.addEventListener("click", deleteAllSms);
+
+  // SMS selection mode buttons
+  document.getElementById("smsSelectBtn")?.addEventListener("click", toggleSelectionMode);
+  document.getElementById("smsSelectAll")?.addEventListener("change", (e) => setSelectAll(e.target.checked));
+  document.getElementById("smsDeleteSelectedBtn")?.addEventListener("click", deleteSelectedConversations);
+
+  // Export buttons
+  document.getElementById("exportSmsBtn")?.addEventListener("click", exportSMSToCSV);
+  document.getElementById("exportCallsBtn")?.addEventListener("click", exportCallsToCSV);
+  document.getElementById("exportNotifBtn")?.addEventListener("click", exportNotificationsToCSV);
+
+  // Clear all calls
+  document.getElementById("clearAllCallsBtn")?.addEventListener("click", clearAllCalls);
 
   // Refresh button
   document.getElementById("refreshBtn")?.addEventListener("click", () => {

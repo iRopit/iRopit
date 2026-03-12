@@ -13,6 +13,7 @@ import { styles } from './styles';
 import { getInitials } from './helper';
 import { MenuScreenProps } from './types';
 import { useMenuScreen } from './useMenuScreen';
+import { APP_VERSION } from '../../../constants';
 
 const MenuScreen = ({ navigation }: MenuScreenProps) => {
   const {
@@ -161,7 +162,7 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         ))}
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
-          iRopit vM1.0.1
+          {`iRopit v${APP_VERSION}`}
         </Text>
       </ScrollView>
     </Container>

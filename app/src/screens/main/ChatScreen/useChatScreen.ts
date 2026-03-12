@@ -3,6 +3,7 @@ import { Alert, Keyboard, NativeModules, Platform } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
+import { useShareStore } from '../../../store/shareStore';
 import firestore from '@react-native-firebase/firestore';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { FlatList } from 'react-native';
@@ -20,6 +21,9 @@ export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
   const { user } = useAuthStore();
   const { currentDevice, devices } = useDeviceStore();
+
+  const pendingShare = useShareStore(state => state.pendingShare);
+  const clearPendingShare = useShareStore(state => state.clearPendingShare);
 
   // null = 'All' tab
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -240,6 +244,35 @@ export const useChatScreen = () => {
     },
     [user?.uid, currentDevice, isRTL, selectedDeviceId, devices],
   );
+
+  // Consume pending shared data — waits until user AND device are both ready
+  useEffect(() => {
+    if (!pendingShare || !user?.uid || !currentDevice) return;
+
+    // Snapshot and clear immediately to prevent double-send on re-render
+    const share = pendingShare;
+    clearPendingShare();
+
+    if (share.text) {
+      setInputText(share.text);
+      return;
+    }
+
+    const uris = share.uris ?? (share.uri ? [share.uri] : []);
+    if (uris.length === 0) return;
+
+    const isImage = share.mimeType?.startsWith('image/') ||
+      share.mimeType?.startsWith('video/');
+    const fileType: 'image' | 'file' = isImage ? 'image' : 'file';
+
+    uris.forEach(uri => {
+      // Extract filename from content URI or path
+      const rawName = decodeURIComponent(uri.split('/').pop()?.split('?')[0] || '');
+      const fileName = rawName || `shared_${Date.now()}.${isImage ? 'jpg' : 'bin'}`;
+      sendFileMessage(uri, fileName, fileType);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingShare, user?.uid, currentDevice?.id]);
 
   // Subscribe to messages
   useEffect(() => {

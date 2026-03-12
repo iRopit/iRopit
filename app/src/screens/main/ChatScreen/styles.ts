@@ -153,6 +153,16 @@ export const createStyles = (colors: ColorTheme) =>
       borderRadius: 12,
       marginBottom: 4,
     },
+    imageDownloadBtn: {
+      position: 'absolute',
+      bottom: 8,
+      right: 8,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
     fileLink: {
       flexDirection: 'row',
       alignItems: 'center',

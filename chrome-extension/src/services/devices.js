@@ -391,6 +391,22 @@ export function updateSmsDeviceTabs() {
         .querySelectorAll(".device-tab")
         .forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
+
+      // If a conversation is open, close it first so the new device's list is shown
+      if (state.currentConversation) {
+        document.getElementById("smsList")?.classList.remove("conversation-open");
+        state.setCurrentConversation(null);
+        const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+        if (deleteAllBtn) deleteAllBtn.title = "Delete all";
+        const si = document.getElementById("smsSearchInput");
+        if (si) {
+          si.value = "";
+          si.placeholder = "Search messages...";
+          delete si.dataset.convWired;
+          delete si.dataset.wired;
+        }
+      }
+
       // Re-render SMS to apply device filter
       const smsModule = await import("./sms.js");
       if (state.allSMSMessages && state.allSMSMessages.length > 0) {
@@ -526,6 +542,13 @@ export function updateNotificationsDeviceTabs() {
         .querySelectorAll(".device-tab")
         .forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
+      // If detail view is open, go back to main list first
+      const detailView = document.getElementById("notifDetailView");
+      const mainView = document.getElementById("notifMainView");
+      if (detailView && detailView.style.display !== "none") {
+        detailView.style.display = "none";
+        if (mainView) mainView.style.display = "flex";
+      }
       // Re-render notifications with device filter
       const notifsModule = await import("./notifications.js");
       notifsModule.reRenderNotifications();

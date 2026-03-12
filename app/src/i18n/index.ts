@@ -32,7 +32,7 @@ export const LANGUAGES: {
   { code: 'en', name: 'English', nativeName: 'English', isRTL: false },
 ];
 
-export const DEFAULT_LANGUAGE: Language = 'ar';
+export const DEFAULT_LANGUAGE: Language = 'en';
 const STORAGE_KEY = '@iropit_language';
 
 // Translations map

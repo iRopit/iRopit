@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettingsStore } from '../store/settingsStore';
@@ -20,6 +21,7 @@ const MainNavigator = () => {
   const { isRTL, t } = useTheme();
   const { darkMode, language } = useSettingsStore();
   const colors = darkMode ? DARK_COLORS : LIGHT_COLORS;
+  const insets = useSafeAreaInsets();
 
   // Define tabs in order - will be reversed for LTR
   const tabs = [
@@ -80,8 +82,8 @@ const MainNavigator = () => {
             borderTopColor: colors.border,
             borderTopWidth: 0.5,
             paddingTop: 8,
-            paddingBottom: 25,
-            height: 85,
+            paddingBottom: 8 + insets.bottom,
+            height: 60 + insets.bottom,
             flexDirection: isRTL ? 'row-reverse' : 'row',
           },
           tabBarLabelStyle: {

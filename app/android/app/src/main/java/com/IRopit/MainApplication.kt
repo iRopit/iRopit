@@ -20,6 +20,7 @@ class MainApplication : Application(), ReactApplication {
           add(SmsPackage())
           add(UserCredentialsPackage())
           add(FilePickerPackage())
+          add(SharePackage())
         },
     )
   }

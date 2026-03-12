@@ -1,6 +1,7 @@
 ﻿package com.IRopit
 
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
@@ -38,6 +39,9 @@ class MainActivity : ReactActivity() {
       registerReceiver(callReceiver, callFilter)
     }
     Log.d("MainActivity", "Call Receiver registered dynamically")
+
+    // Handle share intent if app was launched via the share sheet
+    ShareModule.processIntent(this, intent)
   }
 
   override fun onDestroy() {
@@ -49,6 +53,13 @@ class MainActivity : ReactActivity() {
     } catch (e: Exception) {
       Log.e("MainActivity", "Error unregistering receivers", e)
     }
+  }
+
+  /** Handle new share intents while the app is already running (singleTask mode). */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    ShareModule.processIntent(this, intent)
   }
 
   /**

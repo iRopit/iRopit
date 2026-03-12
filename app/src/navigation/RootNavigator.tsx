@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/authStore';
 import AuthNavigator from './AuthNavigator';
@@ -10,6 +10,9 @@ import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import { checkOnboardingComplete } from '../screens/onboarding/OnboardingScreen/useOnboarding';
 import { RootStackParamList } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { useShareReceive, SharedData } from '../hooks/useShareReceive';
+import { useShareStore } from '../store/shareStore';
+import { navigateToChat } from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -20,6 +23,22 @@ const RootNavigator = () => {
     boolean | null
   >(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const handleShare = useCallback((data: SharedData) => {
+    useShareStore.getState().setPendingShare(data);
+    navigateToChat();
+  }, []);
+
+  useShareReceive(handleShare);
+
+  // Navigate to Chat after auth + onboarding finish if there's a pending share (cold launch)
+  useEffect(() => {
+    if (isLoading || checkingOnboarding || !isAuthenticated || !hasCompletedOnboarding) return;
+    if (useShareStore.getState().pendingShare) {
+      // Short delay to ensure MainNavigator has mounted its tabs
+      const timer = setTimeout(() => navigateToChat(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, checkingOnboarding, isAuthenticated, hasCompletedOnboarding]);
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -46,29 +65,32 @@ const RootNavigator = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {isAuthenticated ? (
-        <>
-          <Stack.Screen name="Main" component={MainNavigator} />
-          <Stack.Screen
-            name="Conversation"
-            component={ConversationScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="CallDetail"
-            component={CallDetailScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-        </>
-      ) : (
-        <Stack.Screen name="Auth" component={AuthNavigator} />
-      )}
-    </Stack.Navigator>
+    <>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="Main" component={MainNavigator} />
+            <Stack.Screen
+              name="Conversation"
+              component={ConversationScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="CallDetail"
+              component={CallDetailScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
+          </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        )}
+      </Stack.Navigator>
+
+    </>
   );
 };
 

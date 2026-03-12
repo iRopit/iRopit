@@ -58,6 +58,15 @@ let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
 let isSyncing = false;
 
+// Selection mode state
+let selectionMode = false;
+let selectedConversations = new Set();
+
+// Per-message selection mode (inside an open conversation)
+let messageSelectionMode = false;
+let selectedMessages = new Set();
+let _msgClickHandler = null; // stored reference for removal
+
 /**
  * Decrypt SMS with caching - avoids re-decrypting unchanged messages
  */
@@ -681,6 +690,16 @@ export function renderSMS(messages) {
     filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
   }
 
+  // Filter by search query
+  const searchQuery = (document.getElementById("smsSearchInput")?.value || "").trim().toLowerCase();
+
+  // Wire search input once
+  const searchInput = document.getElementById("smsSearchInput");
+  if (searchInput && !searchInput.dataset.wired) {
+    searchInput.dataset.wired = "1";
+    searchInput.addEventListener("input", () => renderSMS(state.allSMSMessages));
+  }
+
   const smsListElement = document.getElementById("smsList");
 
   if (!smsListElement) {
@@ -699,6 +718,16 @@ export function renderSMS(messages) {
     `;
     updateTabBadges();
     return;
+  }
+
+  // Apply search filter
+  if (searchQuery) {
+    filteredMessages = filteredMessages.filter((msg) => {
+      const contact = (msg.contactName || msg.title || "").toLowerCase();
+      const phone = (msg.phoneNumber || msg.sender || "").toLowerCase();
+      const body = (msg.body || msg.text || msg.content || "").toLowerCase();
+      return contact.includes(searchQuery) || phone.includes(searchQuery) || body.includes(searchQuery);
+    });
   }
 
   // Build reverse map: contactName -> all normalized phone numbers for that contact
@@ -810,9 +839,8 @@ export function renderSMS(messages) {
   smsListElement.innerHTML = conversations
     .map(
       (conv) => `
-    <div class="list-item sms-conversation" data-phone="${escapeHtml(
-      conv.normalizedPhone,
-    )}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}">
+      ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
@@ -821,7 +849,7 @@ export function renderSMS(messages) {
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml(conv.lastMessage.body || "")}</div>
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
         ${
           selectedTab === "all" && conv.lastMessage.deviceName
             ? `<div class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</div>`
@@ -844,17 +872,69 @@ export function renderSMS(messages) {
     .join("");
 
   // Add click handlers using event delegation
+  // Replace the node to remove any stale listeners from previous renders
   const oldSmsList = document.getElementById("smsList");
   if (oldSmsList) {
     const newSmsList = oldSmsList.cloneNode(true);
     oldSmsList.parentNode.replaceChild(newSmsList, oldSmsList);
   }
 
-  document.getElementById("smsList")?.addEventListener("click", (e) => {
+  const smsList2 = document.getElementById("smsList");
+
+  // Long-press to enter selection mode
+  let longPressTimer = null;
+  smsList2?.addEventListener("pointerdown", (e) => {
+    const conversation = e.target.closest(".sms-conversation");
+    if (!conversation || selectionMode) return;
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      const phoneNumber = conversation.dataset.phone;
+      // Enter selection mode and pre-select this item
+      selectionMode = true;
+      selectedConversations.clear();
+      const selectBtn = document.getElementById("smsSelectBtn");
+      selectBtn?.classList.add("active");
+      const toolbar = document.getElementById("smsSelectToolbar");
+      if (toolbar) toolbar.style.display = "flex";
+      renderSMS(state.allSMSMessages);
+      // After re-render, tick the long-pressed item
+      setTimeout(() => {
+        const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
+        if (el) {
+          selectedConversations.add(phoneNumber);
+          el.classList.add("selected");
+          const cb = el.querySelector(".conv-checkbox");
+          if (cb) cb.checked = true;
+          _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
+        }
+      }, 0);
+    }, 500);
+  });
+  smsList2?.addEventListener("pointerup", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+  smsList2?.addEventListener("pointercancel", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+  smsList2?.addEventListener("pointermove", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+
+  smsList2?.addEventListener("click", (e) => {
     const conversation = e.target.closest(".sms-conversation");
     if (conversation) {
       const phoneNumber = conversation.dataset.phone;
-      showConversation(phoneNumber);
+      if (selectionMode) {
+        // Toggle selection
+        if (selectedConversations.has(phoneNumber)) {
+          selectedConversations.delete(phoneNumber);
+          conversation.classList.remove("selected");
+          const cb = conversation.querySelector(".conv-checkbox");
+          if (cb) cb.checked = false;
+        } else {
+          selectedConversations.add(phoneNumber);
+          conversation.classList.add("selected");
+          const cb = conversation.querySelector(".conv-checkbox");
+          if (cb) cb.checked = true;
+        }
+        _updateSelectionToolbar(conversations.length);
+      } else {
+        showConversation(phoneNumber);
+      }
     }
   });
 
@@ -1026,7 +1106,14 @@ export function showConversation(phoneNumber) {
     conversation[0].contactName || conversation[0].title || phoneNumber;
   state.setCurrentConversation(phoneNumber);
 
+  // Update the global delete button to reflect "delete this conversation" context
+  const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+  if (deleteAllBtn) {
+    deleteAllBtn.title = "Delete this conversation";
+  }
+
   const smsListElement = document.getElementById("smsList");
+  smsListElement.classList.add("conversation-open");
   smsListElement.innerHTML = `
     <div class="conversation-view">
       <div class="conversation-header">
@@ -1129,9 +1216,55 @@ export function showConversation(phoneNumber) {
 
   // Add back button handler
   document.getElementById("backToSMS")?.addEventListener("click", () => {
+    // Reset per-message selection mode if active
+    if (messageSelectionMode) {
+      messageSelectionMode = false;
+      selectedMessages.clear();
+      _exitMessageSelectionMode();
+      document.getElementById("smsSelectBtn")?.classList.remove("active");
+      const toolbar = document.getElementById("smsSelectToolbar");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    document.getElementById("smsList")?.classList.remove("conversation-open");
     state.setCurrentConversation(null);
+    const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+    if (deleteAllBtn) deleteAllBtn.title = "Delete all";
+    // Reset search box for list view
+    const si = document.getElementById("smsSearchInput");
+    if (si) {
+      si.value = "";
+      si.placeholder = "Search messages...";
+      delete si.dataset.convWired;
+      si.dataset.wired = ""; // will be re-wired by renderSMS
+      delete si.dataset.wired;
+    }
     renderSMS(state.allSMSMessages);
   });
+
+  // Wire search box to filter within this conversation
+  const convSearch = document.getElementById("smsSearchInput");
+  if (convSearch) {
+    convSearch.value = "";
+    convSearch.placeholder = "Search in conversation...";
+    // Remove list-view wiring so we can take over
+    delete convSearch.dataset.wired;
+    if (!convSearch.dataset.convWired) {
+      convSearch.dataset.convWired = "1";
+      convSearch.addEventListener("input", function _convSearch() {
+        // If we've left conversation view, remove listener
+        if (!state.currentConversation) {
+          convSearch.removeEventListener("input", _convSearch);
+          delete convSearch.dataset.convWired;
+          return;
+        }
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll(".message-bubble").forEach((bubble) => {
+          const text = bubble.querySelector(".message-text")?.textContent.toLowerCase() || "";
+          bubble.style.display = !q || text.includes(q) ? "" : "none";
+        });
+      });
+    }
+  }
 
   // Open full window when sender name is clicked
   document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
@@ -1397,48 +1530,63 @@ async function markConversationAsRead(conversation) {
 }
 
 /**
- * Delete all SMS
+ * Delete: conversation messages (if in conversation), selected conversations
+ * (if in selection mode), or prompt user to select first.
  */
 export async function deleteAllSms() {
   const user = state.currentUser;
-  if (!user || state.allSMSMessages.length === 0) {
-    showToast("No messages to delete", "info");
-    return;
-  }
+  if (!user) return;
 
-  if (
-    !confirm(
-      `Are you sure you want to delete all ${state.allSMSMessages.length} messages?`,
-    )
-  ) {
-    return;
-  }
+  // If a conversation is open, delete only that conversation's messages
+  if (state.currentConversation) {
+    const phoneKey = state.currentConversation;
+    const msgsToDelete = state.allSMSMessages.filter((msg) => {
+      const rawPhone = msg.phoneNumber || msg.sender || "";
+      let key = normalizePhoneNumber(rawPhone);
+      if (!key && rawPhone.trim()) key = "sender_" + rawPhone.trim().toLowerCase();
+      const contactKey =
+        msg.contactName || msg.title
+          ? "contact_" + (msg.contactName || msg.title).trim()
+          : "";
+      return key === phoneKey || contactKey === phoneKey;
+    });
 
-  showLoadingOverlay();
-  try {
-    const batch = writeBatch(db);
-    let count = 0;
+    if (msgsToDelete.length === 0) {
+      showToast("No messages in this conversation", "info");
+      return;
+    }
 
-    for (const msg of state.allSMSMessages) {
-      if (msg.docRef) {
-        batch.delete(msg.docRef);
-        count++;
+    if (!confirm(`Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`)) return;
+
+    showLoadingOverlay();
+    try {
+      const batch = writeBatch(db);
+      for (const msg of msgsToDelete) {
+        if (msg.docRef) batch.delete(msg.docRef);
       }
-    }
-
-    if (count > 0) {
       await batch.commit();
-      showToast(`${count} messages deleted`, "success");
-      state.setAllSMSMessages([]);
-      state.clearAllSMS();
+
+      const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+      const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
+      state.setAllSMSMessages(updatedMessages);
+      showToast(`${msgsToDelete.length} messages deleted`, "success");
       state.setCurrentConversation(null);
-      renderSMS([]);
+      renderSMS(updatedMessages);
+    } catch (error) {
+      console.error("Delete conversation error:", error);
+      showToast("Failed to delete conversation", "error");
     }
-  } catch (error) {
-    console.error("Delete all error:", error);
-    showToast("Failed to delete messages", "error");
+    hideLoading();
+    return;
   }
-  hideLoading();
+
+  // On the list view: only act if selection mode is active
+  if (selectionMode) {
+    return deleteSelectedConversations();
+  }
+
+  // Nothing selected and not in a conversation
+  showToast("Tap the select button to choose messages to delete", "info");
 }
 
 /**
@@ -1493,6 +1641,277 @@ async function deleteSingleSms(msgId) {
 }
 
 /**
+ * Enter per-message selection mode: add checkboxes to each message bubble
+ * and wire a delegated click handler on the messages container.
+ */
+function _enterMessageSelectionMode() {
+  document.querySelectorAll(".message-bubble[data-msg-id]").forEach((bubble) => {
+    if (bubble.querySelector(".msg-checkbox-wrap")) return;
+    const wrap = document.createElement("label");
+    wrap.className = "msg-checkbox-wrap";
+    wrap.addEventListener("click", (e) => e.stopPropagation());
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "msg-checkbox";
+    cb.checked = selectedMessages.has(bubble.dataset.msgId);
+    wrap.appendChild(cb);
+    bubble.prepend(wrap);
+  });
+
+  const container = document.querySelector(".conversation-messages");
+  if (container) {
+    _msgClickHandler = (e) => {
+      if (!messageSelectionMode) return;
+      if (e.target.closest(".delete-msg-btn")) return;
+      const bubble = e.target.closest(".message-bubble[data-msg-id]");
+      if (!bubble) return;
+      const msgId = bubble.dataset.msgId;
+      const cb = bubble.querySelector(".msg-checkbox");
+      if (selectedMessages.has(msgId)) {
+        selectedMessages.delete(msgId);
+        bubble.classList.remove("msg-selected");
+        if (cb) cb.checked = false;
+      } else {
+        selectedMessages.add(msgId);
+        bubble.classList.add("msg-selected");
+        if (cb) cb.checked = true;
+      }
+      _updateMessageSelectionToolbar();
+    };
+    container.addEventListener("click", _msgClickHandler);
+  }
+  _updateMessageSelectionToolbar();
+}
+
+/**
+ * Exit per-message selection mode: remove checkboxes and clean up listener.
+ */
+function _exitMessageSelectionMode() {
+  document.querySelectorAll(".msg-checkbox-wrap").forEach((el) => el.remove());
+  document.querySelectorAll(".message-bubble").forEach((bubble) => {
+    bubble.classList.remove("msg-selected");
+  });
+  const container = document.querySelector(".conversation-messages");
+  if (container && _msgClickHandler) {
+    container.removeEventListener("click", _msgClickHandler);
+    _msgClickHandler = null;
+  }
+}
+
+/**
+ * Update the selection toolbar for per-message selection mode.
+ */
+function _updateMessageSelectionToolbar() {
+  const total = document.querySelectorAll(".message-bubble[data-msg-id]").length;
+  const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+  const countSpan = document.getElementById("smsSelectedCount");
+  const selectAllCb = document.getElementById("smsSelectAll");
+  if (deleteBtn) deleteBtn.disabled = selectedMessages.size === 0;
+  if (countSpan) countSpan.textContent = selectedMessages.size;
+  if (selectAllCb) {
+    selectAllCb.checked = selectedMessages.size === total && total > 0;
+    selectAllCb.indeterminate = selectedMessages.size > 0 && selectedMessages.size < total;
+  }
+}
+
+/**
+ * Update the selection toolbar state (count badge, delete button, select-all checkbox)
+ * @param {number} totalConversations - Total number of visible conversations
+ */
+function _updateSelectionToolbar(totalConversations) {
+  const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+  const countSpan = document.getElementById("smsSelectedCount");
+  const selectAllCb = document.getElementById("smsSelectAll");
+
+  if (deleteBtn) deleteBtn.disabled = selectedConversations.size === 0;
+  if (countSpan) countSpan.textContent = selectedConversations.size;
+  if (selectAllCb) {
+    selectAllCb.checked = selectedConversations.size === totalConversations && totalConversations > 0;
+    selectAllCb.indeterminate = selectedConversations.size > 0 && selectedConversations.size < totalConversations;
+  }
+}
+
+/**
+ * Toggle SMS selection mode on/off
+ */
+export function toggleSelectionMode() {
+  if (state.currentConversation) {
+    // In conversation view: toggle per-message selection instead
+    messageSelectionMode = !messageSelectionMode;
+    selectedMessages.clear();
+
+    const selectBtn = document.getElementById("smsSelectBtn");
+    const toolbar = document.getElementById("smsSelectToolbar");
+
+    if (messageSelectionMode) {
+      selectBtn?.classList.add("active");
+      if (toolbar) toolbar.style.display = "flex";
+      _enterMessageSelectionMode();
+    } else {
+      selectBtn?.classList.remove("active");
+      if (toolbar) toolbar.style.display = "none";
+      _exitMessageSelectionMode();
+    }
+    return;
+  }
+
+  selectionMode = !selectionMode;
+  selectedConversations.clear();
+
+  const selectBtn = document.getElementById("smsSelectBtn");
+  const toolbar = document.getElementById("smsSelectToolbar");
+
+  if (selectionMode) {
+    selectBtn?.classList.add("active");
+    if (toolbar) toolbar.style.display = "flex";
+  } else {
+    selectBtn?.classList.remove("active");
+    if (toolbar) toolbar.style.display = "none";
+  }
+
+  // Re-render to add or remove checkboxes
+  renderSMS(state.allSMSMessages);
+}
+
+/**
+ * Toggle select-all for visible conversations (or messages when in conversation view)
+ * @param {boolean} checked - Whether to select or deselect all
+ */
+export function setSelectAll(checked) {
+  if (messageSelectionMode) {
+    const bubbles = document.querySelectorAll(".message-bubble[data-msg-id]");
+    bubbles.forEach((bubble) => {
+      const msgId = bubble.dataset.msgId;
+      const cb = bubble.querySelector(".msg-checkbox");
+      if (checked) {
+        selectedMessages.add(msgId);
+        bubble.classList.add("msg-selected");
+        if (cb) cb.checked = true;
+      } else {
+        selectedMessages.delete(msgId);
+        bubble.classList.remove("msg-selected");
+        if (cb) cb.checked = false;
+      }
+    });
+    _updateMessageSelectionToolbar();
+    return;
+  }
+
+  const conversations = document.querySelectorAll(".sms-conversation[data-phone]");
+  conversations.forEach((el) => {
+    const phone = el.dataset.phone;
+    const cb = el.querySelector(".conv-checkbox");
+    if (checked) {
+      selectedConversations.add(phone);
+      el.classList.add("selected");
+      if (cb) cb.checked = true;
+    } else {
+      selectedConversations.delete(phone);
+      el.classList.remove("selected");
+      if (cb) cb.checked = false;
+    }
+  });
+  _updateSelectionToolbar(conversations.length);
+}
+
+/**
+ * Delete selected individual messages from Firestore and state
+ */
+async function deleteSelectedMessages() {
+  if (selectedMessages.size === 0) return;
+  const count = selectedMessages.size;
+  if (!confirm(`Delete ${count} message${count > 1 ? "s" : ""}?`)) return;
+  showLoadingOverlay();
+  try {
+    const msgsToDelete = state.allSMSMessages.filter((m) => selectedMessages.has(m.id));
+    const batch = writeBatch(db);
+    let deletedCount = 0;
+    for (const msg of msgsToDelete) {
+      if (msg.docRef) {
+        batch.delete(msg.docRef);
+        deletedCount++;
+      }
+    }
+    if (deletedCount > 0) {
+      await batch.commit();
+      showToast(`${deletedCount} message${deletedCount > 1 ? "s" : ""} deleted`, "success");
+      const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+      const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
+      state.setAllSMSMessages(updatedMessages);
+    }
+    // Exit message selection mode
+    messageSelectionMode = false;
+    selectedMessages.clear();
+    document.getElementById("smsSelectBtn")?.classList.remove("active");
+    const toolbar = document.getElementById("smsSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+    showConversation(state.currentConversation);
+  } catch (error) {
+    console.error("Delete selected messages error:", error);
+    showToast("Failed to delete messages", "error");
+  }
+  hideLoading();
+}
+
+/**
+ * Delete all selected conversations from Firestore and state
+ */
+export async function deleteSelectedConversations() {
+  if (messageSelectionMode) return deleteSelectedMessages();
+  if (selectedConversations.size === 0) return;
+
+  const count = selectedConversations.size;
+  if (!confirm(`Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`)) return;
+
+  showLoadingOverlay();
+  try {
+    const selected = new Set(selectedConversations);
+    const msgsToDelete = state.allSMSMessages.filter((msg) => {
+      const rawPhone = msg.phoneNumber || msg.sender || "";
+      let key = normalizePhoneNumber(rawPhone);
+      if (!key && rawPhone.trim()) key = "sender_" + rawPhone.trim().toLowerCase();
+      const contactKey =
+        msg.contactName || msg.title
+          ? "contact_" + (msg.contactName || msg.title).trim()
+          : "";
+      return selected.has(key) || selected.has(contactKey);
+    });
+
+    const batch = writeBatch(db);
+    let deletedCount = 0;
+    for (const msg of msgsToDelete) {
+      if (msg.docRef) {
+        batch.delete(msg.docRef);
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      await batch.commit();
+      showToast(`${deletedCount} messages deleted`, "success");
+
+      const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+      const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
+      state.setAllSMSMessages(updatedMessages);
+    }
+
+    // Exit selection mode
+    selectionMode = false;
+    selectedConversations.clear();
+    const selectBtn = document.getElementById("smsSelectBtn");
+    selectBtn?.classList.remove("active");
+    const toolbar = document.getElementById("smsSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+
+    renderSMS(state.allSMSMessages);
+  } catch (error) {
+    console.error("Delete selected conversations error:", error);
+    showToast("Failed to delete selected conversations", "error");
+  }
+  hideLoading();
+}
+
+/**
  * Start polling for new SMS
  */
 export function startPolling() {
@@ -1508,4 +1927,65 @@ export function startPolling() {
  */
 export function stopPolling() {
   state.clearPollingInterval();
+}
+
+/**
+ * Export SMS to a CSV file download.
+ * When a conversation is open, exports only that conversation's messages.
+ */
+export function exportSMSToCSV() {
+  let messages = state.allSMSMessages || [];
+  let filename = `iRopit-SMS-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  if (state.currentConversation) {
+    const phoneKey = state.currentConversation;
+    messages = messages.filter((msg) => {
+      const rawPhone = msg.phoneNumber || msg.sender || "";
+      const normalized = normalizePhoneNumber(rawPhone);
+      const contactKey =
+        msg.contactName || msg.title
+          ? "contact_" + (msg.contactName || msg.title).trim()
+          : "";
+      const senderKey = rawPhone.trim()
+        ? "sender_" + rawPhone.trim().toLowerCase()
+        : "";
+      return (
+        normalized === phoneKey ||
+        contactKey === phoneKey ||
+        senderKey === phoneKey
+      );
+    });
+    const contactName =
+      messages[0]?.contactName ||
+      messages[0]?.title ||
+      phoneKey.replace(/^(contact_|sender_)/, "");
+    filename = `iRopit-SMS-${contactName}-${new Date().toISOString().slice(0, 10)}.csv`;
+  }
+
+  if (messages.length === 0) {
+    alert("No messages to export.");
+    return;
+  }
+
+  const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "Device"];
+  const rows = messages.map((m) => {
+    const d = new Date(m.timestamp || 0);
+    const date = d.toLocaleDateString("en-GB");
+    const time = d.toLocaleTimeString();
+    const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
+    const contact = m.contactName || m.title || "";
+    const phone = m.phoneNumber || m.sender || "";
+    const body = m.body || m.text || m.content || "";
+    const device = m.deviceName || "";
+    return [date, time, direction, contact, phone, body, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+  });
+
+  const csv = [header.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -28,7 +28,7 @@ export const useOnboarding = () => {
     'light' | 'dark' | 'system'
   >(systemTheme); // Start with system's current theme instead of 'system'
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>(systemTheme);
-  const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en'>('ar');
+  const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en'>('en');
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([
     {

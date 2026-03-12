@@ -15,6 +15,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import messaging from '@react-native-firebase/messaging';
 import RootNavigator from './navigation/RootNavigator';
+import { navigationRef } from './navigation/navigationRef';
 import { useAuthStore } from './store/authStore';
 import { useSettingsStore } from './store/settingsStore';
 import { initializeFirebase } from './services/firebase';
@@ -180,6 +181,7 @@ const AppContent = () => {
         backgroundColor={darkMode ? DARK_COLORS.surface : LIGHT_COLORS.primary}
       />
       <NavigationContainer
+        ref={navigationRef}
         theme={navigationTheme}
         onStateChange={state => {
           // Track current screen for notification filtering

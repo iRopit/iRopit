@@ -150,9 +150,18 @@ export function renderChatMessages(messages) {
         const safeUrl = sanitizeUrl(msg.fileUrl);
         content = safeUrl
           ? `
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
-            <img src="${safeUrl}" alt="Image" class="chat-image" />
-          </a>
+          <div class="chat-image-container">
+            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
+              <img src="${safeUrl}" alt="Image" class="chat-image" />
+            </a>
+            <button class="chat-image-download-btn" data-url="${safeUrl}" title="Download image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="8 17 12 21 16 17"/>
+                <line x1="12" y1="21" x2="12" y2="9"/>
+                <path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/>
+              </svg>
+            </button>
+          </div>
         `
           : `<div class="chat-file-link"><span>Invalid image URL</span></div>`;
       }
@@ -234,6 +243,23 @@ export function renderChatMessages(messages) {
   // Add click listeners for reply
   chatMessages.querySelectorAll(".chat-message").forEach((el) => {
     el.addEventListener("click", () => setReplyTo(el));
+  });
+
+  // Image download button handlers
+  chatMessages.querySelectorAll(".chat-image-download-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const url = btn.dataset.url;
+      if (!url) return;
+      chrome.downloads.download({ url, conflictAction: "uniquify" }, () => {
+        if (chrome.runtime.lastError) {
+          showToast("Download failed", "error");
+        } else {
+          showToast("Downloading image...", "success");
+        }
+      });
+    });
   });
 
   // Copy button handlers
@@ -635,6 +661,22 @@ export function initChatListeners() {
   document
     .getElementById("sendFileBtn")
     ?.addEventListener("click", sendFileFromPreview);
+
+  // Paste screenshot / image from clipboard (Ctrl+V anywhere while chat tab is active)
+  document.addEventListener("paste", (e) => {
+    const chatTab = document.getElementById("chatTab");
+    if (!chatTab?.classList.contains("active")) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) showFilePreview(file);
+        return;
+      }
+    }
+  });
 
   // Expose to window for inline onclick
   window.setReplyTo = setReplyTo;

@@ -61,6 +61,15 @@ public class BootReceiver extends BroadcastReceiver {
                         context.startService(smsServiceIntent);
                     }
                     Log.i(TAG, "SmsRequestService started on boot");
+
+                    // Start CallRequestService to listen for dial requests
+                    Intent callServiceIntent = new Intent(context, CallRequestService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(callServiceIntent);
+                    } else {
+                        context.startService(callServiceIntent);
+                    }
+                    Log.i(TAG, "CallRequestService started on boot");
                 } else {
                     Log.w(TAG, "No user credentials found, skipping SmsRequestService start");
                 }

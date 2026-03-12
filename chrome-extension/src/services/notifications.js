@@ -531,3 +531,33 @@ async function clearAllNotifications() {
   reRenderNotifications();
   updateTabBadges();
 }
+
+/**
+ * Export notifications to CSV
+ */
+export function exportNotificationsToCSV() {
+  let notifications = getMergedNotifications();
+  if (notifications.length === 0) {
+    alert("No notifications to export.");
+    return;
+  }
+  const header = ["Date", "Time", "App", "Title", "Body", "Device"];
+  const rows = notifications.map((n) => {
+    const d = new Date(n.receivedAt || n.timestamp || 0);
+    const date = d.toLocaleDateString("en-GB");
+    const time = d.toLocaleTimeString();
+    const app = n.appName || n.packageName || "";
+    const title = n.title || "";
+    const body = n.text || n.body || "";
+    const device = n.deviceName || "";
+    return [date, time, app, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+  });
+  const csv = [header.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `iRopit-Notifications-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

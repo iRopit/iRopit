@@ -446,7 +446,7 @@ export const useTheme = (): ThemeContextType => {
       radius: RADIUS,
       isDarkMode: false,
       language: 'ar',
-      isRTL: true,
+      isRTL: false,
       t: (key: TranslationKey) => AR_TRANSLATIONS[key] || key,
     };
   }

@@ -22552,9 +22552,6 @@ ${this.customData.serverResponse}`;
   function getSMSData(deviceId) {
     return allSMS[deviceId];
   }
-  function clearAllSMS() {
-    allSMS = {};
-  }
   function setAllSMSMessages(messages) {
     allSMSMessages = messages;
   }
@@ -22748,7 +22745,7 @@ ${this.customData.serverResponse}`;
     if (diff < 6e4) return "Just now";
     if (diff < 36e5) return `${Math.floor(diff / 6e4)}m ago`;
     if (diff < 864e5) return `${Math.floor(diff / 36e5)}h ago`;
-    return date.toLocaleDateString();
+    return date.toLocaleDateString("en-GB");
   }
   function formatDuration(seconds) {
     if (!seconds) return "0:00";
@@ -23310,6 +23307,8 @@ ${this.customData.serverResponse}`;
   var calls_exports = {};
   __export(calls_exports, {
     clearAllCalls: () => clearAllCalls,
+    exportCallsToCSV: () => exportCallsToCSV,
+    initiateDialRequest: () => initiateDialRequest,
     loadCalls: () => loadCalls,
     markAllCallsAsViewed: () => markAllCallsAsViewed,
     renderCalls: () => renderCalls
@@ -23570,6 +23569,19 @@ ${this.customData.serverResponse}`;
         (call) => call.deviceId === selectedTab
       );
     }
+    const callsSearch = document.getElementById("callsSearchInput");
+    if (callsSearch && !callsSearch.dataset.wired) {
+      callsSearch.dataset.wired = "1";
+      callsSearch.addEventListener("input", () => renderCalls(allCallsData));
+    }
+    const searchQuery = (document.getElementById("callsSearchInput")?.value || "").trim().toLowerCase();
+    if (searchQuery) {
+      filteredCalls = filteredCalls.filter((call) => {
+        const contact = (call.contactName || "").toLowerCase();
+        const phone = (call.phoneNumber || "").toLowerCase();
+        return contact.includes(searchQuery) || phone.includes(searchQuery);
+      });
+    }
     if (filteredCalls.length === 0) {
       callsList.innerHTML = `
       <div class="empty-state">
@@ -23692,6 +23704,12 @@ ${this.customData.serverResponse}`;
           <div class="conversation-name">${contactName}</div>
           <div class="conversation-phone">${phoneNumber !== contactName ? phoneNumber : ""}</div>
         </div>
+        <button class="btn btn-small btn-primary" id="dialPhoneBtn" title="Open dialer on phone" style="margin-left:auto;margin-right:8px;display:flex;align-items:center;gap:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          Dial
+        </button>
       </div>
       <div class="conversation-messages call-history">
         ${calls.map(
@@ -23714,6 +23732,9 @@ ${this.customData.serverResponse}`;
     document.getElementById("backToCalls")?.addEventListener("click", () => {
       setCurrentCallConversation(null);
       renderCalls(allCallsData);
+    });
+    document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
+      initiateDialRequest(phoneNumber, calls[0]?.deviceId || null);
     });
   }
   async function clearAllCalls() {
@@ -23755,6 +23776,64 @@ ${this.customData.serverResponse}`;
     setAllCallsData(remaining);
     renderCalls(remaining);
     updateTabBadges();
+  }
+  async function initiateDialRequest(phoneNumber, preferredDeviceId = null) {
+    const user = currentUser;
+    if (!user) return;
+    let targetDeviceId = preferredDeviceId;
+    if (!targetDeviceId) {
+      const devicesSnapshot = await getDocs(collection(db, "devices"));
+      const androidDevices = devicesSnapshot.docs.filter((d) => {
+        const data = d.data();
+        return data.userId === user.uid && !String(data.id || d.id).startsWith("ext_");
+      }).sort((a, b) => (b.data().lastSeen || 0) - (a.data().lastSeen || 0));
+      if (androidDevices.length === 0) {
+        showToast("No Android device available", "error");
+        return;
+      }
+      targetDeviceId = androidDevices[0].data().id || androidDevices[0].id;
+    }
+    try {
+      await addDoc(collection(db, "call_requests"), {
+        userId: user.uid,
+        fromDeviceId: await getDeviceId(),
+        toDeviceId: targetDeviceId,
+        phoneNumber,
+        status: "pending",
+        timestamp: Date.now()
+      });
+      showToast("Opening dialer on phone\u2026", "success");
+    } catch (err) {
+      console.error("[Calls] initiateDialRequest error:", err);
+      showToast("Failed to send dial request", "error");
+    }
+  }
+  function exportCallsToCSV() {
+    const calls = allCallsData || [];
+    if (calls.length === 0) {
+      alert("No calls to export.");
+      return;
+    }
+    const header = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+    const rows = calls.map((c) => {
+      const d = new Date(c.timestamp || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const type = c.type || "";
+      const contact = c.contactName || c.title || "";
+      const phone = c.phoneNumber || c.number || c.sender || "";
+      const duration = c.duration || 0;
+      const device = c.deviceName || "";
+      return [date, time, type, contact, phone, duration, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `iRopit-Calls-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
   var callDecryptionCache, callListenerUnsubs, isSyncingCalls;
   var init_calls = __esm({
@@ -23921,6 +24000,7 @@ ${this.customData.serverResponse}`;
   // src/services/notifications.js
   var notifications_exports = {};
   __export(notifications_exports, {
+    exportNotificationsToCSV: () => exportNotificationsToCSV,
     loadNotifications: () => loadNotifications,
     markAllNotificationsAsRead: () => markAllNotificationsAsRead,
     reRenderNotifications: () => reRenderNotifications
@@ -24319,6 +24399,32 @@ ${this.customData.serverResponse}`;
     reRenderNotifications();
     updateTabBadges();
   }
+  function exportNotificationsToCSV() {
+    let notifications = getMergedNotifications();
+    if (notifications.length === 0) {
+      alert("No notifications to export.");
+      return;
+    }
+    const header = ["Date", "Time", "App", "Title", "Body", "Device"];
+    const rows = notifications.map((n) => {
+      const d = new Date(n.receivedAt || n.timestamp || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const app2 = n.appName || n.packageName || "";
+      const title = n.title || "";
+      const body = n.text || n.body || "";
+      const device = n.deviceName || "";
+      return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `iRopit-Notifications-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   var _searchWired;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
@@ -24485,15 +24591,19 @@ ${this.customData.serverResponse}`;
   var sms_exports = {};
   __export(sms_exports, {
     deleteAllSms: () => deleteAllSms,
+    deleteSelectedConversations: () => deleteSelectedConversations,
+    exportSMSToCSV: () => exportSMSToCSV,
     hasMoreSMS: () => hasMoreSMS,
     loadMoreSMS: () => loadMoreSMS,
     loadSMS: () => loadSMS,
     markAllSmsAsRead: () => markAllSmsAsRead,
     renderSMS: () => renderSMS,
+    setSelectAll: () => setSelectAll,
     showConversation: () => showConversation,
     startPolling: () => startPolling,
     stopPolling: () => stopPolling,
     stopSMSListener: () => stopSMSListener,
+    toggleSelectionMode: () => toggleSelectionMode,
     updateSMSList: () => updateSMSList
   });
   async function decryptSMSCached(data, userId, docId) {
@@ -24902,6 +25012,12 @@ ${this.customData.serverResponse}`;
     if (selectedTab !== "all") {
       filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
     }
+    const searchQuery = (document.getElementById("smsSearchInput")?.value || "").trim().toLowerCase();
+    const searchInput = document.getElementById("smsSearchInput");
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = "1";
+      searchInput.addEventListener("input", () => renderSMS(allSMSMessages));
+    }
     const smsListElement = document.getElementById("smsList");
     if (!smsListElement) {
       return;
@@ -24918,6 +25034,14 @@ ${this.customData.serverResponse}`;
     `;
       updateTabBadges();
       return;
+    }
+    if (searchQuery) {
+      filteredMessages = filteredMessages.filter((msg) => {
+        const contact = (msg.contactName || msg.title || "").toLowerCase();
+        const phone = (msg.phoneNumber || msg.sender || "").toLowerCase();
+        const body = (msg.body || msg.text || msg.content || "").toLowerCase();
+        return contact.includes(searchQuery) || phone.includes(searchQuery) || body.includes(searchQuery);
+      });
     }
     const contactToPhones = {};
     const phoneToContact = {};
@@ -24997,9 +25121,8 @@ ${this.customData.serverResponse}`;
     );
     smsListElement.innerHTML = conversations.map(
       (conv) => `
-    <div class="list-item sms-conversation" data-phone="${escapeHtml(
-        conv.normalizedPhone
-      )}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}">
+      ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
@@ -25008,7 +25131,7 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml(conv.lastMessage.body || "")}</div>
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
         ${selectedTab === "all" && conv.lastMessage.deviceName ? `<div class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</div>` : ""}
       </div>
       <div class="list-item-meta">
@@ -25025,11 +25148,71 @@ ${this.customData.serverResponse}`;
       const newSmsList = oldSmsList.cloneNode(true);
       oldSmsList.parentNode.replaceChild(newSmsList, oldSmsList);
     }
-    document.getElementById("smsList")?.addEventListener("click", (e) => {
+    const smsList2 = document.getElementById("smsList");
+    let longPressTimer = null;
+    smsList2?.addEventListener("pointerdown", (e) => {
+      const conversation = e.target.closest(".sms-conversation");
+      if (!conversation || selectionMode) return;
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        const phoneNumber = conversation.dataset.phone;
+        selectionMode = true;
+        selectedConversations.clear();
+        const selectBtn = document.getElementById("smsSelectBtn");
+        selectBtn?.classList.add("active");
+        const toolbar = document.getElementById("smsSelectToolbar");
+        if (toolbar) toolbar.style.display = "flex";
+        renderSMS(allSMSMessages);
+        setTimeout(() => {
+          const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
+          if (el) {
+            selectedConversations.add(phoneNumber);
+            el.classList.add("selected");
+            const cb = el.querySelector(".conv-checkbox");
+            if (cb) cb.checked = true;
+            _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
+          }
+        }, 0);
+      }, 500);
+    });
+    smsList2?.addEventListener("pointerup", () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
+    smsList2?.addEventListener("pointercancel", () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
+    smsList2?.addEventListener("pointermove", () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
+    smsList2?.addEventListener("click", (e) => {
       const conversation = e.target.closest(".sms-conversation");
       if (conversation) {
         const phoneNumber = conversation.dataset.phone;
-        showConversation(phoneNumber);
+        if (selectionMode) {
+          if (selectedConversations.has(phoneNumber)) {
+            selectedConversations.delete(phoneNumber);
+            conversation.classList.remove("selected");
+            const cb = conversation.querySelector(".conv-checkbox");
+            if (cb) cb.checked = false;
+          } else {
+            selectedConversations.add(phoneNumber);
+            conversation.classList.add("selected");
+            const cb = conversation.querySelector(".conv-checkbox");
+            if (cb) cb.checked = true;
+          }
+          _updateSelectionToolbar(conversations.length);
+        } else {
+          showConversation(phoneNumber);
+        }
       }
     });
     attachSMSScrollHandler();
@@ -25133,7 +25316,12 @@ ${this.customData.serverResponse}`;
     markConversationAsRead(conversation);
     const contactName = conversation[0].contactName || conversation[0].title || phoneNumber;
     setCurrentConversation(phoneNumber);
+    const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+    if (deleteAllBtn) {
+      deleteAllBtn.title = "Delete this conversation";
+    }
     const smsListElement = document.getElementById("smsList");
+    smsListElement.classList.add("conversation-open");
     smsListElement.innerHTML = `
     <div class="conversation-view">
       <div class="conversation-header">
@@ -25205,9 +25393,49 @@ ${this.customData.serverResponse}`;
       });
     }
     document.getElementById("backToSMS")?.addEventListener("click", () => {
+      if (messageSelectionMode) {
+        messageSelectionMode = false;
+        selectedMessages.clear();
+        _exitMessageSelectionMode();
+        document.getElementById("smsSelectBtn")?.classList.remove("active");
+        const toolbar = document.getElementById("smsSelectToolbar");
+        if (toolbar) toolbar.style.display = "none";
+      }
+      document.getElementById("smsList")?.classList.remove("conversation-open");
       setCurrentConversation(null);
+      const deleteAllBtn2 = document.getElementById("deleteAllSmsBtn");
+      if (deleteAllBtn2) deleteAllBtn2.title = "Delete all";
+      const si = document.getElementById("smsSearchInput");
+      if (si) {
+        si.value = "";
+        si.placeholder = "Search messages...";
+        delete si.dataset.convWired;
+        si.dataset.wired = "";
+        delete si.dataset.wired;
+      }
       renderSMS(allSMSMessages);
     });
+    const convSearch = document.getElementById("smsSearchInput");
+    if (convSearch) {
+      convSearch.value = "";
+      convSearch.placeholder = "Search in conversation...";
+      delete convSearch.dataset.wired;
+      if (!convSearch.dataset.convWired) {
+        convSearch.dataset.convWired = "1";
+        convSearch.addEventListener("input", function _convSearch() {
+          if (!currentConversation) {
+            convSearch.removeEventListener("input", _convSearch);
+            delete convSearch.dataset.convWired;
+            return;
+          }
+          const q2 = this.value.trim().toLowerCase();
+          document.querySelectorAll(".message-bubble").forEach((bubble) => {
+            const text = bubble.querySelector(".message-text")?.textContent.toLowerCase() || "";
+            bubble.style.display = !q2 || text.includes(q2) ? "" : "none";
+          });
+        });
+      }
+    }
     document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
       const payload = {
         smsWindowPhone: phoneNumber,
@@ -25405,38 +25633,45 @@ ${this.customData.serverResponse}`;
   }
   async function deleteAllSms() {
     const user = currentUser;
-    if (!user || allSMSMessages.length === 0) {
-      showToast("No messages to delete", "info");
-      return;
-    }
-    if (!confirm(
-      `Are you sure you want to delete all ${allSMSMessages.length} messages?`
-    )) {
-      return;
-    }
-    showLoadingOverlay();
-    try {
-      const batch = writeBatch(db);
-      let count = 0;
-      for (const msg of allSMSMessages) {
-        if (msg.docRef) {
-          batch.delete(msg.docRef);
-          count++;
+    if (!user) return;
+    if (currentConversation) {
+      const phoneKey = currentConversation;
+      const msgsToDelete = allSMSMessages.filter((msg) => {
+        const rawPhone = msg.phoneNumber || msg.sender || "";
+        let key = normalizePhoneNumber3(rawPhone);
+        if (!key && rawPhone.trim()) key = "sender_" + rawPhone.trim().toLowerCase();
+        const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
+        return key === phoneKey || contactKey === phoneKey;
+      });
+      if (msgsToDelete.length === 0) {
+        showToast("No messages in this conversation", "info");
+        return;
+      }
+      if (!confirm(`Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`)) return;
+      showLoadingOverlay();
+      try {
+        const batch = writeBatch(db);
+        for (const msg of msgsToDelete) {
+          if (msg.docRef) batch.delete(msg.docRef);
         }
-      }
-      if (count > 0) {
         await batch.commit();
-        showToast(`${count} messages deleted`, "success");
-        setAllSMSMessages([]);
-        clearAllSMS();
+        const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+        const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
+        setAllSMSMessages(updatedMessages);
+        showToast(`${msgsToDelete.length} messages deleted`, "success");
         setCurrentConversation(null);
-        renderSMS([]);
+        renderSMS(updatedMessages);
+      } catch (error) {
+        console.error("Delete conversation error:", error);
+        showToast("Failed to delete conversation", "error");
       }
-    } catch (error) {
-      console.error("Delete all error:", error);
-      showToast("Failed to delete messages", "error");
+      hideLoading();
+      return;
     }
-    hideLoading();
+    if (selectionMode) {
+      return deleteSelectedConversations();
+    }
+    showToast("Tap the select button to choose messages to delete", "info");
   }
   async function deleteSingleSms(msgId) {
     const user = currentUser;
@@ -25471,6 +25706,219 @@ ${this.customData.serverResponse}`;
       showToast("Failed to delete message", "error");
     }
   }
+  function _enterMessageSelectionMode() {
+    document.querySelectorAll(".message-bubble[data-msg-id]").forEach((bubble) => {
+      if (bubble.querySelector(".msg-checkbox-wrap")) return;
+      const wrap2 = document.createElement("label");
+      wrap2.className = "msg-checkbox-wrap";
+      wrap2.addEventListener("click", (e) => e.stopPropagation());
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "msg-checkbox";
+      cb.checked = selectedMessages.has(bubble.dataset.msgId);
+      wrap2.appendChild(cb);
+      bubble.prepend(wrap2);
+    });
+    const container = document.querySelector(".conversation-messages");
+    if (container) {
+      _msgClickHandler = (e) => {
+        if (!messageSelectionMode) return;
+        if (e.target.closest(".delete-msg-btn")) return;
+        const bubble = e.target.closest(".message-bubble[data-msg-id]");
+        if (!bubble) return;
+        const msgId = bubble.dataset.msgId;
+        const cb = bubble.querySelector(".msg-checkbox");
+        if (selectedMessages.has(msgId)) {
+          selectedMessages.delete(msgId);
+          bubble.classList.remove("msg-selected");
+          if (cb) cb.checked = false;
+        } else {
+          selectedMessages.add(msgId);
+          bubble.classList.add("msg-selected");
+          if (cb) cb.checked = true;
+        }
+        _updateMessageSelectionToolbar();
+      };
+      container.addEventListener("click", _msgClickHandler);
+    }
+    _updateMessageSelectionToolbar();
+  }
+  function _exitMessageSelectionMode() {
+    document.querySelectorAll(".msg-checkbox-wrap").forEach((el) => el.remove());
+    document.querySelectorAll(".message-bubble").forEach((bubble) => {
+      bubble.classList.remove("msg-selected");
+    });
+    const container = document.querySelector(".conversation-messages");
+    if (container && _msgClickHandler) {
+      container.removeEventListener("click", _msgClickHandler);
+      _msgClickHandler = null;
+    }
+  }
+  function _updateMessageSelectionToolbar() {
+    const total = document.querySelectorAll(".message-bubble[data-msg-id]").length;
+    const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+    const countSpan = document.getElementById("smsSelectedCount");
+    const selectAllCb = document.getElementById("smsSelectAll");
+    if (deleteBtn) deleteBtn.disabled = selectedMessages.size === 0;
+    if (countSpan) countSpan.textContent = selectedMessages.size;
+    if (selectAllCb) {
+      selectAllCb.checked = selectedMessages.size === total && total > 0;
+      selectAllCb.indeterminate = selectedMessages.size > 0 && selectedMessages.size < total;
+    }
+  }
+  function _updateSelectionToolbar(totalConversations) {
+    const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+    const countSpan = document.getElementById("smsSelectedCount");
+    const selectAllCb = document.getElementById("smsSelectAll");
+    if (deleteBtn) deleteBtn.disabled = selectedConversations.size === 0;
+    if (countSpan) countSpan.textContent = selectedConversations.size;
+    if (selectAllCb) {
+      selectAllCb.checked = selectedConversations.size === totalConversations && totalConversations > 0;
+      selectAllCb.indeterminate = selectedConversations.size > 0 && selectedConversations.size < totalConversations;
+    }
+  }
+  function toggleSelectionMode() {
+    if (currentConversation) {
+      messageSelectionMode = !messageSelectionMode;
+      selectedMessages.clear();
+      const selectBtn2 = document.getElementById("smsSelectBtn");
+      const toolbar2 = document.getElementById("smsSelectToolbar");
+      if (messageSelectionMode) {
+        selectBtn2?.classList.add("active");
+        if (toolbar2) toolbar2.style.display = "flex";
+        _enterMessageSelectionMode();
+      } else {
+        selectBtn2?.classList.remove("active");
+        if (toolbar2) toolbar2.style.display = "none";
+        _exitMessageSelectionMode();
+      }
+      return;
+    }
+    selectionMode = !selectionMode;
+    selectedConversations.clear();
+    const selectBtn = document.getElementById("smsSelectBtn");
+    const toolbar = document.getElementById("smsSelectToolbar");
+    if (selectionMode) {
+      selectBtn?.classList.add("active");
+      if (toolbar) toolbar.style.display = "flex";
+    } else {
+      selectBtn?.classList.remove("active");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    renderSMS(allSMSMessages);
+  }
+  function setSelectAll(checked) {
+    if (messageSelectionMode) {
+      const bubbles = document.querySelectorAll(".message-bubble[data-msg-id]");
+      bubbles.forEach((bubble) => {
+        const msgId = bubble.dataset.msgId;
+        const cb = bubble.querySelector(".msg-checkbox");
+        if (checked) {
+          selectedMessages.add(msgId);
+          bubble.classList.add("msg-selected");
+          if (cb) cb.checked = true;
+        } else {
+          selectedMessages.delete(msgId);
+          bubble.classList.remove("msg-selected");
+          if (cb) cb.checked = false;
+        }
+      });
+      _updateMessageSelectionToolbar();
+      return;
+    }
+    const conversations = document.querySelectorAll(".sms-conversation[data-phone]");
+    conversations.forEach((el) => {
+      const phone = el.dataset.phone;
+      const cb = el.querySelector(".conv-checkbox");
+      if (checked) {
+        selectedConversations.add(phone);
+        el.classList.add("selected");
+        if (cb) cb.checked = true;
+      } else {
+        selectedConversations.delete(phone);
+        el.classList.remove("selected");
+        if (cb) cb.checked = false;
+      }
+    });
+    _updateSelectionToolbar(conversations.length);
+  }
+  async function deleteSelectedMessages() {
+    if (selectedMessages.size === 0) return;
+    const count = selectedMessages.size;
+    if (!confirm(`Delete ${count} message${count > 1 ? "s" : ""}?`)) return;
+    showLoadingOverlay();
+    try {
+      const msgsToDelete = allSMSMessages.filter((m) => selectedMessages.has(m.id));
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+      for (const msg of msgsToDelete) {
+        if (msg.docRef) {
+          batch.delete(msg.docRef);
+          deletedCount++;
+        }
+      }
+      if (deletedCount > 0) {
+        await batch.commit();
+        showToast(`${deletedCount} message${deletedCount > 1 ? "s" : ""} deleted`, "success");
+        const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+        const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
+        setAllSMSMessages(updatedMessages);
+      }
+      messageSelectionMode = false;
+      selectedMessages.clear();
+      document.getElementById("smsSelectBtn")?.classList.remove("active");
+      const toolbar = document.getElementById("smsSelectToolbar");
+      if (toolbar) toolbar.style.display = "none";
+      showConversation(currentConversation);
+    } catch (error) {
+      console.error("Delete selected messages error:", error);
+      showToast("Failed to delete messages", "error");
+    }
+    hideLoading();
+  }
+  async function deleteSelectedConversations() {
+    if (messageSelectionMode) return deleteSelectedMessages();
+    if (selectedConversations.size === 0) return;
+    const count = selectedConversations.size;
+    if (!confirm(`Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`)) return;
+    showLoadingOverlay();
+    try {
+      const selected = new Set(selectedConversations);
+      const msgsToDelete = allSMSMessages.filter((msg) => {
+        const rawPhone = msg.phoneNumber || msg.sender || "";
+        let key = normalizePhoneNumber3(rawPhone);
+        if (!key && rawPhone.trim()) key = "sender_" + rawPhone.trim().toLowerCase();
+        const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
+        return selected.has(key) || selected.has(contactKey);
+      });
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+      for (const msg of msgsToDelete) {
+        if (msg.docRef) {
+          batch.delete(msg.docRef);
+          deletedCount++;
+        }
+      }
+      if (deletedCount > 0) {
+        await batch.commit();
+        showToast(`${deletedCount} messages deleted`, "success");
+        const deletedIds = new Set(msgsToDelete.map((m) => m.id));
+        const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
+        setAllSMSMessages(updatedMessages);
+      }
+      selectionMode = false;
+      selectedConversations.clear();
+      const selectBtn = document.getElementById("smsSelectBtn");
+      selectBtn?.classList.remove("active");
+      const toolbar = document.getElementById("smsSelectToolbar");
+      if (toolbar) toolbar.style.display = "none";
+      renderSMS(allSMSMessages);
+    } catch (error) {
+      console.error("Delete selected conversations error:", error);
+      showToast("Failed to delete selected conversations", "error");
+    }
+    hideLoading();
+  }
   function startPolling() {
     clearPollingInterval();
     const interval = setInterval(() => {
@@ -25481,7 +25929,47 @@ ${this.customData.serverResponse}`;
   function stopPolling() {
     clearPollingInterval();
   }
-  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing;
+  function exportSMSToCSV() {
+    let messages = allSMSMessages || [];
+    let filename = `iRopit-SMS-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
+    if (currentConversation) {
+      const phoneKey = currentConversation;
+      messages = messages.filter((msg) => {
+        const rawPhone = msg.phoneNumber || msg.sender || "";
+        const normalized = normalizePhoneNumber3(rawPhone);
+        const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
+        const senderKey = rawPhone.trim() ? "sender_" + rawPhone.trim().toLowerCase() : "";
+        return normalized === phoneKey || contactKey === phoneKey || senderKey === phoneKey;
+      });
+      const contactName = messages[0]?.contactName || messages[0]?.title || phoneKey.replace(/^(contact_|sender_)/, "");
+      filename = `iRopit-SMS-${contactName}-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
+    }
+    if (messages.length === 0) {
+      alert("No messages to export.");
+      return;
+    }
+    const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "Device"];
+    const rows = messages.map((m) => {
+      const d = new Date(m.timestamp || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
+      const contact = m.contactName || m.title || "";
+      const phone = m.phoneNumber || m.sender || "";
+      const body = m.body || m.text || m.content || "";
+      const device = m.deviceName || "";
+      return [date, time, direction, contact, phone, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -25504,6 +25992,11 @@ ${this.customData.serverResponse}`;
       isLoadingMore = false;
       scrollHandlerAttached = false;
       isSyncing = false;
+      selectionMode = false;
+      selectedConversations = /* @__PURE__ */ new Set();
+      messageSelectionMode = false;
+      selectedMessages = /* @__PURE__ */ new Set();
+      _msgClickHandler = null;
     }
   });
 
@@ -25591,9 +26084,18 @@ ${this.customData.serverResponse}`;
       if (msg.type === "image" && msg.fileUrl) {
         const safeUrl = sanitizeUrl(msg.fileUrl);
         content = safeUrl ? `
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
-            <img src="${safeUrl}" alt="Image" class="chat-image" />
-          </a>
+          <div class="chat-image-container">
+            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
+              <img src="${safeUrl}" alt="Image" class="chat-image" />
+            </a>
+            <button class="chat-image-download-btn" data-url="${safeUrl}" title="Download image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="8 17 12 21 16 17"/>
+                <line x1="12" y1="21" x2="12" y2="9"/>
+                <path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/>
+              </svg>
+            </button>
+          </div>
         ` : `<div class="chat-file-link"><span>Invalid image URL</span></div>`;
       } else if (msg.type === "file" && msg.fileUrl) {
         const safeUrl = sanitizeUrl(msg.fileUrl);
@@ -25646,6 +26148,21 @@ ${this.customData.serverResponse}`;
     }).join("");
     chatMessages.querySelectorAll(".chat-message").forEach((el) => {
       el.addEventListener("click", () => setReplyTo(el));
+    });
+    chatMessages.querySelectorAll(".chat-image-download-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = btn.dataset.url;
+        if (!url) return;
+        chrome.downloads.download({ url, conflictAction: "uniquify" }, () => {
+          if (chrome.runtime.lastError) {
+            showToast("Download failed", "error");
+          } else {
+            showToast("Downloading image...", "success");
+          }
+        });
+      });
     });
     chatMessages.querySelectorAll(".copy-msg-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -25926,6 +26443,20 @@ ${this.customData.serverResponse}`;
     document.getElementById("closePreviewBtn")?.addEventListener("click", hideFilePreview);
     document.getElementById("cancelFileBtn")?.addEventListener("click", hideFilePreview);
     document.getElementById("sendFileBtn")?.addEventListener("click", sendFileFromPreview);
+    document.addEventListener("paste", (e) => {
+      const chatTab = document.getElementById("chatTab");
+      if (!chatTab?.classList.contains("active")) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) showFilePreview(file);
+          return;
+        }
+      }
+    });
     window.setReplyTo = setReplyTo;
     window.clearReply = clearReply;
   }
@@ -26674,6 +27205,19 @@ ${this.customData.serverResponse}`;
       tab.addEventListener("click", async () => {
         smsDeviceTabs.querySelectorAll(".device-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
+        if (currentConversation) {
+          document.getElementById("smsList")?.classList.remove("conversation-open");
+          setCurrentConversation(null);
+          const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+          if (deleteAllBtn) deleteAllBtn.title = "Delete all";
+          const si = document.getElementById("smsSearchInput");
+          if (si) {
+            si.value = "";
+            si.placeholder = "Search messages...";
+            delete si.dataset.convWired;
+            delete si.dataset.wired;
+          }
+        }
         const smsModule = await Promise.resolve().then(() => (init_sms(), sms_exports));
         if (allSMSMessages && allSMSMessages.length > 0) {
           smsModule.renderSMS(allSMSMessages);
@@ -26760,6 +27304,12 @@ ${this.customData.serverResponse}`;
       tab.addEventListener("click", async () => {
         notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
+        const detailView = document.getElementById("notifDetailView");
+        const mainView = document.getElementById("notifMainView");
+        if (detailView && detailView.style.display !== "none") {
+          detailView.style.display = "none";
+          if (mainView) mainView.style.display = "flex";
+        }
         const notifsModule = await Promise.resolve().then(() => (init_notifications(), notifications_exports));
         notifsModule.reRenderNotifications();
       });
@@ -27250,6 +27800,13 @@ ${this.customData.serverResponse}`;
     );
     markAllReadBtn?.addEventListener("click", markAllSmsAsRead);
     deleteAllSmsBtn?.addEventListener("click", deleteAllSms);
+    document.getElementById("smsSelectBtn")?.addEventListener("click", toggleSelectionMode);
+    document.getElementById("smsSelectAll")?.addEventListener("change", (e) => setSelectAll(e.target.checked));
+    document.getElementById("smsDeleteSelectedBtn")?.addEventListener("click", deleteSelectedConversations);
+    document.getElementById("exportSmsBtn")?.addEventListener("click", exportSMSToCSV);
+    document.getElementById("exportCallsBtn")?.addEventListener("click", exportCallsToCSV);
+    document.getElementById("exportNotifBtn")?.addEventListener("click", exportNotificationsToCSV);
+    document.getElementById("clearAllCallsBtn")?.addEventListener("click", clearAllCalls);
     document.getElementById("refreshBtn")?.addEventListener("click", () => {
       showToast("Refreshing...", "info");
       loadData();

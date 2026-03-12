@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   getDocs,
+  addDoc,
   deleteDoc,
   query,
   where,
@@ -18,13 +19,14 @@ import {
 } from "../config/firebase.js";
 
 import { callsList } from "../ui/dom.js";
-import { showListLoading } from "../ui/toasts.js";
+import { showListLoading, showToast } from "../ui/toasts.js";
 import {
   formatTime,
   formatDuration,
   getInitials,
   getCallIcon,
   getFriendlyDeviceName,
+  getDeviceId,
 } from "../utils/helpers.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
@@ -434,6 +436,23 @@ export function renderCalls(calls) {
     );
   }
 
+  // Wire search input once
+  const callsSearch = document.getElementById("callsSearchInput");
+  if (callsSearch && !callsSearch.dataset.wired) {
+    callsSearch.dataset.wired = "1";
+    callsSearch.addEventListener("input", () => renderCalls(state.allCallsData));
+  }
+
+  // Apply search filter
+  const searchQuery = (document.getElementById("callsSearchInput")?.value || "").trim().toLowerCase();
+  if (searchQuery) {
+    filteredCalls = filteredCalls.filter((call) => {
+      const contact = (call.contactName || "").toLowerCase();
+      const phone = (call.phoneNumber || "").toLowerCase();
+      return contact.includes(searchQuery) || phone.includes(searchQuery);
+    });
+  }
+
   if (filteredCalls.length === 0) {
     callsList.innerHTML = `
       <div class="empty-state">
@@ -606,6 +625,12 @@ async function showCallHistory(phoneNumber) {
             phoneNumber !== contactName ? phoneNumber : ""
           }</div>
         </div>
+        <button class="btn btn-small btn-primary" id="dialPhoneBtn" title="Open dialer on phone" style="margin-left:auto;margin-right:8px;display:flex;align-items:center;gap:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+          Dial
+        </button>
       </div>
       <div class="conversation-messages call-history">
         ${calls
@@ -632,6 +657,11 @@ async function showCallHistory(phoneNumber) {
   document.getElementById("backToCalls")?.addEventListener("click", () => {
     state.setCurrentCallConversation(null);
     renderCalls(state.allCallsData);
+  });
+
+  // Dial button handler
+  document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
+    initiateDialRequest(phoneNumber, calls[0]?.deviceId || null);
   });
 }
 
@@ -687,4 +717,74 @@ export async function clearAllCalls() {
   state.setAllCallsData(remaining);
   renderCalls(remaining);
   updateTabBadges();
+}
+
+export async function initiateDialRequest(phoneNumber, preferredDeviceId = null) {
+  const user = state.currentUser;
+  if (!user) return;
+
+  // Determine target device: prefer the device that logged the call, else pick the most recent Android device
+  let targetDeviceId = preferredDeviceId;
+  if (!targetDeviceId) {
+    const devicesSnapshot = await getDocs(collection(db, "devices"));
+    const androidDevices = devicesSnapshot.docs
+      .filter((d) => {
+        const data = d.data();
+        return data.userId === user.uid && !String(data.id || d.id).startsWith("ext_");
+      })
+      .sort((a, b) => (b.data().lastSeen || 0) - (a.data().lastSeen || 0));
+    if (androidDevices.length === 0) {
+      showToast("No Android device available", "error");
+      return;
+    }
+    targetDeviceId = androidDevices[0].data().id || androidDevices[0].id;
+  }
+
+  try {
+    await addDoc(collection(db, "call_requests"), {
+      userId: user.uid,
+      fromDeviceId: await getDeviceId(),
+      toDeviceId: targetDeviceId,
+      phoneNumber: phoneNumber,
+      status: "pending",
+      timestamp: Date.now(),
+    });
+    showToast("Opening dialer on phone…", "success");
+  } catch (err) {
+    console.error("[Calls] initiateDialRequest error:", err);
+    showToast("Failed to send dial request", "error");
+  }
+}
+
+/**
+ * Export all calls to a CSV file download
+ */
+export function exportCallsToCSV() {
+  const calls = state.allCallsData || [];
+  if (calls.length === 0) {
+    alert("No calls to export.");
+    return;
+  }
+
+  const header = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+  const rows = calls.map((c) => {
+    const d = new Date(c.timestamp || 0);
+    const date = d.toLocaleDateString("en-GB");
+    const time = d.toLocaleTimeString();
+    const type = c.type || "";
+    const contact = c.contactName || c.title || "";
+    const phone = c.phoneNumber || c.number || c.sender || "";
+    const duration = c.duration || 0;
+    const device = c.deviceName || "";
+    return [date, time, type, contact, phone, duration, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+  });
+
+  const csv = [header.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `iRopit-Calls-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
