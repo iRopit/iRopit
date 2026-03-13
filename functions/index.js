@@ -1,13 +1,18 @@
 /**
  * Firebase Cloud Functions for iRopit
- * Handles push notifications via FCM
+ * Handles push notifications via FCM and AI-powered features via GPT-4.1
  */
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const OpenAI = require("openai");
+
+const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -503,6 +508,82 @@ exports.onNewDeviceNotification = onDocumentCreated(
     } catch (error) {
       console.error("[onNewDeviceNotification] Error:", error);
       return { error: error.message };
+    }
+  },
+);
+
+/**
+ * Cloud Function: Summarize notifications using GPT-4.1
+ * Callable from the Chrome Extension and mobile app
+ * Requires the OPENAI_API_KEY secret to be configured in Firebase
+ */
+exports.summarizeNotifications = onCall(
+  { secrets: [openaiApiKey] },
+  async (request) => {
+    // Require authentication
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "You must be signed in to use AI features.",
+      );
+    }
+
+    const { notifications, language } = request.data;
+
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "notifications must be a non-empty array.",
+      );
+    }
+
+    const MAX_NOTIFICATIONS = 50;
+    const notificationsToSummarize = notifications.slice(0, MAX_NOTIFICATIONS);
+
+    // Build a plain-text list of notifications for the prompt
+    const notifText = notificationsToSummarize
+      .map((n, i) => {
+        const app = n.appName || n.packageName || "Unknown App";
+        const title = n.title || "";
+        const body = n.text || n.body || "";
+        return `${i + 1}. [${app}] ${title}${body ? ": " + body : ""}`;
+      })
+      .join("\n");
+
+    const isArabic = language === "ar";
+    const systemPrompt = isArabic
+      ? "أنت مساعد ذكي متخصص في تلخيص الإشعارات. قدم ملخصاً موجزاً وواضحاً للإشعارات المدرجة، مجمعاً التطبيقات المتشابهة معاً. أجب باللغة العربية فقط."
+      : "You are a smart assistant specialized in summarizing phone notifications. Provide a concise, clear summary of the listed notifications, grouping similar apps together. Be brief and actionable.";
+
+    const userPrompt = isArabic
+      ? `لخّص الإشعارات التالية:\n\n${notifText}`
+      : `Summarize these notifications:\n\n${notifText}`;
+
+    try {
+      const openai = new OpenAI({ apiKey: openaiApiKey.value() });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.5,
+      });
+
+      const summary = completion.choices[0]?.message?.content?.trim() || "";
+      console.log(
+        `[summarizeNotifications] Summary generated for user ${request.auth.uid}`,
+      );
+
+      return { summary };
+    } catch (error) {
+      console.error("[summarizeNotifications] OpenAI error:", error.message);
+      throw new HttpsError(
+        "internal",
+        "Failed to generate summary. Please try again later.",
+      );
     }
   },
 );

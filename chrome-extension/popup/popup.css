@@ -3004,3 +3004,39 @@ html.dark .profile-logout-btn-footer {
 @keyframes sync-spin {
   to { transform: rotate(360deg); }
 }
+
+/* AI Summary Panel */
+.ai-summary-panel {
+  margin: 8px 12px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.ai-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.ai-summary-content {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ai-summary-content.loading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.ai-summary-content.error {
+  color: #e74c3c;
+}
