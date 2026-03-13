@@ -306,6 +306,7 @@ export const useChatScreen = () => {
     const unsubscribe = firestore()
       .collection('chats')
       .where('participants', 'array-contains', user.uid)
+      .orderBy('timestamp', 'desc')
       .limit(100)
       .onSnapshot(
         async snapshot => {

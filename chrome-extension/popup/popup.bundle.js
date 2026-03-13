@@ -26021,6 +26021,7 @@ ${this.customData.serverResponse}`;
     const q2 = query(
       collection(db, "chats"),
       where("participants", "array-contains", user.uid),
+      orderBy("timestamp", "desc"),
       limit(100)
     );
     const seenMessageIds = /* @__PURE__ */ new Set();

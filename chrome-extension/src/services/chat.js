@@ -11,6 +11,7 @@ import {
   query,
   where,
   limit,
+  orderBy,
   onSnapshot,
   ref,
   uploadBytes,
@@ -55,6 +56,7 @@ export function subscribeToChat() {
   const q = query(
     collection(db, "chats"),
     where("participants", "array-contains", user.uid),
+    orderBy("timestamp", "desc"),
     limit(100),
   );
 
