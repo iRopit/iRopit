@@ -27,6 +27,7 @@ import {
 import { renderAppIcon } from "../utils/appIcons.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
+import { summarizeNotifications as aiSummarize } from "./ai.js";
 
 export async function loadNotifications() {
   const user = state.currentUser;
@@ -322,10 +323,50 @@ function renderNotifications(notifications) {
   const clearNotifBtn = document.getElementById("clearAllNotifBtn");
   if (clearNotifBtn) clearNotifBtn.onclick = clearAllNotifications;
 
+  // Wire the "AI Summarize" button
+  const summarizeBtn = document.getElementById("summarizeNotifBtn");
+  if (summarizeBtn) summarizeBtn.onclick = () => handleAiSummarize(notifications);
+
   updateTabBadges();
 }
 
-async function markNotificationAsRead(deviceId, notifId) {
+/**
+ * Handle AI summarize button click - calls GPT-4.1 via Firebase Function
+ * @param {Array} notifications - Notifications currently visible in the list
+ */
+async function handleAiSummarize(notifications) {
+  const panel = document.getElementById("aiSummaryPanel");
+  const content = document.getElementById("aiSummaryContent");
+  const closeBtn = document.getElementById("aiSummaryCloseBtn");
+
+  if (!panel || !content) return;
+
+  if (notifications.length === 0) {
+    panel.style.display = "block";
+    content.className = "ai-summary-content";
+    content.textContent = "No notifications to summarize.";
+    if (closeBtn) closeBtn.onclick = () => { panel.style.display = "none"; };
+    return;
+  }
+
+  panel.style.display = "block";
+  content.className = "ai-summary-content loading";
+  content.textContent = "Generating summary with GPT-4.1…";
+
+  if (closeBtn) closeBtn.onclick = () => { panel.style.display = "none"; };
+
+  try {
+    const summary = await aiSummarize(notifications);
+    content.className = "ai-summary-content";
+    content.textContent = summary;
+  } catch (error) {
+    content.className = "ai-summary-content error";
+    content.textContent = "Failed to generate summary. Please try again.";
+    console.error("[AI] Summarize error:", error);
+  }
+}
+
+
   const user = state.currentUser;
   if (!user) return;
 
