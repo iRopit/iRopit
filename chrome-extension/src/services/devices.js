@@ -149,8 +149,9 @@ export function renderDevices() {
   if (devices.length === 0) {
     devicesList.innerHTML = `
       <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+        <svg width="48" height="48" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="128" y="16" width="256" height="480" rx="48" ry="48"/>
+          <line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48" stroke-linecap="round"/>
         </svg>
         <p>No devices connected</p>
         <span>Install iRopit on your phone to get started</span>
@@ -167,13 +168,17 @@ export function renderDevices() {
     }" data-device-id="${device.id}" data-device-doc-id="${device.docId}">
       <div class="list-item-icon">
         ${
-          device.type === "mobile" || device.platform === "android"
-            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
-          </svg>`
-            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>`
+          device.type === "mobile" || device.platform === "android" || device.platform === "Android" || device.platform === "ios" || device.type === "phone"
+            ? `<!-- phone-portrait-outline (Ionicons) -->
+              <svg width="20" height="20" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="128" y="16" width="256" height="480" rx="48" ry="48"/>
+                <line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48" stroke-linecap="round"/>
+              </svg>`
+            : `<!-- laptop-outline (Ionicons) -->
+              <svg width="20" height="20" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="48" y="80" width="416" height="288" rx="32" ry="32"/>
+                <line x1="16" y1="416" x2="496" y2="416"/>
+              </svg>`
         }
       </div>
       <div class="list-item-content">

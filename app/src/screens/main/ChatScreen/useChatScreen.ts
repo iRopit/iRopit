@@ -20,7 +20,7 @@ const { FilePickerModule } = NativeModules;
 export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
   const { user } = useAuthStore();
-  const { currentDevice, devices } = useDeviceStore();
+  const { currentDevice, devices, loadDevices } = useDeviceStore();
 
   const pendingShare = useShareStore(state => state.pendingShare);
   const clearPendingShare = useShareStore(state => state.clearPendingShare);
@@ -44,6 +44,13 @@ export const useChatScreen = () => {
   const textColor = colors.text;
   const secondaryTextColor = colors.textSecondary;
   const surfaceColor = isDarkMode ? colors.surface : colors.surfaceSecondary;
+
+  // Load devices when user is available so selector is populated
+  useEffect(() => {
+    if (user?.uid) {
+      loadDevices();
+    }
+  }, [user?.uid]);
 
   // Keyboard listener for Android
   useEffect(() => {

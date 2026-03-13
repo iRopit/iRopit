@@ -13,7 +13,6 @@ import {
   Alert,
   ToastAndroid,
   KeyboardAvoidingView,
-  ScrollView,
   Share,
   Linking,
 } from 'react-native';
@@ -28,6 +27,7 @@ import { useChatScreen } from './useChatScreen';
 
 const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleDownloadImage = async (url: string) => {
     if (Platform.OS === 'android') {
@@ -297,42 +297,163 @@ const ChatScreen = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
 
-      {/* Device tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}
-      >
-        <TouchableOpacity
-          onPress={() => setSelectedDeviceId(null)}
-          style={[
-            { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginRight: 6,
-              backgroundColor: !selectedDeviceId ? colors.primary : surfaceColor },
-          ]}
-        >
-          <Text style={{ color: !selectedDeviceId ? colors.textInverse : textColor, fontSize: 13, fontWeight: '600' }}>
-            {isRTL ? 'الكل' : 'All'}
-          </Text>
-        </TouchableOpacity>
-        {devices
-          .filter(d => d.id !== currentDevice?.id)
-          .map(d => (
+      {/* Device selector dropdown */}
+      {(() => {
+        const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
+        const selectedDevice = otherDevices.find(d => d.id === selectedDeviceId);
+        const selPlatform = (selectedDevice as any)?.platform || selectedDevice?.type || '';
+        const selIcon = selectedDevice
+          ? selPlatform.includes('chrome') ? 'laptop-outline' : 'phone-portrait-outline'
+          : 'layers-outline';
+        const selLabel = selectedDevice
+          ? ((selectedDevice as any).nickname || selectedDevice.name || (selectedDevice as any).model || 'Device')
+          : (isRTL ? 'كل الأجهزة' : 'All Devices');
+        const selOnline = (selectedDevice as any)?.isOnline;
+
+        return (
+          <>
+            {/* Trigger row */}
             <TouchableOpacity
-              key={d.id}
-              onPress={() => setSelectedDeviceId(d.id)}
-              style={[
-                { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginRight: 6,
-                  backgroundColor: selectedDeviceId === d.id ? colors.primary : surfaceColor },
-              ]}
+              onPress={() => setDropdownOpen(true)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginHorizontal: 12,
+                marginVertical: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 9,
+                borderRadius: 10,
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+                borderWidth: 1,
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+              }}
             >
-              <Text style={{ color: selectedDeviceId === d.id ? colors.textInverse : textColor, fontSize: 13, fontWeight: '600' }}>
-                {(d as any).nickname || d.name || d.model || d.id}
+              <View style={{ position: 'relative', marginRight: 8 }}>
+                <Ionicons name={selIcon} size={16} color={colors.primary} />
+                {selectedDevice && (
+                  <View style={{
+                    position: 'absolute', bottom: -2, right: -3,
+                    width: 7, height: 7, borderRadius: 4,
+                    backgroundColor: selOnline ? '#22c55e' : '#9ca3af',
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#1f2937' : '#ffffff',
+                  }} />
+                )}
+              </View>
+              <Text style={{ flex: 1, color: textColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                {isRTL ? 'إرسال إلى: ' : 'Send to: '}{selLabel}
               </Text>
+              <Ionicons name="chevron-down" size={14} color={secondaryTextColor} />
             </TouchableOpacity>
-          ))
-        }
-      </ScrollView>
+
+            {/* Dropdown Modal */}
+            <Modal
+              visible={dropdownOpen}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setDropdownOpen(false)}
+            >
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+                activeOpacity={1}
+                onPress={() => setDropdownOpen(false)}
+              >
+                <View
+                  style={{
+                    margin: 16,
+                    marginTop: 120,
+                    borderRadius: 14,
+                    backgroundColor: isDarkMode ? '#1e1e2e' : '#ffffff',
+                    overflow: 'hidden',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 12,
+                    elevation: 8,
+                  }}
+                >
+                  {/* Header */}
+                  <View style={{
+                    paddingHorizontal: 16, paddingVertical: 12,
+                    borderBottomWidth: 1,
+                    borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                  }}>
+                    <Text style={{ color: secondaryTextColor, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {isRTL ? 'اختر الجهاز' : 'Select Device'}
+                    </Text>
+                  </View>
+
+                  {/* All option */}
+                  {[{ id: null, icon: 'layers-outline', label: isRTL ? 'كل الأجهزة' : 'All Devices', isOnline: true }]
+                    .concat(
+                      otherDevices.map(d => ({
+                        id: d.id,
+                        icon: ((d as any).platform || d.type || '').includes('chrome') ? 'laptop-outline' : 'phone-portrait-outline',
+                        label: (d as any).nickname || d.name || (d as any).model || 'Device',
+                        isOnline: (d as any).isOnline,
+                      })) as any[],
+                    )
+                    .map((opt: any, idx: number) => {
+                      const isActive = opt.id === selectedDeviceId;
+                      return (
+                        <TouchableOpacity
+                          key={opt.id ?? '__all__'}
+                          onPress={() => { setSelectedDeviceId(opt.id); setDropdownOpen(false); }}
+                          activeOpacity={0.7}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingHorizontal: 16,
+                            paddingVertical: 13,
+                            backgroundColor: isActive
+                              ? (isDarkMode ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)')
+                              : 'transparent',
+                            borderTopWidth: idx === 0 ? 0 : 1,
+                            borderTopColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                          }}
+                        >
+                          <View style={{ position: 'relative', marginRight: 12 }}>
+                            <Ionicons
+                              name={opt.icon}
+                              size={18}
+                              color={isActive ? colors.primary : secondaryTextColor}
+                            />
+                            {opt.id !== null && (
+                              <View style={{
+                                position: 'absolute', bottom: -2, right: -3,
+                                width: 8, height: 8, borderRadius: 4,
+                                backgroundColor: opt.isOnline ? '#22c55e' : '#9ca3af',
+                                borderWidth: 1.5,
+                                borderColor: isDarkMode ? '#1e1e2e' : '#ffffff',
+                              }} />
+                            )}
+                          </View>
+                          <Text style={{
+                            flex: 1,
+                            color: isActive ? colors.primary : textColor,
+                            fontSize: 15,
+                            fontWeight: isActive ? '700' : '400',
+                          }}>
+                            {opt.label}
+                          </Text>
+                          {opt.id !== null && (
+                            <Text style={{ color: opt.isOnline ? '#22c55e' : secondaryTextColor, fontSize: 11, fontWeight: '600' }}>
+                              {opt.isOnline ? (isRTL ? 'متصل' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+                            </Text>
+                          )}
+                          {isActive && (
+                            <Ionicons name="checkmark" size={16} color={colors.primary} style={{ marginLeft: 8 }} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          </>
+        );
+      })()}
 
       {isLoading && messages.length === 0 ? (
         <View style={styles.loadingContainer}>
