@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert, Keyboard, NativeModules, Platform } from 'react-native';
+import { Alert, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
 import { useShareStore } from '../../../store/shareStore';
+import { COLLECTIONS } from '../../../constants';
 import firestore from '@react-native-firebase/firestore';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { FlatList } from 'react-native';
@@ -45,11 +46,24 @@ export const useChatScreen = () => {
   const secondaryTextColor = colors.textSecondary;
   const surfaceColor = isDarkMode ? colors.surface : colors.surfaceSecondary;
 
-  // Load devices when user is available so selector is populated
+  // Real-time device subscription — ensures devices are always populated before sending
   useEffect(() => {
-    if (user?.uid) {
-      loadDevices();
-    }
+    if (!user?.uid) return;
+    const unsubscribe = firestore()
+      .collection(COLLECTIONS.DEVICES)
+      .where('userId', '==', user.uid)
+      .onSnapshot(
+        snapshot => {
+          const devs: any[] = [];
+          snapshot.forEach(doc => devs.push({ id: doc.id, ...doc.data() }));
+          useDeviceStore.setState({ devices: devs });
+        },
+        () => {
+          // Fallback to one-time fetch on snapshot error
+          loadDevices();
+        },
+      );
+    return () => unsubscribe();
   }, [user?.uid]);
 
   // Keyboard listener for Android
@@ -225,22 +239,22 @@ export const useChatScreen = () => {
           participants: [user.uid],
         };
 
-        // Encrypt message before sending
         fileMessageData = await encryptChatMessage(fileMessageData, user.uid);
+
+        const fileWrites: Promise<any>[] = [];
         if (!selectedDeviceId) {
           const otherDevices = devices.filter(d => d.id !== currentDevice.id);
           if (otherDevices.length > 0) {
-            await Promise.all(
-              otherDevices.map(d =>
-                firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: d.id }),
-              ),
+            otherDevices.forEach(d =>
+              fileWrites.push(firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: d.id })),
             );
           } else {
-            await firestore().collection('chats').add(fileMessageData);
+            fileWrites.push(firestore().collection('chats').add(fileMessageData));
           }
         } else {
-          await firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: selectedDeviceId });
+          fileWrites.push(firestore().collection('chats').add({ ...fileMessageData, receiverDeviceId: selectedDeviceId }));
         }
+        await Promise.all(fileWrites);
       } catch (_error) {
         Alert.alert(
           isRTL ? 'خطأ' : 'Error',
@@ -317,7 +331,16 @@ export const useChatScreen = () => {
           const decryptedMsgs = await Promise.all(
             filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
           );
-          setMessages(decryptedMsgs as Message[]);
+          // Deduplicate: fan-out creates one Firestore doc per device;
+          // collapse copies with same sender + timestamp + content into one.
+          const seen = new Set<string>();
+          const dedupedMsgs = decryptedMsgs.filter(msg => {
+            const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setMessages(dedupedMsgs as Message[]);
           setIsLoading(false);
         },
         _error => {
@@ -335,9 +358,13 @@ export const useChatScreen = () => {
 
   // Send message
   const sendMessage = useCallback(async () => {
-    if (!inputText.trim() || !user?.uid || !currentDevice) {
-      return;
-    }
+    const text = inputText.trim();
+    if (!text || !user?.uid || !currentDevice) return;
+
+    // Optimistic UI — clear input immediately so there's no perceived delay
+    setInputText('');
+    setReplyTo(null);
+    scrollToEnd(true);
 
     let messageData: any = {
       senderId: user.uid,
@@ -349,7 +376,7 @@ export const useChatScreen = () => {
         'Android Device',
       senderPlatform: (currentDevice as any).platform || 'android',
       receiverId: user.uid,
-      content: inputText.trim(),
+      content: text,
       type: 'text',
       read: false,
       timestamp: Date.now(),
@@ -365,32 +392,31 @@ export const useChatScreen = () => {
     }
 
     try {
-      // Encrypt message before sending
       messageData = await encryptChatMessage(messageData, user.uid);
-      if (!selectedDeviceId) {
-        // 'All' tab — fan out to each other device individually
-        const otherDevices = devices.filter(d => d.id !== currentDevice.id);
-        if (otherDevices.length > 0) {
-          await Promise.all(
-            otherDevices.map(d =>
-              firestore().collection('chats').add({ ...messageData, receiverDeviceId: d.id }),
-            ),
-          );
-        } else {
-          await firestore().collection('chats').add(messageData);
-        }
-      } else {
-        await firestore().collection('chats').add({ ...messageData, receiverDeviceId: selectedDeviceId });
-      }
-      setInputText('');
-      setReplyTo(null);
-    } catch (_error) {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        isRTL ? 'فشل في إرسال الرسالة' : 'Failed to send message',
-      );
+    } catch {
+      ToastAndroid.show(isRTL ? 'فشل في إرسال الرسالة' : 'Failed to send message', ToastAndroid.SHORT);
+      return;
     }
-  }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices]);
+
+    // Fire writes without awaiting — non-blocking so UI stays responsive
+    const writes: Promise<any>[] = [];
+    if (!selectedDeviceId) {
+      const otherDevices = devices.filter(d => d.id !== currentDevice.id);
+      if (otherDevices.length > 0) {
+        otherDevices.forEach(d =>
+          writes.push(firestore().collection('chats').add({ ...messageData, receiverDeviceId: d.id })),
+        );
+      } else {
+        // Devices not yet loaded — send without receiver; sender sees their own message
+        writes.push(firestore().collection('chats').add(messageData));
+      }
+    } else {
+      writes.push(firestore().collection('chats').add({ ...messageData, receiverDeviceId: selectedDeviceId }));
+    }
+    Promise.all(writes).catch(() => {
+      ToastAndroid.show(isRTL ? 'فشل في إرسال الرسالة' : 'Failed to send message', ToastAndroid.SHORT);
+    });
+  }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices, scrollToEnd]);
 
   // Delete all messages
   const deleteAllMessages = useCallback(async () => {
@@ -454,9 +480,21 @@ export const useChatScreen = () => {
     setReplyTo(null);
   }, []);
 
-  const scrollToEnd = useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+  const scrollToEnd = useCallback((animated = true) => {
+    // Defer to next frame so layout is complete
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+    });
   }, []);
+
+  // Scroll to bottom whenever new messages arrive.
+  // Use setTimeout so the FlatList has time to lay out the new item before scrolling.
+  useEffect(() => {
+    if (messages.length > 0) {
+      const t = setTimeout(() => scrollToEnd(false), 150);
+      return () => clearTimeout(t);
+    }
+  }, [messages.length]);
 
   return {
     // State

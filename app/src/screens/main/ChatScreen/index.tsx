@@ -475,7 +475,8 @@ const ChatScreen = () => {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           ListEmptyComponent={renderEmptyComponent}
-          onContentSizeChange={scrollToEnd}
+          onLayout={() => scrollToEnd(false)}
+          onContentSizeChange={() => scrollToEnd(false)}
         />
       )}
 

@@ -26061,6 +26061,13 @@ ${this.customData.serverResponse}`;
         return msg.senderDeviceId === selectedTab || msg.receiverDeviceId === selectedTab;
       });
     }
+    const seenMsgKeys = /* @__PURE__ */ new Set();
+    filteredMessages = filteredMessages.filter((msg) => {
+      const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ""}`;
+      if (seenMsgKeys.has(key)) return false;
+      seenMsgKeys.add(key);
+      return true;
+    });
     if (filteredMessages.length === 0) {
       chatMessages.innerHTML = `
       <div class="empty-state">
@@ -26200,20 +26207,27 @@ ${this.customData.serverResponse}`;
         senderId: currentReplyTo.senderId
       };
     }
+    chatInput.value = "";
+    clearReply();
     try {
       messageData = await encryptChatMessage(messageData, user.uid);
       if (selectedDeviceTab === "all" && devices.length > 0) {
-        await Promise.all(
-          devices.map(async (dev) => {
-            const perDevice = { ...messageData, receiverDeviceId: dev.id };
-            await addDoc(collection(db, "chats"), perDevice);
-          })
+        const targetDevices = devices.filter(
+          (dev) => !dev.id.startsWith("ext_") && dev.id !== deviceId
         );
+        if (targetDevices.length > 0) {
+          await Promise.all(
+            targetDevices.map(async (dev) => {
+              const perDevice = { ...messageData, receiverDeviceId: dev.id };
+              await addDoc(collection(db, "chats"), perDevice);
+            })
+          );
+        } else {
+          await addDoc(collection(db, "chats"), messageData);
+        }
       } else {
         await addDoc(collection(db, "chats"), messageData);
       }
-      chatInput.value = "";
-      clearReply();
     } catch (error) {
       console.error("Failed to send message:", error);
       showToast("Failed to send message", "error");
@@ -26412,8 +26426,11 @@ ${this.customData.serverResponse}`;
   }
   function initChatListeners() {
     sendChatBtn?.addEventListener("click", sendChatMessage);
-    chatInput?.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendChatMessage();
+    chatInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
     });
     document.getElementById("attachFileBtn")?.addEventListener("click", () => {
       const input = document.createElement("input");

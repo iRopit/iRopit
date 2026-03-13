@@ -127,6 +127,16 @@ export function renderChatMessages(messages) {
     });
   }
 
+  // Deduplicate: fan-out sends one Firestore doc per device, so the same
+  // logical message may appear multiple times. Collapse by sender + timestamp + content.
+  const seenMsgKeys = new Set();
+  filteredMessages = filteredMessages.filter((msg) => {
+    const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ''}`;
+    if (seenMsgKeys.has(key)) return false;
+    seenMsgKeys.add(key);
+    return true;
+  });
+
   if (filteredMessages.length === 0) {
     chatMessages.innerHTML = `
       <div class="empty-state">
@@ -316,22 +326,33 @@ export async function sendChatMessage() {
     };
   }
 
+  // Optimistic clear so user can type next message immediately
+  chatInput.value = "";
+  clearReply();
+
   try {
     // Encrypt message before sending
     messageData = await encryptChatMessage(messageData, user.uid);
     if (selectedDeviceTab === "all" && state.devices.length > 0) {
-      // Fan out to each known device individually so each device only sees its own messages
-      await Promise.all(
-        state.devices.map(async (dev) => {
-          const perDevice = { ...messageData, receiverDeviceId: dev.id };
-          await addDoc(collection(db, "chats"), perDevice);
-        })
+      // Fan out to mobile/non-extension devices so each sees its own copy;
+      // exclude the extension's own device to avoid duplicate rendering
+      const targetDevices = state.devices.filter(
+        (dev) => !dev.id.startsWith("ext_") && dev.id !== deviceId
       );
+      if (targetDevices.length > 0) {
+        await Promise.all(
+          targetDevices.map(async (dev) => {
+            const perDevice = { ...messageData, receiverDeviceId: dev.id };
+            await addDoc(collection(db, "chats"), perDevice);
+          })
+        );
+      } else {
+        // No mobile devices — send as broadcast so the extension still sees it
+        await addDoc(collection(db, "chats"), messageData);
+      }
     } else {
       await addDoc(collection(db, "chats"), messageData);
     }
-    chatInput.value = "";
-    clearReply();
 
     // Push notification is sent automatically by Cloud Function onNewChatMessage
   } catch (error) {
@@ -623,8 +644,11 @@ export function clearReply() {
  */
 export function initChatListeners() {
   sendChatBtn?.addEventListener("click", sendChatMessage);
-  chatInput?.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendChatMessage();
+  chatInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
   });
 
   // File attachment button - show preview
