@@ -99,6 +99,11 @@ const ChatScreen = () => {
     const isMyMessage = (item as any).senderDeviceId === currentDevice?.id;
     const msgType = (item as any).type;
     const fileUrl = (item as any).fileUrl;
+    // Detect RTL content (Arabic/Hebrew characters)
+    const isRTL = /[\u0600-\u06FF\u0590-\u05FF]/.test(item.content || '');
+    // Bubble side: sent Arabic → right, sent English → left; received mirrors
+    const isRight = isMyMessage === isRTL;
+    const bubbleAlign = isRight ? 'flex-end' : 'flex-start';
 
     return (
       <AnimatedListItem index={index}>
@@ -106,6 +111,7 @@ const ChatScreen = () => {
           style={[
             styles.messageWrapper,
             isMyMessage && styles.myMessageWrapper,
+            { alignSelf: bubbleAlign, alignItems: bubbleAlign },
           ]}
         >
           {!isMyMessage && (
@@ -218,7 +224,7 @@ const ChatScreen = () => {
               <Text
                 style={[
                   styles.messageText,
-                  { color: isMyMessage ? colors.textInverse : textColor },
+                  { color: isMyMessage ? colors.textInverse : textColor, textAlign: isRTL ? 'right' : 'left' },
                 ]}
               >
                 {item.content}
