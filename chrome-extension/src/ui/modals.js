@@ -325,6 +325,15 @@ async function sendNewSms() {
  * Initialize profile footer toggle
  */
 export function initProfileFooter() {
+  // Always read version from the installed manifest so it's always current
+  const manifest = chrome.runtime.getManifest();
+  const versionStr = `v${manifest.version}`;
+  const versionEl = document.getElementById("extensionVersion");
+  if (versionEl) versionEl.textContent = versionStr;
+  document.querySelectorAll(".settings-version").forEach((el) => {
+    el.textContent = `iRopit ${versionStr}`;
+  });
+
   const toggleProfileBtn = document.getElementById("toggleProfileBtn");
   const profileFooter = document.getElementById("profileFooter");
 
