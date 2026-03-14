@@ -108,28 +108,16 @@ public class CallRequestService extends Service {
             String displayName = (contactName != null && !contactName.isEmpty())
                 ? contactName : phoneNumber;
 
-            // Launch DialerActivity directly — it's a transparent trampoline that opens
-            // the system dialer. Works on all Android versions because we're a foreground service.
-            boolean launched = false;
-            try {
-                Intent activityIntent = new Intent(this, DialerActivity.class);
-                activityIntent.putExtra("phoneNumber", phoneNumber);
-                activityIntent.putExtra("notificationId", -1);
-                activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                startActivity(activityIntent);
-                launched = true;
-                Log.d(TAG, "DialerActivity launched directly for: " + displayName);
-            } catch (Exception e) {
-                Log.w(TAG, "Direct launch failed, falling back to notification: " + e.getMessage());
-            }
-
-            // Fallback: notification with full-screen intent (in case direct launch is blocked)
-            if (!launched) {
-                Intent dialIntent = new Intent(Intent.ACTION_DIAL);
-                dialIntent.setData(Uri.parse("tel:" + Uri.encode(phoneNumber)));
-                dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                showDialNotification(phoneNumber, displayName, dialIntent);
-            }
+            // Always use a full-screen-intent notification to trigger the dialer.
+            // Direct startActivity() is silently blocked on Android 10+ when the app is in
+            // the background (no exception is thrown, so we can't detect the failure).
+            // fullScreenIntent is the correct Android mechanism for call-like scenarios:
+            //   - device idle/locked  → launches DialerActivity automatically
+            //   - app in foreground   → shows heads-up notification that user can tap
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL);
+            dialIntent.setData(Uri.parse("tel:" + Uri.encode(phoneNumber)));
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            showDialNotification(phoneNumber, displayName, dialIntent);
 
             // Mark request as processed
             db.collection("call_requests").document(docId)
