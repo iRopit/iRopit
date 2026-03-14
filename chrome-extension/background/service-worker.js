@@ -19,13 +19,6 @@ import {
   getDocs,
   addDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
-
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
 
@@ -35,7 +28,6 @@ console.log("ZyncIT: Service Worker starting...");
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 console.log("ZyncIT: Firebase initialized");
 
@@ -1049,55 +1041,13 @@ async function sendPageToDevice(url, targetDeviceId) {
   }
 }
 
-/** Fetch an image from srcUrl, upload to Firebase Storage, send as image message. */
+/** Send an image URL as a chat message (sent as text so the receiver can open/download it). */
 async function sendImageToDevice(srcUrl, targetDeviceId) {
   if (!currentUser) return;
-  try {
-    // Fetch the image bytes
-    const response = await fetch(srcUrl);
-    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-    const blob = await response.blob();
-    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-    const fileName = `chat_img_${Date.now()}.${ext}`;
-
-    // Upload to Firebase Storage
-    const fileRef = storageRef(storage, `chat_images/${currentUser.uid}/${fileName}`);
-    await uploadBytes(fileRef, blob, { contentType: blob.type });
-    const downloadUrl = await getDownloadURL(fileRef);
-
-    // Build chat message
-    const base = {
-      senderId: currentUser.uid,
-      senderDeviceId: currentDeviceId || 'ext_sw',
-      senderPlatform: 'chrome-extension',
-      senderName: currentUser.displayName || 'Extension',
-      receiverId: currentUser.uid,
-      fileUrl: downloadUrl,
-      fileName,
-      content: '',
-      type: 'image',
-      read: false,
-      timestamp: Date.now(),
-      participants: [currentUser.uid],
-    };
-
-    if (!targetDeviceId) {
-      if (contextMenuDevices.length === 0) {
-        await addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: null });
-      } else {
-        await Promise.all(
-          contextMenuDevices.map((dev) =>
-            addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: dev.id })
-          )
-        );
-      }
-    } else {
-      await addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: targetDeviceId });
-    }
-    console.log('ZyncIT: ✅ Image sent:', fileName, '→', targetDeviceId || 'all');
-  } catch (e) {
-    console.error('ZyncIT: Failed to send image:', e);
-  }
+  // Send the image URL as a plain text message — lightweight, no upload needed.
+  // The receiving app displays it inline if it recognises an image URL.
+  await sendTextToDevice(srcUrl, targetDeviceId);
+  console.log('ZyncIT: ✅ Image URL sent:', srcUrl.slice(0, 80), '→', targetDeviceId || 'all');
 }
 
 // Handle context menu clicks
