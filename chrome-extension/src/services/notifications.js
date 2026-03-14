@@ -27,10 +27,37 @@ import {
 import { renderAppIcon } from "../utils/appIcons.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
+import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
 
 export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
+
+  // === STEP 1: Show cached notifications instantly ===
+  try {
+    const cached = await getCachedNotifications();
+    if (cached && cached.byDevice) {
+      let hasData = false;
+      for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+        if (notifs.length > 0) {
+          state.setNotificationsData(deviceId, notifs);
+          hasData = true;
+        }
+      }
+      if (hasData) {
+        const merged = getMergedNotifications();
+        renderNotifications(merged.slice(0, 200));
+        updateTabBadges();
+        // Hide the loading spinner since we showed cached data
+        if (notificationsList && notificationsList.querySelector('.loading-spinner')) {
+          // spinner will be replaced by the rendered list above
+        }
+        console.log("[Notifications] 📦 Showed cached notifications instantly");
+      }
+    }
+  } catch (e) {
+    console.warn("[Notifications] Cache load failed:", e);
+  }
 
   const userNotificationsQuery = query(
     collection(db, "users", user.uid, "notifications"),
@@ -52,9 +79,12 @@ export async function loadNotifications() {
       });
     });
     updateNotificationsList("_user_notifications", notifications);
+    // Persist to cache after each update
+    cacheNotificationsData(state.allNotifications).catch(() => {});
   });
   state.addUnsubscriber(userNotifUnsub);
 
+  // === STEP 2: Fetch devices and subscribe to device notifications ===
   const devicesQuery = query(
     collection(db, "devices"),
     where("userId", "==", user.uid),
@@ -114,6 +144,8 @@ export async function loadNotifications() {
           });
         });
         updateNotificationsList(device.id, notifications);
+        // Persist to cache after each device update
+        cacheNotificationsData(state.allNotifications).catch(() => {});
       },
       // (error) => {
       //   console.error(

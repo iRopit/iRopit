@@ -72,6 +72,19 @@ const AppContent = () => {
             ]);
           }
 
+          // Request POST_NOTIFICATIONS on Android 13+ — without it, ALL app
+          // notifications (including the dial-prompt) are silently suppressed.
+          if (Platform.Version >= 33) {
+            const hasNotifPerm = await PermissionsAndroid.check(
+              'android.permission.POST_NOTIFICATIONS' as any,
+            );
+            if (!hasNotifPerm) {
+              await PermissionsAndroid.request(
+                'android.permission.POST_NOTIFICATIONS' as any,
+              );
+            }
+          }
+
           const isGranted = await NotificationModule.isPermissionGranted();
           if (!isGranted) {
             // Show alert to guide user to enable Notification Access

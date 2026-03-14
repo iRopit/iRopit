@@ -60,6 +60,7 @@ const ChatScreen = () => {
     isTyping,
     isLoading,
     isUploading,
+    uploadProgress,
     keyboardHeight,
     user,
     currentDevice,
@@ -82,7 +83,6 @@ const ChatScreen = () => {
     pickDocument,
     sendMessage,
     deleteAllMessages,
-    scrollToEnd,
   } = useChatScreen();
 
   // Render message item
@@ -465,7 +465,8 @@ const ChatScreen = () => {
       ) : (
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={[...messages].reverse()}
+          inverted={true}
           keyExtractor={item => item.id}
           renderItem={renderMessageItem}
           contentContainerStyle={[
@@ -475,8 +476,6 @@ const ChatScreen = () => {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           ListEmptyComponent={renderEmptyComponent}
-          onLayout={() => scrollToEnd(false)}
-          onContentSizeChange={() => scrollToEnd(false)}
         />
       )}
 
@@ -555,8 +554,10 @@ const ChatScreen = () => {
         />
 
         {isUploading ? (
-          <View style={styles.sendButton}>
-            <ActivityIndicator size="small" color={colors.textInverse} />
+          <View style={[styles.sendButton, { backgroundColor: colors.primary, opacity: 0.8 }]}>
+            <Text style={{ color: colors.textInverse, fontSize: 11, fontWeight: 'bold' }}>
+              {uploadProgress > 0 ? `${uploadProgress}%` : '…'}
+            </Text>
           </View>
         ) : (
           <TouchableOpacity

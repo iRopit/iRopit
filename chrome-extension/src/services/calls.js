@@ -659,9 +659,10 @@ async function showCallHistory(phoneNumber) {
     renderCalls(state.allCallsData);
   });
 
-  // Dial button handler
+  // Dial button handler — always query current registered device (don't use
+  // stale deviceId from call history which may differ from the active device)
   document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
-    initiateDialRequest(phoneNumber, calls[0]?.deviceId || null);
+    initiateDialRequest(phoneNumber, null);
   });
 }
 
@@ -721,9 +722,13 @@ export async function clearAllCalls() {
 
 export async function initiateDialRequest(phoneNumber, preferredDeviceId = null) {
   const user = state.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.warn("[Calls] initiateDialRequest: no user logged in");
+    showToast("Not logged in", "error");
+    return;
+  }
 
-  // Determine target device: prefer the device that logged the call, else pick the most recent Android device
+  // Determine target device: always query Firestore for the most recent Android device
   let targetDeviceId = preferredDeviceId;
   if (!targetDeviceId) {
     const devicesSnapshot = await getDocs(collection(db, "devices"));
@@ -740,6 +745,8 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
     targetDeviceId = androidDevices[0].data().id || androidDevices[0].id;
   }
 
+  console.log("[Calls] Sending dial request to device:", targetDeviceId, "phone:", phoneNumber);
+
   try {
     await addDoc(collection(db, "call_requests"), {
       userId: user.uid,
@@ -749,6 +756,7 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
       status: "pending",
       timestamp: Date.now(),
     });
+    console.log("[Calls] call_request created successfully for", targetDeviceId);
     showToast("Opening dialer on phone…", "success");
   } catch (err) {
     console.error("[Calls] initiateDialRequest error:", err);

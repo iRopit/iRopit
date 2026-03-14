@@ -60,9 +60,6 @@ async function loadDevicesAndContacts() {
 function loadData() {
   cleanupSubscriptions();
 
-  // Only show loading for notifications which aren't cached
-  if (notificationsList) showListLoading(notificationsList);
-
   // Load SMS and Calls IMMEDIATELY - cache shows instantly, Firebase refreshes in background
   loadSMS();
   loadCalls();

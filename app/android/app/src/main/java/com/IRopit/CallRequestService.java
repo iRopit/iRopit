@@ -77,12 +77,17 @@ public class CallRequestService extends Service {
             .whereEqualTo("status", "pending")
             .addSnapshotListener((snapshots, error) -> {
                 if (error != null) {
-                    Log.e(TAG, "Listen failed: " + error);
+                    Log.e(TAG, "Listen failed: " + error.getCode() + " - " + error.getMessage());
                     return;
                 }
-                if (snapshots == null) return;
+                if (snapshots == null) {
+                    Log.w(TAG, "Snapshot is null");
+                    return;
+                }
+                Log.d(TAG, "Snapshot received: " + snapshots.size() + " docs, " + snapshots.getDocumentChanges().size() + " changes");
 
                 for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                    Log.d(TAG, "Doc change type=" + dc.getType() + " id=" + dc.getDocument().getId());
                     if (dc.getType() == DocumentChange.Type.ADDED) {
                         String phoneNumber = (String) dc.getDocument().getData().get("phoneNumber");
                         String docId = dc.getDocument().getId();
@@ -136,15 +141,25 @@ public class CallRequestService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, notificationId, dialIntent, flags);
+
+        // Full-screen intent: launches DialerActivity (transparent trampoline) automatically
+        // without requiring user to tap the notification (same mechanism as incoming call screens)
+        Intent activityIntent = new Intent(this, DialerActivity.class);
+        activityIntent.putExtra("phoneNumber", phoneNumber);
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent fullScreenIntent = PendingIntent.getActivity(this, notificationId, activityIntent, flags);
+
+        // Fallback content intent: direct dial if user taps the notification manually
+        PendingIntent contentIntent = PendingIntent.getActivity(this, notificationId + 100, dialIntent, flags);
 
         Notification notification = new NotificationCompat.Builder(this, DIAL_CHANNEL_ID)
-            .setContentTitle("Tap to dial: " + phoneNumber)
+            .setContentTitle("Dialing: " + phoneNumber)
             .setContentText("iRopit: Dial request from Chrome extension")
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentIntent)
+            .setFullScreenIntent(fullScreenIntent, true)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .build();
 
@@ -152,7 +167,7 @@ public class CallRequestService extends Service {
         if (manager != null) {
             manager.notify(notificationId, notification);
         }
-        Log.d(TAG, "Dial notification shown for: " + phoneNumber);
+        Log.d(TAG, "Dial full-screen intent shown for: " + phoneNumber);
     }
 
     private void createNotificationChannel() {

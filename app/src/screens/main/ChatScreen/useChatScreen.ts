@@ -35,6 +35,7 @@ export const useChatScreen = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
@@ -218,11 +219,42 @@ export const useChatScreen = () => {
     async (uri: string, fileName: string, type: 'image' | 'file') => {
       if (!user?.uid || !currentDevice) return;
 
-      setIsUploading(true);
-      try {
-        const downloadUrl = await uploadFile(uri, fileName, type, user.uid);
+      // --- Optimistic UI ---
+      // Show the image immediately using the local URI; the inverted FlatList
+      // will display it at the bottom automatically — no scroll needed.
+      const optimisticId = `optimistic_${Date.now()}`;
+      const optimisticTs = Date.now();
+      const optimisticMsg: any = {
+        id: optimisticId,
+        senderId: user.uid,
+        senderDeviceId: currentDevice.id,
+        senderName: (currentDevice as any).nickname || currentDevice.name || 'Mobile',
+        receiverId: user.uid,
+        content: type === 'image' ? '📷 Image' : `📎 ${fileName}`,
+        type: type,
+        fileUrl: uri,
+        fileName: fileName,
+        read: false,
+        timestamp: optimisticTs,
+        participants: [user.uid],
+        _optimistic: true,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+      // inverted FlatList auto-shows newest at bottom — no scroll call needed
 
-        // Prepare message data
+      setIsUploading(true);
+      setUploadProgress(0);
+      try {
+        const downloadUrl = await uploadFile(uri, fileName, type, user.uid, (percent) => {
+          setUploadProgress(percent);
+        });
+
+        // Update the optimistic message URL in-place — no length change, no jank
+        setMessages(prev =>
+          prev.map(m => m.id === optimisticId ? { ...m, fileUrl: downloadUrl } : m),
+        );
+
+        // Write to Firestore
         let fileMessageData: any = {
           senderId: user.uid,
           senderDeviceId: currentDevice.id,
@@ -235,7 +267,7 @@ export const useChatScreen = () => {
           fileUrl: downloadUrl,
           fileName: fileName,
           read: false,
-          timestamp: Date.now(),
+          timestamp: optimisticTs,
           participants: [user.uid],
         };
 
@@ -256,12 +288,14 @@ export const useChatScreen = () => {
         }
         await Promise.all(fileWrites);
       } catch (_error) {
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
         Alert.alert(
           isRTL ? 'خطأ' : 'Error',
           isRTL ? 'فشل في إرسال الملف' : 'Failed to send file',
         );
       }
       setIsUploading(false);
+      setUploadProgress(0);
     },
     [user?.uid, currentDevice, isRTL, selectedDeviceId, devices],
   );
@@ -341,7 +375,26 @@ export const useChatScreen = () => {
             seen.add(key);
             return true;
           });
-          setMessages(dedupedMsgs as Message[]);
+          // Merge: preserve optimistic messages that haven't been confirmed by
+          // Firestore yet (matched by senderDeviceId + type + timestamp proximity).
+          setMessages(prev => {
+            const optimistics = prev.filter((m: any) => m._optimistic);
+            const real = dedupedMsgs as Message[];
+            if (optimistics.length === 0) return real;
+            const merged = [...real];
+            optimistics.forEach((opt: any) => {
+              const confirmed = real.some(
+                r =>
+                  (r as any).senderDeviceId === opt.senderDeviceId &&
+                  (r as any).type === opt.type &&
+                  Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
+              );
+              // Only keep optimistic if the real message hasn't arrived yet
+              if (!confirmed) merged.push(opt);
+            });
+            merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
+            return merged;
+          });
           setIsLoading(false);
         },
         _error => {
@@ -365,7 +418,7 @@ export const useChatScreen = () => {
     // Optimistic UI — clear input immediately so there's no perceived delay
     setInputText('');
     setReplyTo(null);
-    scrollToEnd(true);
+    // inverted FlatList auto-shows newest message at bottom
 
     let messageData: any = {
       senderId: user.uid,
@@ -417,7 +470,7 @@ export const useChatScreen = () => {
     Promise.all(writes).catch(() => {
       ToastAndroid.show(isRTL ? 'فشل في إرسال الرسالة' : 'Failed to send message', ToastAndroid.SHORT);
     });
-  }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices, scrollToEnd]);
+  }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices]);
 
   // Delete all messages
   const deleteAllMessages = useCallback(async () => {
@@ -481,21 +534,11 @@ export const useChatScreen = () => {
     setReplyTo(null);
   }, []);
 
+  // With inverted FlatList, offset 0 is always the newest message (visual bottom).
+  // No scroll effects needed — the list stays anchored to the bottom automatically.
   const scrollToEnd = useCallback((animated = true) => {
-    // Defer to next frame so layout is complete
-    requestAnimationFrame(() => {
-      flatListRef.current?.scrollToEnd({ animated });
-    });
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
   }, []);
-
-  // Scroll to bottom whenever new messages arrive.
-  // Use setTimeout so the FlatList has time to lay out the new item before scrolling.
-  useEffect(() => {
-    if (messages.length > 0) {
-      const t = setTimeout(() => scrollToEnd(false), 150);
-      return () => clearTimeout(t);
-    }
-  }, [messages.length]);
 
   return {
     // State
@@ -505,6 +548,7 @@ export const useChatScreen = () => {
     isTyping,
     isLoading,
     isUploading,
+    uploadProgress,
     keyboardHeight,
     user,
     currentDevice,

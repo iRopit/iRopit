@@ -6,6 +6,7 @@
 const CACHE_KEYS = {
   SMS: "cached_sms_data",
   CALLS: "cached_calls_data",
+  NOTIFICATIONS: "cached_notifications_data",
   TIMESTAMP: "cache_timestamp",
 };
 
@@ -75,6 +76,45 @@ export async function cacheCallsData(callsByDevice, allCalls) {
 }
 
 /**
+ * Save notifications data to local cache
+ * @param {Object} notifsByDevice - Notifications keyed by deviceId
+ */
+export async function cacheNotificationsData(notifsByDevice) {
+  try {
+    const serializable = {};
+    for (const [key, notifs] of Object.entries(notifsByDevice)) {
+      serializable[key] = notifs.slice(0, 200);
+    }
+    await chrome.storage.local.set({
+      [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() },
+    });
+  } catch (error) {
+    console.warn("[Cache] Failed to save notifications cache:", error);
+  }
+}
+
+/**
+ * Load cached notifications data
+ * @returns {Object|null} { byDevice } or null if no cache
+ */
+export async function getCachedNotifications() {
+  try {
+    const result = await chrome.storage.local.get([CACHE_KEYS.NOTIFICATIONS]);
+    const data = result[CACHE_KEYS.NOTIFICATIONS];
+    if (!data) return null;
+    // Expire after 24 hours
+    if (Date.now() - (data.savedAt || 0) > 24 * 60 * 60 * 1000) {
+      await chrome.storage.local.remove([CACHE_KEYS.NOTIFICATIONS]);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.warn("[Cache] Failed to load notifications cache:", error);
+    return null;
+  }
+}
+
+/**
  * Load cached SMS data
  * @returns {Object|null} { byDevice, allMessages } or null if no cache
  */
@@ -133,6 +173,7 @@ export async function clearCache() {
     await chrome.storage.local.remove([
       CACHE_KEYS.SMS,
       CACHE_KEYS.CALLS,
+      CACHE_KEYS.NOTIFICATIONS,
       CACHE_KEYS.TIMESTAMP,
     ]);
     console.log("[Cache] 🗑️ Cache cleared");

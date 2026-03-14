@@ -5,6 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -35,7 +37,9 @@ import java.util.Map;
 public class SmsRequestService extends Service {
     private static final String TAG = "SmsRequestService";
     private static final String CHANNEL_ID = "sms_request_channel";
+    private static final String SMS_COPY_CHANNEL_ID = "sms_copy_channel";
     private static final int NOTIFICATION_ID = 2001;
+    private int smsCopyNotifCounter = 0;
     private static final long WATCHDOG_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
     private FirebaseFirestore db;
@@ -52,6 +56,7 @@ public class SmsRequestService extends Service {
         Log.d(TAG, "SmsRequestService created");
         db = FirebaseFirestore.getInstance();
         createNotificationChannel();
+        createSmsCopyChannel();
     }
 
     @Override
@@ -189,6 +194,10 @@ public class SmsRequestService extends Service {
 
     private void sendSms(String phoneNumber, String message, String docId) {
         try {
+            // Copy message to clipboard via transparent foreground activity
+            // (reliable on all Android versions, including Samsung One UI)
+            copyViaActivity(message);
+
             SmsManager smsManager = SmsManager.getDefault();
             ArrayList<String> parts = smsManager.divideMessage(message);
             smsManager.sendMultipartTextMessage(phoneNumber, null, parts, null, null);
@@ -269,6 +278,36 @@ public class SmsRequestService extends Service {
             .addOnFailureListener(e -> Log.e(TAG, "Failed to save sent message: " + e));
     }
 
+    private void copyViaActivity(String message) {
+        try {
+            int notifId = 4000 + (smsCopyNotifCounter++ % 10);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            Intent activityIntent = new Intent(this, MessageCopyActivity.class);
+            activityIntent.putExtra("message", message);
+            activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent fullScreenIntent = PendingIntent.getActivity(this, notifId, activityIntent, flags);
+
+            String preview = message.length() > 60 ? message.substring(0, 60) + "\u2026" : message;
+            Notification notification = new NotificationCompat.Builder(this, SMS_COPY_CHANNEL_ID)
+                .setContentTitle("iRopit: SMS sent")
+                .setContentText(preview)
+                .setSmallIcon(android.R.drawable.ic_menu_send)
+                .setFullScreenIntent(fullScreenIntent, true)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .build();
+
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.notify(notifId, notification);
+        } catch (Exception e) {
+            Log.e(TAG, "copyViaActivity failed: " + e);
+        }
+    }
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -282,6 +321,21 @@ public class SmsRequestService extends Service {
             if (manager != null) {
                 manager.createNotificationChannel(channel);
             }
+        }
+    }
+
+    private void createSmsCopyChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                SMS_COPY_CHANNEL_ID,
+                "SMS Clipboard",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Auto-copies sent SMS message to clipboard");
+            channel.enableVibration(false);
+            channel.setSound(null, null);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
         }
     }
 

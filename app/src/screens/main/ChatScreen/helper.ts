@@ -66,6 +66,7 @@ export const uploadFile = async (
   fileName: string,
   fileType: string,
   userId: string | undefined,
+  onProgress?: (percent: number) => void,
 ): Promise<string> => {
   if (!userId) {
     throw new Error('User not authenticated');
@@ -106,7 +107,18 @@ export const uploadFile = async (
   // Upload using putFile (works with file:// URIs)
   try {
     console.log('[ChatUpload] Uploading with putFile...');
-    await reference.putFile(fileUri, metadata);
+    const task = reference.putFile(fileUri, metadata);
+
+    if (onProgress) {
+      task.on('state_changed', snapshot => {
+        const percent = Math.round(
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+        );
+        onProgress(percent);
+      });
+    }
+
+    await task;
     const downloadUrl = await reference.getDownloadURL();
     console.log('[ChatUpload] Upload succeeded');
     return downloadUrl;

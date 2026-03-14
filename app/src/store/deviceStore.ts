@@ -175,9 +175,9 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         .doc(deviceId)
         .set(device, { merge: true });
 
-      set({ currentDevice: device, isLoading: false });
-
-      // Save credentials to native for background Firebase access
+      // Save credentials to native BEFORE updating currentDevice state.
+      // CallRequestService starts when currentDevice is set; it needs credentials
+      // already in SharedPreferences or it will stop itself immediately.
       try {
         await NativeCredentialsService.saveCredentials(user.uid, deviceId);
 
@@ -185,6 +185,8 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         const friendlyName = savedNickname || deviceName || 'Android';
         await NativeCredentialsService.saveDeviceName(friendlyName);
       } catch (credError) {}
+
+      set({ currentDevice: device, isLoading: false });
     } catch (error: any) {
       // Fallback: create a local device only
       const { user: currentUser } = useAuthStore.getState();

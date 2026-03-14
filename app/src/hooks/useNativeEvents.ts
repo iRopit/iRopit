@@ -117,12 +117,18 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       // Request contacts, SEND_SMS, and call-related permissions
       // SEND_SMS is for sending SMS from Chrome Extension (core feature)
       // READ_PHONE_STATE and READ_CALL_LOG are required for call history capture
-      const permissions = [
+      const permissions: string[] = [
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         PermissionsAndroid.PERMISSIONS.SEND_SMS,
         PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
         PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       ];
+
+      // POST_NOTIFICATIONS is required on Android 13+ (API 33+) for showing
+      // dial-prompt and sync notifications. Without it all notifications are silently dropped.
+      if (Platform.Version >= 33) {
+        permissions.push('android.permission.POST_NOTIFICATIONS');
+      }
 
       const results = await PermissionsAndroid.requestMultiple(permissions);
 

@@ -23239,6 +23239,34 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to save calls cache:", error);
     }
   }
+  async function cacheNotificationsData(notifsByDevice) {
+    try {
+      const serializable = {};
+      for (const [key, notifs] of Object.entries(notifsByDevice)) {
+        serializable[key] = notifs.slice(0, 200);
+      }
+      await chrome.storage.local.set({
+        [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() }
+      });
+    } catch (error) {
+      console.warn("[Cache] Failed to save notifications cache:", error);
+    }
+  }
+  async function getCachedNotifications() {
+    try {
+      const result = await chrome.storage.local.get([CACHE_KEYS.NOTIFICATIONS]);
+      const data = result[CACHE_KEYS.NOTIFICATIONS];
+      if (!data) return null;
+      if (Date.now() - (data.savedAt || 0) > 24 * 60 * 60 * 1e3) {
+        await chrome.storage.local.remove([CACHE_KEYS.NOTIFICATIONS]);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.warn("[Cache] Failed to load notifications cache:", error);
+      return null;
+    }
+  }
   async function getCachedSMS() {
     try {
       const result = await chrome.storage.local.get([
@@ -23279,6 +23307,7 @@ ${this.customData.serverResponse}`;
       await chrome.storage.local.remove([
         CACHE_KEYS.SMS,
         CACHE_KEYS.CALLS,
+        CACHE_KEYS.NOTIFICATIONS,
         CACHE_KEYS.TIMESTAMP
       ]);
       console.log("[Cache] \u{1F5D1}\uFE0F Cache cleared");
@@ -23292,6 +23321,7 @@ ${this.customData.serverResponse}`;
       CACHE_KEYS = {
         SMS: "cached_sms_data",
         CALLS: "cached_calls_data",
+        NOTIFICATIONS: "cached_notifications_data",
         TIMESTAMP: "cache_timestamp"
       };
       MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1e3;
@@ -23729,7 +23759,7 @@ ${this.customData.serverResponse}`;
       renderCalls(allCallsData);
     });
     document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
-      initiateDialRequest(phoneNumber, calls[0]?.deviceId || null);
+      initiateDialRequest(phoneNumber, null);
     });
   }
   async function clearAllCalls() {
@@ -23774,7 +23804,11 @@ ${this.customData.serverResponse}`;
   }
   async function initiateDialRequest(phoneNumber, preferredDeviceId = null) {
     const user = currentUser;
-    if (!user) return;
+    if (!user) {
+      console.warn("[Calls] initiateDialRequest: no user logged in");
+      showToast("Not logged in", "error");
+      return;
+    }
     let targetDeviceId = preferredDeviceId;
     if (!targetDeviceId) {
       const devicesSnapshot = await getDocs(collection(db, "devices"));
@@ -23788,6 +23822,7 @@ ${this.customData.serverResponse}`;
       }
       targetDeviceId = androidDevices[0].data().id || androidDevices[0].id;
     }
+    console.log("[Calls] Sending dial request to device:", targetDeviceId, "phone:", phoneNumber);
     try {
       await addDoc(collection(db, "call_requests"), {
         userId: user.uid,
@@ -23797,6 +23832,7 @@ ${this.customData.serverResponse}`;
         status: "pending",
         timestamp: Date.now()
       });
+      console.log("[Calls] call_request created successfully for", targetDeviceId);
       showToast("Opening dialer on phone\u2026", "success");
     } catch (err) {
       console.error("[Calls] initiateDialRequest error:", err);
@@ -24003,6 +24039,28 @@ ${this.customData.serverResponse}`;
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
+    try {
+      const cached = await getCachedNotifications();
+      if (cached && cached.byDevice) {
+        let hasData = false;
+        for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+          if (notifs.length > 0) {
+            setNotificationsData(deviceId, notifs);
+            hasData = true;
+          }
+        }
+        if (hasData) {
+          const merged = getMergedNotifications();
+          renderNotifications(merged.slice(0, 200));
+          updateTabBadges();
+          if (notificationsList && notificationsList.querySelector(".loading-spinner")) {
+          }
+          console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
+        }
+      }
+    } catch (e) {
+      console.warn("[Notifications] Cache load failed:", e);
+    }
     const userNotificationsQuery = query(
       collection(db, "users", user.uid, "notifications"),
       orderBy("createdAt", "desc"),
@@ -24022,6 +24080,8 @@ ${this.customData.serverResponse}`;
         });
       });
       updateNotificationsList("_user_notifications", notifications);
+      cacheNotificationsData(allNotifications).catch(() => {
+      });
     });
     addUnsubscriber(userNotifUnsub);
     const devicesQuery = query(
@@ -24071,6 +24131,8 @@ ${this.customData.serverResponse}`;
             });
           });
           updateNotificationsList(device.id, notifications);
+          cacheNotificationsData(allNotifications).catch(() => {
+          });
         }
         // (error) => {
         //   console.error(
@@ -24429,6 +24491,7 @@ ${this.customData.serverResponse}`;
       init_appIcons();
       init_state();
       init_badges();
+      init_cache();
       _searchWired = false;
     }
   });
@@ -27756,7 +27819,6 @@ ${this.customData.serverResponse}`;
   }
   function loadData() {
     cleanupSubscriptions();
-    if (notificationsList) showListLoading(notificationsList);
     loadSMS();
     loadCalls();
     loadDevices();
