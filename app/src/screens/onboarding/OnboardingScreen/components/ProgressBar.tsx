@@ -20,7 +20,15 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   return (
-    <View style={styles.progressContainer}>
+    <View style={[styles.progressContainer, { direction: 'ltr' }]}>
+      <Text
+        style={[
+          styles.progressText,
+          { color: colors.textSecondary, writingDirection: 'ltr' },
+        ]}
+      >
+        {currentStep + 1} / {totalSteps}
+      </Text>
       <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
         <View
           style={[
@@ -32,14 +40,6 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
           ]}
         />
       </View>
-      <Text
-        style={[
-          styles.progressText,
-          { color: colors.textSecondary, writingDirection: 'ltr' },
-        ]}
-      >
-        {currentStep + 1} / {totalSteps}
-      </Text>
     </View>
   );
 };

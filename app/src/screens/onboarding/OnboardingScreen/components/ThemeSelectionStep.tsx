@@ -75,53 +75,6 @@ const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
             isRTL && { flexDirection: 'row-reverse' },
           ]}
         >
-          {/* Light Theme */}
-          <TouchableOpacity
-            style={[
-              styles.themeOption,
-              {
-                backgroundColor: colors.background,
-                borderColor:
-                  selectedTheme === 'light' ? colors.primary : colors.border,
-              },
-              selectedTheme === 'light' && styles.themeOptionSelected,
-            ]}
-            onPress={() => {
-              triggerHaptic('selection');
-              onSelectTheme('light');
-            }}
-            activeOpacity={0.8}
-          >
-            <View
-              style={[
-                styles.themePreview,
-                { backgroundColor: colors.surfaceSecondary },
-              ]}
-            >
-              <View
-                style={[
-                  styles.themePreviewPhone,
-                  {
-                    borderColor: colors.text,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Icon name="sunny" size={24} color={colors.primary} />
-              </View>
-            </View>
-            <Text style={[styles.themeName, { color: colors.text }]}>
-              {translate('onboarding.theme.light')}
-            </Text>
-            {selectedTheme === 'light' && (
-              <View
-                style={[styles.checkmark, { backgroundColor: colors.primary }]}
-              >
-                <Icon name="checkmark" size={16} color="#FFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-
           {/* Dark Theme */}
           <TouchableOpacity
             style={[
@@ -173,6 +126,53 @@ const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
               {translate('onboarding.theme.dark')}
             </Text>
             {selectedTheme === 'dark' && (
+              <View
+                style={[styles.checkmark, { backgroundColor: colors.primary }]}
+              >
+                <Icon name="checkmark" size={16} color="#FFF" />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Light Theme */}
+          <TouchableOpacity
+            style={[
+              styles.themeOption,
+              {
+                backgroundColor: colors.background,
+                borderColor:
+                  selectedTheme === 'light' ? colors.primary : colors.border,
+              },
+              selectedTheme === 'light' && styles.themeOptionSelected,
+            ]}
+            onPress={() => {
+              triggerHaptic('selection');
+              onSelectTheme('light');
+            }}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.themePreview,
+                { backgroundColor: colors.surfaceSecondary },
+              ]}
+            >
+              <View
+                style={[
+                  styles.themePreviewPhone,
+                  {
+                    borderColor: colors.text,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <Icon name="sunny" size={24} color={colors.primary} />
+              </View>
+            </View>
+            <Text style={[styles.themeName, { color: colors.text }]}>
+              {translate('onboarding.theme.light')}
+            </Text>
+            {selectedTheme === 'light' && (
               <View
                 style={[styles.checkmark, { backgroundColor: colors.primary }]}
               >

@@ -161,10 +161,11 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
           </View>
         ))}
 
-        <Text style={[styles.version, { color: colors.textSecondary }]}>
-          {`iRopit v${APP_VERSION}`}
-        </Text>
       </ScrollView>
+
+      <Text style={[styles.version, { color: colors.textSecondary, paddingBottom: 12 }]}>
+        {`iRopit v${APP_VERSION}`}
+      </Text>
     </Container>
   );
 };

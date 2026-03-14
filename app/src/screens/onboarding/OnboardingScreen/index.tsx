@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StatusBar } from 'react-native';
+import { View, StatusBar, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import { useOnboarding } from './useOnboarding';
@@ -133,13 +133,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const isLastStep = currentStep === totalSteps - 1;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, direction: isRTL ? 'rtl' : 'ltr' }]}>
       <StatusBar
         barStyle={actualTheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
 
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { direction: isRTL ? 'rtl' : 'ltr' }]}>
         {/* Header */}
         {/* <OnboardingHeader
           isRTL={isRTL}
@@ -177,7 +177,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             currentStep !== 2 && (
               <View
                 style={{
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  flexDirection: 'row',
                   gap: 12,
                   marginTop: 12,
                 }}
@@ -232,6 +232,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             </View>
           )}
         </View>
+
+        {/* Version number */}
+        <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingBottom: 8, opacity: 0.6 }}>v1.0.8</Text>
       </SafeAreaView>
     </View>
   );

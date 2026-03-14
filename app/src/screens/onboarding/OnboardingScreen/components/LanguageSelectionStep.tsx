@@ -28,16 +28,16 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
 }) => {
   const languages = [
     {
-      code: 'ar' as const,
-      name: 'العربية',
-      nameSecondary: 'Arabic',
-      flag: '🇸🇦',
-    },
-    {
       code: 'en' as const,
       name: 'English',
       nameSecondary: 'الإنجليزية',
       flag: '🇺🇸',
+    },
+    {
+      code: 'ar' as const,
+      name: 'العربية',
+      nameSecondary: 'Arabic',
+      flag: '🇸🇦',
     },
   ];
 
@@ -72,23 +72,7 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
               onPress={() => onSelectLanguage(lang.code)}
               activeOpacity={0.7}
             >
-              <View
-                style={[
-                  localStyles.radioOuter,
-                  {
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                {isSelected && (
-                  <View
-                    style={[
-                      localStyles.radioInner,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  />
-                )}
-              </View>
+              <Text style={localStyles.flag}>{lang.flag}</Text>
 
               <View style={localStyles.languageInfo}>
                 <Text
@@ -106,7 +90,23 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
                 </Text>
               </View>
 
-              <Text style={localStyles.flag}>{lang.flag}</Text>
+              <View
+                style={[
+                  localStyles.radioOuter,
+                  {
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                {isSelected && (
+                  <View
+                    style={[
+                      localStyles.radioInner,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -147,6 +147,7 @@ const localStyles = StyleSheet.create({
   languageCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    direction: 'ltr',
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -162,7 +163,7 @@ const localStyles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginLeft: 16,
   },
   radioInner: {
     width: 12,
@@ -182,7 +183,7 @@ const localStyles = StyleSheet.create({
   },
   flag: {
     fontSize: 32,
-    marginLeft: 12,
+    marginRight: 12,
   },
 });
 

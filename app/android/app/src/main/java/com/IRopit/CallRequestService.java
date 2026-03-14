@@ -3,6 +3,7 @@ package com.IRopit;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -21,12 +22,15 @@ import com.google.firebase.firestore.ListenerRegistration;
 public class CallRequestService extends Service {
     private static final String TAG = "CallRequestService";
     private static final String CHANNEL_ID = "call_request_channel";
+    private static final String DIAL_CHANNEL_ID = "call_dial_channel";
     private static final int NOTIFICATION_ID = 2003;
+    private static final int DIAL_NOTIFICATION_BASE_ID = 3000;
 
     private FirebaseFirestore db;
     private ListenerRegistration callRequestListener;
     private String userId;
     private String deviceId;
+    private int dialNotificationCounter = 0;
 
     @Override
     public void onCreate() {
@@ -34,6 +38,7 @@ public class CallRequestService extends Service {
         Log.d(TAG, "CallRequestService created");
         db = FirebaseFirestore.getInstance();
         createNotificationChannel();
+        createDialNotificationChannel();
     }
 
     @Override
@@ -93,7 +98,22 @@ public class CallRequestService extends Service {
             Intent dialIntent = new Intent(Intent.ACTION_DIAL);
             dialIntent.setData(Uri.parse("tel:" + Uri.encode(phoneNumber)));
             dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(dialIntent);
+
+            // On Android 10+ (API 29+), startActivity from a background/foreground service
+            // is restricted. Show a tap-to-dial notification that works on all versions.
+            boolean launched = false;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                // Android 9 and below: can start activity directly
+                try {
+                    startActivity(dialIntent);
+                    launched = true;
+                } catch (Exception ignored) {}
+            }
+
+            if (!launched) {
+                // Android 10+: show a high-priority notification the user can tap to dial
+                showDialNotification(phoneNumber, dialIntent);
+            }
 
             // Mark request as processed
             db.collection("call_requests").document(docId)
@@ -109,6 +129,32 @@ public class CallRequestService extends Service {
         }
     }
 
+    private void showDialNotification(String phoneNumber, Intent dialIntent) {
+        int notificationId = DIAL_NOTIFICATION_BASE_ID + (dialNotificationCounter++ % 10);
+
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, notificationId, dialIntent, flags);
+
+        Notification notification = new NotificationCompat.Builder(this, DIAL_CHANNEL_ID)
+            .setContentTitle("Tap to dial: " + phoneNumber)
+            .setContentText("iRopit: Dial request from Chrome extension")
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .build();
+
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.notify(notificationId, notification);
+        }
+        Log.d(TAG, "Dial notification shown for: " + phoneNumber);
+    }
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -117,6 +163,20 @@ public class CallRequestService extends Service {
                 NotificationManager.IMPORTANCE_LOW
             );
             channel.setDescription("iRopit call dial requests");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
+    }
+
+    private void createDialNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                DIAL_CHANNEL_ID,
+                "Dial Requests",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Tap to open the dialer on your phone");
+            channel.enableVibration(true);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
         }
@@ -148,3 +208,4 @@ public class CallRequestService extends Service {
         return null;
     }
 }
+
