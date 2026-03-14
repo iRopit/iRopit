@@ -8,8 +8,10 @@ import {
   Image,
   ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
   Platform,
   NativeModules,
+  ToastAndroid,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
@@ -33,96 +35,106 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const { currentDevice, devices } = useDeviceStore();
   const [caption, setCaption] = useState(data.text || '');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const isImage = data.mimeType?.startsWith('image/');
   const isVideo = data.mimeType?.startsWith('video/');
   const isText = data.mimeType?.startsWith('text/');
   const uris = data.uris || (data.uri ? [data.uri] : []);
 
-  // Exclude current device â€” send TO other devices
+  // Exclude current device - send TO other devices
   const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
 
-  const handleSend = useCallback(async () => {
-    if (!user?.uid || !currentDevice) return;
+  const handleSend = useCallback(() => {
+    if (!user?.uid || !currentDevice) {
+      setError('Not authenticated');
+      return;
+    }
 
-    // Close immediately — send in background
+    const targetDeviceIds: string[] =
+      selectedDeviceId ? [selectedDeviceId] : otherDevices.map(d => d.id);
+
+    // Close modal immediately - upload & send in background
     onClose();
 
-    try {
-      const targetDeviceIds: string[] =
-        selectedDeviceId ? [selectedDeviceId] : otherDevices.map(d => d.id);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Sending...', ToastAndroid.SHORT);
+    }
 
-      if (isText || (!uris.length && !isImage && !isVideo)) {
-        // Text share â€” send as text message
-        const messageText = caption.trim() || data.text || data.subject || '';
-        if (!messageText) return;
+    (async () => {
+      try {
+        if (isText || (!uris.length && !isImage && !isVideo)) {
+          const messageText = caption.trim() || data.text || data.subject || '';
+          if (!messageText) return;
 
-        let msgData: any = {
-          senderId: user.uid,
-          senderDeviceId: currentDevice.id,
-          senderName: (currentDevice as any).nickname || currentDevice.name || 'Mobile',
-          senderPlatform: (currentDevice as any).platform || 'android',
-          receiverId: user.uid,
-          content: messageText,
-          type: 'text',
-          read: false,
-          timestamp: Date.now(),
-          participants: [user.uid],
-        };
-        msgData = await encryptChatMessage(msgData, user.uid);
-
-        await Promise.all(
-          (targetDeviceIds.length ? targetDeviceIds : [undefined]).map((dId) =>
-            firestore().collection('chats').add(
-              dId ? { ...msgData, receiverDeviceId: dId } : msgData,
-            ),
-          ),
-        );
-      } else {
-        // File/image share â€” upload each URI then send
-        for (const uri of uris) {
-          let fileUri = uri;
-          const fileName = uri.split('/').pop() || `share_${Date.now()}`;
-
-          // Convert content:// URI to file:// if needed
-          if (Platform.OS === 'android' && uri.startsWith('content://') && FilePickerModule?.copyToLocal) {
-            try {
-              fileUri = await FilePickerModule.copyToLocal(uri, fileName);
-            } catch {}
-          }
-
-          const fileType = isImage ? 'image' : isVideo ? 'file' : 'file';
-          const downloadUrl = await uploadFile(fileUri, fileName, fileType, user.uid);
-
-          let fileMsg: any = {
+          let msgData: any = {
             senderId: user.uid,
             senderDeviceId: currentDevice.id,
             senderName: (currentDevice as any).nickname || currentDevice.name || 'Mobile',
             senderPlatform: (currentDevice as any).platform || 'android',
             receiverId: user.uid,
-            content: caption.trim() || (isImage ? 'ðŸ“· Image' : isVideo ? 'ðŸŽ¥ Video' : `ðŸ“Ž ${fileName}`),
-            type: fileType,
-            fileUrl: downloadUrl,
-            fileName,
+            content: messageText,
+            type: 'text',
             read: false,
             timestamp: Date.now(),
             participants: [user.uid],
           };
-          fileMsg = await encryptChatMessage(fileMsg, user.uid);
+          msgData = await encryptChatMessage(msgData, user.uid);
 
           await Promise.all(
             (targetDeviceIds.length ? targetDeviceIds : [undefined]).map((dId) =>
               firestore().collection('chats').add(
-                dId ? { ...fileMsg, receiverDeviceId: dId } : fileMsg,
+                dId ? { ...msgData, receiverDeviceId: dId } : msgData,
               ),
             ),
           );
+        } else {
+          for (const uri of uris) {
+            let fileUri = uri;
+            const fileName = uri.split('/').pop() || `share_${Date.now()}`;
+
+            if (Platform.OS === 'android' && uri.startsWith('content://') && FilePickerModule?.copyToLocal) {
+              try { fileUri = await FilePickerModule.copyToLocal(uri, fileName); } catch {}
+            }
+
+            const fileType = isImage ? 'image' : isVideo ? 'file' : 'file';
+            const downloadUrl = await uploadFile(fileUri, fileName, fileType, user.uid);
+
+            let fileMsg: any = {
+              senderId: user.uid,
+              senderDeviceId: currentDevice.id,
+              senderName: (currentDevice as any).nickname || currentDevice.name || 'Mobile',
+              senderPlatform: (currentDevice as any).platform || 'android',
+              receiverId: user.uid,
+              content: isImage ? '\u{1F4F7} Image' : isVideo ? '\u{1F3A5} Video' : `\u{1F4CE} ${fileName}`,
+              type: fileType,
+              fileUrl: downloadUrl,
+              fileName,
+              read: false,
+              timestamp: Date.now(),
+              participants: [user.uid],
+            };
+            fileMsg = await encryptChatMessage(fileMsg, user.uid);
+
+            await Promise.all(
+              (targetDeviceIds.length ? targetDeviceIds : [undefined]).map((dId) =>
+                firestore().collection('chats').add(
+                  dId ? { ...fileMsg, receiverDeviceId: dId } : fileMsg,
+                ),
+              ),
+            );
+          }
+        }
+
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Sent!', ToastAndroid.SHORT);
+        }
+      } catch {
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Failed to send', ToastAndroid.SHORT);
         }
       }
-
-    } catch (e: any) {
-      // Modal is already closed; error is silent
-    }
+    })();
   }, [user, currentDevice, selectedDeviceId, otherDevices, uris, isImage, isVideo, isText, caption, data, onClose]);
 
   const surfaceBg = isDarkMode ? colors.surface : '#fff';
@@ -130,7 +142,10 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={[styles.sheet, { backgroundColor: surfaceBg }]}>
 
           {/* Handle bar */}
@@ -172,7 +187,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
               </View>
             )}
 
-            {/* Message input — only for text shares */}
+            {/* Caption / message input - only for text shares */}
             {isText && (
               <>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Message</Text>
@@ -248,6 +263,8 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
               </View>
             )}
 
+            {!!error && <Text style={styles.errorText}>{error}</Text>}
+
             {/* Send button */}
             <TouchableOpacity
               style={[styles.sendBtn, { backgroundColor: colors.primary }]}
@@ -259,7 +276,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
 
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -268,15 +285,15 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 36,
-    maxHeight: '90%',
+    maxHeight: '85%',
   },
   handle: {
     width: 40,
@@ -379,17 +396,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  sentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  sentText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   sendBtn: {
     flexDirection: 'row',
     paddingVertical: 15,
@@ -397,9 +403,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
-  },
-  btnDisabled: {
-    opacity: 0.6,
   },
   sendBtnText: {
     color: '#fff',

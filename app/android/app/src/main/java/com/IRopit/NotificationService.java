@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class NotificationService extends NotificationListenerService {
     private static final String TAG = "ZyncIT_NotifService";
-    private static final String CHANNEL_ID = "zyncit_foreground_channel";
+    private static final String CHANNEL_ID = "iropit_service_channel";
     private static final int FOREGROUND_NOTIFICATION_ID = 1001;
     
     private static NotificationService instance;
@@ -124,7 +124,7 @@ public class NotificationService extends NotificationListenerService {
 
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("iRopit")
-                .setContentText("Syncing notifications...")
+                .setContentText("Running in background")
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -149,10 +149,10 @@ public class NotificationService extends NotificationListenerService {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "iRopit Sync Service",
+                "iRopit Background Service",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Keeps iRopit running to sync your notifications");
+            channel.setDescription("Keeps iRopit running to sync your data");
             channel.setShowBadge(false);
             
             NotificationManager manager = getSystemService(NotificationManager.class);

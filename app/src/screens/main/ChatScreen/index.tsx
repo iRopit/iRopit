@@ -24,7 +24,7 @@ import { Container, AnimatedListItem } from '../../../components';
 import { Message } from './types';
 import { styles } from './styles';
 import { useChatScreen } from './useChatScreen';
-import { ShareModal } from '../../../components/ShareModal';
+
 
 const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -84,8 +84,6 @@ const ChatScreen = () => {
     pickDocument,
     sendMessage,
     deleteAllMessages,
-    activeShare,
-    clearActiveShare,
   } = useChatScreen();
 
   // Render message item
@@ -290,11 +288,6 @@ const ChatScreen = () => {
       noPaddingHorizontal
       backgroundColor={bgColor}
     >
-      {/* Share Modal — device picker for shared files/images */}
-      {activeShare && (
-        <ShareModal data={activeShare} onClose={clearActiveShare} />
-      )}
-
       {renderHeader()}
 
       {/* Screen Title with Delete button */}

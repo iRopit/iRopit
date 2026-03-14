@@ -36,9 +36,9 @@ import java.util.Map;
 
 public class SmsRequestService extends Service {
     private static final String TAG = "SmsRequestService";
-    private static final String CHANNEL_ID = "sms_request_channel";
+    private static final String CHANNEL_ID = "iropit_service_channel";
     private static final String SMS_COPY_CHANNEL_ID = "sms_copy_channel";
-    private static final int NOTIFICATION_ID = 2001;
+    private static final int NOTIFICATION_ID = 1001;
     private int smsCopyNotifCounter = 0;
     private static final long WATCHDOG_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -312,10 +312,11 @@ public class SmsRequestService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "SMS Request Service",
+                "iRopit Background Service",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Listens for SMS requests from other devices");
+            channel.setDescription("Keeps iRopit running to sync your data");
+            channel.setShowBadge(false);
 
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
@@ -348,7 +349,7 @@ public class SmsRequestService extends Service {
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("iRopit")
-            .setContentText("Syncing SMS in background")
+            .setContentText("Running in background")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

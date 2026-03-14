@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BackHandler } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/authStore';
 import AuthNavigator from './AuthNavigator';
@@ -13,8 +14,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useShareReceive, SharedData } from '../hooks/useShareReceive';
 import { useShareStore } from '../store/shareStore';
 import { navigateToChat } from './navigationRef';
+import { ShareModal } from '../components/ShareModal';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const isFileShare = (data: SharedData) =>
+  !!(data.uri || (data.uris && data.uris.length > 0));
 
 const RootNavigator = () => {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -23,18 +28,39 @@ const RootNavigator = () => {
     boolean | null
   >(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [shareData, setShareData] = useState<SharedData | null>(null);
+
   const handleShare = useCallback((data: SharedData) => {
-    useShareStore.getState().setPendingShare(data);
-    navigateToChat();
+    if (isFileShare(data)) {
+      // File/image share — check if auth is ready to show popup immediately
+      const { user } = useAuthStore.getState();
+      if (user?.uid) {
+        setShareData(data);
+      } else {
+        // Cold launch — store for later, will show after auth
+        useShareStore.getState().setPendingShare(data);
+      }
+    } else {
+      // Text share — navigate to chat and paste into input
+      useShareStore.getState().setPendingShare(data);
+      navigateToChat();
+    }
   }, []);
 
   useShareReceive(handleShare);
 
-  // Navigate to Chat after auth + onboarding finish if there's a pending share (cold launch)
+  // After auth + onboarding finish, handle any pending share (cold launch)
   useEffect(() => {
     if (isLoading || checkingOnboarding || !isAuthenticated || !hasCompletedOnboarding) return;
-    if (useShareStore.getState().pendingShare) {
-      // Short delay to ensure MainNavigator has mounted its tabs
+    const pending = useShareStore.getState().pendingShare;
+    if (!pending) return;
+
+    if (isFileShare(pending)) {
+      // File/image share — show standalone popup (no navigation needed)
+      useShareStore.getState().clearPendingShare();
+      setShareData(pending);
+    } else {
+      // Text share — navigate to chat
       const timer = setTimeout(() => navigateToChat(), 300);
       return () => clearTimeout(timer);
     }
@@ -54,6 +80,12 @@ const RootNavigator = () => {
   const handleOnboardingComplete = () => {
     setHasCompletedOnboarding(true);
   };
+
+  const handleShareClose = useCallback(() => {
+    setShareData(null);
+    // Return to the app that initiated the share
+    BackHandler.exitApp();
+  }, []);
 
   if (isLoading || checkingOnboarding) {
     return <LoadingScreen />;
@@ -90,6 +122,7 @@ const RootNavigator = () => {
         )}
       </Stack.Navigator>
 
+      {shareData && <ShareModal data={shareData} onClose={handleShareClose} />}
     </>
   );
 };

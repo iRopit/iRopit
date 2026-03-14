@@ -300,11 +300,7 @@ export const useChatScreen = () => {
     [user?.uid, currentDevice, isRTL, selectedDeviceId, devices],
   );
 
-  // Consume pending shared data — waits until user AND device are both ready
-  // Text shares paste into input; file/image shares open the ShareModal with device picker
-  const [activeShare, setActiveShare] = useState<import('../../../hooks/useShareReceive').SharedData | null>(null);
-  const clearActiveShare = useCallback(() => setActiveShare(null), []);
-
+  // Consume pending text share — paste into input when ready
   useEffect(() => {
     if (!pendingShare || !user?.uid || !currentDevice) {
       return;
@@ -317,11 +313,7 @@ export const useChatScreen = () => {
     if (share.text && !share.uri && !share.uris?.length) {
       // Plain text share — paste into input
       setInputText(share.text);
-      return;
     }
-
-    // File/image share — show the ShareModal with device picker
-    setActiveShare(share);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShare, user?.uid, currentDevice?.id]);
 
@@ -584,8 +576,6 @@ export const useChatScreen = () => {
     devices,
     selectedDeviceId,
     setSelectedDeviceId,
-    activeShare,
-    clearActiveShare,
 
     // Theme
     colors,
