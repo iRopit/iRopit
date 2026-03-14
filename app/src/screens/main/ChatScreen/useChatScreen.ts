@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Alert, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
+import { Alert, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
@@ -301,40 +301,38 @@ export const useChatScreen = () => {
   );
 
   // Consume pending shared data — waits until user AND device are both ready
+  // Text shares paste into input; file/image shares open the ShareModal with device picker
+  const [activeShare, setActiveShare] = useState<import('../../../hooks/useShareReceive').SharedData | null>(null);
+  const clearActiveShare = useCallback(() => setActiveShare(null), []);
+
   useEffect(() => {
-    if (!pendingShare || !user?.uid || !currentDevice) return;
+    if (!pendingShare || !user?.uid || !currentDevice) {
+      return;
+    }
 
     // Snapshot and clear immediately to prevent double-send on re-render
     const share = pendingShare;
     clearPendingShare();
 
-    if (share.text) {
+    if (share.text && !share.uri && !share.uris?.length) {
+      // Plain text share — paste into input
       setInputText(share.text);
       return;
     }
 
-    const uris = share.uris ?? (share.uri ? [share.uri] : []);
-    if (uris.length === 0) return;
-
-    const isImage = share.mimeType?.startsWith('image/') ||
-      share.mimeType?.startsWith('video/');
-    const fileType: 'image' | 'file' = isImage ? 'image' : 'file';
-
-    uris.forEach(uri => {
-      // Extract filename from content URI or path
-      const rawName = decodeURIComponent(uri.split('/').pop()?.split('?')[0] || '');
-      const fileName = rawName || `shared_${Date.now()}.${isImage ? 'jpg' : 'bin'}`;
-      sendFileMessage(uri, fileName, fileType);
-    });
+    // File/image share — show the ShareModal with device picker
+    setActiveShare(share);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShare, user?.uid, currentDevice?.id]);
 
   // Subscribe to messages
+  const isFirstSnapshotRef = useRef(true);
   useEffect(() => {
     if (!user?.uid || !currentDevice) {
       return;
     }
 
+    isFirstSnapshotRef.current = true;
     setIsLoading(true);
 
     const unsubscribe = firestore()
@@ -366,6 +364,37 @@ export const useChatScreen = () => {
           const decryptedMsgs = await Promise.all(
             filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
           );
+          // Auto-copy text messages received from Chrome extension to clipboard
+          if (isFirstSnapshotRef.current) {
+            isFirstSnapshotRef.current = false;
+          } else {
+            const newFromExtension = (snapshot.docChanges() as any[])
+              .filter(change => change.type === 'added')
+              .map(change => ({ id: change.doc.id, ...change.doc.data() }))
+              .filter((msg: any) =>
+                (msg.senderPlatform === 'chrome-extension' ||
+                  (msg.senderDeviceId || '').startsWith('ext_')) &&
+                msg.type === 'text' &&
+                msg.content,
+              );
+            if (newFromExtension.length > 0) {
+              const newest = newFromExtension[newFromExtension.length - 1] as any;
+              decryptChatMessage(newest, user.uid)
+                .then((decrypted: any) => {
+                  const text = decrypted.content || newest.content;
+                  Clipboard.setString(text);
+                  if (Platform.OS === 'android') {
+                    ToastAndroid.show('📋 Copied from extension', ToastAndroid.SHORT);
+                  }
+                })
+                .catch(() => {
+                  Clipboard.setString(newest.content);
+                  if (Platform.OS === 'android') {
+                    ToastAndroid.show('📋 Copied from extension', ToastAndroid.SHORT);
+                  }
+                });
+            }
+          }
           // Deduplicate: fan-out creates one Firestore doc per device;
           // collapse copies with same sender + timestamp + content into one.
           const seen = new Set<string>();
@@ -555,6 +584,8 @@ export const useChatScreen = () => {
     devices,
     selectedDeviceId,
     setSelectedDeviceId,
+    activeShare,
+    clearActiveShare,
 
     // Theme
     colors,
