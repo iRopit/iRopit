@@ -19,6 +19,12 @@ import {
   getDocs,
   addDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
@@ -29,6 +35,7 @@ console.log("ZyncIT: Service Worker starting...");
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 console.log("ZyncIT: Firebase initialized");
 
@@ -898,6 +905,37 @@ function buildContextMenus() {
           }, () => { void chrome.runtime.lastError; });
         });
       }
+
+      // Root item — send image
+      chrome.contextMenus.create({
+        id: "iropit_img_root",
+        title: "iRopit: Send image to...",
+        contexts: ["image"],
+      }, () => { void chrome.runtime.lastError; });
+
+      chrome.contextMenus.create({
+        id: "iropit_img_all",
+        parentId: "iropit_img_root",
+        title: "📱 All devices",
+        contexts: ["image"],
+      }, () => { void chrome.runtime.lastError; });
+
+      if (contextMenuDevices.length > 0) {
+        chrome.contextMenus.create({
+          id: "iropit_img_sep",
+          parentId: "iropit_img_root",
+          type: "separator",
+          contexts: ["image"],
+        }, () => { void chrome.runtime.lastError; });
+        contextMenuDevices.forEach((device) => {
+          chrome.contextMenus.create({
+            id: `iropit_img_dev_${device.id}`,
+            parentId: "iropit_img_root",
+            title: device.name,
+            contexts: ["image"],
+          }, () => { void chrome.runtime.lastError; });
+        });
+      }
     });
   }, 300);
 }
@@ -1011,6 +1049,57 @@ async function sendPageToDevice(url, targetDeviceId) {
   }
 }
 
+/** Fetch an image from srcUrl, upload to Firebase Storage, send as image message. */
+async function sendImageToDevice(srcUrl, targetDeviceId) {
+  if (!currentUser) return;
+  try {
+    // Fetch the image bytes
+    const response = await fetch(srcUrl);
+    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+    const blob = await response.blob();
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const fileName = `chat_img_${Date.now()}.${ext}`;
+
+    // Upload to Firebase Storage
+    const fileRef = storageRef(storage, `chat_images/${currentUser.uid}/${fileName}`);
+    await uploadBytes(fileRef, blob, { contentType: blob.type });
+    const downloadUrl = await getDownloadURL(fileRef);
+
+    // Build chat message
+    const base = {
+      senderId: currentUser.uid,
+      senderDeviceId: currentDeviceId || 'ext_sw',
+      senderPlatform: 'chrome-extension',
+      senderName: currentUser.displayName || 'Extension',
+      receiverId: currentUser.uid,
+      fileUrl: downloadUrl,
+      fileName,
+      content: '',
+      type: 'image',
+      read: false,
+      timestamp: Date.now(),
+      participants: [currentUser.uid],
+    };
+
+    if (!targetDeviceId) {
+      if (contextMenuDevices.length === 0) {
+        await addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: null });
+      } else {
+        await Promise.all(
+          contextMenuDevices.map((dev) =>
+            addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: dev.id })
+          )
+        );
+      }
+    } else {
+      await addDoc(collection(db, 'chats'), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    console.log('ZyncIT: ✅ Image sent:', fileName, '→', targetDeviceId || 'all');
+  } catch (e) {
+    console.error('ZyncIT: Failed to send image:', e);
+  }
+}
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const menuId = String(info.menuItemId);
@@ -1023,6 +1112,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (menuId.startsWith("iropit_sel_dev_")) {
     const deviceId = menuId.replace("iropit_sel_dev_", "");
     if (info.selectionText) sendTextToDevice(info.selectionText, deviceId);
+    return;
+  }
+
+  // Image menu
+  if (menuId === "iropit_img_all") {
+    if (info.srcUrl) sendImageToDevice(info.srcUrl, null);
+    return;
+  }
+  if (menuId.startsWith("iropit_img_dev_")) {
+    const deviceId = menuId.replace("iropit_img_dev_", "");
+    if (info.srcUrl) sendImageToDevice(info.srcUrl, deviceId);
     return;
   }
 

@@ -288,12 +288,21 @@ export function renderChatMessages(messages) {
     });
   });
 
-  // Scroll after browser completes layout (synchronous scrollHeight is unreliable
-  // when the popup just opened or the tab was hidden).
+  // Scroll to the last message reliably.
+  // scrollIntoView on the last element is more reliable than scrollTop = scrollHeight
+  // because it works even before the browser has flushed the full layout.
+  const lastMsg = chatMessages.lastElementChild;
   const scrollToBottom = () => {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (lastMsg) {
+      lastMsg.scrollIntoView({ block: 'end', behavior: 'instant' });
+    } else {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
   };
+  // Run twice: once immediately via RAF (for visible tab), once after a short
+  // delay (for newly-opened popup where layout may not be fully painted yet).
   requestAnimationFrame(scrollToBottom);
+  setTimeout(scrollToBottom, 150);
 
   // Re-scroll after each image finishes loading, since their dimensions aren't
   // known until they load and they push scrollHeight down.
@@ -311,12 +320,15 @@ export function renderChatMessages(messages) {
  * Called externally (e.g. when the chat tab becomes visible).
  */
 export function scrollChatToBottom() {
-  const chatMessages = document.getElementById('chatMessages');
-  if (chatMessages) {
-    requestAnimationFrame(() => {
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    });
-  }
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  const last = el.lastElementChild;
+  const doScroll = () => {
+    if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+    else el.scrollTop = el.scrollHeight;
+  };
+  requestAnimationFrame(doScroll);
+  setTimeout(doScroll, 150);
 }
 
 /**
