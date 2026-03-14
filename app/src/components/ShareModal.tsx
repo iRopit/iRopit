@@ -8,8 +8,6 @@ import {
   Image,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   NativeModules,
 } from 'react-native';
@@ -35,9 +33,6 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const { currentDevice, devices } = useDeviceStore();
   const [caption, setCaption] = useState(data.text || '');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
 
   const isImage = data.mimeType?.startsWith('image/');
   const isVideo = data.mimeType?.startsWith('video/');
@@ -48,13 +43,10 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
 
   const handleSend = useCallback(async () => {
-    if (!user?.uid || !currentDevice) {
-      setError('Not authenticated');
-      return;
-    }
+    if (!user?.uid || !currentDevice) return;
 
-    setUploading(true);
-    setError('');
+    // Close immediately — send in background
+    onClose();
 
     try {
       const targetDeviceIds: string[] =
@@ -63,11 +55,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
       if (isText || (!uris.length && !isImage && !isVideo)) {
         // Text share â€” send as text message
         const messageText = caption.trim() || data.text || data.subject || '';
-        if (!messageText) {
-          setError('Nothing to send');
-          setUploading(false);
-          return;
-        }
+        if (!messageText) return;
 
         let msgData: any = {
           senderId: user.uid,
@@ -132,12 +120,8 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
         }
       }
 
-      setSent(true);
-      setTimeout(onClose, 1000);
     } catch (e: any) {
-      setError(e?.message || 'Failed to send. Please try again.');
-    } finally {
-      setUploading(false);
+      // Modal is already closed; error is silent
     }
   }, [user, currentDevice, selectedDeviceId, otherDevices, uris, isImage, isVideo, isText, caption, data, onClose]);
 
@@ -146,10 +130,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: surfaceBg }]}>
 
           {/* Handle bar */}
@@ -191,19 +172,21 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
               </View>
             )}
 
-            {/* Caption / message input */}
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              {isText ? 'Message' : 'Add a caption (optional)'}
-            </Text>
-            <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
-              value={caption}
-              onChangeText={setCaption}
-              placeholder={isText ? 'Type a message...' : 'Add a caption...'}
-              placeholderTextColor={colors.textSecondary}
-              multiline
-              textAlignVertical="top"
-            />
+            {/* Message input — only for text shares */}
+            {isText && (
+              <>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Message</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
+                  value={caption}
+                  onChangeText={setCaption}
+                  placeholder="Type a message..."
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </>
+            )}
 
             {/* Device selector */}
             <Text style={[styles.label, { color: colors.textSecondary }]}>Send to device</Text>
@@ -265,34 +248,18 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
               </View>
             )}
 
-            {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-            {sent && (
-              <View style={styles.sentRow}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                <Text style={[styles.sentText, { color: colors.primary }]}>Sent to Chat!</Text>
-              </View>
-            )}
-
             {/* Send button */}
             <TouchableOpacity
-              style={[styles.sendBtn, { backgroundColor: colors.primary }, (uploading || sent) && styles.btnDisabled]}
+              style={[styles.sendBtn, { backgroundColor: colors.primary }]}
               onPress={handleSend}
-              disabled={uploading || sent}
             >
-              {uploading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.sendBtnText}>Send to Chat</Text>
-                </>
-              )}
+              <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.sendBtnText}>Send to Chat</Text>
             </TouchableOpacity>
 
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
