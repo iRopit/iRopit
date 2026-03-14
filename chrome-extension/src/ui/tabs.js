@@ -5,6 +5,7 @@
 import { tabs, tabContents } from "./dom.js";
 import { markAllCallsAsViewed } from "../services/calls.js";
 import { markAllNotificationsAsRead } from "../services/notifications.js";
+import { scrollChatToBottom } from "../services/chat.js";
 
 /**
  * Initialize tab switching functionality
@@ -28,6 +29,8 @@ export function initTabs() {
         markAllCallsAsViewed();
       } else if (tabName === "notifications") {
         markAllNotificationsAsRead();
+      } else if (tabName === "chat") {
+        scrollChatToBottom();
       }
     });
   });

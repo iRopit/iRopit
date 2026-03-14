@@ -288,8 +288,35 @@ export function renderChatMessages(messages) {
     });
   });
 
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  // Scroll after browser completes layout (synchronous scrollHeight is unreliable
+  // when the popup just opened or the tab was hidden).
+  const scrollToBottom = () => {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  };
+  requestAnimationFrame(scrollToBottom);
+
+  // Re-scroll after each image finishes loading, since their dimensions aren't
+  // known until they load and they push scrollHeight down.
+  chatMessages.querySelectorAll('img.chat-image').forEach((img) => {
+    if (!img.complete) {
+      img.addEventListener('load', scrollToBottom, { once: true });
+    }
+  });
+
   updateTabBadges();
+}
+
+/**
+ * Scroll the chat messages panel to the very bottom.
+ * Called externally (e.g. when the chat tab becomes visible).
+ */
+export function scrollChatToBottom() {
+  const chatMessages = document.getElementById('chatMessages');
+  if (chatMessages) {
+    requestAnimationFrame(() => {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
 }
 
 /**
