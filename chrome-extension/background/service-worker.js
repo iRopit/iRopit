@@ -1064,8 +1064,11 @@ async function sendImageToDevice(srcUrl, targetDeviceId) {
     });
     if (!uploadResp.ok) throw new Error(`Upload failed: ${uploadResp.status}`);
 
-    // 3. Build permanent download URL
-    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media`;
+    // 3. Build public download URL using the token from the upload response
+    // (URLs with ?token= are publicly accessible without auth headers)
+    const uploadData = await uploadResp.json();
+    const downloadToken = uploadData.downloadTokens;
+    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
 
     // 4. Send Firestore message with type:"image" so chat renders it as an image
     const base = {
