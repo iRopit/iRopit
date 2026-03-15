@@ -1041,13 +1041,65 @@ async function sendPageToDevice(url, targetDeviceId) {
   }
 }
 
-/** Send an image URL as a chat message (sent as text so the receiver can open/download it). */
+/** Fetch image from srcUrl, upload to Firebase Storage, send as type:"image" message. */
 async function sendImageToDevice(srcUrl, targetDeviceId) {
   if (!currentUser) return;
-  // Send the image URL as a plain text message — lightweight, no upload needed.
-  // The receiving app displays it inline if it recognises an image URL.
-  await sendTextToDevice(srcUrl, targetDeviceId);
-  console.log('ZyncIT: ✅ Image URL sent:', srcUrl.slice(0, 80), '→', targetDeviceId || 'all');
+  try {
+    // 1. Fetch the image bytes
+    const imgResp = await fetch(srcUrl);
+    if (!imgResp.ok) throw new Error(`Fetch failed: ${imgResp.status}`);
+    const blob = await imgResp.blob();
+    const contentType = blob.type || "image/jpeg";
+
+    // 2. Upload to Firebase Storage via REST API (no SDK import needed)
+    const idToken = await currentUser.getIdToken();
+    const ext = (contentType.split("/")[1] || "jpg").split("+")[0];
+    const storagePath = `chat_files/${currentUser.uid}/${Date.now()}.${ext}`;
+    const bucket = "iropit-64ea0.firebasestorage.app";
+    const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(storagePath)}`;
+    const uploadResp = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}`, "Content-Type": contentType },
+      body: blob,
+    });
+    if (!uploadResp.ok) throw new Error(`Upload failed: ${uploadResp.status}`);
+
+    // 3. Build permanent download URL
+    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media`;
+
+    // 4. Send Firestore message with type:"image" so chat renders it as an image
+    const base = {
+      senderId: currentUser.uid,
+      senderDeviceId: currentDeviceId || "ext_sw",
+      senderPlatform: "chrome-extension",
+      senderName: currentUser.displayName || "Extension",
+      receiverId: currentUser.uid,
+      content: "📷 Image",
+      type: "image",
+      fileUrl,
+      read: false,
+      timestamp: Date.now(),
+      participants: [currentUser.uid],
+    };
+    if (!targetDeviceId) {
+      if (contextMenuDevices.length === 0) {
+        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+      } else {
+        await Promise.all(
+          contextMenuDevices.map((dev) =>
+            addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
+          )
+        );
+      }
+    } else {
+      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    console.log("ZyncIT: ✅ Image uploaded & sent:", storagePath, "→", targetDeviceId || "all");
+  } catch (e) {
+    // Fallback: send the original URL as text (e.g. CORS-blocked CDN images)
+    console.warn("ZyncIT: Image upload failed, sending URL as text:", e.message);
+    await sendTextToDevice(srcUrl, targetDeviceId);
+  }
 }
 
 // Handle context menu clicks
