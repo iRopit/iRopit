@@ -26795,6 +26795,13 @@ ${this.customData.serverResponse}`;
     hideLoading();
   }
   function initProfileFooter() {
+    const manifest = chrome.runtime.getManifest();
+    const versionStr = `v${manifest.version}`;
+    const versionEl = document.getElementById("extensionVersion");
+    if (versionEl) versionEl.textContent = versionStr;
+    document.querySelectorAll(".settings-version").forEach((el) => {
+      el.textContent = `iRopit ${versionStr}`;
+    });
     const toggleProfileBtn = document.getElementById("toggleProfileBtn");
     const profileFooter = document.getElementById("profileFooter");
     if (toggleProfileBtn && profileFooter) {
