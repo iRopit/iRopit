@@ -25,6 +25,7 @@ interface PermissionsStepProps {
   };
   translate: (key: string) => string;
   onRequestPermission: (permissionId: string) => void;
+  onRequestAllPermissions: () => Promise<void>;
 }
 
 const PermissionsStep: React.FC<PermissionsStepProps> = ({
@@ -33,7 +34,21 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
   colors,
   translate,
   onRequestPermission,
+  onRequestAllPermissions,
 }) => {
+  const [grantingAll, setGrantingAll] = React.useState(false);
+  const allGranted = permissions.every(p => p.granted);
+  const anyUngranted = permissions.some(p => !p.granted);
+
+  const handleGrantAll = async () => {
+    setGrantingAll(true);
+    try {
+      await onRequestAllPermissions();
+    } finally {
+      setGrantingAll(false);
+    }
+  };
+
   return (
     <ScrollView
       style={localStyles.container}
@@ -50,6 +65,26 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
           {translate('onboarding.permissions.subtitle')}
         </Text>
       </View>
+
+      {/* Grant All Button */}
+      {anyUngranted && !allGranted && (
+        <TouchableOpacity
+          style={[
+            localStyles.grantAllButton,
+            { backgroundColor: colors.primary, opacity: grantingAll ? 0.7 : 1 },
+          ]}
+          onPress={handleGrantAll}
+          disabled={grantingAll}
+          activeOpacity={0.8}
+        >
+          <Icon name="shield-checkmark-outline" size={20} color="#FFF" />
+          <Text style={localStyles.grantAllText}>
+            {grantingAll
+              ? (isRTL ? 'جاري المنح...' : 'Granting...')
+              : (isRTL ? 'منح جميع الأذونات' : 'Grant All Permissions')}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Permissions List */}
       <View style={localStyles.permissionsList}>
@@ -187,6 +222,21 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 16,
+  },
+  grantAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  grantAllText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   permissionsList: {
     gap: 10,

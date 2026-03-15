@@ -39,6 +39,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     goBack,
     skip,
     requestPermission,
+    requestAllPermissions,
     completeOnboarding,
     triggerHaptic,
   } = useOnboarding();
@@ -100,6 +101,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             colors={colors}
             translate={translate}
             onRequestPermission={requestPermission}
+            onRequestAllPermissions={requestAllPermissions}
           />
         );
       case 5:
