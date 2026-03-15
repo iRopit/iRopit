@@ -111,8 +111,8 @@ const CallsScreen = () => {
     />
   );
 
-  // Show loading indicator on initial load
-  if (isLoading && calls.length === 0) {
+  // Show loading indicator only if loading takes too long and no data yet
+  if (false && isLoading && calls.length === 0) {
     return (
       <Container
         isDark={isDarkMode}

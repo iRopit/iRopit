@@ -50,7 +50,7 @@ const MainNavigator = () => {
       name: 'Notifications' as const,
       component: NotificationsScreen,
       titleAr: 'الإشعارات',
-      titleEn: 'Alerts',
+      titleEn: 'Notifications',
       icon: 'notifications',
     },
    

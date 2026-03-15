@@ -425,19 +425,17 @@ export const useNotificationsScreen = (
 
   // Load SMS from Firebase on mount
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Cap loading indicator at 500ms regardless of network speed
+    const cap = setTimeout(() => setInitialLoading(false), 500);
 
     if (user && currentDevice) {
       Promise.resolve(loadSmsMessages()).finally(() => {
         setInitialLoading(false);
+        clearTimeout(cap);
       });
-    } else {
-      timer = setTimeout(() => setInitialLoading(false), 1000);
     }
 
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
+    return () => clearTimeout(cap);
   }, [user, currentDevice, loadSmsMessages]);
 
   // Subscribe to notifications from Firebase
