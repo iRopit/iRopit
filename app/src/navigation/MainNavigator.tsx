@@ -75,7 +75,6 @@ const MainNavigator = () => {
       <Tab.Navigator
         key={language} // Force re-mount when language changes
         screenOptions={{
-          lazy: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarStyle: {
