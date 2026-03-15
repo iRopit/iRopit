@@ -133,8 +133,8 @@ export const useCallStore = create<CallState>()(
               syncedAt: Date.now(),
             };
 
-            const docId = `${call.timestamp}_${phoneNumber}`.replace(
-              /[\/.]/g,
+            const docId = `call_${call.timestamp}_${phoneNumber}`.replace(
+              /[\/\.]/g,
               '_',
             );
             const docRef = firestore()
@@ -241,7 +241,7 @@ export const useCallStore = create<CallState>()(
               syncedAt: Date.now(),
             };
 
-            const docId = `${callData.timestamp}_${callData.phoneNumber}`;
+            const docId = `call_${callData.timestamp}_${(callData.phoneNumber || '').replace(/[\/\.]/g, '_')}`;
             const docRef = firestore()
               .collection(COLLECTIONS.USERS)
               .doc(user.uid)
