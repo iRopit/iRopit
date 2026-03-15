@@ -82,8 +82,8 @@ const MainNavigator = () => {
             borderTopColor: colors.border,
             borderTopWidth: 0.5,
             paddingTop: 8,
-            paddingBottom: Math.max(insets.bottom, 28) + 8,
-            height: 60 + Math.max(insets.bottom, 28),
+            paddingBottom: Math.max(insets.bottom, 44) + 4,
+            height: 64 + Math.max(insets.bottom, 44),
             flexDirection: isRTL ? 'row-reverse' : 'row',
           },
           tabBarLabelStyle: {
