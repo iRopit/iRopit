@@ -42,7 +42,7 @@ const defaultSettings: Settings = {
   wifiOnlySync: false,
   syncInterval: 5,
   darkMode: false,
-  language: 'ar',
+  language: 'en',
   appLock: false,
   lockPin: null,
   biometricLock: false,
