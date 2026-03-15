@@ -59,7 +59,7 @@ const ConfirmDeleteBottomSheet: React.FC<ConfirmDeleteBottomSheetProps> = ({
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      height={0.5}
+      height={0.62}
       showHandle={true}
       showClose={false}
       isDark={isDark}
@@ -168,6 +168,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   iconContainer: {
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     gap: 12,
-    marginTop: 'auto',
+    marginTop: 24,
   },
   button: {
     flex: 1,
