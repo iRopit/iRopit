@@ -75,6 +75,7 @@ const MainNavigator = () => {
       <Tab.Navigator
         key={language} // Force re-mount when language changes
         screenOptions={{
+          lazy: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarStyle: {
@@ -82,8 +83,8 @@ const MainNavigator = () => {
             borderTopColor: colors.border,
             borderTopWidth: 0.5,
             paddingTop: 8,
-            paddingBottom: 8 + insets.bottom,
-            height: 60 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 16) + 8,
+            height: 60 + Math.max(insets.bottom, 16),
             flexDirection: isRTL ? 'row-reverse' : 'row',
           },
           tabBarLabelStyle: {
