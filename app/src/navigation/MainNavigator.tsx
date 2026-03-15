@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -6,6 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettingsStore } from '../store/settingsStore';
+import { useAuthStore } from '../store/authStore';
+import { useDeviceStore } from '../store/deviceStore';
+import { useCallStore } from '../store/callStore';
+import { useSMSStore } from '../store/smsStore';
+import { useNotificationStore } from '../store/notificationStore';
 import { LIGHT_COLORS, DARK_COLORS } from '../theme/colors';
 // ServiceStatusBanner removed - permissions are handled in onboarding
 
@@ -22,6 +27,18 @@ const MainNavigator = () => {
   const { darkMode, language } = useSettingsStore();
   const colors = darkMode ? DARK_COLORS : LIGHT_COLORS;
   const insets = useSafeAreaInsets();
+  const user = useAuthStore(s => s.user);
+  const currentDevice = useDeviceStore(s => s.currentDevice);
+  const prefetched = useRef(false);
+
+  // Pre-fetch all store data so tabs load instantly
+  useEffect(() => {
+    if (prefetched.current || !user || !currentDevice) return;
+    prefetched.current = true;
+    useCallStore.getState().loadCalls();
+    useSMSStore.getState().loadMessages();
+    useNotificationStore.getState().syncFromFirebase(user.uid);
+  }, [user, currentDevice]);
 
   // Define tabs in order - will be reversed for LTR
   const tabs = [
