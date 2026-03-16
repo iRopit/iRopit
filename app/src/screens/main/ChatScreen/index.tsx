@@ -12,7 +12,6 @@ import {
   Dimensions,
   Alert,
   ToastAndroid,
-  KeyboardAvoidingView,
   Share,
   Linking,
 } from 'react-native';
@@ -63,6 +62,7 @@ const ChatScreen = () => {
     isUploading,
     uploadProgress,
     keyboardHeight,
+    insets,
     user,
     currentDevice,
     devices,
@@ -298,11 +298,7 @@ const ChatScreen = () => {
         rightComponent={renderDeleteButton()}
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+      <View style={{ flex: 1 }}>
 
       {/* Device selector dropdown */}
       {(() => {
@@ -472,6 +468,7 @@ const ChatScreen = () => {
       ) : (
         <FlatList
           ref={flatListRef}
+          style={{ flex: 1 }}
           data={[...messages].reverse()}
           inverted={true}
           keyExtractor={item => item.id}
@@ -582,7 +579,10 @@ const ChatScreen = () => {
           </TouchableOpacity>
         )}
       </View>
-      </KeyboardAvoidingView>
+      {Platform.OS === 'android' && keyboardHeight > 0 && (
+        <View style={{ height: keyboardHeight + insets.bottom }} />
+      )}
+      </View>
 
       {/* Image Preview Modal */}
       <Modal

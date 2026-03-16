@@ -94,6 +94,7 @@ const MainNavigator = () => {
         screenOptions={{
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
+          tabBarHideOnKeyboard: true,
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,

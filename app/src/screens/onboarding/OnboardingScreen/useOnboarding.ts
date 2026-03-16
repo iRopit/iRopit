@@ -428,8 +428,14 @@ export const useOnboarding = () => {
   );
 
   const requestAllPermissions = useCallback(async () => {
-    for (const permission of permissions.filter(p => !p.granted)) {
+    // Request standard permissions first (dialog-based), then notification listener last
+    // (it opens a system settings screen, so it must come after all dialogs)
+    const ungranted = permissions.filter(p => !p.granted);
+    for (const permission of ungranted.filter(p => p.id !== 'notificationListener')) {
       await requestPermission(permission.id);
+    }
+    if (ungranted.some(p => p.id === 'notificationListener')) {
+      await requestPermission('notificationListener');
     }
   }, [permissions, requestPermission]);
 

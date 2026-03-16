@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
@@ -22,6 +23,7 @@ export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
   const { user } = useAuthStore();
   const { currentDevice, devices, loadDevices } = useDeviceStore();
+  const insets = useSafeAreaInsets();
 
   const pendingShare = useShareStore(state => state.pendingShare);
   const clearPendingShare = useShareStore(state => state.clearPendingShare);
@@ -571,6 +573,7 @@ export const useChatScreen = () => {
     isUploading,
     uploadProgress,
     keyboardHeight,
+    insets,
     user,
     currentDevice,
     devices,
