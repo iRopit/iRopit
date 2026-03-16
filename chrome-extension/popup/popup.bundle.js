@@ -22741,11 +22741,12 @@ ${this.customData.serverResponse}`;
     if (!timestamp) return "";
     const date = new Date(timestamp);
     const now = /* @__PURE__ */ new Date();
-    const diff = now - date;
-    if (diff < 6e4) return "Just now";
-    if (diff < 36e5) return `${Math.floor(diff / 6e4)}m ago`;
-    if (diff < 864e5) return `${Math.floor(diff / 36e5)}h ago`;
-    return date.toLocaleDateString("en-GB");
+    const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    if (date.toDateString() === now.toDateString()) return `Today ${time}`;
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
+    return `${date.toLocaleDateString("en-GB")} ${time}`;
   }
   function formatDuration(seconds) {
     if (!seconds) return "0:00";

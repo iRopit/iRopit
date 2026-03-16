@@ -70,13 +70,19 @@ export function formatTime(timestamp) {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   const now = new Date();
-  const diff = now - date;
 
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-  return date.toLocaleDateString("en-GB");
+  // Today
+  if (date.toDateString() === now.toDateString()) return `Today ${time}`;
+
+  // Yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
+
+  // Older: date + time
+  return `${date.toLocaleDateString("en-GB")} ${time}`;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../types';
@@ -33,6 +34,7 @@ const CallDetailScreen = () => {
   const { call } = route.params;
   const { isRTL, t, isDarkMode, colors } = useTheme();
   const { calls } = useCallStore();
+  const insets = useSafeAreaInsets();
 
   // Get all calls for this phone number
   const callHistory = useMemo(() => {
@@ -137,13 +139,6 @@ const CallDetailScreen = () => {
           </Text>
         </TouchableOpacity>
 
-        {/* Large Avatar */}
-        <View style={styles.avatarContainer}>
-          <View style={[styles.avatar, { backgroundColor: avatarBgColor }]}>
-            <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
-          </View>
-        </View>
-
         {/* Contact Name */}
         <Text style={[styles.contactName, { color: textColor }]}>
           {displayName}
@@ -203,60 +198,8 @@ const CallDetailScreen = () => {
         </View>
       </View>
 
-      {/* Tabs */}
-      <View style={[styles.tabContainer, { backgroundColor: surfaceColor }]}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            styles.activeTab,
-            {
-              backgroundColor: isDarkMode
-                ? colors.surfaceSecondary
-                : colors.surface,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.tabText, styles.activeTabText, { color: textColor }]}
-          >
-            {isRTL ? 'التفاصيل' : 'Details'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Content */}
-      <ScrollView style={styles.content}>
-        {/* Call Info Section */}
-        <View style={[styles.section, { backgroundColor: surfaceColor }]}>
-          <View style={styles.callInfoRow}>
-            <View style={styles.callTypeContainer}>
-              <Icon
-                name={getCallTypeIcon(call.type)}
-                size={20}
-                color={call.type === 'missed' ? colors.missed : colors.incoming}
-                style={styles.callTypeIcon}
-              />
-              <View style={styles.callTypeTextContainer}>
-                <Text style={[styles.callTypeLabel, { color: textColor }]}>
-                  {getCallTypeLabel(call.type)}
-                </Text>
-                <Text
-                  style={[styles.callDateTime, { color: secondaryTextColor }]}
-                >
-                  {formatDateTime(call.timestamp)}
-                </Text>
-              </View>
-            </View>
-            {call.duration > 0 && (
-              <Text
-                style={[styles.callDuration, { color: secondaryTextColor }]}
-              >
-                {formatDuration(call.duration)}
-              </Text>
-            )}
-          </View>
-        </View>
-
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
         {/* Call History Section */}
         <View style={[styles.section, { backgroundColor: surfaceColor }]}>
           <View style={styles.sectionHeader}>

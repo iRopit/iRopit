@@ -4,7 +4,7 @@ export const getInitials = (name: string): string => {
   if (!name) return '?';
   const words = name.trim().split(' ');
   if (words.length >= 2) {
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
   }
   return name.substring(0, 2).toUpperCase();
 };
@@ -53,7 +53,7 @@ export const getCallTypeLabel = (type: CallLog['type']): string => {
     case 'missed':
       return 'Missed Call';
     case 'rejected':
-      return 'Cancelled Call';
+      return 'Rejected Call';
     default:
       return 'Call';
   }

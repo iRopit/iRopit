@@ -53,6 +53,7 @@ export const createStyles = (colors: ColorTheme) =>
       color: colors.text,
       fontSize: 28,
       fontWeight: '600',
+      marginTop: 40,
       marginBottom: 24,
     },
     actionsRow: {
@@ -124,6 +125,7 @@ export const createStyles = (colors: ColorTheme) =>
     callTypeContainer: {
       flexDirection: 'row',
       alignItems: 'center',
+      flex: 1,
     },
     callTypeIcon: {
       fontSize: 24,
@@ -145,6 +147,7 @@ export const createStyles = (colors: ColorTheme) =>
     callDuration: {
       color: colors.textSecondary,
       fontSize: 14,
+      alignSelf: 'center',
     },
     menuRow: {
       flexDirection: 'row',
@@ -231,6 +234,7 @@ export const createStyles = (colors: ColorTheme) =>
     },
     historyDuration: {
       fontSize: 13,
+      alignSelf: 'center',
     },
   });
 
