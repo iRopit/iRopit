@@ -1,24 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Globe, LogOut, LayoutDashboard, User } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/services", label: "Services" },
-  { href: "/privacy-policy", label: "Privacy Policy" },
-  { href: "/contact", label: "Contact" },
+  { href: "/", labelKey: "nav.home" },
+  { href: "/about", labelKey: "nav.about" },
+  { href: "/services", labelKey: "nav.services" },
+  { href: "/privacy-policy", labelKey: "nav.privacyPolicy" },
+  { href: "/contact", labelKey: "nav.contact" },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Hide navbar on dashboard pages
+  const isDashboard = pathname?.startsWith("/dashboard");
+  const isAuthPage =
+    pathname?.startsWith("/login") || pathname?.startsWith("/signup");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -28,7 +39,21 @@ export default function Navbar() {
 
   useEffect(() => {
     setIsOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  if (isDashboard || isAuthPage) return null;
 
   return (
     <nav
@@ -68,20 +93,77 @@ export default function Navbar() {
                     : "text-txt-secondary hover:text-txt hover:bg-surface-secondary"
                 }`}
               >
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             ))}
           </div>
 
           {/* Desktop Actions */}
           <div className="hidden lg:flex items-center gap-3">
-            <ThemeToggle />
-            <Link
-              href="#download"
-              className="bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all hover:scale-105"
+            <button
+              onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+              className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] hover:bg-surface-secondary transition-colors text-txt-secondary hover:text-txt"
+              title={language === "en" ? "العربية" : "English"}
             >
-              Download App
-            </Link>
+              <Globe className="w-4 h-4" />
+            </button>
+            <ThemeToggle />
+            {user ? (
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm hover:bg-primary/30 transition-colors overflow-hidden"
+                >
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    (
+                      user.displayName?.[0] ||
+                      user.email?.[0] ||
+                      "U"
+                    ).toUpperCase()
+                  )}
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute end-0 top-full mt-2 w-48 bg-surface border border-border rounded-[var(--radius)] shadow-lg py-1 z-50">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-txt hover:bg-surface-secondary transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      {t("nav.dashboard")}
+                    </Link>
+                    <button
+                      onClick={logout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-error hover:bg-surface-secondary transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      {t("nav.logout")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="border border-primary text-primary hover:bg-primary/10 px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all"
+                >
+                  {t("nav.login")}
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all hover:scale-105"
+                >
+                  {t("nav.signup")}
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Toggle */}
@@ -119,15 +201,32 @@ export default function Navbar() {
                   : "text-txt-secondary hover:text-txt hover:bg-surface-secondary"
               }`}
             >
-              {link.label}
+              {t(link.labelKey)}
             </Link>
           ))}
-          <Link
-            href="#download"
-            className="block text-center bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors mt-3"
-          >
-            Download App
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="block text-center bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors mt-3"
+            >
+              {t("nav.dashboard")}
+            </Link>
+          ) : (
+            <div className="flex flex-col gap-2 mt-3">
+              <Link
+                href="/login"
+                className="block text-center border border-primary text-primary hover:bg-primary/10 px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors"
+              >
+                {t("nav.login")}
+              </Link>
+              <Link
+                href="/signup"
+                className="block text-center bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors"
+              >
+                {t("nav.signup")}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>

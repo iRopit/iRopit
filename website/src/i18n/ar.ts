@@ -1,0 +1,213 @@
+const ar = {
+  // Auth
+  auth: {
+    login: "تسجيل الدخول",
+    signup: "إنشاء حساب",
+    logout: "تسجيل الخروج",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    name: "الاسم الكامل",
+    forgotPassword: "نسيت كلمة المرور؟",
+    noAccount: "ليس لديك حساب؟",
+    hasAccount: "لديك حساب بالفعل؟",
+    signInGoogle: "تسجيل الدخول بـ Google",
+    signUpGoogle: "التسجيل بـ Google",
+    resetPassword: "إعادة تعيين كلمة المرور",
+    resetSent: "تم إرسال رابط إعادة التعيين!",
+    orContinueWith: "أو المتابعة عبر",
+    welcomeBack: "مرحباً بعودتك",
+    createYourAccount: "أنشئ حسابك",
+    signInToContinue: "سجّل الدخول إلى حسابك في iRopit",
+    getStarted: "ابدأ مع iRopit",
+  },
+
+  // Navigation
+  nav: {
+    home: "الرئيسية",
+    about: "حول",
+    services: "الخدمات",
+    privacyPolicy: "سياسة الخصوصية",
+    contact: "اتصل بنا",
+    dashboard: "لوحة التحكم",
+    downloadApp: "تحميل التطبيق",
+    login: "تسجيل الدخول",
+    signup: "إنشاء حساب",
+    logout: "تسجيل الخروج",
+  },
+
+  // Dashboard tabs
+  tabs: {
+    chat: "المحادثة",
+    sms: "الرسائل",
+    calls: "المكالمات",
+    notifications: "الإشعارات",
+    devices: "الأجهزة",
+    settings: "الإعدادات",
+  },
+
+  // Chat
+  chat: {
+    title: "المحادثة",
+    typeMessage: "اكتب رسالة...",
+    send: "إرسال",
+    noMessages: "لا توجد رسائل",
+    startConversation: "ابدأ محادثة",
+    chatWithDevices: "تحدث مع أجهزتك",
+    copyMessage: "نسخ",
+    copied: "تم النسخ!",
+    allDevices: "جميع الأجهزة",
+    image: "صورة",
+    file: "ملف",
+    replyTo: "رد على",
+    encryptedMessage: "رسالة مشفرة",
+  },
+
+  // SMS
+  sms: {
+    title: "الرسائل",
+    noConversations: "لا توجد محادثات",
+    noMessages: "لا توجد رسائل",
+    markAllRead: "تعليم الكل كمقروء",
+    deleteAll: "حذف الكل",
+    newSms: "رسالة جديدة",
+    unread: "غير مقروءة",
+    you: "أنت",
+    searchConversations: "بحث في المحادثات...",
+    back: "رجوع",
+    sendFrom: "إرسال من جهاز",
+    to: "إلى",
+    message: "الرسالة",
+    typeMessage: "اكتب رسالة...",
+    sendSms: "إرسال SMS",
+    sendTo: "إرسال إلى",
+    searchContactOrNumber: "ابحث عن جهة اتصال أو أدخل رقم...",
+    noContactsFound: "لا توجد جهات اتصال",
+    noDevice: "لا يوجد جهاز متاح",
+    sending: "جاري الإرسال...",
+    sent: "تم إرسال الرسالة!",
+    sentPending: "تم وضع الرسالة في الانتظار",
+    sendFailed: "فشل إرسال الرسالة",
+  },
+
+  // Calls
+  calls: {
+    title: "المكالمات",
+    noCalls: "لا توجد مكالمات",
+    allCalls: "الكل",
+    missedCalls: "فائتة",
+    incoming: "واردة",
+    outgoing: "صادرة",
+    missed: "فائتة",
+    rejected: "مرفوضة",
+    clearAll: "مسح الكل",
+    duration: "المدة",
+    unknown: "غير معروف",
+  },
+
+  // Notifications
+  notifications: {
+    title: "الإشعارات",
+    noNotifications: "لا توجد إشعارات",
+    markAllRead: "تعليم الكل كمقروء",
+    searchNotifications: "بحث في الإشعارات...",
+    allApps: "جميع التطبيقات",
+  },
+
+  // Devices
+  devices: {
+    title: "الأجهزة",
+    noDevices: "لا توجد أجهزة",
+    online: "متصل",
+    offline: "غير متصل",
+    lastActive: "آخر نشاط",
+    thisDevice: "هذا الجهاز",
+    webBrowser: "متصفح الويب",
+    android: "أندرويد",
+    chromeExtension: "إضافة كروم",
+    ios: "iOS",
+  },
+
+  // Common
+  common: {
+    loading: "جارٍ التحميل...",
+    error: "خطأ",
+    retry: "إعادة المحاولة",
+    cancel: "إلغاء",
+    save: "حفظ",
+    delete: "حذف",
+    confirm: "تأكيد",
+    close: "إغلاق",
+    search: "بحث",
+    noData: "لا توجد بيانات",
+    settings: "الإعدادات",
+    language: "اللغة",
+    theme: "المظهر",
+    light: "فاتح",
+    dark: "داكن",
+    install: "تثبيت التطبيق",
+    installDescription: "ثبّت iRopit لتجربة أفضل",
+    dismiss: "إغلاق",
+    updateAvailable: "يتوفر إصدار جديد",
+    reload: "إعادة تحميل",
+    offline: "أنت غير متصل — تُعرض البيانات المخزنة",
+    online: "أنت متصل مجدداً",
+  },
+
+  // Time
+  time: {
+    justNow: "الآن",
+    minutesAgo: "منذ {{count}} دقيقة",
+    hoursAgo: "منذ {{count}} ساعة",
+    daysAgo: "منذ {{count}} يوم",
+    yesterday: "أمس",
+  },
+
+  // Errors
+  errors: {
+    loginFailed: "فشل تسجيل الدخول. تحقق من بياناتك.",
+    signupFailed: "فشل التسجيل. حاول مرة أخرى.",
+    googleFailed: "فشل تسجيل الدخول بـ Google.",
+    networkError: "خطأ في الشبكة. تحقق من اتصالك.",
+    unknown: "حدث خطأ غير متوقع.",
+    emailInUse: "هذا البريد مستخدم بالفعل.",
+    weakPassword: "يجب أن تكون كلمة المرور 6 أحرف على الأقل.",
+    invalidEmail: "أدخل بريداً إلكترونياً صحيحاً.",
+    userNotFound: "لا يوجد حساب بهذا البريد.",
+    wrongPassword: "كلمة المرور غير صحيحة.",
+  },
+
+  // Settings
+  settings: {
+    title: "الإعدادات",
+    subtitle: "إدارة حسابك وتفضيلاتك",
+    profile: "الملف الشخصي",
+    displayName: "الاسم المعروض",
+    noName: "لم يتم تعيين اسم",
+    profileUpdated: "تم تحديث الملف الشخصي بنجاح",
+    security: "الأمان",
+    changePassword: "تغيير كلمة المرور",
+    currentPassword: "كلمة المرور الحالية",
+    newPassword: "كلمة المرور الجديدة",
+    confirmPassword: "تأكيد كلمة المرور",
+    passwordChanged: "تم تغيير كلمة المرور بنجاح",
+    passwordsMismatch: "كلمات المرور غير متطابقة",
+    wrongCurrentPassword: "كلمة المرور الحالية غير صحيحة",
+    appearance: "المظهر",
+    deleteAccount: "حذف الحساب",
+    about: "حول التطبيق",
+    version: "الإصدار",
+    platform: "المنصة",
+    loggedInAs: "مسجّل الدخول كـ",
+  },
+
+  // Empty states
+  empty: {
+    chat: "لا توجد رسائل بعد. ابدأ المحادثة مع أجهزتك!",
+    sms: "لا توجد محادثات. ستظهر الرسائل عند المزامنة من هاتفك.",
+    calls: "لا يوجد سجل مكالمات. ستظهر المكالمات عند المزامنة من هاتفك.",
+    notifications: "لا توجد إشعارات. ستظهر عند المزامنة من هاتفك.",
+    devices: "لا توجد أجهزة متصلة. ثبّت تطبيق الأندرويد للبدء.",
+  },
+};
+
+export default ar;
