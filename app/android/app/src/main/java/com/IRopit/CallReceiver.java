@@ -11,10 +11,16 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import androidx.core.content.ContextCompat;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -27,8 +33,10 @@ public class CallReceiver extends BroadcastReceiver {
     private static String lastState = "";
     private static String lastNumber = "";
     private static long callStartTime = 0;
+    private static long callAnswerTime = 0; // time call was actually answered (OFFHOOK)
     private static boolean isIncoming = false;
     private static boolean callEventSent = false;
+    private static boolean callWasAnswered = false;
 
     public static void setReactContext(ReactApplicationContext context) {
         reactContext = context;
@@ -60,6 +68,7 @@ public class CallReceiver extends BroadcastReceiver {
             if (phoneNumber != null) {
                 lastNumber = phoneNumber;
                 isIncoming = false;
+                callWasAnswered = false;
                 callStartTime = System.currentTimeMillis();
                 callEventSent = false;
             }
@@ -73,6 +82,7 @@ public class CallReceiver extends BroadcastReceiver {
             // Incoming call ringing
             isIncoming = true;
             callEventSent = false;
+            callWasAnswered = false;
             callStartTime = System.currentTimeMillis();
 
             // Send ringing event if we have a number
@@ -83,10 +93,12 @@ public class CallReceiver extends BroadcastReceiver {
             
         } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
             // Call answered or outgoing call started
+            callWasAnswered = true;
+            callAnswerTime = System.currentTimeMillis(); // record exact answer time for duration
             // For outgoing calls on Android 10+, NEW_OUTGOING_CALL is not fired,
             // so callStartTime may still be 0 here. Set it now if needed.
             if (!isIncoming && callStartTime == 0) {
-                callStartTime = System.currentTimeMillis();
+                callStartTime = callAnswerTime;
                 Log.d(TAG, "Outgoing call started (OFFHOOK), setting callStartTime: " + callStartTime);
             }
             String contactName = getContactName(context, lastNumber);
@@ -104,27 +116,59 @@ public class CallReceiver extends BroadcastReceiver {
                 final String savedNumber = lastNumber;
                 final boolean wasIncoming = isIncoming;
                 final long savedStartTime = callStartTime;
+                final long savedAnswerTime = callAnswerTime;
+                final boolean wasAnswered = callWasAnswered;
                 
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                    fetchLastCallAndSendEvent(context, savedNumber, wasIncoming, savedStartTime);
-                }, 2500); // 2.5 seconds - some devices need more time to update call log
+                    fetchLastCallAndSendEvent(context, savedNumber, wasIncoming, wasAnswered, savedStartTime, savedAnswerTime);
+                }, 4000); // 4 seconds - Samsung and some devices need extra time to update call log
             }
             
             // Reset state
             callStartTime = 0;
+            callAnswerTime = 0;
             lastNumber = "";
             isIncoming = false;
             callEventSent = false;
+            callWasAnswered = false;
         }
     }
 
-    private void fetchLastCallAndSendEvent(Context context, String savedNumber, boolean wasIncoming, long savedStartTime) {
+    private void fetchLastCallAndSendEvent(Context context, String savedNumber, boolean wasIncoming, boolean wasAnswered, long savedStartTime, long savedAnswerTime) {
         String number = (savedNumber != null && !savedNumber.isEmpty()) ? savedNumber : "";
         String name = "";
-        String type = wasIncoming ? "incoming" : "outgoing";
-        int duration = (int) ((System.currentTimeMillis() - savedStartTime) / 1000);
+        // If incoming and never answered, it's a missed call
+        String type = wasIncoming ? (wasAnswered ? "incoming" : "missed") : "outgoing";
+        // Duration fallback: measure from answer time (OFFHOOK), not dial/ring time.
+        // This avoids including dialing/ringing time in the talk duration.
+        long durationBase = (savedAnswerTime > 0) ? savedAnswerTime : savedStartTime;
+        int duration = (wasAnswered && durationBase > 0) ? (int) ((System.currentTimeMillis() - durationBase) / 1000) : 0;
         long callDate = savedStartTime; // Will be overridden by call log date if available
         boolean gotCallLogData = false;
+        int simSlot = -1;
+
+        // Build phone account ID to SIM slot mapping
+        Map<String, Integer> accountToSlot = new HashMap<>();
+        try {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                if (sm != null) {
+                    List<SubscriptionInfo> subs = sm.getActiveSubscriptionInfoList();
+                    if (subs != null) {
+                        for (SubscriptionInfo info : subs) {
+                            String iccId = info.getIccId();
+                            if (iccId != null) {
+                                accountToSlot.put(iccId, info.getSimSlotIndex());
+                            }
+                            accountToSlot.put(String.valueOf(info.getSubscriptionId()), info.getSimSlotIndex());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read SIM slot info", e);
+        }
         
         try {
             // Check permission
@@ -140,7 +184,8 @@ public class CallReceiver extends BroadcastReceiver {
                         CallLog.Calls.CACHED_NAME,
                         CallLog.Calls.TYPE,
                         CallLog.Calls.DURATION,
-                        CallLog.Calls.DATE
+                        CallLog.Calls.DATE,
+                        CallLog.Calls.PHONE_ACCOUNT_ID
                     },
                     null,
                     null,
@@ -156,15 +201,50 @@ public class CallReceiver extends BroadcastReceiver {
                             int logDuration = cursor.getInt(3);
                             long logDate = cursor.getLong(4);
 
+                            // Resolve SIM slot from PHONE_ACCOUNT_ID
+                            String phoneAccountId = cursor.getString(5);
+                            if (phoneAccountId != null && !phoneAccountId.isEmpty()) {
+                                Integer slot = accountToSlot.get(phoneAccountId);
+                                // Fallback: try last token after ';' (e.g. "com.android.phone;2" -> "2")
+                                if (slot == null && phoneAccountId.contains(";")) {
+                                    String suffix = phoneAccountId.substring(phoneAccountId.lastIndexOf(';') + 1);
+                                    slot = accountToSlot.get(suffix);
+                                }
+                                // Fallback: try all split tokens
+                                if (slot == null) {
+                                    for (String part : phoneAccountId.split("[^a-zA-Z0-9]")) {
+                                        if (!part.isEmpty()) {
+                                            slot = accountToSlot.get(part);
+                                            if (slot != null) break;
+                                        }
+                                    }
+                                }
+                                if (slot != null) {
+                                    simSlot = slot;
+                                }
+                            }
+
                             Log.d(TAG, "=== CALL LOG DATA ===");
                             Log.d(TAG, "logNumber: '" + logNumber + "' (null? " + (logNumber == null) + ", empty? " + (logNumber != null && logNumber.isEmpty()) + ")");
                             Log.d(TAG, "logName: '" + logName + "'");
-                            Log.d(TAG, "logType: " + logType + ", logDuration: " + logDuration);
+                            Log.d(TAG, "logType: " + logType + ", logDuration: " + logDuration + ", simSlot: " + simSlot);
                             Log.d(TAG, "savedNumber was: '" + savedNumber + "'");
                             Log.d(TAG, "current number is: '" + number + "'");
 
-                            // Only use call log data if it's recent (within last 60 seconds)
-                            if (System.currentTimeMillis() - logDate < 60000) {
+                            // Use call log data if the entry date is close to when we started tracking
+                            // (logDate is the call START time, so compare against savedStartTime not currentTime)
+                            // Allow up to 30s before savedStartTime (device clock drift) or any time after.
+                            //
+                            // Safety check: if the call was never answered (wasAnswered=false) but the log
+                            // shows a completed incoming/outgoing call with non-zero duration, that entry
+                            // belongs to a PREVIOUS call that ended just before ours started. Reject it.
+                            boolean callLogIsConsistent = wasAnswered || logDuration == 0 ||
+                                    (logType != CallLog.Calls.INCOMING_TYPE && logType != CallLog.Calls.OUTGOING_TYPE);
+                            if (!callLogIsConsistent) {
+                                Log.w(TAG, "⚠️ Call log inconsistency: wasAnswered=false but logType=" + logType +
+                                        ", logDuration=" + logDuration + ". Previous call entry — ignoring call log.");
+                            }
+                            if (logDate >= savedStartTime - 30000 && callLogIsConsistent) {
                                 gotCallLogData = true;
                                 // Always use number from call log as it's more reliable
                                 if (logNumber != null && !logNumber.isEmpty()) {
@@ -221,24 +301,32 @@ public class CallReceiver extends BroadcastReceiver {
             name = getContactName(context, number);
         }
         
-        // Only override type to missed if we did NOT get reliable data from call log
-        // The call log already correctly reports missed/incoming/outgoing/rejected types
-        if (!gotCallLogData && wasIncoming && duration < 3) {
-            type = "missed";
-            Log.d(TAG, "No call log data available, marking as missed (duration < 3s)");
+        // If call log data wasn't available, use the wasAnswered flag as ground truth
+        if (!gotCallLogData) {
+            if (wasIncoming && !wasAnswered) {
+                type = "missed";
+                duration = 0;
+                Log.d(TAG, "No call log data + call not answered → marking as missed");
+            } else if (wasIncoming && wasAnswered) {
+                // Duration fallback: time from ring start to IDLE is an overestimate;
+                // clamp to a safe value until call log is available on next sync
+                Log.d(TAG, "No call log data, incoming answered call duration estimate: " + duration);
+            }
         }
 
-        Log.d(TAG, "Final call data: number=" + number + ", name=" + name + ", type=" + type + ", duration=" + duration + ", date=" + callDate);
+        Log.d(TAG, "Final call data: number=" + number + ", name=" + name + ", type=" + type + ", duration=" + duration + ", date=" + callDate + ", simSlot=" + simSlot);
 
-        sendEvent("onCallReceived", createCallMap(number, name, type, "ended", duration, callDate));
+        WritableMap callMap = createCallMap(number, name, type, "ended", duration, callDate);
+        callMap.putInt("simSlot", simSlot);
+        sendEvent("onCallReceived", callMap);
         
         // Also save directly to Firebase for when app is in background
         // This ensures calls are captured even without an active React instance
         try {
             FirebaseHelper firebaseHelper = FirebaseHelper.getInstance(context);
             if (firebaseHelper != null && firebaseHelper.isLoggedIn()) {
-                firebaseHelper.sendCallToFirestore(number, name, type, callDate, duration);
-                Log.d(TAG, "✅ Call saved to Firebase directly: " + number + " (" + type + ")");
+                firebaseHelper.sendCallToFirestore(number, name, type, callDate, duration, simSlot);
+                Log.d(TAG, "✅ Call saved to Firebase directly: " + number + " (" + type + ", SIM" + simSlot + ")");
             } else {
                 Log.w(TAG, "Cannot save call to Firebase: user not logged in");
             }
