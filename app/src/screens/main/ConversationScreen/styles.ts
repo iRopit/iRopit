@@ -9,7 +9,7 @@ export const createStyles = (colors: ColorTheme) =>
     },
     header: {
       paddingTop: 50,
-      paddingBottom: 12,
+      paddingBottom: 20,
       paddingHorizontal: 16,
       backgroundColor: colors.background,
       borderBottomWidth: 0.5,
@@ -17,18 +17,20 @@ export const createStyles = (colors: ColorTheme) =>
     },
     backButton: {
       position: 'absolute',
-      left: 8,
-      top: 44,
-      padding: 8,
+      left: 16,
+      top: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
       zIndex: 10,
     },
     backIcon: {
       color: colors.primaryText,
-      fontSize: 40,
+      fontSize: 28,
       fontWeight: '300',
     },
     headerCenter: {
       alignItems: 'center',
+      marginTop: 40,
     },
     headerAvatar: {
       width: 64,
@@ -83,10 +85,34 @@ export const createStyles = (colors: ColorTheme) =>
       fontSize: 24,
     },
     bubbleWrapper: {},
+    timeLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+      gap: 6,
+    },
+    timeLabelRowRight: {
+      justifyContent: 'flex-end',
+    },
     timeLabel: {
       fontSize: 12,
-      textAlign: 'center',
-      marginBottom: 8,
+    },
+    simBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    simBadge0: {
+      backgroundColor: '#007AFF',
+    },
+    simBadge1: {
+      backgroundColor: '#FF9500',
+    },
+    simBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '600',
     },
     bubble: {
       borderRadius: 18,

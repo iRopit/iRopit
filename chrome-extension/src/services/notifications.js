@@ -233,6 +233,8 @@ function showNotifDetail(appKey, appName, notifications) {
     </div>
   `).join("");
 
+  const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
+
   detailList.querySelectorAll(".notif-detail-bubble").forEach(item => {
     item.addEventListener("click", async () => {
       const notifId = item.dataset.notifId;
@@ -241,6 +243,17 @@ function showNotifDetail(appKey, appName, notifications) {
         await markNotificationAsRead(deviceId, notifId);
         item.classList.remove("unread");
         item.querySelector(".unread-dot")?.remove();
+      }
+      if (isWhatsApp) {
+        const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
+        const cleanTitle = title.replace(/●/g, "").trim();
+        const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
+        if (phoneMatch) {
+          const phone = cleanTitle.replace(/[^\d+]/g, "");
+          window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
+        } else {
+          window.open("https://web.whatsapp.com/", "_blank");
+        }
       }
     });
   });
@@ -256,17 +269,24 @@ function hideNotifDetail() {
 
 function updateNotificationsList(deviceId, newNotifications) {
   state.setNotificationsData(deviceId, newNotifications);
-  const merged = getMergedNotifications();
-
-  const selectedDevice =
-    document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-  const filtered =
-    selectedDevice === "all"
-      ? merged
-      : merged.filter((n) => n.deviceId === selectedDevice);
-
-  renderNotifications(filtered.slice(0, 200));
+  scheduleRender();
   updateTabBadges();
+}
+
+let _renderTimer = null;
+function scheduleRender() {
+  if (_renderTimer) clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(() => {
+    _renderTimer = null;
+    const merged = getMergedNotifications();
+    const selectedDevice =
+      document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const filtered =
+      selectedDevice === "all"
+        ? merged
+        : merged.filter((n) => n.deviceId === selectedDevice);
+    renderNotifications(filtered.slice(0, 200));
+  }, 80);
 }
 
 /**
@@ -452,53 +472,42 @@ export async function markAllNotificationsAsRead() {
 }
 
 /**
- * Update Firestore notifications as read
+ * Update Firestore notifications as read — uses batched writes to avoid
+ * triggering a separate onSnapshot for every single document.
  */
 async function updateFirestoreNotifications(userId, unreadNotifs) {
+  // Filter out invalid IDs
+  const validNotifs = unreadNotifs.filter(n => n.id && !/^-?\d+$/.test(n.id));
+  if (validNotifs.length === 0) return;
+
   let successCount = 0;
   let failCount = 0;
 
-  const promises = unreadNotifs.map(async (notif) => {
-    // Skip numeric-only IDs (not valid Firestore docs)
-    if (/^-?\d+$/.test(notif.id)) {
-      console.log(`[Notifications] Skipping numeric ID: ${notif.id}`);
-      return;
-    }
-
-    const deviceId = notif.actualDeviceId;
-
-    try {
-      if (
-        deviceId &&
-        deviceId !== "user" &&
-        deviceId !== "_user_notifications"
-      ) {
-        const notifRef = doc(
-          db,
-          "users",
-          userId,
-          "devices",
-          deviceId,
-          "notifications",
-          notif.id,
-        );
-        await updateDoc(notifRef, { read: true });
-        successCount++;
+  // Split into batches of 500 (Firestore limit)
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < validNotifs.length; i += BATCH_SIZE) {
+    const chunk = validNotifs.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    chunk.forEach((notif) => {
+      const deviceId = notif.actualDeviceId;
+      let notifRef;
+      if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+        notifRef = doc(db, "users", userId, "devices", deviceId, "notifications", notif.id);
       } else {
-        const notifRef = doc(db, "users", userId, "notifications", notif.id);
-        await updateDoc(notifRef, { read: true });
-        successCount++;
+        notifRef = doc(db, "users", userId, "notifications", notif.id);
       }
+      batch.update(notifRef, { read: true });
+    });
+    try {
+      await batch.commit();
+      successCount += chunk.length;
     } catch (e) {
-      failCount++;
-      console.warn(`[Notifications] Failed ${notif.id}: ${e.message}`);
+      failCount += chunk.length;
+      console.warn(`[Notifications] Batch update failed: ${e.message}`);
     }
-  });
+  }
 
-  await Promise.all(promises);
-  console.log(
-    `[Notifications] Done: ${successCount} success, ${failCount} failed`,
-  );
+  console.log(`[Notifications] Done: ${successCount} success, ${failCount} failed`);
 }
 
 /**

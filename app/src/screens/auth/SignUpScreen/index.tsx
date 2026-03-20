@@ -10,88 +10,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../../store/authStore';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { Button, Input, Divider, IconButton } from '../../../components';
-import { useLoading, useToggle } from '../../../hooks';
+import { Button, IconButton } from '../../../components';
+import { useLoading } from '../../../hooks';
 import { styles } from './styles';
 import { SignUpScreenProps } from './types';
 
 const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
-  const [showPassword, toggleShowPassword] = useToggle(false);
   const { isLoading, startLoading, stopLoading } = useLoading();
   const { colors, t, isDarkMode, isRTL } = useTheme();
 
-  const { signUpWithEmail, signInWithGoogle } = useAuthStore();
-
-  const clearErrors = useCallback(() => {
-    setNameError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmPasswordError('');
-    setGeneralError('');
-  }, []);
-
-  const handleSignUp = useCallback(async () => {
-    clearErrors();
-    let hasError = false;
-
-    if (!name.trim()) {
-      setNameError(t('nameRequired'));
-      hasError = true;
-    }
-
-    if (!email.trim()) {
-      setEmailError(t('emailRequired'));
-      hasError = true;
-    }
-
-    if (!password) {
-      setPasswordError(t('passwordRequired'));
-      hasError = true;
-    } else if (password.length < 6) {
-      setPasswordError(t('passwordMinLength'));
-      hasError = true;
-    }
-
-    if (!confirmPassword) {
-      setConfirmPasswordError(t('confirmPasswordRequired'));
-      hasError = true;
-    } else if (password !== confirmPassword) {
-      setConfirmPasswordError(t('passwordsNotMatch'));
-      hasError = true;
-    }
-
-    if (hasError) return;
-
-    startLoading();
-    try {
-      await signUpWithEmail(email.trim(), password, name.trim());
-    } catch (e: any) {
-      setGeneralError(e.message || t('signUpFailed'));
-    }
-    stopLoading();
-  }, [
-    name,
-    email,
-    password,
-    confirmPassword,
-    signUpWithEmail,
-    startLoading,
-    stopLoading,
-    t,
-    clearErrors,
-  ]);
+  const { signInWithGoogle } = useAuthStore();
 
   const handleGoogleSignUp = useCallback(async () => {
-    clearErrors();
+    setGeneralError('');
     startLoading();
     try {
       await signInWithGoogle();
@@ -99,7 +31,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
       setGeneralError(e.message || t('googleSignUpFailed'));
     }
     stopLoading();
-  }, [signInWithGoogle, startLoading, stopLoading, t, clearErrors]);
+  }, [signInWithGoogle, startLoading, stopLoading, t]);
 
   return (
     <SafeAreaView
@@ -151,85 +83,13 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Name Input */}
-            <Input
-              placeholder={t('fullName')}
-              value={name}
-              onChangeText={text => {
-                setName(text);
-                if (nameError) setNameError('');
-              }}
-              autoCapitalize="words"
-              leftIcon="person-outline"
-              isDark={isDarkMode}
-              error={nameError}
-            />
-
-            {/* Email Input */}
-            <Input
-              placeholder={t('email')}
-              value={email}
-              onChangeText={text => {
-                setEmail(text);
-                if (emailError) setEmailError('');
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              leftIcon="mail-outline"
-              isDark={isDarkMode}
-              error={emailError}
-            />
-
-            {/* Password Input */}
-            <Input
-              placeholder={t('passwordPlaceholder')}
-              value={password}
-              onChangeText={text => {
-                setPassword(text);
-                if (passwordError) setPasswordError('');
-              }}
-              secureTextEntry={!showPassword}
-              leftIcon="lock-closed-outline"
-              rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              onRightIconPress={toggleShowPassword}
-              isDark={isDarkMode}
-              error={passwordError}
-            />
-
-            {/* Confirm Password Input */}
-            <Input
-              placeholder={t('confirmPasswordPlaceholder')}
-              value={confirmPassword}
-              onChangeText={text => {
-                setConfirmPassword(text);
-                if (confirmPasswordError) setConfirmPasswordError('');
-              }}
-              secureTextEntry={!showPassword}
-              leftIcon="lock-closed-outline"
-              isDark={isDarkMode}
-              error={confirmPasswordError}
-            />
-
-            {/* Sign Up Button */}
-            <Button
-              title={isLoading ? t('creatingAccount') : t('signUpButton')}
-              onPress={handleSignUp}
-              loading={isLoading}
-              disabled={isLoading}
-              fullWidth
-              isDark={isDarkMode}
-            />
-
-            {/* Divider */}
-            <Divider label={t('orDivider')} isDark={isDarkMode} />
-
             {/* Google Sign Up */}
             <Button
               title={t('googleSignUp')}
               variant="outline"
               leftIcon="logo-google"
               onPress={handleGoogleSignUp}
+              loading={isLoading}
               disabled={isLoading}
               fullWidth
               isDark={isDarkMode}

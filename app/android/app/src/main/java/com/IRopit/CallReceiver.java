@@ -176,7 +176,11 @@ public class CallReceiver extends BroadcastReceiver {
                     == PackageManager.PERMISSION_GRANTED) {
                 
                 ContentResolver resolver = context.getContentResolver();
-                // Query without LIMIT in sortOrder - use separate limit parameter
+                // Only include regular phone calls (exclude WhatsApp, Telegram, Viber, etc.)
+                String selection = CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
+                        CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ? OR " +
+                        CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?";
+                String[] selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
                 Cursor cursor = resolver.query(
                     CallLog.Calls.CONTENT_URI,
                     new String[]{
@@ -187,8 +191,8 @@ public class CallReceiver extends BroadcastReceiver {
                         CallLog.Calls.DATE,
                         CallLog.Calls.PHONE_ACCOUNT_ID
                     },
-                    null,
-                    null,
+                    selection,
+                    selectionArgs,
                     CallLog.Calls.DATE + " DESC"
                 );
 
@@ -218,6 +222,23 @@ public class CallReceiver extends BroadcastReceiver {
                                             if (slot != null) break;
                                         }
                                     }
+                                }
+                                // Fallback: try getSlotIndex() on API 29+ (works on Android 16 without extra permissions)
+                                if (slot == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    try {
+                                        SubscriptionManager sm2 = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                                        if (sm2 != null) {
+                                            for (String part : phoneAccountId.split("[^0-9]")) {
+                                                if (!part.isEmpty()) {
+                                                    try {
+                                                        int subId = Integer.parseInt(part);
+                                                        int idx = sm2.getSlotIndex(subId);
+                                                        if (idx >= 0) { slot = idx; break; }
+                                                    } catch (NumberFormatException ignored) {}
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception ignored) {}
                                 }
                                 if (slot != null) {
                                     simSlot = slot;
@@ -314,7 +335,17 @@ public class CallReceiver extends BroadcastReceiver {
             }
         }
 
-        Log.d(TAG, "Final call data: number=" + number + ", name=" + name + ", type=" + type + ", duration=" + duration + ", date=" + callDate + ", simSlot=" + simSlot);
+        Log.d(TAG, "Final call data: number=" + number + ", name=" + name + ", type=" + type + ", duration=" + duration + ", date=" + callDate + ", simSlot=" + simSlot + ", gotCallLogData=" + gotCallLogData);
+
+        // Only save/emit if we have verified call log data.
+        // Without call log verification the entry may be a phantom caused by
+        // telephony state broadcasts during app install/restart.
+        // The periodic sync from CallLogModule will pick up any calls that
+        // were missed here.
+        if (!gotCallLogData) {
+            Log.w(TAG, "⚠️ No matching call log entry found — skipping Firebase save to avoid phantom entry");
+            return;
+        }
 
         WritableMap callMap = createCallMap(number, name, type, "ended", duration, callDate);
         callMap.putInt("simSlot", simSlot);

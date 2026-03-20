@@ -210,6 +210,7 @@ export const createStyles = (colors: ColorTheme) =>
     subtitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
     },
     typeIcon: {
       fontSize: 12,

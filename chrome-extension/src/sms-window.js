@@ -46,11 +46,7 @@ chrome.storage.local.get(
     document.getElementById("winAvatar").textContent = getInitials(contactName);
     document.getElementById("winName").textContent = contactName;
 
-    const showPhone =
-      phone !== contactName &&
-      !phone.startsWith("contact_") &&
-      !phone.startsWith("sender_");
-    if (showPhone) {
+    if (phone && phone !== contactName && !phone.startsWith("contact_") && !phone.startsWith("sender_")) {
       document.getElementById("winPhone").textContent = phone;
     }
 

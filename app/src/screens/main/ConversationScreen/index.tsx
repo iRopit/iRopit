@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { Container } from '../../../components';
 
@@ -7,6 +7,7 @@ import { styles } from './styles';
 import { getInitials } from './helper';
 import MessageBubble from './components/MessageBubble';
 import { useConversationScreen } from './useConversationScreen';
+import { AppNotification } from '../../../services/notificationService';
 
 const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
   const { title, appName, type, phoneNumber } = route.params;
@@ -30,6 +31,22 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
     goBack,
   } = useConversationScreen({ title, appName, type, phoneNumber }, navigation);
 
+  const renderMessage = useCallback(({ item }: { item: AppNotification }) => (
+    <MessageBubble
+      item={item}
+      onDelete={handleDelete}
+      isRTL={isRTL}
+      textColor={textColor}
+      secondaryTextColor={secondaryTextColor}
+      bubbleColor={bubbleColor}
+      bgColor={bgColor}
+      primaryColor={colors.primary}
+      textInverseColor={colors.textInverse}
+    />
+  ), [handleDelete, isRTL, textColor, secondaryTextColor, bubbleColor, bgColor, colors.primary, colors.textInverse]);
+
+  const keyExtractor = useCallback((item: AppNotification) => item.id, []);
+
   return (
     <Container
       isDark={isDarkMode}
@@ -51,18 +68,6 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <View
-            style={[
-              styles.headerAvatar,
-              {
-                backgroundColor: isDarkMode
-                  ? colors.surfaceSecondary
-                  : colors.surfaceTertiary,
-              },
-            ]}
-          >
-            <Text style={styles.headerAvatarText}>{getInitials(title)}</Text>
-          </View>
           <View style={styles.nameContainer}>
             <Text
               style={[styles.headerName, { color: textColor }]}
@@ -70,10 +75,12 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
             >
               {title}
             </Text>
-            <Text style={[styles.headerChevron, { color: secondaryTextColor }]}>
-              ›
-            </Text>
           </View>
+          {isSMSType && phoneNumber && title !== phoneNumber ? (
+            <Text style={{ color: secondaryTextColor, fontSize: 13, textAlign: 'center', marginBottom: 2, writingDirection: 'ltr' }}>
+              {phoneNumber}
+            </Text>
+          ) : null}
           <Text style={[styles.headerSubtitle, { color: secondaryTextColor }]}>
             {isSMSType ? 'Text Message • SMS' : appName}
           </Text>
@@ -91,27 +98,18 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
         <FlatList
           ref={flatListRef}
           data={conversationNotifications}
-          renderItem={({ item }) => (
-            <MessageBubble
-              item={item}
-              onDelete={handleDelete}
-              isRTL={isRTL}
-              textColor={textColor}
-              secondaryTextColor={secondaryTextColor}
-              bubbleColor={bubbleColor}
-              bgColor={bgColor}
-              primaryColor={colors.primary}
-              textInverseColor={colors.textInverse}
-            />
-          )}
-          keyExtractor={item => item.id}
-          inverted={true}
+          renderItem={renderMessage}
+          keyExtractor={keyExtractor}
           style={{ flex: 1, backgroundColor: bgColor }}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: isSMSType ? 20 : 20 },
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </Container>

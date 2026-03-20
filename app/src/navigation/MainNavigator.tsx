@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, I18nManager } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, I18nManager, BackHandler } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../types';
@@ -30,6 +31,25 @@ const MainNavigator = () => {
   const user = useAuthStore(s => s.user);
   const currentDevice = useDeviceStore(s => s.currentDevice);
   const prefetched = useRef(false);
+  const navigation = useNavigation();
+
+  // Back button: minimize the app when on a main tab.
+  // Sub-screen navigation (Conversation, CallDetail, Menu→Settings) is
+  // handled automatically by React Navigation's built-in back handler
+  // (NavigationContainer). We only need to intercept when there's nothing
+  // to go back to — i.e. the user is on a top-level tab.
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Let React Navigation handle sub-screen back navigation.
+      // navigation.canGoBack() checks the entire focused navigator tree.
+      if (navigation.canGoBack()) {
+        return false; // Pass to React Navigation's handler
+      }
+      BackHandler.exitApp();
+      return true;
+    });
+    return () => handler.remove();
+  }, [navigation]);
 
   // Pre-fetch all store data so tabs load instantly
   useEffect(() => {
@@ -46,7 +66,7 @@ const MainNavigator = () => {
       name: 'Chat' as const,
       component: ChatScreen,
       titleAr: 'المحادثات',
-      titleEn: 'Messages',
+      titleEn: 'Chat',
       icon: 'chatbubbles',
     },
     {
@@ -91,6 +111,7 @@ const MainNavigator = () => {
     <View style={{ flex: 1, direction: isRTL ? 'rtl' : 'ltr' }}>
       <Tab.Navigator
         key={language} // Force re-mount when language changes
+        backBehavior="none"
         screenOptions={{
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,

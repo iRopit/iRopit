@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import Config from 'react-native-config';
 import { User } from '../types';
 import { COLLECTIONS } from '../constants';
 import { NativeCredentialsService } from '../services/nativeCredentials';
@@ -30,13 +29,14 @@ interface AuthState {
     displayName: string,
   ) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
 
-// Configure Google Sign In - Client ID from .env
+// Configure Google Sign In
 GoogleSignin.configure({
-  webClientId: Config.GOOGLE_WEB_CLIENT_ID,
+  webClientId: '723637478368-dq4ad954ot30p4bes5iuk5ba8bud1ecl.apps.googleusercontent.com',
 });
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -76,6 +76,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch (error: any) {
           // Ignore Firestore errors - user is already authenticated
         }
+
+        // Register device on sign-in (covers first-time sign-in on any device).
+        // Uses lazy require to avoid circular dependency with deviceStore.
+        try {
+          const { useDeviceStore } = require('./deviceStore');
+          useDeviceStore.getState().registerDevice().catch(() => {});
+        } catch (e) {}
       } else {
         set({
           user: null,
@@ -271,5 +278,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  resetPassword: async (email: string) => {
+    await auth().sendPasswordResetEmail(email);
+  },
+
   clearError: () => set({ error: null }),
-}));
+}))

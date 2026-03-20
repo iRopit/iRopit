@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { ColorTheme } from '../../../../theme/colors';
 import { GroupedCall } from '../types';
 import { styles } from '../styles';
 import {
@@ -20,6 +21,7 @@ const SwipeableCallItem = ({
   secondaryTextColor,
   bgColor,
   avatarBgColor,
+  colors,
   isSelectMode,
   isSelected,
   onToggleSelect,
@@ -33,6 +35,7 @@ const SwipeableCallItem = ({
   secondaryTextColor: string;
   bgColor: string;
   avatarBgColor: string;
+  colors: ColorTheme;
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -162,21 +165,6 @@ const SwipeableCallItem = ({
                 >
                   {displayName}
                 </Text>
-                {item.count > 1 && (
-                  <Text
-                    style={[styles.callCount, { color: secondaryTextColor }]}
-                  >
-                    ({item.count})
-                  </Text>
-                )}
-              </View>
-              <View style={styles.timeContainer}>
-                <Text style={[styles.timeText, { color: secondaryTextColor }]}>
-                  {formatTime(item.lastTimestamp)}
-                </Text>
-                <Text
-                  style={[styles.chevron, { color: secondaryTextColor }]}
-                ></Text>
               </View>
             </View>
             <View
@@ -191,18 +179,23 @@ const SwipeableCallItem = ({
               <Text
                 style={[
                   styles.phoneText,
-                  { color: secondaryTextColor, writingDirection: 'ltr' },
+                  { color: secondaryTextColor, writingDirection: 'ltr', flex: 1 },
                 ]}
               >
                 {item.phoneNumber
                   ? `\u200E${item.phoneNumber.replace(/[^\d\+\-\s\(\)]/g, '')}`
                   : ''}
               </Text>
+              <View style={styles.timeContainer}>
+                <Text style={[styles.timeText, { color: secondaryTextColor }]}>
+                  {formatTime(item.lastTimestamp)}
+                </Text>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
       </Animated.View>
-      <View style={styles.separator} />
+      <View style={[styles.separator, { backgroundColor: colors.border }]} />
     </View>
   );
 };

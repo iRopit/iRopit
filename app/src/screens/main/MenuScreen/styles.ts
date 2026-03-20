@@ -7,7 +7,7 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
   },
   titleContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 50,
     paddingBottom: 8,
   },
   title: {

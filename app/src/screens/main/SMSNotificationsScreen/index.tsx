@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, FlatList, RefreshControl, StatusBar } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -8,6 +8,7 @@ import {
   ScreenTitle,
   SearchBar,
   EmptyState,
+  DeviceFilterDropdown,
 } from '../../../components/shared';
 
 import { GroupedNotification } from '../NotificationsScreen/types';
@@ -33,6 +34,12 @@ const SMSNotificationsScreen = () => {
     colors,
     bgColor,
 
+    // Device filter
+    devices,
+    currentDevice,
+    selectedDeviceId,
+    setSelectedDeviceId,
+
     // Handlers
     setSearchQuery,
     handlePress,
@@ -47,7 +54,7 @@ const SMSNotificationsScreen = () => {
     requestPermission,
   } = useNotificationsScreen('sms');
 
-  const renderItem = ({ item }: { item: GroupedNotification }) => (
+  const renderItem = useCallback(({ item }: { item: GroupedNotification }) => (
     <SwipeableItem
       item={item}
       onPress={() => handlePress(item)}
@@ -60,7 +67,9 @@ const SMSNotificationsScreen = () => {
       isSelected={selectedNotifications.includes(item.key)}
       onToggleSelect={() => toggleSelectNotification(item.key)}
     />
-  );
+  ), [handlePress, handleDelete, handleMute, isRTL, colors, isDarkMode, isSelectMode, selectedNotifications, toggleSelectNotification]);
+
+  const keyExtractor = useCallback((item: GroupedNotification) => item.key, []);
 
   const renderEmptyState = () => {
     if (initialLoading) {
@@ -150,13 +159,28 @@ const SMSNotificationsScreen = () => {
         isDarkMode={isDarkMode}
       />
 
+      {/* Device Filter */}
+      <DeviceFilterDropdown
+        devices={devices}
+        currentDevice={currentDevice}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={setSelectedDeviceId}
+        isRTL={isRTL}
+        isDarkMode={isDarkMode}
+        colors={colors}
+      />
+
       {/* SMS List */}
       <FlatList
         data={groupedNotifications}
         renderItem={renderItem}
-        keyExtractor={item => item.key}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

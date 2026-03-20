@@ -3,18 +3,27 @@ package com.IRopit;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.provider.ContactsContract;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
+
+import androidx.core.content.ContextCompat;
+
+import android.Manifest;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -248,13 +257,31 @@ public class SentSmsObserver extends ContentObserver {
             String selection = "_id > ? AND (type = 2 OR type = 5)";
             String[] selectionArgs = new String[]{String.valueOf(lastProcessedSmsId)};
             
-            cursor = contentResolver.query(
-                SMS_URI,
-                new String[]{"_id", "address", "body", "date", "type"},
-                selection,
-                selectionArgs,
-                "_id ASC"
-            );
+            // Android 16+ strips subscription_id from the restricted SMS view.
+            // Try subscription_id first, fall back to sub_id, then query without it.
+            String[] baseColumns = new String[]{"_id", "address", "body", "date", "type"};
+            String[] colsWithSubId = new String[]{"_id", "address", "body", "date", "type", "subscription_id"};
+            String[] colsWithSub = new String[]{"_id", "address", "body", "date", "type", "sub_id"};
+            
+            try {
+                cursor = contentResolver.query(SMS_URI, colsWithSubId, selection, selectionArgs, "_id ASC");
+            } catch (Exception e1) {
+                Log.w(TAG, "subscription_id column not available, trying sub_id");
+                try {
+                    cursor = contentResolver.query(SMS_URI, colsWithSub, selection, selectionArgs, "_id ASC");
+                } catch (Exception e2) {
+                    Log.w(TAG, "sub_id column not available, querying without subscription column");
+                    cursor = contentResolver.query(SMS_URI, baseColumns, selection, selectionArgs, "_id ASC");
+                }
+            }
+            
+            // Resolve subscriptionId -> slotIndex
+            // On Android 16+ getActiveSubscriptionInfoList() is blocked.
+            // Use getSlotIndex(subId) on API 29+ as a lightweight alternative.
+            SubscriptionManager sm = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+            }
             
             if (cursor == null) {
                 Log.d(TAG, "Cursor is null for sent SMS query");
@@ -272,6 +299,17 @@ public class SentSmsObserver extends ContentObserver {
                 String body = cursor.getString(2);
                 long date = cursor.getLong(3);
                 int type = cursor.getInt(4);
+
+                // Resolve SIM slot — try subscription_id first, then sub_id
+                int simSlot = -1;
+                try {
+                    int colIdx = cursor.getColumnIndex("subscription_id");
+                    if (colIdx < 0) colIdx = cursor.getColumnIndex("sub_id");
+                    if (colIdx >= 0) {
+                        int subId = cursor.getInt(colIdx);
+                        simSlot = resolveSimSlot(sm, subId);
+                    }
+                } catch (Exception e) { /* ignore */ }
                 
                 // Update last processed ID
                 lastProcessedSmsId = smsId;
@@ -301,7 +339,7 @@ public class SentSmsObserver extends ContentObserver {
                 String contactName = getContactName(address);
                 
                 // Save to Firestore
-                saveSentSmsToFirestore(userId, deviceId, deviceName, address, body, date, contactName);
+                saveSentSmsToFirestore(userId, deviceId, deviceName, address, body, date, contactName, simSlot);
             }
             
         } catch (SecurityException se) {
@@ -320,7 +358,7 @@ public class SentSmsObserver extends ContentObserver {
      */
     private void saveSentSmsToFirestore(String userId, String deviceId, String deviceName,
                                          String phoneNumber, String body, long timestamp,
-                                         String contactName) {
+                                         String contactName, int simSlot) {
         try {
             // Generate docId - use "sms_" prefix (same as NotificationService/FirebaseHelper).
             // When a user sends an SMS, BOTH SentSmsObserver AND NotificationService may capture it.
@@ -353,6 +391,7 @@ public class SentSmsObserver extends ContentObserver {
             smsData.put("deviceName", deviceName);
             smsData.put("phoneNumber", phoneNumber);
             smsData.put("contactName", contactName != null ? contactName : "");
+            smsData.put("simSlot", simSlot);
             smsData.put("syncedAt", System.currentTimeMillis());
             
             // Save to notifications collection (same path as incoming SMS)
@@ -413,5 +452,28 @@ public class SentSmsObserver extends ContentObserver {
         }
         
         return null;
+    }
+
+    /**
+     * Resolve SIM slot index from a subscription ID.
+     * On API 29+ uses getSlotIndex() which doesn't require READ_PHONE_NUMBERS.
+     * Falls back to getActiveSubscriptionInfo() on older APIs.
+     */
+    private int resolveSimSlot(SubscriptionManager sm, int subId) {
+        if (sm == null || subId < 0) return -1;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                return sm.getSlotIndex(subId);
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1 &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+                            == PackageManager.PERMISSION_GRANTED) {
+                SubscriptionInfo info = sm.getActiveSubscriptionInfo(subId);
+                if (info != null) return info.getSimSlotIndex();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "resolveSimSlot failed for subId " + subId + ": " + e.getMessage());
+        }
+        return -1;
     }
 }

@@ -19,6 +19,7 @@ export interface AppNotification {
   appName: string;
   read: boolean;
   smsType?: 'sent' | 'inbox'; // For SMS messages: sent or received
+  simSlot?: number; // 0 = SIM 1, 1 = SIM 2, -1 = unknown
 }
 
 class NotificationServiceClass {

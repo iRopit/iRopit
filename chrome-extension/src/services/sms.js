@@ -838,8 +838,16 @@ export function renderSMS(messages) {
 
   smsListElement.innerHTML = conversations
     .map(
-      (conv) => `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}">
+      (conv) => {
+    // Extract a real phone number for hover actions
+    let hoverPhone = conv.phoneNumber;
+    if (!hoverPhone || hoverPhone.startsWith("contact_") || !isPhoneNumberLike(hoverPhone)) {
+      const msgWithPhone = conv.messages.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber));
+      hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+    }
+    const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike(hoverPhone);
+    return `
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
@@ -856,6 +864,18 @@ export function renderSMS(messages) {
             : ""
         }
       </div>
+      ${showHoverActions ? `<div class="sms-list-hover-actions">
+        <button class="call-list-hover-btn sms-hover-call" title="Call">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </button>
+        <button class="call-list-hover-btn sms-hover-wa" title="WhatsApp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+        </button>
+      </div>` : ""}
       <div class="list-item-meta">
         <span class="list-item-time">${formatTime(
           conv.lastMessage.timestamp,
@@ -867,7 +887,7 @@ export function renderSMS(messages) {
         }
       </div>
     </div>
-  `,
+  `; },
     )
     .join("");
 
@@ -915,6 +935,30 @@ export function renderSMS(messages) {
   smsList2?.addEventListener("pointermove", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
 
   smsList2?.addEventListener("click", (e) => {
+    // Handle hover action buttons
+    const callBtn = e.target.closest(".sms-hover-call");
+    if (callBtn) {
+      e.stopPropagation();
+      const conv = callBtn.closest(".sms-conversation");
+      const phone = conv?.dataset.hoverPhone;
+      if (phone) {
+        import("./calls.js").then(m => m.initiateDialRequest(phone, null));
+      }
+      return;
+    }
+    const waBtn = e.target.closest(".sms-hover-wa");
+    if (waBtn) {
+      e.stopPropagation();
+      const conv = waBtn.closest(".sms-conversation");
+      let phone = conv?.dataset.hoverPhone;
+      if (phone) {
+        let clean = phone.replace(/[^\d+]/g, "");
+        if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+        window.open(`https://wa.me/${clean}`, "_blank");
+      }
+      return;
+    }
     const conversation = e.target.closest(".sms-conversation");
     if (conversation) {
       const phoneNumber = conversation.dataset.phone;
@@ -1104,6 +1148,12 @@ export function showConversation(phoneNumber) {
 
   const contactName =
     conversation[0].contactName || conversation[0].title || phoneNumber;
+  // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
+  const realPhoneNumber = conversation.find(m => {
+    const p = m.phoneNumber || m.sender || "";
+    return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
+  });
+  const displayPhone = realPhoneNumber ? (realPhoneNumber.phoneNumber || realPhoneNumber.sender || "") : "";
   state.setCurrentConversation(phoneNumber);
 
   // Update the global delete button to reflect "delete this conversation" context
@@ -1128,13 +1178,32 @@ export function showConversation(phoneNumber) {
         <div class="conversation-info">
           <div class="conversation-name sms-expand-btn" title="Open in full window" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(contactName)}</div>
           <div class="conversation-phone">${
-            phoneNumber !== contactName &&
-            !phoneNumber.startsWith("contact_") &&
-            !phoneNumber.startsWith("sender_")
-              ? escapeHtml(phoneNumber)
-              : ""
+            displayPhone
+              ? escapeHtml(displayPhone)
+              : (phoneNumber !== contactName &&
+                 !phoneNumber.startsWith("contact_") &&
+                 !phoneNumber.startsWith("sender_")
+                  ? escapeHtml(phoneNumber)
+                  : "")
           }</div>
         </div>
+        ${(() => {
+          const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike(phoneNumber) ? phoneNumber : "");
+          return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
+          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="Call">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+            </svg>
+            <span>Call</span>
+          </button>
+          <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>WhatsApp</span>
+          </button>
+        </div>` : "";
+        })()}
       </div>
       <div class="conversation-messages">
         ${conversation
@@ -1153,6 +1222,7 @@ export function showConversation(phoneNumber) {
                   ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
                   : ""
               }
+              ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
               <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
@@ -1241,6 +1311,27 @@ export function showConversation(phoneNumber) {
     renderSMS(state.allSMSMessages);
   });
 
+  // Call button handler in conversation header
+  document.getElementById("smsConvCallBtn")?.addEventListener("click", () => {
+    const actionsDiv = document.querySelector(".conv-header-actions");
+    const phone = actionsDiv?.dataset.actionPhone;
+    if (phone) {
+      import("./calls.js").then(m => m.initiateDialRequest(phone, null));
+    }
+  });
+
+  // WhatsApp button handler in conversation header
+  document.getElementById("smsConvWaBtn")?.addEventListener("click", () => {
+    const actionsDiv = document.querySelector(".conv-header-actions");
+    const phone = actionsDiv?.dataset.actionPhone;
+    if (phone) {
+      let clean = phone.replace(/[^\d+]/g, "");
+      if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+      window.open(`https://wa.me/${clean}`, "_blank");
+    }
+  });
+
   // Wire search box to filter within this conversation
   const convSearch = document.getElementById("smsSearchInput");
   if (convSearch) {
@@ -1270,7 +1361,7 @@ export function showConversation(phoneNumber) {
   document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
     // Store conversation data in chrome.storage.local so the new window can read it
     const payload = {
-      smsWindowPhone: phoneNumber,
+      smsWindowPhone: displayPhone || phoneNumber,
       smsWindowContact: contactName,
       smsWindowMessages: conversation.map(m => ({
         id: m.id,

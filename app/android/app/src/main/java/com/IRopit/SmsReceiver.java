@@ -12,6 +12,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.telephony.SmsMessage;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import androidx.core.content.ContextCompat;
@@ -21,7 +23,10 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -174,6 +179,33 @@ public class SmsReceiver extends BroadcastReceiver {
         
         if ("android.provider.Telephony.SMS_RECEIVED".equals(action)) {
             Log.d(TAG, "SMS_RECEIVED action matched!");
+
+            // Extract SIM slot from subscription ID in the broadcast intent
+            int simSlot = -1;
+            try {
+                int subId = intent.getIntExtra("subscription", -1);
+                if (subId == -1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, -1);
+                }
+                if (subId >= 0) {
+                    // On API 29+ use getSlotIndex which doesn't need READ_PHONE_NUMBERS
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                        if (sm != null) simSlot = sm.getSlotIndex(subId);
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1 &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE)
+                                    == PackageManager.PERMISSION_GRANTED) {
+                        SubscriptionManager sm = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                        if (sm != null) {
+                            SubscriptionInfo info = sm.getActiveSubscriptionInfo(subId);
+                            if (info != null) simSlot = info.getSimSlotIndex();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Could not resolve simSlot from intent: " + e.getMessage());
+            }
+
             Bundle bundle = intent.getExtras();
             if (bundle != null) {
                 Object[] pdus = (Object[]) bundle.get("pdus");
@@ -222,8 +254,8 @@ public class SmsReceiver extends BroadcastReceiver {
                     
                     // جلب اسم جهة الاتصال
                     String contactName = getContactName(context, sender);
-                    
-                    sendSmsEvent(context, sender, fullMessage.toString(), timestamp, contactName);
+
+                    sendSmsEvent(context, sender, fullMessage.toString(), timestamp, contactName, simSlot);
                 }
             }
         }
@@ -329,7 +361,7 @@ public class SmsReceiver extends BroadcastReceiver {
         return null;
     }
     
-    private void sendSmsEvent(Context context, String sender, String message, long timestamp, String contactName) {
+    private void sendSmsEvent(Context context, String sender, String message, long timestamp, String contactName, int simSlot) {
         // Track this SMS so NotificationService can skip it (avoid duplicate Firestore writes)
         if (sender != null) {
             String normalizedSender = sender.replaceAll("[^0-9+]", "");
@@ -352,6 +384,7 @@ public class SmsReceiver extends BroadcastReceiver {
             backgroundIntent.putExtra("message", message);
             backgroundIntent.putExtra("contactName", contactName);
             backgroundIntent.putExtra("timestamp", timestamp);
+            backgroundIntent.putExtra("simSlot", simSlot);
             context.startService(backgroundIntent);
             Log.d(TAG, "Starting BackgroundSmsService to save SMS");
         } catch (Exception e) {

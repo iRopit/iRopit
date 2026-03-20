@@ -2950,9 +2950,6 @@
       }
     }
   }
-  async function updateEmailPassword(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v1/accounts:update", request);
-  }
   async function linkEmailPassword(auth2, request) {
     return _performApiRequest(auth2, "POST", "/v1/accounts:signUp", request);
   }
@@ -3167,29 +3164,6 @@
       passwordProvider.photoURL = userInternal.photoURL;
     }
     await userInternal._updateTokensIfNecessary(response);
-  }
-  function updatePassword(user, newPassword) {
-    return updateEmailOrPassword(getModularInstance(user), null, newPassword);
-  }
-  async function updateEmailOrPassword(user, email, password) {
-    const { auth: auth2 } = user;
-    const idToken = await user.getIdToken();
-    const request = {
-      idToken,
-      returnSecureToken: true
-    };
-    if (email) {
-      request.email = email;
-    }
-    if (password) {
-      request.password = password;
-    }
-    const response = await _logoutIfInvalidated(user, updateEmailPassword(auth2, request));
-    await user._updateTokensIfNecessary(
-      response,
-      /* reload */
-      true
-    );
   }
   function onIdTokenChanged(auth2, nextOrObserver, error, completed) {
     return getModularInstance(auth2).onIdTokenChanged(nextOrObserver, error, completed);
@@ -23419,7 +23393,8 @@ ${this.customData.serverResponse}`;
       deviceName,
       phoneNumber: resolvedPhone || data.phoneNumber || "",
       contactName: resolvedContact,
-      type: data.type || data.callType || "incoming"
+      type: data.type || data.callType || "incoming",
+      simSlot: data.simSlot != null ? data.simSlot : -1
     };
   }
   async function loadCalls() {
@@ -23461,11 +23436,21 @@ ${this.customData.serverResponse}`;
     const devicesList2 = [];
     devicesSnapshot.forEach((doc2) => {
       const data = doc2.data();
+      if (data.platform === "chrome-extension" || data.platform === "chrome" || data.id && data.id.startsWith("ext_")) {
+        return;
+      }
       devicesList2.push({
         id: data.id,
         name: getFriendlyDeviceName(data)
       });
     });
+    if (devicesList2.length === 0) {
+      console.warn("[Calls] No mobile devices found - showing empty state");
+      isSyncingCalls = false;
+      updateCallsCountIndicator();
+      renderCalls([]);
+      return;
+    }
     const loadPromises = devicesList2.map(async (device) => {
       const q2 = query(
         collection(db, "users", user.uid, "devices", device.id, "calls"),
@@ -23654,9 +23639,23 @@ ${this.customData.serverResponse}`;
         ${getInitials(group.contactName || group.phoneNumber)}
       </div>
       <div class="list-item-content">
-        <div class="list-item-title">${group.contactName || group.phoneNumber}</div>
+        <div class="list-item-title">
+          <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
+        </div>
         <div class="list-item-subtitle">${group.calls.length} calls \u2022 ${group.lastCall.type}</div>
         ${selectedTab === "all" && group.lastCall.deviceName ? `<div class="device-tag">${group.lastCall.deviceName}</div>` : ""}
+      </div>
+      <div class="call-list-hover-actions">
+        <button class="call-list-hover-btn call-list-hover-call" title="Call">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </button>
+        <button class="call-list-hover-btn call-list-hover-wa" title="WhatsApp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+        </button>
       </div>
       <div class="list-item-meta">
         <span class="list-item-time">${formatTime(
@@ -23669,8 +23668,20 @@ ${this.customData.serverResponse}`;
     ).join("");
     document.querySelectorAll(".call-group").forEach((el) => {
       el.addEventListener("click", () => {
-        const phoneNumber = el.dataset.phone;
-        showCallHistory(phoneNumber);
+        const phoneNumber2 = el.dataset.phone;
+        showCallHistory(phoneNumber2);
+      });
+      const phoneNumber = el.dataset.phone;
+      el.querySelector(".call-list-hover-call")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        initiateDialRequest(phoneNumber, null);
+      });
+      el.querySelector(".call-list-hover-wa")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        let clean = phoneNumber.replace(/[^\d+]/g, "");
+        if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+        window.open(`https://wa.me/${clean}`, "_blank");
       });
     });
     const clearCallsBtn = document.getElementById("clearAllCallsBtn");
@@ -23724,18 +23735,25 @@ ${this.customData.serverResponse}`;
           </svg>
         </button>
         <div class="conversation-avatar">
-          ${getInitials(contactName)}
-        </div>
+          ${getInitials(contactName)}</div>
         <div class="conversation-info">
           <div class="conversation-name">${contactName}</div>
           <div class="conversation-phone">${phoneNumber !== contactName ? phoneNumber : ""}</div>
         </div>
-        <button class="btn btn-small btn-primary" id="dialPhoneBtn" title="Open dialer on phone" style="margin-left:auto;margin-right:8px;display:flex;align-items:center;gap:6px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-          </svg>
-          Dial
-        </button>
+        <div class="call-action-buttons">
+          <button class="call-action-btn" id="dialPhoneBtn" title="Call on phone">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+            </svg>
+            <span>Call</span>
+          </button>
+          <button class="call-action-btn call-action-whatsapp" id="whatsappPhoneBtn" title="Open in WhatsApp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>WhatsApp</span>
+          </button>
+        </div>
       </div>
       <div class="conversation-messages call-history">
         ${calls.map(
@@ -23745,7 +23763,7 @@ ${this.customData.serverResponse}`;
               ${getCallIcon(call.type)}
             </div>
             <div class="call-info">
-              <div class="call-type">${call.type}</div>
+              <div class="call-type">${call.type}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
             </div>
             <div class="call-time">${formatTime(call.timestamp)}</div>
@@ -23761,6 +23779,12 @@ ${this.customData.serverResponse}`;
     });
     document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
       initiateDialRequest(phoneNumber, null);
+    });
+    document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
+      let clean = phoneNumber.replace(/[^\d+]/g, "");
+      if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+      window.open(`https://wa.me/${clean}`, "_blank");
     });
   }
   async function clearAllCalls() {
@@ -24204,6 +24228,7 @@ ${this.customData.serverResponse}`;
       ${notif.deviceName ? `<div class="notif-bubble-time">\u{1F4F1} ${escapeHtml(notif.deviceName)} \xB7 ${formatTime(notif.receivedAt || notif.timestamp)}</div>` : `<div class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</div>`}
     </div>
   `).join("");
+    const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
     detailList.querySelectorAll(".notif-detail-bubble").forEach((item) => {
       item.addEventListener("click", async () => {
         const notifId = item.dataset.notifId;
@@ -24212,6 +24237,17 @@ ${this.customData.serverResponse}`;
           await markNotificationAsRead(deviceId, notifId);
           item.classList.remove("unread");
           item.querySelector(".unread-dot")?.remove();
+        }
+        if (isWhatsApp) {
+          const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
+          const cleanTitle = title.replace(/●/g, "").trim();
+          const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
+          if (phoneMatch) {
+            const phone = cleanTitle.replace(/[^\d+]/g, "");
+            window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
+          } else {
+            window.open("https://web.whatsapp.com/", "_blank");
+          }
         }
       });
     });
@@ -24225,11 +24261,18 @@ ${this.customData.serverResponse}`;
   }
   function updateNotificationsList(deviceId, newNotifications) {
     setNotificationsData(deviceId, newNotifications);
-    const merged = getMergedNotifications();
-    const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
-    renderNotifications(filtered.slice(0, 200));
+    scheduleRender();
     updateTabBadges();
+  }
+  function scheduleRender() {
+    if (_renderTimer) clearTimeout(_renderTimer);
+    _renderTimer = setTimeout(() => {
+      _renderTimer = null;
+      const merged = getMergedNotifications();
+      const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+      const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
+      renderNotifications(filtered.slice(0, 200));
+    }, 80);
   }
   function renderNotifications(notifications) {
     wireSearchAndDetail();
@@ -24374,41 +24417,33 @@ ${this.customData.serverResponse}`;
     await updateFirestoreNotifications(user.uid, unreadNotifs);
   }
   async function updateFirestoreNotifications(userId, unreadNotifs) {
+    const validNotifs = unreadNotifs.filter((n) => n.id && !/^-?\d+$/.test(n.id));
+    if (validNotifs.length === 0) return;
     let successCount = 0;
     let failCount = 0;
-    const promises = unreadNotifs.map(async (notif) => {
-      if (/^-?\d+$/.test(notif.id)) {
-        console.log(`[Notifications] Skipping numeric ID: ${notif.id}`);
-        return;
-      }
-      const deviceId = notif.actualDeviceId;
-      try {
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < validNotifs.length; i += BATCH_SIZE) {
+      const chunk = validNotifs.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach((notif) => {
+        const deviceId = notif.actualDeviceId;
+        let notifRef;
         if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-          const notifRef = doc(
-            db,
-            "users",
-            userId,
-            "devices",
-            deviceId,
-            "notifications",
-            notif.id
-          );
-          await updateDoc(notifRef, { read: true });
-          successCount++;
+          notifRef = doc(db, "users", userId, "devices", deviceId, "notifications", notif.id);
         } else {
-          const notifRef = doc(db, "users", userId, "notifications", notif.id);
-          await updateDoc(notifRef, { read: true });
-          successCount++;
+          notifRef = doc(db, "users", userId, "notifications", notif.id);
         }
+        batch.update(notifRef, { read: true });
+      });
+      try {
+        await batch.commit();
+        successCount += chunk.length;
       } catch (e) {
-        failCount++;
-        console.warn(`[Notifications] Failed ${notif.id}: ${e.message}`);
+        failCount += chunk.length;
+        console.warn(`[Notifications] Batch update failed: ${e.message}`);
       }
-    });
-    await Promise.all(promises);
-    console.log(
-      `[Notifications] Done: ${successCount} success, ${failCount} failed`
-    );
+    }
+    console.log(`[Notifications] Done: ${successCount} success, ${failCount} failed`);
   }
   async function clearAllNotifications2() {
     const user = currentUser;
@@ -24483,7 +24518,7 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
-  var _searchWired;
+  var _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -24494,6 +24529,7 @@ ${this.customData.serverResponse}`;
       init_badges();
       init_cache();
       _searchWired = false;
+      _renderTimer = null;
     }
   });
 
@@ -25697,8 +25733,15 @@ ${this.customData.serverResponse}`;
       (a, b) => (b.lastMessage.timestamp || 0) - (a.lastMessage.timestamp || 0)
     );
     smsListElement.innerHTML = conversations.map(
-      (conv) => `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}">
+      (conv) => {
+        let hoverPhone = conv.phoneNumber;
+        if (!hoverPhone || hoverPhone.startsWith("contact_") || !isPhoneNumberLike2(hoverPhone)) {
+          const msgWithPhone = conv.messages.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber));
+          hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+        }
+        const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike2(hoverPhone);
+        return `
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
@@ -25711,14 +25754,27 @@ ${this.customData.serverResponse}`;
         <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
         ${selectedTab === "all" && conv.lastMessage.deviceName ? `<div class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</div>` : ""}
       </div>
+      ${showHoverActions ? `<div class="sms-list-hover-actions">
+        <button class="call-list-hover-btn sms-hover-call" title="Call">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          </svg>
+        </button>
+        <button class="call-list-hover-btn sms-hover-wa" title="WhatsApp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+        </button>
+      </div>` : ""}
       <div class="list-item-meta">
         <span class="list-item-time">${formatTime(
-        conv.lastMessage.timestamp
-      )}</span>
+          conv.lastMessage.timestamp
+        )}</span>
         ${conv.unreadCount > 0 ? `<div class="list-item-badge">${conv.unreadCount}</div>` : ""}
       </div>
     </div>
-  `
+  `;
+      }
     ).join("");
     const oldSmsList = document.getElementById("smsList");
     if (oldSmsList) {
@@ -25771,6 +25827,29 @@ ${this.customData.serverResponse}`;
       }
     });
     smsList2?.addEventListener("click", (e) => {
+      const callBtn = e.target.closest(".sms-hover-call");
+      if (callBtn) {
+        e.stopPropagation();
+        const conv = callBtn.closest(".sms-conversation");
+        const phone = conv?.dataset.hoverPhone;
+        if (phone) {
+          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.initiateDialRequest(phone, null));
+        }
+        return;
+      }
+      const waBtn = e.target.closest(".sms-hover-wa");
+      if (waBtn) {
+        e.stopPropagation();
+        const conv = waBtn.closest(".sms-conversation");
+        let phone = conv?.dataset.hoverPhone;
+        if (phone) {
+          let clean = phone.replace(/[^\d+]/g, "");
+          if (clean.startsWith("+")) clean = clean.slice(1);
+          else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+          window.open(`https://wa.me/${clean}`, "_blank");
+        }
+        return;
+      }
       const conversation = e.target.closest(".sms-conversation");
       if (conversation) {
         const phoneNumber = conversation.dataset.phone;
@@ -25892,6 +25971,11 @@ ${this.customData.serverResponse}`;
     }
     markConversationAsRead(conversation);
     const contactName = conversation[0].contactName || conversation[0].title || phoneNumber;
+    const realPhoneNumber = conversation.find((m) => {
+      const p = m.phoneNumber || m.sender || "";
+      return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
+    });
+    const displayPhone = realPhoneNumber ? realPhoneNumber.phoneNumber || realPhoneNumber.sender || "" : "";
     setCurrentConversation(phoneNumber);
     const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
     if (deleteAllBtn) {
@@ -25912,8 +25996,25 @@ ${this.customData.serverResponse}`;
         </div>
         <div class="conversation-info">
           <div class="conversation-name sms-expand-btn" title="Open in full window" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(contactName)}</div>
-          <div class="conversation-phone">${phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
+          <div class="conversation-phone">${displayPhone ? escapeHtml(displayPhone) : phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
         </div>
+        ${(() => {
+      const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike2(phoneNumber) ? phoneNumber : "");
+      return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
+          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="Call">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+            </svg>
+            <span>Call</span>
+          </button>
+          <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>WhatsApp</span>
+          </button>
+        </div>` : "";
+    })()}
       </div>
       <div class="conversation-messages">
         ${conversation.map(
@@ -25923,6 +26024,7 @@ ${this.customData.serverResponse}`;
             <div class="message-footer">
               <span class="message-time">${formatTime(msg.timestamp)}</span>
               ${msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : ""}
+              ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
               <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
@@ -25992,6 +26094,23 @@ ${this.customData.serverResponse}`;
       }
       renderSMS(allSMSMessages);
     });
+    document.getElementById("smsConvCallBtn")?.addEventListener("click", () => {
+      const actionsDiv = document.querySelector(".conv-header-actions");
+      const phone = actionsDiv?.dataset.actionPhone;
+      if (phone) {
+        Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.initiateDialRequest(phone, null));
+      }
+    });
+    document.getElementById("smsConvWaBtn")?.addEventListener("click", () => {
+      const actionsDiv = document.querySelector(".conv-header-actions");
+      const phone = actionsDiv?.dataset.actionPhone;
+      if (phone) {
+        let clean = phone.replace(/[^\d+]/g, "");
+        if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+        window.open(`https://wa.me/${clean}`, "_blank");
+      }
+    });
     const convSearch = document.getElementById("smsSearchInput");
     if (convSearch) {
       convSearch.value = "";
@@ -26015,7 +26134,7 @@ ${this.customData.serverResponse}`;
     }
     document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
       const payload = {
-        smsWindowPhone: phoneNumber,
+        smsWindowPhone: displayPhone || phoneNumber,
         smsWindowContact: contactName,
         smsWindowMessages: conversation.map((m) => ({
           id: m.id,
@@ -26845,6 +26964,57 @@ ${this.customData.serverResponse}`;
         profileFooter.classList.add("collapsed");
       }
     }
+  }
+
+  // src/ui/navigation.js
+  init_state();
+  function closeTopView() {
+    const dynamicOverlay = document.querySelector(".modal-overlay");
+    if (dynamicOverlay) {
+      dynamicOverlay.remove();
+      return true;
+    }
+    const filePreview = document.getElementById("filePreviewModal");
+    if (filePreview && !filePreview.classList.contains("hidden")) {
+      filePreview.classList.add("hidden");
+      return true;
+    }
+    const smsModal2 = document.getElementById("smsModal");
+    if (smsModal2 && !smsModal2.classList.contains("hidden")) {
+      smsModal2.classList.add("hidden");
+      return true;
+    }
+    const settingsModal2 = document.getElementById("settingsModal");
+    if (settingsModal2 && !settingsModal2.classList.contains("hidden")) {
+      settingsModal2.classList.add("hidden");
+      return true;
+    }
+    const notifDetail = document.getElementById("notifDetailView");
+    if (notifDetail && notifDetail.style.display === "flex") {
+      const notifMain = document.getElementById("notifMainView");
+      notifDetail.style.display = "none";
+      if (notifMain) notifMain.style.display = "flex";
+      return true;
+    }
+    if (currentConversation) {
+      document.getElementById("backToSMS")?.click();
+      return true;
+    }
+    if (currentCallConversation) {
+      document.getElementById("backToCalls")?.click();
+      return true;
+    }
+    return false;
+  }
+  function initNavigation() {
+    history.pushState({ guard: true }, "");
+    window.addEventListener("popstate", () => {
+      if (closeTopView()) {
+        history.pushState({ guard: true }, "");
+      } else {
+        window.close();
+      }
+    });
   }
 
   // src/services/auth.js
@@ -27696,86 +27866,6 @@ ${this.customData.serverResponse}`;
     }
     hideLoading();
   }
-  function showChangePasswordModal() {
-    const modal = document.createElement("div");
-    modal.className = "modal";
-    modal.innerHTML = `
-    <div class="modal-content" style="max-width: 400px;">
-      <div class="modal-header">
-        <h3 data-i18n="change_password_title">Change Password</h3>
-        <button class="close-modal">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="currentPassword">Current Password</label>
-          <input type="password" id="currentPassword" placeholder="Enter current password">
-        </div>
-        <div class="form-group">
-          <label for="newPassword">New Password</label>
-          <input type="password" id="newPassword" placeholder="Enter new password">
-        </div>
-        <div class="form-group">
-          <label for="confirmPassword">Confirm New Password</label>
-          <input type="password" id="confirmPassword" placeholder="Confirm new password">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary cancel-btn">Cancel</button>
-        <button class="btn btn-primary save-password-btn">Change Password</button>
-      </div>
-    </div>
-  `;
-    document.body.appendChild(modal);
-    const closeBtn = modal.querySelector(".close-modal");
-    const cancelBtn = modal.querySelector(".cancel-btn");
-    const saveBtn = modal.querySelector(".save-password-btn");
-    closeBtn.addEventListener("click", () => modal.remove());
-    cancelBtn.addEventListener("click", () => modal.remove());
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) modal.remove();
-    });
-    saveBtn.addEventListener("click", async () => {
-      const currentPassword = modal.querySelector("#currentPassword").value;
-      const newPassword = modal.querySelector("#newPassword").value;
-      const confirmPassword = modal.querySelector("#confirmPassword").value;
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        showToast("Please fill all fields", "error");
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        showToast("New passwords don't match", "error");
-        return;
-      }
-      if (newPassword.length < 6) {
-        showToast("Password must be at least 6 characters", "error");
-        return;
-      }
-      showLoadingOverlay();
-      try {
-        const user = currentUser;
-        const credential = await signInWithEmailAndPassword(
-          auth,
-          user.email,
-          currentPassword
-        );
-        await updatePassword(credential.user, newPassword);
-        showToast("Password changed successfully", "success");
-        modal.remove();
-      } catch (error) {
-        console.error("Change password error:", error);
-        if (error.code === "auth/wrong-password") {
-          showToast("Current password is incorrect", "error");
-        } else {
-          showToast("Failed to change password", "error");
-        }
-      }
-      hideLoading();
-    });
-  }
   function initSettingsListeners() {
     settingsBtn?.addEventListener("click", () => {
       settingsModal.classList.remove("hidden");
@@ -27789,7 +27879,6 @@ ${this.customData.serverResponse}`;
       }
     });
     document.getElementById("saveDisplayNameBtn")?.addEventListener("click", saveDisplayName);
-    document.getElementById("changePasswordBtn")?.addEventListener("click", showChangePasswordModal);
     document.getElementById("deleteAccountBtn")?.addEventListener("click", () => {
       if (confirm(
         "Are you sure you want to delete your account? This action cannot be undone."
@@ -27901,6 +27990,7 @@ ${this.customData.serverResponse}`;
     initChatListeners();
     initSettingsListeners();
     initAuthListeners();
+    initNavigation();
     setupServiceWorkerListener();
     initAuthObserver(
       // On login

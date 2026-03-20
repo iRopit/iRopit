@@ -184,11 +184,6 @@ export function initSettingsListeners() {
     .getElementById("saveDisplayNameBtn")
     ?.addEventListener("click", saveDisplayName)
 
-  // Change password
-  document
-    .getElementById("changePasswordBtn")
-    ?.addEventListener("click", showChangePasswordModal)
-
   // Delete account
   document.getElementById("deleteAccountBtn")?.addEventListener("click", () => {
     if (

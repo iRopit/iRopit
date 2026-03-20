@@ -28,6 +28,7 @@ export const useNotificationsScreen = (
     addNotification,
     removeNotification,
     markGroupAsRead,
+    clearNotifications,
   } = useNotificationStore();
 
   const {
@@ -39,9 +40,13 @@ export const useNotificationsScreen = (
 
   const { addCallAndSync } = useCallStore();
   const { user } = useAuthStore();
-  const { currentDevice } = useDeviceStore();
+  const { currentDevice, devices, loadDevices } = useDeviceStore();
   const { contacts } = useContactStore();
   const { isRTL, colors, isDarkMode } = useTheme();
+
+  // Device filter state - default to current device
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
 
   // Local state
   const [isLoading] = useState(false);
@@ -252,6 +257,11 @@ export const useNotificationsScreen = (
     return result;
   }, [notifications, smsMessages, searchQuery, filterType, contacts]);
 
+  // Load devices list on mount
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
+
   // Permission handling
   const checkPermission = useCallback(async () => {
     try {
@@ -316,28 +326,20 @@ export const useNotificationsScreen = (
         appName: group.appName,
         type: group.type,
         phoneNumber: group.phoneNumber || group.key.replace('sms_', ''),
-        notifications: group.notifications,
       });
     },
     [navigation, markGroupAsRead, markMessagesAsReadBySender],
   );
 
   const handleDelete = useCallback(
-    (group: GroupedNotification) => {
-      AlertService.confirmDeleteConversation(
-        group.title,
-        async () => {
-          group.notifications.forEach(n => removeNotification(n.id));
-
-          if (group.type === 'sms') {
-            const phoneNumber = group.key.replace('sms_', '');
-            await deleteMessagesBySender(phoneNumber);
-          }
-        },
-        isRTL,
-      );
+    async (group: GroupedNotification) => {
+      group.notifications.forEach(n => removeNotification(n.id));
+      if (group.type === 'sms') {
+        const phoneNumber = group.key.replace('sms_', '');
+        await deleteMessagesBySender(phoneNumber);
+      }
     },
-    [removeNotification, deleteMessagesBySender, isRTL],
+    [removeNotification, deleteMessagesBySender],
   );
 
   const handleMute = useCallback(
@@ -362,39 +364,25 @@ export const useNotificationsScreen = (
     }
   }, [selectedNotifications.length, groupedNotifications]);
 
-  const handleDeleteSelected = useCallback(() => {
+  const handleDeleteSelected = useCallback(async () => {
     if (selectedNotifications.length === 0) return;
-
-    AlertService.confirmDeleteSelected(
-      selectedNotifications.length,
-      async () => {
-        for (const key of selectedNotifications) {
-          const group = groupedNotifications.find(g => g.key === key);
-          if (group) {
-            group.notifications.forEach(n => removeNotification(n.id));
-
-            if (group.type === 'sms') {
-              const phoneNumber = key.replace('sms_', '');
-              await deleteMessagesBySender(phoneNumber);
-            }
-          }
+    for (const key of selectedNotifications) {
+      const group = groupedNotifications.find(g => g.key === key);
+      if (group) {
+        group.notifications.forEach(n => removeNotification(n.id));
+        if (group.type === 'sms') {
+          const phoneNumber = key.replace('sms_', '');
+          await deleteMessagesBySender(phoneNumber);
         }
-        setSelectedNotifications([]);
-        setIsSelectMode(false);
-        AlertService.showOperationComplete(
-          isRTL,
-          isRTL ? 'تم حذف الإشعارات المحددة' : 'Selected notifications deleted',
-        );
-      },
-      isRTL,
-      'conversations',
-    );
+      }
+    }
+    setSelectedNotifications([]);
+    setIsSelectMode(false);
   }, [
     selectedNotifications,
     groupedNotifications,
     removeNotification,
     deleteMessagesBySender,
-    isRTL,
   ]);
 
   const cancelSelectMode = useCallback(() => {
@@ -419,7 +407,7 @@ export const useNotificationsScreen = (
         });
       }
     });
-    const interval = setInterval(checkPermission, 3000);
+    const interval = setInterval(checkPermission, 30000);
     return () => clearInterval(interval);
   }, [checkPermission]);
 
@@ -429,24 +417,27 @@ export const useNotificationsScreen = (
     const cap = setTimeout(() => setInitialLoading(false), 500);
 
     if (user && currentDevice) {
-      Promise.resolve(loadSmsMessages()).finally(() => {
+      Promise.resolve(loadSmsMessages(activeDeviceId || undefined)).finally(() => {
         setInitialLoading(false);
         clearTimeout(cap);
       });
     }
 
     return () => clearTimeout(cap);
-  }, [user, currentDevice, loadSmsMessages]);
+  }, [user, currentDevice, loadSmsMessages, activeDeviceId]);
 
   // Subscribe to notifications from Firebase
   useEffect(() => {
-    if (!user || !currentDevice) return;
+    if (!user || !currentDevice || !activeDeviceId) return;
+
+    // Clear old notifications when device changes so we only show the selected device's data
+    clearNotifications();
 
     const unsubscribe = firestore()
       .collection('users')
       .doc(user.uid)
       .collection('devices')
-      .doc(currentDevice.id)
+      .doc(activeDeviceId)
       .collection('notifications')
       .orderBy('timestamp', 'desc')
       .limit(200)
@@ -484,7 +475,7 @@ export const useNotificationsScreen = (
       );
 
     return () => unsubscribe();
-  }, [user, currentDevice, addNotification]);
+  }, [user, currentDevice, addNotification, clearNotifications, activeDeviceId]);
 
   // Listen for new notifications
   useEffect(() => {
@@ -571,6 +562,12 @@ export const useNotificationsScreen = (
     isLoading,
     initialLoading,
     hasPermission,
+
+    // Device filter
+    devices,
+    currentDevice,
+    selectedDeviceId,
+    setSelectedDeviceId,
 
     // Theme
     isRTL,

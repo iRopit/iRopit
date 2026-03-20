@@ -12,6 +12,7 @@ import {
 import { showToast, showListLoading, showLoadingOverlay } from "./ui/toasts.js";
 import { initTabs } from "./ui/tabs.js";
 import { initSmsModal, initProfileFooter } from "./ui/modals.js";
+import { initNavigation } from "./ui/navigation.js";
 
 // Import services
 import { initAuthObserver, initAuthListeners } from "./services/auth.js";
@@ -130,6 +131,7 @@ function init() {
   initChatListeners();
   initSettingsListeners();
   initAuthListeners();
+  initNavigation();
 
   // Setup service worker listener
   setupServiceWorkerListener();

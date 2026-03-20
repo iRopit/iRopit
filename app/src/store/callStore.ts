@@ -16,7 +16,7 @@ interface CallState {
   unsubscribe: (() => void) | null;
 
   // Actions
-  loadCalls: () => void;
+  loadCalls: (deviceId?: string) => void;
   setCalls: (calls: CallLog[]) => void;
   addCall: (call: CallLog) => void;
   addCallAndSync: (call: CallLog, userId: string) => Promise<void>;
@@ -79,11 +79,13 @@ export const useCallStore = create<CallState>()(
               duration: call.duration || 0,
               timestamp: call.timestamp || Date.now(),
               syncedAt: Date.now(),
+              simSlot: call.simSlot ?? -1,
             };
 
             // Use a stable docId based on call timestamp + phone number
-            // This ensures duplicate events for the same call merge into one document
-            const docId = `call_${call.timestamp}_${phoneNumber}`.replace(
+            // Normalize phone: strip everything except digits and '+' to match FirebaseHelper.java format
+            const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '');
+            const docId = `call_${call.timestamp}_${cleanPhone}`.replace(
               /[\/\.]/g,
               '_',
             );
@@ -131,9 +133,10 @@ export const useCallStore = create<CallState>()(
               duration: call.duration || 0,
               timestamp: call.timestamp || Date.now(),
               syncedAt: Date.now(),
+              simSlot: call.simSlot ?? -1,
             };
 
-            const docId = `call_${call.timestamp}_${phoneNumber}`.replace(
+            const docId = `call_${call.timestamp}_${phoneNumber.replace(/[^0-9+]/g, '')}`.replace(
               /[\/\.]/g,
               '_',
             );
@@ -154,10 +157,12 @@ export const useCallStore = create<CallState>()(
         } catch (error: any) {}
       },
 
-      loadCalls: async () => {
+      loadCalls: async (deviceIdParam?: string) => {
         const { user } = useAuthStore.getState();
         const { currentDevice } = useDeviceStore.getState();
         if (!user || !currentDevice) return;
+
+        const deviceId = deviceIdParam || currentDevice.id;
 
         // Unsubscribe from previous listener
         const { unsubscribe: prevUnsubscribe } = get();
@@ -171,7 +176,7 @@ export const useCallStore = create<CallState>()(
           .collection(COLLECTIONS.USERS)
           .doc(user.uid)
           .collection(COLLECTIONS.DEVICES)
-          .doc(currentDevice.id)
+          .doc(deviceId)
           .collection(COLLECTIONS.CALLS)
           .orderBy('timestamp', 'desc')
           .limit(CALL_PAGE_SIZE)
@@ -211,18 +216,22 @@ export const useCallStore = create<CallState>()(
             switch (call.type) {
               case 1:
               case 'INCOMING':
+              case 'incoming':
                 callType = 'incoming';
                 break;
               case 2:
               case 'OUTGOING':
+              case 'outgoing':
                 callType = 'outgoing';
                 break;
               case 3:
               case 'MISSED':
+              case 'missed':
                 callType = 'missed';
                 break;
               case 5:
               case 'REJECTED':
+              case 'rejected':
                 callType = 'rejected';
                 break;
             }
@@ -239,9 +248,11 @@ export const useCallStore = create<CallState>()(
                 parseInt(call.timestamp) ||
                 Date.now(),
               syncedAt: Date.now(),
+              simSlot: call.simSlot ?? -1,
             };
 
-            const docId = `call_${callData.timestamp}_${(callData.phoneNumber || '').replace(/[\/\.]/g, '_')}`;
+            const cleanPhoneSync = (callData.phoneNumber || '').replace(/[^0-9+]/g, '');
+            const docId = `call_${callData.timestamp}_${cleanPhoneSync}`.replace(/[\/\.]/g, '_');
             const docRef = firestore()
               .collection(COLLECTIONS.USERS)
               .doc(user.uid)

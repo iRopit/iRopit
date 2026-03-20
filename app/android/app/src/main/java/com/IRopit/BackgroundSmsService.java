@@ -73,12 +73,13 @@ public class BackgroundSmsService extends Service {
         long timestamp = intent.getLongExtra("timestamp", System.currentTimeMillis());
         String deviceId = intent.getStringExtra("deviceId");
         String deviceName = intent.getStringExtra("deviceName");
+        int simSlot = intent.getIntExtra("simSlot", -1);
 
         Log.d(TAG, "SMS received in background service: " + sender + " - " + message);
         
         // Save SMS to Firebase using FirebaseHelper
         if (sender != null && message != null) {
-            saveSmsToFirebase(sender, message, timestamp, contactName);
+            saveSmsToFirebase(sender, message, timestamp, contactName, simSlot);
         }
         
         // Stop the service after saving
@@ -87,7 +88,7 @@ public class BackgroundSmsService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void saveSmsToFirebase(String sender, String message, long timestamp, String contactName) {
+    private void saveSmsToFirebase(String sender, String message, long timestamp, String contactName, int simSlot) {
         Log.d(TAG, "saveSmsToFirebase called - sender: " + sender);
         
         if (auth.getCurrentUser() == null) {
@@ -132,6 +133,7 @@ public class BackgroundSmsService extends Service {
         smsData.put("deviceName", deviceName);
         smsData.put("phoneNumber", sender);
         smsData.put("contactName", contactName != null ? contactName : "");
+        smsData.put("simSlot", simSlot);
         smsData.put("syncedAt", System.currentTimeMillis());
 
         // Save to notifications collection

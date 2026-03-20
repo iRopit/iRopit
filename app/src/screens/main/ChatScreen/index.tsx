@@ -270,16 +270,20 @@ const ChatScreen = () => {
   }
 
   const renderEmptyComponent = () => (
-    <EmptyState
-      icon="💬"
-      title={isRTL ? 'لا توجد رسائل' : 'No Messages'}
-      subtitle={
-        isRTL
-          ? 'ابدأ محادثة مع أجهزتك الأخرى'
-          : 'Start a conversation with your other devices'
-      }
-      isDarkMode={isDarkMode}
-    />
+    // FlatList is inverted={true} which flips everything via scaleY(-1);
+    // counter-rotate the empty state so text appears right-side up.
+    <View style={{ transform: [{ scaleY: -1 }] }}>
+      <EmptyState
+        icon="💬"
+        title={isRTL ? 'لا توجد رسائل' : 'No Messages'}
+        subtitle={
+          isRTL
+            ? 'ابدأ محادثة مع أجهزتك الأخرى'
+            : 'Start a conversation with your other devices'
+        }
+        isDarkMode={isDarkMode}
+      />
+    </View>
   );
 
   return (

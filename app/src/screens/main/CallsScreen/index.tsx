@@ -14,6 +14,7 @@ import {
   SearchBar,
   EmptyState,
   ConfirmDeleteBottomSheet,
+  DeviceFilterDropdown,
 } from '../../../components/shared';
 import { Container, AnimatedListItem } from '../../../components';
 import { styles } from './styles';
@@ -43,6 +44,12 @@ const CallsScreen = () => {
     textColor,
     secondaryTextColor,
     avatarBgColor,
+
+    // Device filter
+    devices,
+    currentDevice,
+    selectedDeviceId,
+    setSelectedDeviceId,
 
     // Handlers
     setSearchQuery,
@@ -82,6 +89,7 @@ const CallsScreen = () => {
         secondaryTextColor={secondaryTextColor}
         bgColor={bgColor}
         avatarBgColor={avatarBgColor}
+        colors={colors}
         isSelectMode={isSelectMode}
         isSelected={selectedCalls.includes(item.phoneNumber)}
         onToggleSelect={() => toggleSelectCall(item.phoneNumber)}
@@ -179,6 +187,17 @@ const CallsScreen = () => {
         onChangeText={setSearchQuery}
         isRTL={isRTL}
         isDarkMode={isDarkMode}
+      />
+
+      {/* Device Filter */}
+      <DeviceFilterDropdown
+        devices={devices}
+        currentDevice={currentDevice}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={setSelectedDeviceId}
+        isRTL={isRTL}
+        isDarkMode={isDarkMode}
+        colors={colors}
       />
 
       {/* Calls List */}

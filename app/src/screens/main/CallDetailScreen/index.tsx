@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {
   View,
@@ -7,6 +7,8 @@ import {
   Linking,
   Alert,
   ScrollView,
+  Platform,
+  NativeModules,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -15,6 +17,8 @@ import { RootStackParamList } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useCallStore } from '../../../store/callStore';
 import { Container } from '../../../components';
+import { normalizePhoneForWhatsApp } from '../../../utils/phoneUtils';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import { styles } from './styles';
 import {
@@ -36,12 +40,69 @@ const CallDetailScreen = () => {
   const { calls } = useCallStore();
   const insets = useSafeAreaInsets();
 
-  // Get all calls for this phone number
+  // Load native SIM slot data for enrichment
+  const [simSlotMap, setSimSlotMap] = useState<Record<string, number>>({});
+  const simSlotLoaded = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || simSlotLoaded.current) return;
+    simSlotLoaded.current = true;
+
+    const { CallLogModule } = NativeModules;
+    if (!CallLogModule) return;
+
+    CallLogModule.getCallLog(500).then((nativeCalls: any[]) => {
+      if (!nativeCalls) return;
+      const map: Record<string, number> = {};
+      for (const c of nativeCalls) {
+        if (c.simSlot != null && c.simSlot >= 0) {
+          const digits = (c.phoneNumber || '').replace(/[^0-9]/g, '');
+          const suffix = digits.length > 9 ? digits.slice(-9) : digits;
+          const tsSeconds = Math.floor(Number(c.timestamp) / 1000);
+          map[`${tsSeconds}_${suffix}`] = c.simSlot;
+        }
+      }
+      setSimSlotMap(map);
+    }).catch(() => {});
+  }, []);
+
+  // Get all calls for this phone number, enriched with SIM data
   const callHistory = useMemo(() => {
-    return calls
-      .filter(c => c.phoneNumber === call.phoneNumber)
+    const resolveSimSlot = (c: any): number | undefined => {
+      if (c.simSlot != null && c.simSlot >= 0) return c.simSlot;
+      const digits = (c.phoneNumber || '').replace(/[^0-9]/g, '');
+      const suffix = digits.length > 9 ? digits.slice(-9) : digits;
+      const tsSeconds = Math.floor(Number(c.timestamp) / 1000);
+      // Try exact second, then ±1s window
+      for (let offset = 0; offset <= 1; offset++) {
+        const val = simSlotMap[`${tsSeconds + offset}_${suffix}`] ?? simSlotMap[`${tsSeconds - offset}_${suffix}`];
+        if (val != null) return val;
+      }
+      return undefined;
+    };
+
+    // Normalize phone for matching: use last 9 digits
+    const normalizePhone = (p: string) => {
+      const digits = (p || '').replace(/[^0-9]/g, '');
+      return digits.length > 9 ? digits.slice(-9) : digits;
+    };
+    const targetSuffix = normalizePhone(call.phoneNumber);
+
+    const filtered = calls
+      .filter(c => normalizePhone(c.phoneNumber) === targetSuffix)
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [calls, call.phoneNumber]);
+
+    // Deduplicate calls with same type within 2 seconds of each other
+    const deduped: typeof filtered = [];
+    for (const c of filtered) {
+      const isDupe = deduped.some(
+        d => d.type === c.type && Math.abs(d.timestamp - c.timestamp) < 2000,
+      );
+      if (!isDupe) deduped.push(c);
+    }
+
+    return deduped.map(c => ({ ...c, simSlot: resolveSimSlot(c) }));
+  }, [calls, call.phoneNumber, simSlotMap]);
 
   // Dynamic colors based on theme
   const bgColor = colors.background;
@@ -67,43 +128,36 @@ const CallDetailScreen = () => {
     });
   };
 
-  const handleVideo = () => {
+  const handleVideo = async () => {
     const phoneNumber = call.phoneNumber;
-    Linking.canOpenURL('facetime://')
-      .then(supported => {
-        if (supported) {
-          Linking.openURL(`facetime:${phoneNumber}`);
+    const supported = await Linking.canOpenURL('facetime://');
+    if (supported) {
+      Linking.openURL(`facetime:${phoneNumber}`);
+    } else {
+      const duoSupported = await Linking.canOpenURL('https://duo.google.com');
+      if (duoSupported) {
+        Linking.openURL(`https://duo.google.com/call/${phoneNumber}`);
+      } else {
+        const waPhone = await normalizePhoneForWhatsApp(phoneNumber);
+        const whatsappUrl = `whatsapp://send?phone=${waPhone}`;
+        const waSupported = await Linking.canOpenURL(whatsappUrl);
+        if (waSupported) {
+          Linking.openURL(whatsappUrl);
         } else {
-          Linking.canOpenURL('https://duo.google.com').then(duoSupported => {
-            if (duoSupported) {
-              Linking.openURL(`https://duo.google.com/call/${phoneNumber}`);
-            } else {
-              const whatsappUrl = `whatsapp://send?phone=${phoneNumber.replace(
-                /[^0-9]/g,
-                '',
-              )}`;
-              Linking.canOpenURL(whatsappUrl).then(waSupported => {
-                if (waSupported) {
-                  Linking.openURL(whatsappUrl);
-                } else {
-                  Alert.alert(
-                    'Video Call',
-                    'No video calling app available. Please install WhatsApp, Duo, or FaceTime.',
-                  );
-                }
-              });
-            }
-          });
+          Alert.alert(
+            'Video Call',
+            'No video calling app available. Please install WhatsApp, Duo, or FaceTime.',
+          );
         }
-      })
-      .catch(() => {
-        Alert.alert('Error', 'Unable to initiate video call');
-      });
+      }
+    }
   };
 
-  const handleEmail = () => {
-    Linking.openURL('mailto:').catch(() => {
-      Alert.alert('Error', 'Unable to open email app');
+  const handleWhatsApp = async () => {
+    const phoneNumber = await normalizePhoneForWhatsApp(call.phoneNumber);
+    const whatsappUrl = `whatsapp://send?phone=${phoneNumber}`;
+    Linking.openURL(whatsappUrl).catch(() => {
+      Alert.alert('Error', 'WhatsApp is not installed');
     });
   };
 
@@ -134,15 +188,26 @@ const CallDetailScreen = () => {
           <Text style={[styles.backIcon, { color: colors.primaryText }]}>
             ‹
           </Text>
-          <Text style={[styles.backText, { color: colors.primaryText }]}>
-            {isRTL ? 'المكالمات' : 'Calls'}
-          </Text>
         </TouchableOpacity>
 
         {/* Contact Name */}
-        <Text style={[styles.contactName, { color: textColor }]}>
+        <Text style={[styles.contactName, { color: textColor, marginTop: 40, marginBottom: 2 }]} numberOfLines={1} ellipsizeMode="tail">
           {displayName}
         </Text>
+        {call.contactName ? (
+          <TouchableOpacity
+            onLongPress={() => {
+              Clipboard.setString(call.phoneNumber);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: secondaryTextColor, fontSize: 13, textAlign: 'center', marginBottom: 16, writingDirection: 'ltr' }}>
+              {call.phoneNumber}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ marginBottom: 16 }} />
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actionsRow}>
@@ -159,8 +224,8 @@ const CallDetailScreen = () => {
             >
               <Icon name="chatbubble" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.actionLabel}>
-              {isRTL ? 'رسالة' : 'message'}
+            <Text style={[styles.actionLabel, { color: textColor }]} numberOfLines={1}>
+              {isRTL ? 'رسالة' : 'Message'}
             </Text>
           </TouchableOpacity>
 
@@ -177,10 +242,10 @@ const CallDetailScreen = () => {
             >
               <Icon name="call" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.actionLabel}>{isRTL ? 'اتصال' : 'call'}</Text>
+            <Text style={[styles.actionLabel, { color: textColor }]} numberOfLines={1}>{isRTL ? 'اتصال' : 'Call'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleWhatsApp}>
             <View
               style={[
                 styles.actionIconContainer,
@@ -191,9 +256,9 @@ const CallDetailScreen = () => {
                 },
               ]}
             >
-              <Icon name="mail" size={24} color={colors.primary} />
+              <Icon name="logo-whatsapp" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.actionLabel}>{isRTL ? 'بريد' : 'mail'}</Text>
+            <Text style={[styles.actionLabel, { color: textColor }]} numberOfLines={1}>{isRTL ? 'واتساب' : 'WhatsApp'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -230,9 +295,26 @@ const CallDetailScreen = () => {
                 }
               />
               <View style={styles.historyInfo}>
-                <Text style={[styles.historyType, { color: textColor }]}>
-                  {getCallTypeLabel(historyCall.type)}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.historyType, { color: textColor }]}>
+                    {getCallTypeLabel(historyCall.type)}
+                  </Text>
+                  {historyCall.simSlot != null && historyCall.simSlot >= 0 && (
+                    <View style={{
+                      backgroundColor: historyCall.simSlot === 0 ? '#007AFF' : '#FF9500',
+                      borderRadius: 6,
+                      minWidth: 16,
+                      height: 16,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginLeft: 6,
+                    }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }}>
+                        {historyCall.simSlot + 1}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text
                   style={[styles.historyTime, { color: secondaryTextColor }]}
                 >
@@ -253,20 +335,7 @@ const CallDetailScreen = () => {
           ))}
         </View>
 
-        {/* Phone Number Section */}
-        <View style={[styles.section, { backgroundColor: surfaceColor }]}>
-          <Text style={[styles.sectionLabel, { color: secondaryTextColor }]}>
-            {isRTL ? 'الهاتف' : 'Phone'}
-          </Text>
-          <TouchableOpacity style={styles.phoneRow} onPress={handleCall}>
-            <Text style={[styles.phoneNumber, { color: colors.primaryText }]}>
-              {call.phoneNumber}
-            </Text>
-            <Text style={[styles.phoneLabel, { color: secondaryTextColor }]}>
-              {isRTL ? 'محمول' : 'mobile'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+
       </ScrollView>
     </Container>
   );

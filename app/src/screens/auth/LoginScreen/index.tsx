@@ -14,9 +14,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { AuthStackParamList } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { APP_VERSION } from '../../../constants';
-import { Button, Input, Divider } from '../../../components';
-import { useLoading, useToggle } from '../../../hooks';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Button } from '../../../components';
+import { useLoading } from '../../../hooks';
 import { styles } from './styles';
 
 type LoginScreenProps = {
@@ -24,69 +23,22 @@ type LoginScreenProps = {
 };
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
-  const [showPassword, toggleShowPassword] = useToggle(false);
   const { isLoading, startLoading, stopLoading } = useLoading();
   const { colors, t, isDarkMode } = useTheme();
 
-  const { signInWithEmail, signInWithGoogle } = useAuthStore();
-
-  const clearErrors = useCallback(() => {
-    setEmailError('');
-    setPasswordError('');
-    setGeneralError('');
-  }, []);
-
-  const handleEmailLogin = useCallback(async () => {
-    clearErrors();
-    let hasError = false;
-
-    if (!email.trim()) {
-      setEmailError(t('emailRequired'));
-      hasError = true;
-    }
-
-    if (!password) {
-      setPasswordError(t('passwordRequired'));
-      hasError = true;
-    }
-
-    if (hasError) return;
-
-    startLoading();
-    try {
-      await signInWithEmail(email.trim(), password);
-    } catch (e: any) {
-      setGeneralError(e.message || t('loginFailed'));
-    }
-    stopLoading();
-  }, [
-    email,
-    password,
-    signInWithEmail,
-    startLoading,
-    stopLoading,
-    t,
-    clearErrors,
-  ]);
+  const { signInWithGoogle } = useAuthStore();
 
   const handleGoogleLogin = useCallback(async () => {
-    console.log('[LOGIN] handleGoogleLogin button pressed');
-    clearErrors();
+    setGeneralError('');
     startLoading();
     try {
       await signInWithGoogle();
-      console.log('[LOGIN] signInWithGoogle completed successfully');
     } catch (e: any) {
-      console.log('[LOGIN] signInWithGoogle error:', e?.message || e);
       setGeneralError(e.message || t('googleSignInFailed'));
     }
     stopLoading();
-  }, [signInWithGoogle, startLoading, stopLoading, t, clearErrors]);
+  }, [signInWithGoogle, startLoading, stopLoading, t]);
 
   return (
     <SafeAreaView
@@ -112,6 +64,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             <Text style={[styles.appName, { color: colors.text }]}>iRopit</Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
               {t('appTagline')}
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 4, opacity: 0.6 }}>
+              {`v${APP_VERSION}`}
             </Text>
           </View>
 
@@ -141,53 +96,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Email Input */}
-            <Input
-              placeholder={t('emailPlaceholder')}
-              value={email}
-              onChangeText={text => {
-                setEmail(text);
-                if (emailError) setEmailError('');
-              }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              leftIcon="mail-outline"
-              isDark={isDarkMode}
-              error={emailError}
-            />
-
-            {/* Password Input */}
-            <Input
-              placeholder={t('passwordPlaceholder')}
-              value={password}
-              onChangeText={text => {
-                setPassword(text);
-                if (passwordError) setPasswordError('');
-              }}
-              secureTextEntry={!showPassword}
-              leftIcon="lock-closed-outline"
-              rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              onRightIconPress={toggleShowPassword}
-              isDark={isDarkMode}
-              error={passwordError}
-            />
-
-            {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotPasswordContainer}>
-              <Text
-                style={[
-                  styles.forgotPasswordText,
-                  { color: colors.primaryText },
-                ]}
-              >
-                {t('forgotPassword')}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Login Button */}
+            {/* Google Login */}
             <Button
-              title={t('loginButton')}
-              onPress={handleEmailLogin}
+              title={t('googleSignIn')}
+              variant="outline"
+              leftIcon="logo-google"
+              onPress={handleGoogleLogin}
               loading={isLoading}
               disabled={isLoading}
               fullWidth
@@ -195,44 +109,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             />
           </View>
 
-          {/* Divider */}
-          <Divider label={t('orDivider')} isDark={isDarkMode} />
-
-          {/* Google Login */}
-          <Button
-            title={t('googleSignIn')}
-            variant="outline"
-            leftIcon="logo-google"
-            onPress={handleGoogleLogin}
-            disabled={isLoading}
-            fullWidth
-            isDark={isDarkMode}
-          />
-
-          {/* Sign Up Link */}
-          <View style={styles.signUpContainer}>
-            <Text style={[styles.signUpText, { color: colors.textSecondary }]}>
-              {t('noAccount')}
-            </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-              <Text style={[styles.signUpLink, { color: colors.primaryText }]}>
-                {t('signUp')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Version */}
-          <Text
-            style={{
-              textAlign: 'center',
-              color: colors.textSecondary,
-              fontSize: 11,
-              marginTop: 16,
-              opacity: 0.6,
-            }}
-          >
-            {`v${APP_VERSION}`}
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

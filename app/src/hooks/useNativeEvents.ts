@@ -7,6 +7,7 @@ import {
   DeviceEventEmitter,
   AppState,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSMSStore } from '../store/smsStore';
 import { useCallStore } from '../store/callStore';
 import { useAuthStore } from '../store/authStore';
@@ -40,6 +41,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   const pushListenerUnsubscribe = useRef<(() => void) | null>(null);
   const fcmTokenListenerUnsubscribe = useRef<(() => void) | null>(null);
   const lastContactSyncRef = useRef<number>(0);
+  const initialSyncAttemptedRef = useRef(false);
 
   // Re-sync contacts when app comes to foreground (max once per 5 minutes)
   useEffect(() => {
@@ -66,9 +68,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     if (user && !currentDevice) {
       registerDevice().then(() => {
         startOnlineStatusTracking();
-        // مزامنة جهات الاتصال بعد تسجيل الجهاز
         syncContactsToFirebase();
-        // Start FCM token refresh listener
         fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
       });
     }
@@ -87,6 +87,85 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     syncContactsToFirebase,
     startFcmTokenListener,
   ]);
+
+  // One-time initial sync of existing calls & SMS from device to Firebase.
+  // Runs as soon as both user and currentDevice are ready.
+  // Key includes deviceId so re-installing on a new device re-syncs.
+  useEffect(() => {
+    if (!user || !currentDevice || Platform.OS !== 'android') return;
+    if (initialSyncAttemptedRef.current) return;
+    initialSyncAttemptedRef.current = true;
+
+    const doInitialSync = async () => {
+      try {
+        // v5: re-sync after deploying getSlotIndex Java fix (v4 ran before Java rebuild)
+        const syncKey = `@iRopit:initialDeviceSyncDone_v5_${user.uid}_${currentDevice.id}`;
+        const alreadySynced = await AsyncStorage.getItem(syncKey);
+        if (alreadySynced) {
+          console.log('[InitialSync] Already done, skipping');
+          return;
+        }
+
+        console.log('[InitialSync] Starting first-time device sync...');
+
+        // Check permissions before accessing native modules
+        const [hasCallLog, hasSms] = await Promise.all([
+          PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG),
+          PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
+        ]);
+
+        if (!hasCallLog && !hasSms) {
+          console.warn('[InitialSync] No READ_CALL_LOG or READ_SMS permissions, skipping');
+          return;
+        }
+
+        // Sync call log
+        if (hasCallLog) {
+          try {
+            let nativeCalls: any[] = [];
+            if (CallLogModule) {
+              nativeCalls = (await CallLogModule.getCallLog(100)) || [];
+            } else if (ZyncITModule?.getCallLog) {
+              nativeCalls = (await ZyncITModule.getCallLog(100)) || [];
+            }
+            console.log(`[InitialSync] Got ${nativeCalls.length} calls from device`);
+            if (nativeCalls.length > 0) {
+              await useCallStore.getState().syncCalls(nativeCalls);
+              console.log(`[InitialSync] Synced ${nativeCalls.length} calls to Firebase`);
+            }
+          } catch (e) {
+            console.warn('[InitialSync] Call sync error:', e);
+          }
+        }
+
+        // Sync SMS
+        if (hasSms) {
+          try {
+            let nativeSms: any[] = [];
+            if (SmsModule) {
+              nativeSms = (await SmsModule.getAllSms(100)) || [];
+            } else if (ZyncITModule?.getAllSms) {
+              nativeSms = (await ZyncITModule.getAllSms(100)) || [];
+            }
+            console.log(`[InitialSync] Got ${nativeSms.length} SMS from device`);
+            if (nativeSms.length > 0) {
+              await useSMSStore.getState().batchSyncNativeSMS(nativeSms, user.uid);
+              console.log(`[InitialSync] Synced ${nativeSms.length} SMS to Firebase`);
+            }
+          } catch (e) {
+            console.warn('[InitialSync] SMS sync error:', e);
+          }
+        }
+
+        await AsyncStorage.setItem(syncKey, 'true');
+        console.log('[InitialSync] Complete');
+      } catch (e) {
+        console.warn('[InitialSync] Error:', e);
+      }
+    };
+
+    doInitialSync();
+  }, [user?.uid, currentDevice?.id]);
 
   // الاستماع لطلبات إرسال SMS من Chrome Extension + بدء Foreground Service
   useEffect(() => {
@@ -261,6 +340,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           timestamp: callTimestamp,
           deviceId: 'android',
           syncedAt: Date.now(),
+          simSlot: data.simSlot ?? -1,
         };
 
         // حفظ في Firebase مباشرة

@@ -33,28 +33,28 @@ export const createStyles = (colors: ColorTheme) =>
       fontSize: 17,
     },
     avatarContainer: {
-      marginTop: 20,
-      marginBottom: 16,
+      marginTop: 8,
+      marginBottom: 8,
     },
     avatar: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
       backgroundColor: colors.surfaceSecondary,
       justifyContent: 'center',
       alignItems: 'center',
     },
     avatarText: {
       color: colors.textInverse,
-      fontSize: 40,
+      fontSize: 24,
       fontWeight: '500',
     },
     contactName: {
       color: colors.text,
-      fontSize: 28,
+      fontSize: 17,
       fontWeight: '600',
-      marginTop: 40,
-      marginBottom: 24,
+      textAlign: 'center',
+      paddingHorizontal: 32,
     },
     actionsRow: {
       flexDirection: 'row',
@@ -63,7 +63,7 @@ export const createStyles = (colors: ColorTheme) =>
     },
     actionButton: {
       alignItems: 'center',
-      width: 70,
+      width: 82,
     },
     actionIconContainer: {
       width: 50,
@@ -78,7 +78,7 @@ export const createStyles = (colors: ColorTheme) =>
       fontSize: 24,
     },
     actionLabel: {
-      color: colors.primaryText,
+      color: colors.text,
       fontSize: 12,
     },
     tabContainer: {

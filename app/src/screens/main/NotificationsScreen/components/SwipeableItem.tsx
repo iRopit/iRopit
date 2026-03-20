@@ -10,7 +10,7 @@ import {
   getAppIconColor,
 } from '../helper';
 
-const SwipeableItem: React.FC<SwipeableItemProps> = ({
+const SwipeableItem: React.FC<SwipeableItemProps> = React.memo(({
   item,
   onPress,
   onDelete,
@@ -182,6 +182,6 @@ const SwipeableItem: React.FC<SwipeableItemProps> = ({
       />
     </View>
   );
-};
+});
 
 export default SwipeableItem;

@@ -36,6 +36,7 @@ export interface SMS {
   read: boolean;
   timestamp: number;
   syncedAt: number;
+  simSlot?: number; // 0 = SIM 1, 1 = SIM 2, -1 = unknown
 }
 
 export interface CallLog {
@@ -49,6 +50,7 @@ export interface CallLog {
   timestamp: number;
   syncedAt: number;
   source?: 'phone' | 'whatsapp' | 'telegram'; // مصدر المكالمة
+  simSlot?: number; // 0 = SIM 1, 1 = SIM 2, -1 = unknown
 }
 
 export interface ChatMessage {
@@ -113,7 +115,7 @@ export type RootStackParamList = {
 
 export type AuthStackParamList = {
   Login: undefined;
-  SignUp: undefined;
+  ForgotPassword: undefined;
 };
 
 export type MainTabParamList = {

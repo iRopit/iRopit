@@ -15,26 +15,8 @@ export class AlertService {
    * Show a confirmation dialog for delete operations
    */
   static confirmDelete(options: ConfirmDeleteOptions): void {
-    const {
-      title,
-      message,
-      confirmText,
-      cancelText,
-      onConfirm,
-      isRTL = false,
-    } = options;
-
-    Alert.alert(title, message, [
-      {
-        text: cancelText || (isRTL ? 'إلغاء' : 'Cancel'),
-        style: 'cancel',
-      },
-      {
-        text: confirmText || (isRTL ? 'حذف' : 'Delete'),
-        style: 'destructive',
-        onPress: onConfirm,
-      },
-    ]);
+    const { onConfirm } = options;
+    onConfirm();
   }
 
   /**
@@ -161,12 +143,8 @@ export class AlertService {
   /**
    * Show operation complete alert
    */
-  static showOperationComplete(isRTL: boolean = false, message?: string): void {
-    Alert.alert(
-      isRTL ? 'تم' : 'Done',
-      message ||
-        (isRTL ? 'تمت العملية بنجاح' : 'Operation completed successfully'),
-    );
+  static showOperationComplete(_isRTL: boolean = false, _message?: string): void {
+    // No dialog shown
   }
 
   /**

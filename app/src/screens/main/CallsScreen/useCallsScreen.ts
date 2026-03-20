@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useState, useMemo } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useCallback, useState, useMemo, useRef } from 'react';
+import { Platform, NativeModules } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../types';
@@ -7,6 +7,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { AlertService } from '../../../components/shared';
 import { GroupedCall } from './types';
 import { useCallStore } from '../../../store';
+import { useDeviceStore } from '../../../store/deviceStore';
 import useNativeEvents from '../../../hooks';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -22,9 +23,15 @@ export const useCallsScreen = () => {
     loadCalls,
     clearAllCalls,
     deleteCallsByPhoneNumbers,
+    syncCalls,
   } = useCallStore();
   const { requestPermissions } = useNativeEvents();
+  const { currentDevice, devices, loadDevices } = useDeviceStore();
   const { isRTL, isDarkMode, colors } = useTheme();
+
+  // Device filter state - default to current device
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
 
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,20 +59,75 @@ export const useCallsScreen = () => {
     if (Platform.OS === 'android') {
       await requestPermissions();
     }
-    loadCalls();
-  }, [requestPermissions, loadCalls]);
+    loadCalls(activeDeviceId || undefined);
+  }, [requestPermissions, loadCalls, activeDeviceId]);
 
   useEffect(() => {
     initializeCallListener();
   }, [initializeCallListener]);
+
+  // Load native SIM slot data for enrichment
+  const [simSlotMap, setSimSlotMap] = useState<Record<string, number>>({});
+  const simSlotLoaded = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || simSlotLoaded.current) return;
+    simSlotLoaded.current = true;
+
+    const { CallLogModule } = NativeModules;
+    if (!CallLogModule) return;
+
+    CallLogModule.getCallLog(500).then((nativeCalls: any[]) => {
+      if (!nativeCalls) return;
+      const map: Record<string, number> = {};
+      for (const c of nativeCalls) {
+        if (c.simSlot != null && c.simSlot >= 0) {
+          // Key by timestamp in seconds + last 9 digits of phone
+          const digits = (c.phoneNumber || '').replace(/[^0-9]/g, '');
+          const suffix = digits.length > 9 ? digits.slice(-9) : digits;
+          const tsSeconds = Math.floor(Number(c.timestamp) / 1000);
+          map[`${tsSeconds}_${suffix}`] = c.simSlot;
+        }
+      }
+      setSimSlotMap(map);
+
+      // Re-sync native calls to Firestore to fix any incorrect call types
+      syncCalls(nativeCalls);
+    }).catch(() => {});
+  }, []);
+
+  // Load devices list on mount
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
 
   // Group calls by phone number
   const groupedCalls = useMemo(() => {
     const groups: { [key: string]: GroupedCall } = {};
     const validCalls = Array.isArray(calls) ? calls : [];
 
+    // Normalize phone number for grouping: strip non-digits, take last 9 digits
+    const normalizeForGroup = (phone: string): string => {
+      const digits = phone.replace(/[^0-9]/g, '');
+      return digits.length > 9 ? digits.slice(-9) : digits;
+    };
+
+    // Resolve simSlot: prefer Firestore value, fallback to native lookup
+    const resolveSimSlot = (call: any): number | undefined => {
+      if (call.simSlot != null && call.simSlot >= 0) return call.simSlot;
+      const suffix = normalizeForGroup(call.phoneNumber || '');
+      const tsSeconds = Math.floor(Number(call.timestamp) / 1000);
+      // Try exact second, then ±1s window
+      for (let offset = 0; offset <= 1; offset++) {
+        const val = simSlotMap[`${tsSeconds + offset}_${suffix}`] ?? simSlotMap[`${tsSeconds - offset}_${suffix}`];
+        if (val != null) return val;
+      }
+      return undefined;
+    };
+
     validCalls.forEach(call => {
-      const groupKey = call.phoneNumber;
+      const groupKey = normalizeForGroup(call.phoneNumber);
+      const simSlot = resolveSimSlot(call);
 
       if (!groups[groupKey]) {
         groups[groupKey] = {
@@ -75,6 +137,7 @@ export const useCallsScreen = () => {
           lastType: call.type,
           lastTimestamp: call.timestamp,
           lastDuration: call.duration,
+          lastSimSlot: simSlot,
           count: 1,
           calls: [call],
         };
@@ -85,6 +148,7 @@ export const useCallsScreen = () => {
           groups[groupKey].lastTimestamp = call.timestamp;
           groups[groupKey].lastType = call.type;
           groups[groupKey].lastDuration = call.duration;
+          groups[groupKey].lastSimSlot = simSlot;
         }
         if (call.contactName && !groups[groupKey].contactName) {
           groups[groupKey].contactName = call.contactName;
@@ -106,7 +170,7 @@ export const useCallsScreen = () => {
     }
 
     return result;
-  }, [calls, searchQuery]);
+  }, [calls, searchQuery, simSlotMap]);
 
   // Handlers
   const handlePress = useCallback(
@@ -119,11 +183,9 @@ export const useCallsScreen = () => {
     [navigation],
   );
 
-  const handleDelete = useCallback((group: GroupedCall) => {
-    setSingleDeleteItem(group);
-    setDeleteTarget('single');
-    setShowDeleteSheet(true);
-  }, []);
+  const handleDelete = useCallback(async (group: GroupedCall) => {
+    await deleteCallsByPhoneNumbers([group.phoneNumber]);
+  }, [deleteCallsByPhoneNumbers]);
 
   const confirmDelete = useCallback(async () => {
     if (deleteTarget === 'single' && singleDeleteItem) {
@@ -175,23 +237,17 @@ export const useCallsScreen = () => {
     }
   }, [selectedCalls.length, groupedCalls]);
 
-  const handleDeleteSelected = useCallback(() => {
+  const handleDeleteSelected = useCallback(async () => {
     if (selectedCalls.length === 0) return;
-    setDeleteTarget('selected');
-    setShowDeleteSheet(true);
-  }, [selectedCalls.length]);
+    await deleteCallsByPhoneNumbers(selectedCalls);
+    setSelectedCalls([]);
+    setIsSelectMode(false);
+  }, [selectedCalls, deleteCallsByPhoneNumbers]);
 
-  const handleDeleteAllCalls = useCallback(() => {
-    if (groupedCalls.length === 0) {
-      AlertService.show(
-        isRTL ? 'لا توجد مكالمات' : 'No Calls',
-        isRTL ? 'لا توجد مكالمات لحذفها' : 'There are no calls to delete',
-      );
-      return;
-    }
-    setDeleteTarget('all');
-    setShowDeleteSheet(true);
-  }, [groupedCalls.length, isRTL]);
+  const handleDeleteAllCalls = useCallback(async () => {
+    if (groupedCalls.length === 0) return;
+    await clearAllCalls();
+  }, [groupedCalls.length, clearAllCalls]);
 
   const cancelSelectMode = useCallback(() => {
     setIsSelectMode(false);
@@ -210,6 +266,12 @@ export const useCallsScreen = () => {
     isSelectMode,
     selectedCalls,
     isLoading,
+
+    // Device filter
+    devices,
+    currentDevice,
+    selectedDeviceId,
+    setSelectedDeviceId,
 
     // Theme
     isRTL,

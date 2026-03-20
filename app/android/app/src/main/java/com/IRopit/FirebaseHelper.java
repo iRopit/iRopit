@@ -199,7 +199,7 @@ public class FirebaseHelper {
     }
 
     public void sendCallToFirestore(String phoneNumber, String contactName, 
-            String callType, long timestamp, int duration) {
+            String callType, long timestamp, int duration, int simSlot) {
         
         String userId = getUserId();
         String deviceId = getDeviceId();
@@ -226,6 +226,7 @@ public class FirebaseHelper {
         call.put("duration", duration);
         call.put("deviceId", deviceId);
         call.put("deviceName", getDeviceName());
+        call.put("simSlot", simSlot);
         call.put("createdAt", System.currentTimeMillis());
         call.put("read", false);
 

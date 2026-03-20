@@ -9,6 +9,7 @@ import {
   ScreenTitle,
   SearchBar,
   EmptyState,
+  DeviceFilterDropdown,
 } from '../../../components/shared';
 
 import { GroupedNotification } from './types';
@@ -33,6 +34,12 @@ const NotificationsScreen = () => {
     isDarkMode,
     colors,
     bgColor,
+
+    // Device filter
+    devices,
+    currentDevice,
+    selectedDeviceId,
+    setSelectedDeviceId,
 
     // Handlers
     setSearchQuery,
@@ -150,6 +157,17 @@ const NotificationsScreen = () => {
         onChangeText={setSearchQuery}
         isRTL={isRTL}
         isDarkMode={isDarkMode}
+      />
+
+      {/* Device Filter */}
+      <DeviceFilterDropdown
+        devices={devices}
+        currentDevice={currentDevice}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={setSelectedDeviceId}
+        isRTL={isRTL}
+        isDarkMode={isDarkMode}
+        colors={colors}
       />
 
       {/* Notifications List */}

@@ -342,18 +342,13 @@ export const useChatScreen = () => {
             rawMsgs.push({ id: doc.id, ...data } as Message);
           });
           rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-          // Filter: only messages sent from or directly to this device
-          const deviceMsgs = rawMsgs.filter(msg =>
-            msg.receiverDeviceId === currentDevice.id ||
-            msg.senderDeviceId === currentDevice.id,
-          );
-          // Further filter by selected device tab
+          // Filter by selected device tab; no specific selection = show all
           const filteredMsgs = selectedDeviceId
-            ? deviceMsgs.filter(msg =>
+            ? rawMsgs.filter(msg =>
                 msg.senderDeviceId === selectedDeviceId ||
                 msg.receiverDeviceId === selectedDeviceId,
               )
-            : deviceMsgs;
+            : rawMsgs;
           // Decrypt messages
           const decryptedMsgs = await Promise.all(
             filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),

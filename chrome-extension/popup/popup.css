@@ -384,6 +384,24 @@ body[dir="rtl"] {
   padding: 0 3px;
 }
 
+.sim-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+}
+.sim-badge.sim-0 { background: #007AFF; }
+.sim-badge.sim-1 { background: #FF9500; }
+
 /* Tab Contents */
 .tab-contents {
   flex: 1;
@@ -2004,6 +2022,46 @@ body[dir="rtl"] .device-tag {
   flex-shrink: 0;
 }
 
+.call-action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.call-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--hover);
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 52px;
+  transition: background 0.15s;
+}
+
+.call-action-btn:hover {
+  background: var(--border);
+}
+
+.call-action-btn.call-action-whatsapp {
+  color: #25D366;
+}
+
+.conv-header-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .back-btn {
   background: none;
   border: none;
@@ -2314,6 +2372,71 @@ body[dir="rtl"] .device-tag {
 
 .call-group:hover {
   background: var(--hover);
+}
+
+.call-list-hover-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  margin: 0 6px;
+}
+
+.call-group:hover .call-list-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.call-list-hover-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--primary);
+  padding: 0;
+  transition: background 0.12s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.call-list-hover-btn:hover {
+  background: var(--border);
+  transform: scale(1.12);
+}
+
+.call-list-hover-wa {
+  color: #25D366;
+}
+
+.sms-list-hover-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  margin: 0 6px;
+}
+
+.sms-conversation:hover .sms-list-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sms-hover-wa {
+  color: #25D366;
 }
 /* Modal Styles */
 .modal-overlay {

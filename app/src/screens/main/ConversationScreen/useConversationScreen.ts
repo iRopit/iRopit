@@ -5,7 +5,6 @@ import { AppNotification } from '../../../services/notificationService';
 import notificationService from '../../../services/notificationService';
 import { useNotificationStore } from '../../../store/notificationStore';
 import { useSMSStore } from '../../../store/smsStore';
-import { SMS } from '../../../types';
 import { extractPhoneNumber } from './helper';
 
 // Normalize phone number for comparison
@@ -25,6 +24,30 @@ const phoneNumbersMatch = (phone1: string, phone2: string): boolean => {
   const n2 = normalizePhoneNumber(phone2);
   if (!n1 || !n2) return false;
   return n1 === n2 || n1.endsWith(n2) || n2.endsWith(n1);
+};
+
+// Check if a value is a real phone number (digits only)
+const isPhoneNumber = (value: string): boolean => {
+  if (!value) return false;
+  return /^[\+\d\s\-\(\)]+$/.test(value.trim());
+};
+
+// Match sender by phone number or name
+const senderMatches = (sms: any, filterKey: string): boolean => {
+  const smsPhone = sms.phoneNumber || sms.sender || sms.address || '';
+  const smsContactName = sms.contactName || '';
+
+  if (isPhoneNumber(filterKey)) {
+    // Filter key is a phone number — match by digits
+    return phoneNumbersMatch(smsPhone, filterKey);
+  } else {
+    // Filter key is a name (like "Klivvr", "CBD") — match by sender name or contactName
+    const filterLower = filterKey.toLowerCase();
+    return (
+      smsPhone.toLowerCase() === filterLower ||
+      smsContactName.toLowerCase() === filterLower
+    );
+  }
 };
 
 interface UseConversationScreenParams {
@@ -49,23 +72,20 @@ export const useConversationScreen = (
   const {
     messages: smsMessages,
     isLoading: isSmsLoading,
-    loadMessagesForSender,
   } = useSMSStore();
   const { isRTL, isDarkMode, colors, t } = useTheme();
 
-  // State for loaded sender messages from Firebase
-  const [loadedSenderMessages, setLoadedSenderMessages] = useState<SMS[]>([]);
+  // State for loaded notifications (non-SMS only)
   const [loadedNotifications, setLoadedNotifications] = useState<
     AppNotification[]
   >([]);
-  const [isLoadingSenderMessages, setIsLoadingSenderMessages] = useState(false);
 
   // Dynamic colors from theme
   const bgColor = colors.background;
   const textColor = colors.text;
   const secondaryTextColor = colors.textSecondary;
   const bubbleColor = colors.card;
-  const headerBgColor = colors.card;
+  const headerBgColor = isDarkMode ? colors.surfaceSecondary : colors.surfaceTertiary;
   const borderColor = colors.border;
 
   const [smsText, setSmsText] = useState('');
@@ -73,81 +93,26 @@ export const useConversationScreen = (
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
-  // Load messages/notifications for this conversation from Firebase on mount
+  // Load notifications for non-SMS conversations from Firebase on mount
   useEffect(() => {
-    const loadConversationData = async () => {
-      setIsLoadingSenderMessages(true);
-      try {
-        if (type === 'sms' && phoneNumber) {
-          // Load SMS messages for this sender
-          const messages = await loadMessagesForSender(phoneNumber);
-          setLoadedSenderMessages(messages);
-        } else {
-          // Load notifications for this app/title combination
-          const notifications = await loadNotificationsForConversation(
-            title,
-            appName,
-            type,
-          );
-          setLoadedNotifications(notifications);
-        }
-      } catch (error) {
-        console.log('Error loading conversation data:', error);
-      } finally {
-        setIsLoadingSenderMessages(false);
-      }
-    };
-    loadConversationData();
-  }, [
-    type,
-    phoneNumber,
-    title,
-    appName,
-    loadMessagesForSender,
-    loadNotificationsForConversation,
-  ]);
+    if (type !== 'sms') {
+      loadNotificationsForConversation(title, appName, type)
+        .then(notifications => setLoadedNotifications(notifications))
+        .catch(() => {});
+    }
+  }, [type, title, appName, loadNotificationsForConversation]);
 
-  // Filter messages locally from smsMessages and merge with loaded messages
+  // Filter messages locally from smsMessages store
   const senderMessages = useMemo(() => {
     if (type === 'sms' && phoneNumber) {
-      if (
-        isSmsLoading &&
-        smsMessages.length === 0 &&
-        loadedSenderMessages.length === 0
-      ) {
+      if (isSmsLoading && smsMessages.length === 0) {
         return [];
       }
 
-      const realtimeFiltered = smsMessages.filter(sms => {
-        const smsPhoneNumber =
-          (sms as any).phoneNumber ||
-          (sms as any).sender ||
-          (sms as any).address ||
-          '';
-
-        // المطابقة برقم الهاتف فقط
-        return phoneNumbersMatch(smsPhoneNumber, phoneNumber);
-      });
-
-      // Merge with loaded messages (from Firebase)
-      const allMessages = [...loadedSenderMessages, ...realtimeFiltered];
-
-      // Remove duplicates by id or timestamp
-      const uniqueMessages = allMessages.filter(
-        (msg, index, self) =>
-          index ===
-          self.findIndex(
-            m =>
-              m.id === msg.id ||
-              (m.timestamp === msg.timestamp &&
-                (m as any).body === (msg as any).body),
-          ),
-      );
-
-      return uniqueMessages;
+      return smsMessages.filter(sms => senderMatches(sms, phoneNumber));
     }
     return [];
-  }, [type, phoneNumber, smsMessages, isSmsLoading, loadedSenderMessages]);
+  }, [type, phoneNumber, smsMessages, isSmsLoading]);
 
   // Convert SMS messages to AppNotification and merge
   const conversationNotifications = useMemo(() => {
@@ -181,20 +146,8 @@ export const useConversationScreen = (
         validSenderMessages.length > 0
           ? validSenderMessages
           : validSmsMessages.filter(sms => {
-              const smsSender =
-                (sms as any).sender ||
-                (sms as any).phoneNumber ||
-                (sms as any).address ||
-                'Unknown';
-              const smsContactName = (sms as any).contactName || '';
               const filterKey = phoneNumber || title;
-
-              // Match by phone number OR contact name
-              const matchesBySender = phoneNumbersMatch(smsSender, filterKey);
-              const matchesByContactName =
-                smsContactName.toLowerCase() === filterKey.toLowerCase();
-
-              return matchesBySender || matchesByContactName;
+              return senderMatches(sms, filterKey);
             });
 
       const smsNotifications: AppNotification[] = messagesToUse.map(sms => ({
@@ -216,20 +169,17 @@ export const useConversationScreen = (
       }));
 
       const allMessages = [...uniqueRegularNotifications, ...smsNotifications];
-      const uniqueMessages = allMessages.filter(
-        (msg, index, self) => index === self.findIndex(m => m.id === msg.id),
-      );
+      const seenIds = new Set<string>();
+      const uniqueMessages = allMessages.filter(msg => {
+        if (seenIds.has(msg.id)) return false;
+        seenIds.add(msg.id);
+        return true;
+      });
 
-      console.log(
-        '[useConversationScreen] conversationNotifications:',
-        'smsNotifications=' + smsNotifications.length,
-        'uniqueMessages=' + uniqueMessages.length,
-      );
-
-      return uniqueMessages.sort((a, b) => b.timestamp - a.timestamp);
+      return uniqueMessages.sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    return uniqueRegularNotifications.sort((a, b) => b.timestamp - a.timestamp);
+    return uniqueRegularNotifications.sort((a, b) => a.timestamp - b.timestamp);
   }, [
     allNotifications,
     loadedNotifications,
@@ -265,14 +215,17 @@ export const useConversationScreen = (
     };
   }, []);
 
+  const conversationLengthRef = useRef(conversationNotifications.length);
+  conversationLengthRef.current = conversationNotifications.length;
+
   const handleDelete = useCallback(
     (id: string) => {
       removeNotification(id);
-      if (conversationNotifications.length <= 1) {
+      if (conversationLengthRef.current <= 1) {
         navigation.goBack();
       }
     },
-    [removeNotification, conversationNotifications.length, navigation],
+    [removeNotification, navigation],
   );
 
   // State for error messages
@@ -342,7 +295,6 @@ export const useConversationScreen = (
     conversationNotifications,
     smsMessages,
     isSmsLoading,
-    isLoadingSenderMessages,
     isSMSType,
 
     // State

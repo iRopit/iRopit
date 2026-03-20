@@ -80,14 +80,6 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
                 >
                   {lang.name}
                 </Text>
-                <Text
-                  style={[
-                    localStyles.languageNameSecondary,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {lang.nameSecondary}
-                </Text>
               </View>
 
               <View

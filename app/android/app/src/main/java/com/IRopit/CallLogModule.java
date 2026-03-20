@@ -2,15 +2,22 @@ package com.IRopit;
 
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
@@ -49,6 +56,36 @@ public class CallLogModule extends ReactContextBaseJavaModule {
             WritableArray callList = Arguments.createArray();
             ContentResolver cr = reactContext.getContentResolver();
             
+            // Build phone account ID to SIM slot mapping
+            Map<String, Integer> accountToSlot = new HashMap<>();
+            try {
+                if (ContextCompat.checkSelfPermission(reactContext, Manifest.permission.READ_PHONE_STATE)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    SubscriptionManager sm = (SubscriptionManager) reactContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                    if (sm != null) {
+                        List<SubscriptionInfo> subs = sm.getActiveSubscriptionInfoList();
+                        if (subs != null) {
+                            for (SubscriptionInfo info : subs) {
+                                String iccId = info.getIccId();
+                                if (iccId != null) {
+                                    accountToSlot.put(iccId, info.getSimSlotIndex());
+                                }
+                                // Also map subscription ID string
+                                accountToSlot.put(String.valueOf(info.getSubscriptionId()), info.getSimSlotIndex());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Could not read SIM slot info", e);
+            }
+
+            // Only include regular phone calls (exclude WhatsApp, Telegram, Viber, etc.)
+            String selection = Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
+                    Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ? OR " +
+                    Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?";
+            String[] selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
+
             Cursor cursor = cr.query(
                 Calls.CONTENT_URI,
                 new String[]{
@@ -57,10 +94,11 @@ public class CallLogModule extends ReactContextBaseJavaModule {
                     Calls.CACHED_NAME,
                     Calls.TYPE,
                     Calls.DATE,
-                    Calls.DURATION
+                    Calls.DURATION,
+                    Calls.PHONE_ACCOUNT_ID
                 },
-                null,
-                null,
+                selection,
+                selectionArgs,
                 Calls.DATE + " DESC"
             );
 
@@ -95,6 +133,49 @@ public class CallLogModule extends ReactContextBaseJavaModule {
                     call.putString("type", callType);
                     call.putDouble("timestamp", cursor.getLong(4));
                     call.putInt("duration", cursor.getInt(5));
+
+                    // Resolve SIM slot from PHONE_ACCOUNT_ID
+                    String phoneAccountId = cursor.getString(6);
+                    int simSlot = -1;
+                    if (phoneAccountId != null && !phoneAccountId.isEmpty()) {
+                        Integer slot = accountToSlot.get(phoneAccountId);
+                        // Fallback: try last token after ';' (e.g. "com.android.phone;2" -> "2")
+                        if (slot == null && phoneAccountId.contains(";")) {
+                            String suffix = phoneAccountId.substring(phoneAccountId.lastIndexOf(';') + 1);
+                            slot = accountToSlot.get(suffix);
+                        }
+                        // Fallback: try all split tokens
+                        if (slot == null) {
+                            for (String part : phoneAccountId.split("[^a-zA-Z0-9]")) {
+                                if (!part.isEmpty()) {
+                                    slot = accountToSlot.get(part);
+                                    if (slot != null) break;
+                                }
+                            }
+                        }
+                        // Fallback: try getSlotIndex() on API 29+ (works on Android 16 without extra permissions)
+                        if (slot == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            try {
+                                SubscriptionManager sm = (SubscriptionManager) reactContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+                                if (sm != null) {
+                                    // Try parsing phoneAccountId parts as subscription ID
+                                    for (String part : phoneAccountId.split("[^0-9]")) {
+                                        if (!part.isEmpty()) {
+                                            try {
+                                                int subId = Integer.parseInt(part);
+                                                int idx = sm.getSlotIndex(subId);
+                                                if (idx >= 0) { slot = idx; break; }
+                                            } catch (NumberFormatException ignored) {}
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        if (slot != null) {
+                            simSlot = slot;
+                        }
+                    }
+                    call.putInt("simSlot", simSlot);
                     
                     callList.pushMap(call);
                     count++;
@@ -145,6 +226,29 @@ public class CallLogModule extends ReactContextBaseJavaModule {
             promise.resolve(true);
         } catch (Exception e) {
             promise.reject("ERROR", "Failed to stop call listener: " + e.getMessage());
+        }
+    }
+
+    @ReactMethod
+    public void getSimCountryIso(Promise promise) {
+        try {
+            TelephonyManager tm = (TelephonyManager) reactContext.getSystemService(Context.TELEPHONY_SERVICE);
+            if (tm != null) {
+                String iso = tm.getSimCountryIso();
+                if (iso != null && !iso.isEmpty()) {
+                    promise.resolve(iso.toUpperCase());
+                    return;
+                }
+                // Fallback to network country
+                String networkIso = tm.getNetworkCountryIso();
+                if (networkIso != null && !networkIso.isEmpty()) {
+                    promise.resolve(networkIso.toUpperCase());
+                    return;
+                }
+            }
+            promise.resolve("");
+        } catch (Exception e) {
+            promise.resolve("");
         }
     }
 

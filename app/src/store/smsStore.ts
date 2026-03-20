@@ -57,7 +57,7 @@ interface SMSState {
   unsubscribe: (() => void) | null;
 
   // Actions
-  loadMessages: () => void;
+  loadMessages: (deviceId?: string) => void;
   loadMessagesForSender: (sender: string) => Promise<SMS[]>;
   setMessages: (messages: SMS[]) => void;
   addMessage: (message: SMS) => void;
@@ -73,6 +73,7 @@ interface SMSState {
   deleteMessage: (messageId: string) => Promise<void>;
   deleteMessagesBySender: (sender: string) => Promise<void>;
   deleteAllMessages: () => Promise<void>;
+  batchSyncNativeSMS: (nativeMessages: any[], userId: string) => Promise<void>;
   cleanup: () => void;
 }
 
@@ -156,6 +157,7 @@ export const useSMSStore = create<SMSState>()(
                 'Android Device',
               phoneNumber,
               contactName,
+              simSlot: (message as any).simSlot != null ? (message as any).simSlot : -1,
               syncedAt: Date.now(),
             };
 
@@ -214,13 +216,15 @@ export const useSMSStore = create<SMSState>()(
         } catch (error: any) {}
       },
 
-      loadMessages: () => {
+      loadMessages: (deviceIdParam?: string) => {
         const { user } = useAuthStore.getState();
         const { currentDevice } = useDeviceStore.getState();
 
         if (!user || !currentDevice) {
           return;
         }
+
+        const deviceId = deviceIdParam || currentDevice.id;
 
         const { unsubscribe: prevUnsubscribe } = get();
         if (prevUnsubscribe) {
@@ -233,7 +237,7 @@ export const useSMSStore = create<SMSState>()(
           .collection(COLLECTIONS.USERS)
           .doc(user.uid)
           .collection(COLLECTIONS.DEVICES)
-          .doc(currentDevice.id)
+          .doc(deviceId)
           .collection(COLLECTIONS.NOTIFICATIONS)
           .where('type', '==', 'sms')
           .orderBy('timestamp', 'desc')
@@ -272,22 +276,10 @@ export const useSMSStore = create<SMSState>()(
                   } as SMS),
               );
 
-              const { messages: currentMessages } = get();
-              const firebaseIds = new Set(firebaseMessages.map(m => m.id));
-
-              const localOnlyMessages = currentMessages.filter(
-                m => !firebaseIds.has(m.id),
-              );
-
-              const mergedMessages = [
-                ...localOnlyMessages,
-                ...firebaseMessages,
-              ];
-
               // Content-based dedup: remove duplicate SMS written by different services
               // (NotificationService vs BackgroundSmsService create different docIds for same SMS)
               const seenContent = new Set<string>();
-              const dedupedMessages = mergedMessages.filter(m => {
+              const dedupedMessages = firebaseMessages.filter(m => {
                 const phone = normalizePhoneNumber(
                   m.phoneNumber || m.sender || '',
                 );
@@ -313,69 +305,35 @@ export const useSMSStore = create<SMSState>()(
         set({ unsubscribe });
       },
 
-      // جلب الرسائل برقم الهاتف فقط (المعرف الفريد للمحادثة)
+      // جلب الرسائل برقم الهاتف أو اسم المرسل
       loadMessagesForSender: async (
         phoneNumberParam: string,
       ): Promise<SMS[]> => {
-        const { user } = useAuthStore.getState();
-        const { currentDevice } = useDeviceStore.getState();
-
-        if (!user || !currentDevice || !phoneNumberParam) {
+        if (!phoneNumberParam) {
           return [];
         }
 
-        // تطبيع رقم الهاتف للبحث
-        const normalizedSearch = normalizePhoneNumber(phoneNumberParam);
-        if (!normalizedSearch) {
-          return [];
-        }
+        const { messages: storeMessages } = get();
+        const isPhone = /^[\+\d\s\-\(\)]+$/.test(phoneNumberParam.trim());
 
-        try {
-          const snapshot = await firestore()
-            .collection(COLLECTIONS.USERS)
-            .doc(user.uid)
-            .collection(COLLECTIONS.DEVICES)
-            .doc(currentDevice.id)
-            .collection(COLLECTIONS.NOTIFICATIONS)
-            .where('type', '==', 'sms')
-            .get();
+        const filtered = storeMessages.filter(sms => {
+          const smsPhone = sms.phoneNumber || sms.sender || '';
+          const smsContactName = (sms as any).contactName || '';
 
-          const messages: SMS[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            // الحصول على رقم الهاتف المحفوظ
-            const storedPhoneNumber = data.phoneNumber || '';
+          if (isPhone) {
+            return phoneNumbersMatch(smsPhone, phoneNumberParam);
+          } else {
+            // Name-based sender (e.g. "Klivvr", "CBD")
+            const paramLower = phoneNumberParam.toLowerCase();
+            return (
+              smsPhone.toLowerCase() === paramLower ||
+              smsContactName.toLowerCase() === paramLower
+            );
+          }
+        });
 
-            // المطابقة برقم الهاتف فقط
-            if (
-              storedPhoneNumber &&
-              phoneNumbersMatch(storedPhoneNumber, phoneNumberParam)
-            ) {
-              messages.push({
-                id: doc.id,
-                threadId: data.threadId || '',
-                userId: data.userId || user.uid,
-                deviceId: data.deviceId || currentDevice.id,
-                body: data.text || data.content || data.body || '',
-                text: data.text || data.content || data.body || '',
-                phoneNumber: storedPhoneNumber,
-                sender: storedPhoneNumber,
-                contactName: data.contactName || '',
-                timestamp: data.timestamp || data.receivedAt || Date.now(),
-                read: data.read || false,
-                type: data.smsType || 'inbox',
-                syncedAt: data.syncedAt || Date.now(),
-              } as SMS);
-            }
-          });
-
-          // ترتيب من الأقدم للأحدث
-          messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-          return messages;
-        } catch (error) {
-          return [];
-        }
+        filtered.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        return filtered;
       },
 
       syncMessages: async (localMessages: any[]) => {
@@ -632,6 +590,80 @@ export const useSMSStore = create<SMSState>()(
 
             await batch.commit();
           } catch (error) {}
+        }
+      },
+
+      batchSyncNativeSMS: async (nativeMessages: any[], userId: string) => {
+        const { currentDevice } = useDeviceStore.getState();
+        if (!userId || !currentDevice || !nativeMessages.length) return;
+
+        try {
+          // Encrypt all messages first (async), then batch-write
+          const encrypted = await Promise.all(
+            nativeMessages.map(async msg => {
+              const phoneNumber = (msg.phoneNumber || msg.address || msg.sender || '').trim() || 'unknown';
+              const messageText = msg.body || msg.text || msg.content || '';
+              const contactName = msg.contactName || msg.name || '';
+              // SmsModule.java returns 'date', fallback to 'timestamp'/'dateTime'
+              const timestamp = parseInt(msg.date || msg.timestamp || msg.dateTime) || Date.now();
+              const smsType = msg.smsType || msg.type || 'inbox';
+
+              // Same hash formula as BackgroundSmsService.java
+              const messageHash = Math.abs(
+                `${phoneNumber}${messageText}`.split('').reduce((a: number, b: string) => {
+                  a = (a << 5) - a + b.charCodeAt(0);
+                  return a & a;
+                }, 0),
+              );
+
+              const notificationData = {
+                id: msg.id?.toString() || `${timestamp}`,
+                key: `sms_${msg.id || timestamp}`,
+                packageName: 'com.android.mms',
+                title: contactName || phoneNumber,
+                text: messageText,
+                content: messageText,
+                appName: 'SMS',
+                type: 'sms',
+                smsType,
+                direction: smsType === 'sent' ? 'outgoing' : 'incoming',
+                timestamp,
+                receivedAt: timestamp,
+                read: msg.read ?? true,
+                userId,
+                deviceId: currentDevice.id,
+                deviceName: currentDevice.nickname || currentDevice.name || 'Android Device',
+                phoneNumber,
+                contactName,
+                simSlot: msg.simSlot != null ? msg.simSlot : -1,
+                syncedAt: Date.now(),
+              };
+
+              const docId = `sms_${currentDevice.id}_${timestamp}_${messageHash}`;
+              const encryptedData = await encryptSMS(notificationData, userId);
+              return { docId, encryptedData };
+            }),
+          );
+
+          // Firestore batch limit is 500 — write in chunks of 400
+          const BATCH_SIZE = 400;
+          for (let i = 0; i < encrypted.length; i += BATCH_SIZE) {
+            const chunk = encrypted.slice(i, i + BATCH_SIZE);
+            const batch = firestore().batch();
+            for (const { docId, encryptedData } of chunk) {
+              const docRef = firestore()
+                .collection(COLLECTIONS.USERS)
+                .doc(userId)
+                .collection(COLLECTIONS.DEVICES)
+                .doc(currentDevice.id)
+                .collection(COLLECTIONS.NOTIFICATIONS)
+                .doc(docId);
+              batch.set(docRef, encryptedData, { merge: true });
+            }
+            await batch.commit();
+          }
+        } catch (error: any) {
+          console.warn('[SMS] Initial batch sync error:', error?.message);
         }
       },
 

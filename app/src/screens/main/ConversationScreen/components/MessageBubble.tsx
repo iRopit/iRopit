@@ -18,7 +18,7 @@ interface MessageBubbleProps {
   textInverseColor?: string;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   item,
   onDelete,
   isRTL,
@@ -130,15 +130,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           { transform: [{ translateX }], backgroundColor: bgColor },
         ]}
       >
-        <Text
-          style={[
-            styles.timeLabel,
-            { color: secondaryTextColor },
-            isSent && styles.timeRight,
-          ]}
-        >
-          {formatTime(item.timestamp)}
-        </Text>
+        <View style={[styles.timeLabelRow, isSent && styles.timeLabelRowRight]}>
+          <Text
+            style={[
+              styles.timeLabel,
+              { color: secondaryTextColor },
+            ]}
+          >
+            {formatTime(item.timestamp)}
+          </Text>
+          {item.simSlot != null && item.simSlot >= 0 && (
+            <View style={[styles.simBadge, item.simSlot === 0 ? styles.simBadge0 : styles.simBadge1]}>
+              <Text style={styles.simBadgeText}>SIM{item.simSlot + 1}</Text>
+            </View>
+          )}
+        </View>
         <View
           style={[
             styles.bubble,
@@ -158,6 +164,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       </Animated.View>
     </View>
   );
-};
+});
 
 export default MessageBubble;
