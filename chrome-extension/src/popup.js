@@ -21,7 +21,6 @@ import {
   loadSMS,
   renderSMS,
   markAllSmsAsRead,
-  deleteAllSms,
   toggleSelectionMode,
   setSelectAll,
   deleteSelectedConversations,
@@ -30,8 +29,8 @@ import {
   stopPolling,
   stopSMSListener,
 } from "./services/sms.js";
-import { loadCalls, clearAllCalls, exportCallsToCSV } from "./services/calls.js";
-import { loadNotifications, exportNotificationsToCSV } from "./services/notifications.js";
+import { loadCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
+import { loadNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
 import { subscribeToChat, initChatListeners } from "./services/chat.js";
 import {
   loadUserSettings,
@@ -154,20 +153,27 @@ function init() {
 
   // Action buttons
   markAllReadBtn?.addEventListener("click", markAllSmsAsRead);
-  deleteAllSmsBtn?.addEventListener("click", deleteAllSms);
+  deleteAllSmsBtn?.addEventListener("click", deleteSelectedConversations);
 
   // SMS selection mode buttons
   document.getElementById("smsSelectBtn")?.addEventListener("click", toggleSelectionMode);
   document.getElementById("smsSelectAll")?.addEventListener("change", (e) => setSelectAll(e.target.checked));
-  document.getElementById("smsDeleteSelectedBtn")?.addEventListener("click", deleteSelectedConversations);
-
   // Export buttons
   document.getElementById("exportSmsBtn")?.addEventListener("click", exportSMSToCSV);
   document.getElementById("exportCallsBtn")?.addEventListener("click", exportCallsToCSV);
   document.getElementById("exportNotifBtn")?.addEventListener("click", exportNotificationsToCSV);
 
-  // Clear all calls
-  document.getElementById("clearAllCallsBtn")?.addEventListener("click", clearAllCalls);
+  // Calls selection mode buttons
+  document.getElementById("callsSelectBtn")?.addEventListener("click", toggleCallsSelectionMode);
+  document.getElementById("callsSelectAll")?.addEventListener("change", (e) => setCallsSelectAll(e.target.checked));
+  document.getElementById("markAllCallsViewedBtn")?.addEventListener("click", markAllCallsAsViewed);
+  document.getElementById("deleteAllCallsBtn")?.addEventListener("click", deleteSelectedCallGroups);
+
+  // Notifications selection mode buttons
+  document.getElementById("notifSelectBtn")?.addEventListener("click", toggleNotifSelectionMode);
+  document.getElementById("notifSelectAll")?.addEventListener("change", (e) => setNotifSelectAll(e.target.checked));
+  document.getElementById("markAllNotifReadBtn")?.addEventListener("click", markAllNotificationsAsRead);
+  document.getElementById("deleteAllNotifBtn")?.addEventListener("click", deleteSelectedNotifications);
 
   // Refresh button
   document.getElementById("refreshBtn")?.addEventListener("click", () => {

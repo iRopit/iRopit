@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing } from 'react-native';
+import { View, Text, Animated, Easing, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { styles } from '../styles';
 
@@ -132,13 +132,14 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
   ];
 
   return (
-    <View style={styles.content}>
-      {/* Animated Shield Icon */}
+    <View style={styles.overviewContainer}>
+      {/* Animated Shield Icon — fixed header */}
       <Animated.View
         style={[
           styles.securityShieldContainer,
           {
             backgroundColor: `${colors.primary}15`,
+            alignSelf: 'center',
             transform: [
               { scale: Animated.multiply(shieldScale, pulseAnim) },
               { rotate: rotateInterpolate },
@@ -168,7 +169,7 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
         </View>
       </Animated.View>
 
-      {/* Title Section */}
+      {/* Title Section — fixed header */}
       <View style={styles.titleSection}>
         <Text style={[styles.title, { color: colors.text }]}>
           {isRTL ? 'بياناتك محمية' : 'Your Data is Protected'}
@@ -180,59 +181,52 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
         </Text>
       </View>
 
-      {/* Security Features List */}
-      <View style={styles.securityFeaturesList}>
-        {securityFeatures.map((feature, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.securityFeatureItem,
-              {
-                backgroundColor: colors.card,
-                opacity: feature.opacity,
-                transform: [
-                  {
-                    translateY: feature.opacity.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <View
+      {/* Security Features List — scrollable */}
+      <ScrollView
+        style={styles.overviewContent}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      >
+        <View style={styles.securityFeaturesList}>
+          {securityFeatures.map((feature, index) => (
+            <Animated.View
+              key={index}
               style={[
-                styles.securityFeatureIcon,
-                { backgroundColor: `${colors.primary}20` },
+                styles.securityFeatureItem,
+                {
+                  backgroundColor: colors.card,
+                  opacity: feature.opacity,
+                  transform: [
+                    {
+                      translateY: feature.opacity.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    },
+                  ],
+                },
               ]}
             >
-              <Icon name={feature.icon} size={24} color={colors.primary} />
-            </View>
-            <View style={styles.securityFeatureText}>
-              <Text
+              <View
                 style={[
-                  styles.securityFeatureTitle,
-                  { color: colors.text, textAlign: isRTL ? 'right' : 'left' },
+                  styles.securityFeatureIcon,
+                  { backgroundColor: `${colors.primary}20` },
                 ]}
               >
-                {feature.title}
-              </Text>
-              <Text
-                style={[
-                  styles.securityFeatureDesc,
-                  {
-                    color: colors.textSecondary,
-                    textAlign: isRTL ? 'right' : 'left',
-                  },
-                ]}
-              >
-                {feature.description}
-              </Text>
-            </View>
-          </Animated.View>
-        ))}
-      </View>
+                <Icon name={feature.icon} size={24} color={colors.primary} />
+              </View>
+              <View style={styles.securityFeatureText}>
+                <Text style={[styles.securityFeatureTitle, { color: colors.text }]}>
+                  {feature.title}
+                </Text>
+                <Text style={[styles.securityFeatureDesc, { color: colors.textSecondary }]}>
+                  {feature.description}
+                </Text>
+              </View>
+            </Animated.View>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 };

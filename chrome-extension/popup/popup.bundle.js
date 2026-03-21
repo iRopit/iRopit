@@ -22651,6 +22651,173 @@ ${this.customData.serverResponse}`;
     }
   });
 
+  // src/utils/i18n.js
+  function getCurrentLanguage2() {
+    return currentLanguage;
+  }
+  function setCurrentLanguage(lang) {
+    currentLanguage = lang;
+    localStorage.setItem("appLanguage", lang);
+  }
+  function applyTranslations() {
+    const trans = translations[currentLanguage];
+    document.querySelectorAll("[data-i18n]").forEach((elem) => {
+      const key = elem.getAttribute("data-i18n");
+      if (trans[key]) {
+        elem.textContent = trans[key];
+      }
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((elem) => {
+      const key = elem.getAttribute("data-i18n-placeholder");
+      if (trans[key]) {
+        elem.placeholder = trans[key];
+      }
+    });
+    document.querySelectorAll("[data-i18n-title]").forEach((elem) => {
+      const key = elem.getAttribute("data-i18n-title");
+      if (trans[key]) {
+        elem.title = trans[key];
+      }
+    });
+    document.body.setAttribute("dir", currentLanguage === "ar" ? "rtl" : "ltr");
+  }
+  var translations, currentLanguage;
+  var init_i18n = __esm({
+    "src/utils/i18n.js"() {
+      translations = {
+        en: {
+          nav_sms: "SMS",
+          nav_calls: "Calls",
+          nav_chat: "Chat",
+          nav_notifications: "Notifications",
+          nav_devices: "Devices",
+          settings_title: "Settings",
+          settings_language: "Language",
+          settings_profile: "User Profile",
+          settings_display_name: "Display Name",
+          settings_enter_name: "Enter your name",
+          settings_save: "Save",
+          settings_email: "Email",
+          settings_notifications: "Notifications",
+          settings_sms_notif: "SMS Notifications",
+          settings_call_notif: "Call Notifications",
+          settings_sound: "Sound Alerts",
+          settings_account: "Account",
+          settings_change_password: "Change Password",
+          settings_delete_account: "Delete Account",
+          settings_about: "About",
+          settings_tagline: "Sync your SMS and calls across all devices",
+          select_all: "Select All",
+          search_messages: "Search messages...",
+          search_calls: "Search calls...",
+          search_notifications: "Search notifications...",
+          section_messages: "Messages",
+          section_call_history: "Call History",
+          section_notifications: "Notifications",
+          new_sms: "New SMS",
+          empty_messages: "No messages yet",
+          empty_messages_sub: "Messages from your phone will appear here",
+          empty_calls: "No calls yet",
+          empty_calls_sub: "Call history from your phone will appear here",
+          empty_notifications: "No notifications yet",
+          empty_notifications_sub: "Notifications from your phone will appear here",
+          tooltip_toggle_theme: "Toggle dark mode",
+          tooltip_refresh: "Refresh",
+          tooltip_settings: "Settings",
+          tooltip_select_messages: "Select messages",
+          tooltip_mark_all_read: "Mark all as read",
+          tooltip_delete_selected: "Delete selected",
+          tooltip_export_sms: "Export SMS to CSV",
+          tooltip_select_calls: "Select calls",
+          tooltip_mark_all_viewed: "Mark all as viewed",
+          tooltip_export_calls: "Export calls to CSV",
+          tooltip_select_notif: "Select notifications",
+          tooltip_mark_notif_read: "Mark all as read",
+          tooltip_export_notif: "Export Notifications to CSV",
+          tooltip_back: "Back",
+          tooltip_send_image: "Send Image",
+          tooltip_send_file: "Send File",
+          tooltip_logout: "Logout",
+          tooltip_toggle_profile: "Toggle Profile",
+          sms_modal_title: "Send SMS",
+          sms_label_device: "Send from device",
+          sms_select_device: "Select device...",
+          sms_label_phone: "Phone number",
+          sms_placeholder_phone: "+1234567890",
+          sms_label_message: "Message",
+          sms_placeholder_message: "Type your message...",
+          sms_btn_cancel: "Cancel",
+          sms_btn_send: "Send SMS"
+        },
+        ar: {
+          nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          nav_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          nav_chat: "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
+          nav_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          nav_devices: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629",
+          settings_title: "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
+          settings_language: "\u0627\u0644\u0644\u063A\u0629 / Language",
+          settings_profile: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
+          settings_display_name: "\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u0631\u0648\u0636",
+          settings_enter_name: "\u0623\u062F\u062E\u0644 \u0627\u0633\u0645\u0643",
+          settings_save: "\u062D\u0641\u0638",
+          settings_email: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
+          settings_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          settings_sms_notif: "\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          settings_call_notif: "\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          settings_sound: "\u0627\u0644\u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0627\u0644\u0635\u0648\u062A\u064A\u0629",
+          settings_account: "\u0627\u0644\u062D\u0633\u0627\u0628",
+          settings_change_password: "\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631",
+          settings_delete_account: "\u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628",
+          settings_about: "\u062D\u0648\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
+          settings_tagline: "\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0639\u0628\u0631 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629",
+          select_all: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0643\u0644",
+          search_messages: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          search_calls: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          search_notifications: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          section_messages: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          section_call_history: "\u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          section_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          new_sms: "\u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629",
+          empty_messages: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062F",
+          empty_messages_sub: "\u0633\u062A\u0638\u0647\u0631 \u0631\u0633\u0627\u0626\u0644 \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
+          empty_calls: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0628\u0639\u062F",
+          empty_calls_sub: "\u0633\u064A\u0638\u0647\u0631 \u0633\u062C\u0644 \u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
+          empty_notifications: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0628\u0639\u062F",
+          empty_notifications_sub: "\u0633\u062A\u0638\u0647\u0631 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
+          tooltip_toggle_theme: "\u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064A\u0644\u064A",
+          tooltip_refresh: "\u062A\u062D\u062F\u064A\u062B",
+          tooltip_settings: "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
+          tooltip_select_messages: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          tooltip_mark_all_read: "\u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0643\u0644 \u0643\u0645\u0642\u0631\u0648\u0621",
+          tooltip_delete_selected: "\u062D\u0630\u0641 \u0627\u0644\u0645\u062D\u062F\u062F",
+          tooltip_export_sms: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          tooltip_select_calls: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          tooltip_mark_all_viewed: "\u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0643\u0644 \u0643\u0645\u0634\u0627\u0647\u062F",
+          tooltip_export_calls: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          tooltip_select_notif: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          tooltip_mark_notif_read: "\u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0643\u0644 \u0643\u0645\u0642\u0631\u0648\u0621",
+          tooltip_export_notif: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          tooltip_back: "\u0631\u062C\u0648\u0639",
+          tooltip_send_image: "\u0625\u0631\u0633\u0627\u0644 \u0635\u0648\u0631\u0629",
+          tooltip_send_file: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u0641",
+          tooltip_logout: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C",
+          tooltip_toggle_profile: "\u0639\u0631\u0636 \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
+          sms_modal_title: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
+          sms_label_device: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0646 \u062C\u0647\u0627\u0632",
+          sms_select_device: "\u0627\u062E\u062A\u0631 \u062C\u0647\u0627\u0632...",
+          sms_label_phone: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641",
+          sms_placeholder_phone: "+1234567890",
+          sms_label_message: "\u0627\u0644\u0631\u0633\u0627\u0644\u0629",
+          sms_placeholder_message: "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u062A\u0643",
+          sms_btn_cancel: "\u0625\u0644\u063A\u0627\u0621",
+          sms_btn_send: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629"
+        }
+      };
+      currentLanguage = localStorage.getItem("appLanguage") || "en";
+    }
+  });
+
   // src/ui/toasts.js
   function showToast(message, type = "info") {
     const toast = document.createElement("div");
@@ -22658,6 +22825,33 @@ ${this.customData.serverResponse}`;
     toast.textContent = message;
     toastContainer.appendChild(toast);
     setTimeout(() => toast.remove(), 3e3);
+  }
+  function showConfirmDialog(message) {
+    return new Promise((resolve) => {
+      const isAr = getCurrentLanguage2() === "ar";
+      const overlay = document.createElement("div");
+      overlay.className = "confirm-overlay";
+      overlay.innerHTML = `
+      <div class="confirm-dialog" dir="${isAr ? "rtl" : "ltr"}">
+        <p class="confirm-message">${message}</p>
+        <div class="confirm-actions">
+          <button class="confirm-btn confirm-cancel">${isAr ? "\u0625\u0644\u063A\u0627\u0621" : "Cancel"}</button>
+          <button class="confirm-btn confirm-ok">${isAr ? "\u0645\u0648\u0627\u0641\u0642" : "OK"}</button>
+        </div>
+      </div>
+    `;
+      const cleanup = (result) => {
+        overlay.remove();
+        resolve(result);
+      };
+      overlay.querySelector(".confirm-ok").addEventListener("click", () => cleanup(true));
+      overlay.querySelector(".confirm-cancel").addEventListener("click", () => cleanup(false));
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) cleanup(false);
+      });
+      document.body.appendChild(overlay);
+      overlay.querySelector(".confirm-ok").focus();
+    });
   }
   function showLoadingOverlay() {
     loadingOverlay.classList.remove("hidden");
@@ -22678,6 +22872,7 @@ ${this.customData.serverResponse}`;
   var init_toasts = __esm({
     "src/ui/toasts.js"() {
       init_dom();
+      init_i18n();
     }
   });
 
@@ -22715,12 +22910,13 @@ ${this.customData.serverResponse}`;
     if (!timestamp) return "";
     const date = new Date(timestamp);
     const now = /* @__PURE__ */ new Date();
-    const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    if (date.toDateString() === now.toDateString()) return `Today ${time}`;
+    const isAr = getCurrentLanguage2() === "ar";
+    const time = date.toLocaleTimeString(isAr ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" });
+    if (date.toDateString() === now.toDateString()) return `${isAr ? "\u0627\u0644\u064A\u0648\u0645" : "Today"} ${time}`;
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
-    return `${date.toLocaleDateString("en-GB")} ${time}`;
+    if (date.toDateString() === yesterday.toDateString()) return `${isAr ? "\u0623\u0645\u0633" : "Yesterday"} ${time}`;
+    return `${date.toLocaleDateString(isAr ? "ar-SA" : "en-GB")} ${time}`;
   }
   function formatDuration(seconds) {
     if (!seconds) return "0:00";
@@ -22794,6 +22990,7 @@ ${this.customData.serverResponse}`;
   }
   var init_helpers = __esm({
     "src/utils/helpers.js"() {
+      init_i18n();
     }
   });
 
@@ -23307,12 +23504,26 @@ ${this.customData.serverResponse}`;
   var calls_exports = {};
   __export(calls_exports, {
     clearAllCalls: () => clearAllCalls,
+    deleteSelectedCallGroups: () => deleteSelectedCallGroups,
     exportCallsToCSV: () => exportCallsToCSV,
     initiateDialRequest: () => initiateDialRequest,
     loadCalls: () => loadCalls,
     markAllCallsAsViewed: () => markAllCallsAsViewed,
-    renderCalls: () => renderCalls
+    renderCalls: () => renderCalls,
+    setCallsSelectAll: () => setCallsSelectAll,
+    toggleCallsSelectionMode: () => toggleCallsSelectionMode
   });
+  function _updateCallsSelectionToolbar(totalGroups) {
+    const deleteBtn = document.getElementById("deleteAllCallsBtn");
+    const countSpan = document.getElementById("callsSelectedCount");
+    const selectAllCb = document.getElementById("callsSelectAll");
+    if (deleteBtn) deleteBtn.disabled = selectedCallGroups.size === 0;
+    if (countSpan) countSpan.textContent = selectedCallGroups.size;
+    if (selectAllCb) {
+      selectAllCb.checked = selectedCallGroups.size === totalGroups && totalGroups > 0;
+      selectAllCb.indeterminate = selectedCallGroups.size > 0 && selectedCallGroups.size < totalGroups;
+    }
+  }
   function normalizePhoneNumber2(phone) {
     if (!phone || !phone.trim()) return "";
     let normalized = phone.replace(/[^\d+]/g, "").trim();
@@ -23612,6 +23823,7 @@ ${this.customData.serverResponse}`;
       const key = normalizedPhone ? normalizedPhone : call.contactName ? `contact_${call.contactName}` : "Unknown";
       if (!grouped[key]) {
         grouped[key] = {
+          key,
           phoneNumber: call.phoneNumber || "Unknown",
           contactName: call.contactName || "",
           calls: [],
@@ -23634,7 +23846,8 @@ ${this.customData.serverResponse}`;
     );
     callsList.innerHTML = callGroups.map(
       (group) => `
-    <div class="list-item call-group call-${group.lastCall.type}" data-phone="${group.phoneNumber}">
+    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.phoneNumber) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.phoneNumber}">
+      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.phoneNumber) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(group.contactName || group.phoneNumber)}
       </div>
@@ -23642,8 +23855,7 @@ ${this.customData.serverResponse}`;
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.calls.length} calls \u2022 ${group.lastCall.type}</div>
-        ${selectedTab === "all" && group.lastCall.deviceName ? `<div class="device-tag">${group.lastCall.deviceName}</div>` : ""}
+        <div class="list-item-subtitle">${group.calls.length} calls \u2022 ${group.lastCall.type}${group.lastCall.deviceName ? ` <span class="device-tag">${group.lastCall.deviceName}</span>` : ""}</div>
       </div>
       <div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="Call">
@@ -23667,8 +23879,22 @@ ${this.customData.serverResponse}`;
   `
     ).join("");
     document.querySelectorAll(".call-group").forEach((el) => {
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
         const phoneNumber2 = el.dataset.phone;
+        if (callsSelectionMode) {
+          const cb = el.querySelector(".call-checkbox");
+          if (selectedCallGroups.has(phoneNumber2)) {
+            selectedCallGroups.delete(phoneNumber2);
+            el.classList.remove("selected");
+            if (cb) cb.checked = false;
+          } else {
+            selectedCallGroups.add(phoneNumber2);
+            el.classList.add("selected");
+            if (cb) cb.checked = true;
+          }
+          _updateCallsSelectionToolbar(callGroups.length);
+          return;
+        }
         showCallHistory(phoneNumber2);
       });
       const phoneNumber = el.dataset.phone;
@@ -23684,8 +23910,50 @@ ${this.customData.serverResponse}`;
         window.open(`https://wa.me/${clean}`, "_blank");
       });
     });
-    const clearCallsBtn = document.getElementById("clearAllCallsBtn");
-    if (clearCallsBtn) clearCallsBtn.onclick = clearAllCalls;
+    _updateCallsSelectionToolbar(callGroups.length);
+    let callLongPressTimer = null;
+    callsList.addEventListener("pointerdown", (e) => {
+      const group = e.target.closest(".call-group");
+      if (!group || callsSelectionMode) return;
+      callLongPressTimer = setTimeout(() => {
+        callLongPressTimer = null;
+        const phoneNumber = group.dataset.phone;
+        callsSelectionMode = true;
+        selectedCallGroups.clear();
+        document.getElementById("callsSelectBtn")?.classList.add("active");
+        const toolbar = document.getElementById("callsSelectToolbar");
+        if (toolbar) toolbar.style.display = "flex";
+        renderCalls(allCallsData);
+        setTimeout(() => {
+          const el = document.querySelector(`.call-group[data-phone="${CSS.escape(phoneNumber)}"]`);
+          if (el) {
+            selectedCallGroups.add(phoneNumber);
+            el.classList.add("selected");
+            const cb = el.querySelector(".call-checkbox");
+            if (cb) cb.checked = true;
+            _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-phone]").length);
+          }
+        }, 0);
+      }, 500);
+    });
+    callsList.addEventListener("pointerup", () => {
+      if (callLongPressTimer) {
+        clearTimeout(callLongPressTimer);
+        callLongPressTimer = null;
+      }
+    });
+    callsList.addEventListener("pointercancel", () => {
+      if (callLongPressTimer) {
+        clearTimeout(callLongPressTimer);
+        callLongPressTimer = null;
+      }
+    });
+    callsList.addEventListener("pointermove", () => {
+      if (callLongPressTimer) {
+        clearTimeout(callLongPressTimer);
+        callLongPressTimer = null;
+      }
+    });
     updateTabBadges();
   }
   async function showCallHistory(phoneNumber) {
@@ -23787,13 +24055,84 @@ ${this.customData.serverResponse}`;
       window.open(`https://wa.me/${clean}`, "_blank");
     });
   }
+  function toggleCallsSelectionMode() {
+    callsSelectionMode = !callsSelectionMode;
+    selectedCallGroups.clear();
+    const selectBtn = document.getElementById("callsSelectBtn");
+    const toolbar = document.getElementById("callsSelectToolbar");
+    if (callsSelectionMode) {
+      selectBtn?.classList.add("active");
+      if (toolbar) toolbar.style.display = "flex";
+    } else {
+      selectBtn?.classList.remove("active");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    renderCalls(allCallsData);
+  }
+  function setCallsSelectAll(checked) {
+    const groups = document.querySelectorAll(".call-group[data-phone]");
+    groups.forEach((el) => {
+      const phone = el.dataset.phone;
+      const cb = el.querySelector(".call-checkbox");
+      if (checked) {
+        selectedCallGroups.add(phone);
+        el.classList.add("selected");
+        if (cb) cb.checked = true;
+      } else {
+        selectedCallGroups.delete(phone);
+        el.classList.remove("selected");
+        if (cb) cb.checked = false;
+      }
+    });
+    _updateCallsSelectionToolbar(groups.length);
+  }
+  async function deleteSelectedCallGroups() {
+    if (selectedCallGroups.size === 0) return;
+    const count = selectedCallGroups.size;
+    const isAr = getCurrentLanguage2() === "ar";
+    if (!await showConfirmDialog(
+      isAr ? `\u062D\u0630\u0641 \u0645\u0643\u0627\u0644\u0645\u0627\u062A ${count} \u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete calls for ${count} contact${count > 1 ? "s" : ""}? This cannot be undone.`
+    )) return;
+    const user = currentUser;
+    if (!user) return;
+    try {
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+      allCallsData.forEach((call) => {
+        if (selectedCallGroups.has(call.phoneNumber) && call.deviceId && call.id) {
+          const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
+          batch.delete(callRef);
+          deletedCount++;
+        }
+      });
+      if (deletedCount > 0) await batch.commit();
+      const remaining = allCallsData.filter((c) => !selectedCallGroups.has(c.phoneNumber));
+      Object.keys(allCallsByDevice).forEach((deviceId) => {
+        const updated = (allCallsByDevice[deviceId] || []).filter((c) => !selectedCallGroups.has(c.phoneNumber));
+        setCallsByDevice(deviceId, updated);
+      });
+      setAllCallsData(remaining);
+      showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
+    } catch (error) {
+      console.error("[Calls] deleteSelectedCallGroups error:", error);
+      showToast("Failed to delete selected calls", "error");
+    }
+    callsSelectionMode = false;
+    selectedCallGroups.clear();
+    document.getElementById("callsSelectBtn")?.classList.remove("active");
+    const toolbar = document.getElementById("callsSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+    renderCalls(allCallsData);
+    updateTabBadges();
+  }
   async function clearAllCalls() {
     const user = currentUser;
     if (!user) return;
     const selectedTab = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const isAll = selectedTab === "all";
-    const confirmMsg = isAll ? "Clear call history for ALL devices? This cannot be undone." : "Clear call history for the selected device? This cannot be undone.";
-    if (!confirm(confirmMsg)) return;
+    const isAr = getCurrentLanguage2() === "ar";
+    const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear call history for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0644\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear call history for the selected device? This cannot be undone.";
+    if (!await showConfirmDialog(confirmMsg)) return;
     const deviceIds = isAll ? Object.keys(allCallsByDevice) : [selectedTab];
     try {
       for (const deviceId of deviceIds) {
@@ -23882,7 +24221,7 @@ ${this.customData.serverResponse}`;
       const device = c.deviceName || "";
       return [date, time, type, contact, phone, duration, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
-    const csv = [header.join(","), ...rows].join("\n");
+    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -23891,18 +24230,21 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
-  var callDecryptionCache, callListenerUnsubs, isSyncingCalls;
+  var callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
       init_dom();
       init_toasts();
       init_helpers();
+      init_i18n();
       init_state();
       init_badges();
       init_cryptoService();
       init_contacts();
       init_cache();
+      callsSelectionMode = false;
+      selectedCallGroups = /* @__PURE__ */ new Set();
       callDecryptionCache = /* @__PURE__ */ new Map();
       callListenerUnsubs = [];
       isSyncingCalls = false;
@@ -24056,11 +24398,26 @@ ${this.customData.serverResponse}`;
   // src/services/notifications.js
   var notifications_exports = {};
   __export(notifications_exports, {
+    clearAllNotifications: () => clearAllNotifications2,
+    deleteSelectedNotifications: () => deleteSelectedNotifications,
     exportNotificationsToCSV: () => exportNotificationsToCSV,
     loadNotifications: () => loadNotifications,
     markAllNotificationsAsRead: () => markAllNotificationsAsRead,
-    reRenderNotifications: () => reRenderNotifications
+    reRenderNotifications: () => reRenderNotifications,
+    setNotifSelectAll: () => setNotifSelectAll,
+    toggleNotifSelectionMode: () => toggleNotifSelectionMode
   });
+  function _updateNotifSelectionToolbar(totalApps) {
+    const deleteBtn = document.getElementById("deleteAllNotifBtn");
+    const countSpan = document.getElementById("notifSelectedCount");
+    const selectAllCb = document.getElementById("notifSelectAll");
+    if (deleteBtn) deleteBtn.disabled = selectedNotifApps.size === 0;
+    if (countSpan) countSpan.textContent = selectedNotifApps.size;
+    if (selectAllCb) {
+      selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
+      selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
+    }
+  }
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
@@ -24306,10 +24663,12 @@ ${this.customData.serverResponse}`;
       const latest = group.items[0];
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
+      const isSelected = notifSelectionMode && selectedNotifApps.has(key);
       return `
-      <div class="list-item notification-item ${hasUnread ? "unread" : ""}"
+      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
            data-app-key="${escapeHtml(key)}"
            data-app-name="${escapeHtml(group.appName)}">
+        ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
@@ -24331,16 +24690,73 @@ ${this.customData.serverResponse}`;
       </div>
     `;
     }).join("");
+    const appKeys = Object.keys(groups);
     notificationsList.querySelectorAll(".notification-item").forEach((item) => {
       item.addEventListener("click", () => {
         const key = item.dataset.appKey;
+        if (notifSelectionMode) {
+          const cb = item.querySelector(".notif-checkbox");
+          if (selectedNotifApps.has(key)) {
+            selectedNotifApps.delete(key);
+            item.classList.remove("selected");
+            if (cb) cb.checked = false;
+          } else {
+            selectedNotifApps.add(key);
+            item.classList.add("selected");
+            if (cb) cb.checked = true;
+          }
+          _updateNotifSelectionToolbar(appKeys.length);
+          return;
+        }
         const name5 = item.dataset.appName;
         const group = groups[key];
         if (group) showNotifDetail(key, name5, group.items);
       });
     });
-    const clearNotifBtn = document.getElementById("clearAllNotifBtn");
-    if (clearNotifBtn) clearNotifBtn.onclick = clearAllNotifications2;
+    _updateNotifSelectionToolbar(appKeys.length);
+    let notifLongPressTimer = null;
+    notificationsList.addEventListener("pointerdown", (e) => {
+      const item = e.target.closest(".notification-item");
+      if (!item || notifSelectionMode) return;
+      notifLongPressTimer = setTimeout(() => {
+        notifLongPressTimer = null;
+        const key = item.dataset.appKey;
+        notifSelectionMode = true;
+        selectedNotifApps.clear();
+        document.getElementById("notifSelectBtn")?.classList.add("active");
+        const toolbar = document.getElementById("notifSelectToolbar");
+        if (toolbar) toolbar.style.display = "flex";
+        reRenderNotifications();
+        setTimeout(() => {
+          const el = document.querySelector(`.notification-item[data-app-key="${CSS.escape(key)}"]`);
+          if (el) {
+            selectedNotifApps.add(key);
+            el.classList.add("selected");
+            const cb = el.querySelector(".notif-checkbox");
+            if (cb) cb.checked = true;
+            _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+          }
+        }, 0);
+      }, 500);
+    });
+    notificationsList.addEventListener("pointerup", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
+    notificationsList.addEventListener("pointercancel", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
+    notificationsList.addEventListener("pointermove", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
     updateTabBadges();
   }
   async function markNotificationAsRead(deviceId, notifId) {
@@ -24450,8 +24866,9 @@ ${this.customData.serverResponse}`;
     if (!user) return;
     const selectedTab = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const isAll = selectedTab === "all";
-    const confirmMsg = isAll ? "Clear notifications for ALL devices? This cannot be undone." : "Clear notifications for the selected device? This cannot be undone.";
-    if (!confirm(confirmMsg)) return;
+    const isAr = getCurrentLanguage2() === "ar";
+    const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for the selected device? This cannot be undone.";
+    if (!await showConfirmDialog(confirmMsg)) return;
     const targetKeys = isAll ? Object.keys(allNotifications) : Object.keys(allNotifications).filter((key) => {
       const notifs = allNotifications[key] || [];
       return notifs.some((n) => (n.deviceId || key) === selectedTab);
@@ -24492,6 +24909,86 @@ ${this.customData.serverResponse}`;
     reRenderNotifications();
     updateTabBadges();
   }
+  function toggleNotifSelectionMode() {
+    notifSelectionMode = !notifSelectionMode;
+    selectedNotifApps.clear();
+    const selectBtn = document.getElementById("notifSelectBtn");
+    const toolbar = document.getElementById("notifSelectToolbar");
+    if (notifSelectionMode) {
+      selectBtn?.classList.add("active");
+      if (toolbar) toolbar.style.display = "flex";
+    } else {
+      selectBtn?.classList.remove("active");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    reRenderNotifications();
+    _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+  }
+  function setNotifSelectAll(checked) {
+    const items = document.querySelectorAll(".notification-item[data-app-key]");
+    items.forEach((el) => {
+      const key = el.dataset.appKey;
+      const cb = el.querySelector(".notif-checkbox");
+      if (checked) {
+        selectedNotifApps.add(key);
+        el.classList.add("selected");
+        if (cb) cb.checked = true;
+      } else {
+        selectedNotifApps.delete(key);
+        el.classList.remove("selected");
+        if (cb) cb.checked = false;
+      }
+    });
+    _updateNotifSelectionToolbar(items.length);
+  }
+  async function deleteSelectedNotifications() {
+    if (selectedNotifApps.size === 0) return;
+    const count = selectedNotifApps.size;
+    const isAr = getCurrentLanguage2() === "ar";
+    if (!await showConfirmDialog(
+      isAr ? `\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${count} \u062A\u0637\u0628\u064A\u0642\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete notifications for ${count} app${count > 1 ? "s" : ""}? This cannot be undone.`
+    )) return;
+    const user = currentUser;
+    if (!user) return;
+    try {
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+      Object.entries(allNotifications).forEach(([deviceKey, notifs]) => {
+        notifs.forEach((n) => {
+          const appKey = n.packageName || n.appName || "unknown";
+          if (!selectedNotifApps.has(appKey) || !n.id || /^-?\d+$/.test(n.id)) return;
+          const deviceId = n.deviceId || deviceKey;
+          let notifRef;
+          if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+            notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
+          } else {
+            notifRef = doc(db, "users", user.uid, "notifications", n.id);
+          }
+          batch.delete(notifRef);
+          deletedCount++;
+        });
+      });
+      if (deletedCount > 0) await batch.commit();
+      Object.keys(allNotifications).forEach((deviceKey) => {
+        const filtered = (allNotifications[deviceKey] || []).filter((n) => {
+          const appKey = n.packageName || n.appName || "unknown";
+          return !selectedNotifApps.has(appKey);
+        });
+        setNotificationsData(deviceKey, filtered);
+      });
+      showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
+    } catch (error) {
+      console.error("[Notifications] deleteSelectedNotifications error:", error);
+      showToast("Failed to delete selected notifications", "error");
+    }
+    notifSelectionMode = false;
+    selectedNotifApps.clear();
+    document.getElementById("notifSelectBtn")?.classList.remove("active");
+    const toolbar = document.getElementById("notifSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+    reRenderNotifications();
+    updateTabBadges();
+  }
   function exportNotificationsToCSV() {
     let notifications = getMergedNotifications();
     if (notifications.length === 0) {
@@ -24509,7 +25006,7 @@ ${this.customData.serverResponse}`;
       const device = n.deviceName || "";
       return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
-    const csv = [header.join(","), ...rows].join("\n");
+    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -24518,16 +25015,20 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
-  var _searchWired, _renderTimer;
+  var notifSelectionMode, selectedNotifApps, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
       init_dom();
+      init_toasts();
       init_helpers();
       init_appIcons();
       init_state();
       init_badges();
+      init_i18n();
       init_cache();
+      notifSelectionMode = false;
+      selectedNotifApps = /* @__PURE__ */ new Set();
       _searchWired = false;
       _renderTimer = null;
     }
@@ -25576,10 +26077,16 @@ ${this.customData.serverResponse}`;
     const normalizedMessages = newMessages.map((msg) => {
       const resolvedPhone = msg.phoneNumber || resolvePhoneNumber(msg) || msg.sender || msg.address;
       const resolvedContact = msg.contactName || resolveContactName(msg, resolvedPhone);
+      const resolvedDeviceName = msg.deviceName || (() => {
+        const d = devices.find((d2) => d2.id === (msg.deviceId || deviceId));
+        return d ? getFriendlyDeviceName(d) : "";
+      })();
       return {
         ...msg,
         phoneNumber: resolvedPhone || msg.phoneNumber || "",
-        contactName: resolvedContact || msg.contactName || ""
+        contactName: resolvedContact || msg.contactName || "",
+        deviceName: resolvedDeviceName,
+        deviceId: msg.deviceId || deviceId
       };
     });
     setSMSData(deviceId, normalizedMessages);
@@ -25751,8 +26258,7 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
-        ${selectedTab === "all" && conv.lastMessage.deviceName ? `<div class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</div>` : ""}
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}${conv.lastMessage.deviceName ? ` <span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span>` : ""}</div>
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="Call">
@@ -26087,7 +26593,7 @@ ${this.customData.serverResponse}`;
       const si = document.getElementById("smsSearchInput");
       if (si) {
         si.value = "";
-        si.placeholder = "Search messages...";
+        si.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Search messages...";
         delete si.dataset.convWired;
         si.dataset.wired = "";
         delete si.dataset.wired;
@@ -26164,10 +26670,10 @@ ${this.customData.serverResponse}`;
       if (e.key === "Enter") sendConversationMessage(phoneNumber, messageInput);
     });
     document.querySelectorAll(".delete-msg-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const msgId = btn.dataset.id;
-        if (confirm("Delete this message?")) {
+        if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0631\u0633\u0627\u0644\u0629\u061F" : "Delete this message?")) {
           deleteSingleSms(msgId);
         }
       });
@@ -26282,6 +26788,14 @@ ${this.customData.serverResponse}`;
           read: true
         }));
         setAllSMSMessages(updatedMessages);
+        Object.keys(allSMS).forEach((deviceId) => {
+          const updatedDeviceMsgs = (allSMS[deviceId] || []).map((msg) => ({
+            ...msg,
+            read: true
+          }));
+          setSMSData(deviceId, updatedDeviceMsgs);
+        });
+        updateTabBadges();
         if (currentConversation) {
           showConversation(currentConversation);
         } else {
@@ -26343,7 +26857,9 @@ ${this.customData.serverResponse}`;
         showToast("No messages in this conversation", "info");
         return;
       }
-      if (!confirm(`Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`)) return;
+      if (!await showConfirmDialog(
+        getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629 (${msgsToDelete.length} \u0631\u0633\u0627\u0644\u0629)\u061F` : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
+      )) return;
       showLoadingOverlay();
       try {
         const batch = writeBatch(db);
@@ -26452,7 +26968,7 @@ ${this.customData.serverResponse}`;
   }
   function _updateMessageSelectionToolbar() {
     const total = document.querySelectorAll(".message-bubble[data-msg-id]").length;
-    const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+    const deleteBtn = document.getElementById("deleteAllSmsBtn");
     const countSpan = document.getElementById("smsSelectedCount");
     const selectAllCb = document.getElementById("smsSelectAll");
     if (deleteBtn) deleteBtn.disabled = selectedMessages.size === 0;
@@ -26463,7 +26979,7 @@ ${this.customData.serverResponse}`;
     }
   }
   function _updateSelectionToolbar(totalConversations) {
-    const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+    const deleteBtn = document.getElementById("deleteAllSmsBtn");
     const countSpan = document.getElementById("smsSelectedCount");
     const selectAllCb = document.getElementById("smsSelectAll");
     if (deleteBtn) deleteBtn.disabled = selectedConversations.size === 0;
@@ -26541,7 +27057,9 @@ ${this.customData.serverResponse}`;
   async function deleteSelectedMessages() {
     if (selectedMessages.size === 0) return;
     const count = selectedMessages.size;
-    if (!confirm(`Delete ${count} message${count > 1 ? "s" : ""}?`)) return;
+    if (!await showConfirmDialog(
+      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \u0631\u0633\u0627\u0644\u0629\u061F` : `Delete ${count} message${count > 1 ? "s" : ""}?`
+    )) return;
     showLoadingOverlay();
     try {
       const msgsToDelete = allSMSMessages.filter((m) => selectedMessages.has(m.id));
@@ -26576,7 +27094,9 @@ ${this.customData.serverResponse}`;
     if (messageSelectionMode) return deleteSelectedMessages();
     if (selectedConversations.size === 0) return;
     const count = selectedConversations.size;
-    if (!confirm(`Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`)) return;
+    if (!await showConfirmDialog(
+      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \u0645\u062D\u0627\u062F\u062B\u0629\u061F \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0631\u0633\u0627\u0626\u0644\u0647\u0627.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
+    )) return;
     showLoadingOverlay();
     try {
       const selected = new Set(selectedConversations);
@@ -26644,7 +27164,7 @@ ${this.customData.serverResponse}`;
       alert("No messages to export.");
       return;
     }
-    const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "Device"];
+    const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
     const rows = messages.map((m) => {
       const d = new Date(m.timestamp || 0);
       const date = d.toLocaleDateString("en-GB");
@@ -26653,10 +27173,11 @@ ${this.customData.serverResponse}`;
       const contact = m.contactName || m.title || "";
       const phone = m.phoneNumber || m.sender || "";
       const body = m.body || m.text || m.content || "";
+      const sim = m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "";
       const device = m.deviceName || "";
-      return [date, time, direction, contact, phone, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+      return [date, time, direction, contact, phone, body, sim, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
-    const csv = [header.join(","), ...rows].join("\n");
+    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -27380,11 +27901,11 @@ ${this.customData.serverResponse}`;
   `
     ).join("");
     document.querySelectorAll(".delete-device-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const deviceId = btn.dataset.deviceId;
         const docId = btn.dataset.deviceDocId;
-        if (confirm(`Delete device "${deviceId}"? This will remove all its data.`)) {
+        if (await showConfirmDialog(`Delete device "${deviceId}"? This will remove all its data.`)) {
           deleteDevice(docId, deviceId);
         }
       });
@@ -27756,83 +28277,11 @@ ${this.customData.serverResponse}`;
   init_firebase();
   init_dom();
   init_toasts();
-
-  // src/utils/i18n.js
-  var translations = {
-    en: {
-      nav_sms: "SMS",
-      nav_calls: "Calls",
-      nav_chat: "Chat",
-      nav_notifications: "Notifications",
-      nav_devices: "Devices",
-      settings_title: "Settings",
-      settings_language: "Language",
-      settings_profile: "User Profile",
-      settings_display_name: "Display Name",
-      settings_enter_name: "Enter your name",
-      settings_save: "Save",
-      settings_email: "Email",
-      settings_notifications: "Notifications",
-      settings_sms_notif: "SMS Notifications",
-      settings_call_notif: "Call Notifications",
-      settings_sound: "Sound Alerts",
-      settings_account: "Account",
-      settings_change_password: "Change Password",
-      settings_delete_account: "Delete Account",
-      settings_about: "About",
-      settings_tagline: "Sync your SMS and calls across all devices"
-    },
-    ar: {
-      nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
-      nav_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
-      nav_chat: "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
-      nav_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
-      nav_devices: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629",
-      settings_title: "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
-      settings_language: "\u0627\u0644\u0644\u063A\u0629 / Language",
-      settings_profile: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
-      settings_display_name: "\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u0631\u0648\u0636",
-      settings_enter_name: "\u0623\u062F\u062E\u0644 \u0627\u0633\u0645\u0643",
-      settings_save: "\u062D\u0641\u0638",
-      settings_email: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
-      settings_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
-      settings_sms_notif: "\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
-      settings_call_notif: "\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
-      settings_sound: "\u0627\u0644\u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0627\u0644\u0635\u0648\u062A\u064A\u0629",
-      settings_account: "\u0627\u0644\u062D\u0633\u0627\u0628",
-      settings_change_password: "\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631",
-      settings_delete_account: "\u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628",
-      settings_about: "\u062D\u0648\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
-      settings_tagline: "\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0639\u0628\u0631 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629"
-    }
-  };
-  var currentLanguage = localStorage.getItem("appLanguage") || "en";
-  function getCurrentLanguage() {
-    return currentLanguage;
-  }
-  function setCurrentLanguage(lang) {
-    currentLanguage = lang;
-    localStorage.setItem("appLanguage", lang);
-  }
-  function applyTranslations() {
-    const trans = translations[currentLanguage];
-    document.querySelectorAll("[data-i18n]").forEach((elem) => {
-      const key = elem.getAttribute("data-i18n");
-      if (trans[key]) {
-        elem.textContent = trans[key];
-      }
-    });
-    document.querySelectorAll("[data-i18n-placeholder]").forEach((elem) => {
-      const key = elem.getAttribute("data-i18n-placeholder");
-      if (trans[key]) {
-        elem.placeholder = trans[key];
-      }
-    });
-    document.body.setAttribute("dir", currentLanguage === "ar" ? "rtl" : "ltr");
-  }
-
-  // src/services/settings.js
+  init_i18n();
   init_state();
+  init_notifications();
+  init_calls();
+  init_sms();
   async function loadUserSettings() {
     const user = currentUser;
     if (!user) return;
@@ -27879,8 +28328,8 @@ ${this.customData.serverResponse}`;
       }
     });
     document.getElementById("saveDisplayNameBtn")?.addEventListener("click", saveDisplayName);
-    document.getElementById("deleteAccountBtn")?.addEventListener("click", () => {
-      if (confirm(
+    document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
+      if (await showConfirmDialog(
         "Are you sure you want to delete your account? This action cannot be undone."
       )) {
         showToast("Account deletion coming soon", "info");
@@ -27888,11 +28337,14 @@ ${this.customData.serverResponse}`;
     });
     const languageSelect = document.getElementById("languageSelect");
     if (languageSelect) {
-      languageSelect.value = getCurrentLanguage();
+      languageSelect.value = getCurrentLanguage2();
       languageSelect.addEventListener("change", (e) => {
         const newLang = e.target.value;
         setCurrentLanguage(newLang);
         applyTranslations();
+        reRenderNotifications();
+        renderCalls(allCallsData);
+        renderSMS(allSMSMessages);
         showToast(
           newLang === "ar" ? "\u062A\u0645 \u062A\u063A\u064A\u064A\u0631 \u0627\u0644\u0644\u063A\u0629" : "Language changed",
           "success"
@@ -27935,6 +28387,7 @@ ${this.customData.serverResponse}`;
 
   // src/popup.js
   init_cache();
+  init_i18n();
   async function loadDevicesAndContacts() {
     let attempts = 0;
     while (devices.length === 0 && attempts < 50) {
@@ -28006,14 +28459,20 @@ ${this.customData.serverResponse}`;
       }
     );
     markAllReadBtn?.addEventListener("click", markAllSmsAsRead);
-    deleteAllSmsBtn?.addEventListener("click", deleteAllSms);
+    deleteAllSmsBtn?.addEventListener("click", deleteSelectedConversations);
     document.getElementById("smsSelectBtn")?.addEventListener("click", toggleSelectionMode);
     document.getElementById("smsSelectAll")?.addEventListener("change", (e) => setSelectAll(e.target.checked));
-    document.getElementById("smsDeleteSelectedBtn")?.addEventListener("click", deleteSelectedConversations);
     document.getElementById("exportSmsBtn")?.addEventListener("click", exportSMSToCSV);
     document.getElementById("exportCallsBtn")?.addEventListener("click", exportCallsToCSV);
     document.getElementById("exportNotifBtn")?.addEventListener("click", exportNotificationsToCSV);
-    document.getElementById("clearAllCallsBtn")?.addEventListener("click", clearAllCalls);
+    document.getElementById("callsSelectBtn")?.addEventListener("click", toggleCallsSelectionMode);
+    document.getElementById("callsSelectAll")?.addEventListener("change", (e) => setCallsSelectAll(e.target.checked));
+    document.getElementById("markAllCallsViewedBtn")?.addEventListener("click", markAllCallsAsViewed);
+    document.getElementById("deleteAllCallsBtn")?.addEventListener("click", deleteSelectedCallGroups);
+    document.getElementById("notifSelectBtn")?.addEventListener("click", toggleNotifSelectionMode);
+    document.getElementById("notifSelectAll")?.addEventListener("change", (e) => setNotifSelectAll(e.target.checked));
+    document.getElementById("markAllNotifReadBtn")?.addEventListener("click", markAllNotificationsAsRead);
+    document.getElementById("deleteAllNotifBtn")?.addEventListener("click", deleteSelectedNotifications);
     document.getElementById("refreshBtn")?.addEventListener("click", () => {
       showToast("Refreshing...", "info");
       loadData();

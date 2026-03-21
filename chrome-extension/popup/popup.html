@@ -17,7 +17,7 @@
                     <span class="logo-text">iRopit</span>
                 </div>
                 <div class="header-actions">
-                    <button id="themeToggleBtn" class="icon-btn" title="Toggle dark mode">
+                    <button id="themeToggleBtn" class="icon-btn" title="Toggle dark mode" data-i18n-title="tooltip_toggle_theme">
                         <svg id="themeIconLight" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="5"/>
                             <line x1="12" y1="1" x2="12" y2="3"/>
@@ -33,14 +33,14 @@
                             <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
                         </svg>
                     </button>
-                    <button id="refreshBtn" class="icon-btn" title="Refresh">
+                    <button id="refreshBtn" class="icon-btn" title="Refresh" data-i18n-title="tooltip_refresh">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path
                                 d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
                         </svg>
                     </button>
-                    <button id="settingsBtn" class="icon-btn" title="Settings">
+                    <button id="settingsBtn" class="icon-btn" title="Settings" data-i18n-title="tooltip_settings">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <circle cx="12" cy="12" r="3" />
@@ -74,7 +74,7 @@
                         </svg>
                         Sign in with Google
                     </button>
-                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v0.25.0</p>
+                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v0.25.1</p>
                 </div>
             </div>
 
@@ -184,7 +184,7 @@
                             <div class="chat-input-container">
                                 <div class="chat-input-wrapper">
                                     <!-- أزرار الإرفاق -->
-                                    <button id="attachImageBtn" class="btn btn-icon attach-btn" title="Send Image">
+                                    <button id="attachImageBtn" class="btn btn-icon attach-btn" title="Send Image" data-i18n-title="tooltip_send_image">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -192,7 +192,7 @@
                                             <polyline points="21 15 16 10 5 21" />
                                         </svg>
                                     </button>
-                                    <button id="attachFileBtn" class="btn btn-icon attach-btn" title="Send File">
+                                    <button id="attachFileBtn" class="btn btn-icon attach-btn" title="Send File" data-i18n-title="tooltip_send_file">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2">
                                             <path
@@ -230,9 +230,10 @@
                         </div>
                         <div class="sms-main">
                         <div class="content-header">
-                            <h3>Messages</h3>
+                            <h3 data-i18n="section_messages">Messages</h3>
                             <div class="header-actions">
-                                <button id="smsSelectBtn" class="btn btn-small btn-secondary" title="Select messages">
+                                <button id="newSmsBtn" class="btn btn-small btn-primary" data-i18n="new_sms">New SMS</button>
+                                <button id="smsSelectBtn" class="btn btn-small btn-secondary" title="Select messages" data-i18n-title="tooltip_select_messages">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -240,13 +241,13 @@
                                     </svg>
                                 </button>
                                 <button id="markAllReadBtn" class="btn btn-small btn-secondary"
-                                    title="Mark all as read">
+                                    title="Mark all as read" data-i18n-title="tooltip_mark_all_read">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                 </button>
-                                <button id="deleteAllSmsBtn" class="btn btn-small btn-danger" title="Delete">
+                                <button id="deleteAllSmsBtn" class="btn btn-small btn-danger" title="Delete selected" data-i18n-title="tooltip_delete_selected" disabled>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <polyline points="3 6 5 6 21 6" />
@@ -254,7 +255,7 @@
                                             d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                     </svg>
                                 </button>
-                                <button id="exportSmsBtn" class="btn btn-small btn-secondary" title="Export SMS to CSV">
+                                <button id="exportSmsBtn" class="btn btn-small btn-secondary" title="Export SMS to CSV" data-i18n-title="tooltip_export_sms">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
                                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -262,24 +263,20 @@
                                         <line x1="12" y1="15" x2="12" y2="3"/>
                                     </svg>
                                 </button>
-                                <button id="newSmsBtn" class="btn btn-small btn-primary">New SMS</button>
                             </div>
                         </div>
                         <div id="smsSelectToolbar" class="sms-select-toolbar" style="display:none;">
                             <label class="sms-select-all-label">
                                 <input type="checkbox" id="smsSelectAll" />
-                                <span>Select All</span>
+                                <span data-i18n="select_all">Select All</span>
                             </label>
-                            <button id="smsDeleteSelectedBtn" class="btn btn-small btn-danger" disabled>
-                                Delete (<span id="smsSelectedCount">0</span>)
-                            </button>
                         </div>
                         <div class="notif-search-bar">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
                                 <circle cx="11" cy="11" r="8"/>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                             </svg>
-                            <input type="text" id="smsSearchInput" class="notif-search-input" placeholder="Search messages..." />
+                            <input type="text" id="smsSearchInput" class="notif-search-input" placeholder="Search messages..." data-i18n-placeholder="search_messages" />
                         </div>
                         <div id="smsList" class="list">
                             <div class="empty-state">
@@ -287,8 +284,8 @@
                                     stroke-width="1">
                                     <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                                 </svg>
-                                <p>No messages yet</p>
-                                <span>Messages from your phone will appear here</span>
+                                <p data-i18n="empty_messages">No messages yet</p>
+                                <span data-i18n="empty_messages_sub">Messages from your phone will appear here</span>
                             </div>
                         </div>
                         </div><!-- /.sms-main -->
@@ -311,33 +308,46 @@
                         </div>
                         <div class="calls-main">
                         <div class="content-header">
-                            <h3>Call History</h3>
-                            <div style="display:flex;gap:6px;align-items:center;">
-                            <button id="exportCallsBtn" class="btn btn-small btn-secondary" title="Export calls to CSV">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                            </button>
-                            <button id="clearAllCallsBtn" class="clear-all-btn" title="Clear all call logs">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                                </svg>
-                                Clear All
-                            </button>
+                            <h3 data-i18n="section_call_history">Call History</h3>
+                            <div class="header-actions">
+                                <button id="callsSelectBtn" class="btn btn-small btn-secondary" title="Select calls" data-i18n-title="tooltip_select_calls">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                        <polyline points="9 11 12 14 22 4" />
+                                    </svg>
+                                </button>
+                                <button id="markAllCallsViewedBtn" class="btn btn-small btn-secondary" title="Mark all as viewed" data-i18n-title="tooltip_mark_all_viewed">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </button>
+                                <button id="deleteAllCallsBtn" class="btn btn-small btn-danger" title="Delete selected" data-i18n-title="tooltip_delete_selected" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    </svg>
+                                </button>
+                                <button id="exportCallsBtn" class="btn btn-small btn-secondary" title="Export calls to CSV" data-i18n-title="tooltip_export_calls">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
                             </div>
+                        </div>
+                        <div id="callsSelectToolbar" class="sms-select-toolbar" style="display:none;">
+                            <label class="sms-select-all-label">
+                                <input type="checkbox" id="callsSelectAll" />
+                                <span data-i18n="select_all">Select All</span>
+                            </label>
                         </div>
                         <div class="notif-search-bar">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notif-search-icon">
                                 <circle cx="11" cy="11" r="8"/>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                             </svg>
-                            <input type="text" id="callsSearchInput" class="notif-search-input" placeholder="Search calls..." />
+                            <input type="text" id="callsSearchInput" class="notif-search-input" placeholder="Search calls..." data-i18n-placeholder="search_calls" />
                         </div>
                         <div id="callsList" class="list">
                             <div class="empty-state">
@@ -346,8 +356,8 @@
                                     <path
                                         d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
                                 </svg>
-                                <p>No calls yet</p>
-                                <span>Call history from your phone will appear here</span>
+                                <p data-i18n="empty_calls">No calls yet</p>
+                                <span data-i18n="empty_calls_sub">Call history from your phone will appear here</span>
                             </div>
                         </div>
                         </div><!-- /.calls-main -->
@@ -372,7 +382,7 @@
                         <!-- Notification Detail View (hidden by default) -->
                         <div id="notifDetailView" style="display:none; flex-direction:column; flex:1; min-height:0;">
                             <div class="content-header">
-                                <button id="notifBackBtn" class="back-btn" title="Back">
+                                <button id="notifBackBtn" class="back-btn" title="Back" data-i18n-title="tooltip_back">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M19 12H5M12 19l-7-7 7-7"/>
                                     </svg>
@@ -383,25 +393,39 @@
                         </div>
                         <div id="notifMainView" style="display:flex; flex-direction:column; flex:1; min-height:0;">
                         <div class="content-header">
-                            <h3>Notifications</h3>
-                            <div style="display:flex;gap:6px;align-items:center;">
-                            <button id="exportNotifBtn" class="btn btn-small btn-secondary" title="Export Notifications to CSV">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                            </button>
-                            <button id="clearAllNotifBtn" class="clear-all-btn" title="Clear all notifications">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                                </svg>
-                                Clear All
-                            </button>
+                            <h3 data-i18n="section_notifications">Notifications</h3>
+                            <div class="header-actions">
+                                <button id="notifSelectBtn" class="btn btn-small btn-secondary" title="Select notifications" data-i18n-title="tooltip_select_notif">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                        <polyline points="9 11 12 14 22 4" />
+                                    </svg>
+                                </button>
+                                <button id="markAllNotifReadBtn" class="btn btn-small btn-secondary" title="Mark all as read" data-i18n-title="tooltip_mark_notif_read">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </button>
+                                <button id="deleteAllNotifBtn" class="btn btn-small btn-danger" title="Delete selected" data-i18n-title="tooltip_delete_selected" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    </svg>
+                                </button>
+                                <button id="exportNotifBtn" class="btn btn-small btn-secondary" title="Export Notifications to CSV" data-i18n-title="tooltip_export_notif">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
                             </div>
+                        </div>
+                        <div id="notifSelectToolbar" class="sms-select-toolbar" style="display:none;">
+                            <label class="sms-select-all-label">
+                                <input type="checkbox" id="notifSelectAll" />
+                                <span data-i18n="select_all">Select All</span>
+                            </label>
                         </div>
                         <!-- Notification Search Bar -->
                         <div class="notif-search-bar">
@@ -409,7 +433,7 @@
                                 <circle cx="11" cy="11" r="8"/>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                             </svg>
-                            <input type="text" id="notifSearchInput" class="notif-search-input" placeholder="Search notifications..." />
+                            <input type="text" id="notifSearchInput" class="notif-search-input" placeholder="Search notifications..." data-i18n-placeholder="search_notifications" />
                         </div>
                         <div id="notificationsList" class="list">
                             <div class="empty-state">
@@ -418,8 +442,8 @@
                                     <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
                                     <path d="M13.73 21a2 2 0 01-3.46 0" />
                                 </svg>
-                                <p>No notifications yet</p>
-                                <span>Notifications from your phone will appear here</span>
+                                <p data-i18n="empty_notifications">No notifications yet</p>
+                                <span data-i18n="empty_notifications_sub">Notifications from your phone will appear here</span>
                             </div>
                         </div>
                         </div><!-- /notifMainView -->
@@ -460,7 +484,7 @@
                         <span id="userNameChat" class="profile-name-footer">User</span>
                         <span id="userEmailChat" class="profile-email-footer">user@email.com</span>
                     </div>
-                    <span id="extensionVersion" class="profile-version-footer">v0.21.0</span>
+                    <span id="extensionVersion" class="profile-version-footer">v0.25.1</span>
                     <button id="logoutBtnChat" class="profile-logout-btn-footer" title="Logout">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -474,7 +498,7 @@
             <div id="smsModal" class="modal hidden">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3>Send SMS</h3>
+                        <h3 data-i18n="sms_modal_title">Send SMS</h3>
                         <button id="closeSmsModal" class="icon-btn">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
@@ -485,9 +509,9 @@
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="smsDevice">Send from device</label>
+                            <label for="smsDevice" data-i18n="sms_label_device">Send from device</label>
                             <select id="smsDevice" class="device-select">
-                                <option value="">Select device...</option>
+                                <option value="" data-i18n="sms_select_device">Select device...</option>
                             </select>
                         </div>
                         
@@ -505,22 +529,22 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="smsPhone">Phone number</label>
-                            <input type="tel" id="smsPhone" placeholder="+1234567890" autocomplete="off">
+                            <label for="smsPhone" data-i18n="sms_label_phone">Phone number</label>
+                            <input type="tel" id="smsPhone" placeholder="+1234567890" autocomplete="off" data-i18n-placeholder="sms_placeholder_phone">
                             <small class="form-hint" id="phoneHint" style="display: none; color: #666; margin-top: 4px;">
                                 Or type a number manually
                             </small>
                         </div>
                         
                         <div class="form-group">
-                            <label for="smsMessage">Message</label>
-                            <textarea id="smsMessage" placeholder="Type your message..." rows="3"></textarea>
+                            <label for="smsMessage" data-i18n="sms_label_message">Message</label>
+                            <textarea id="smsMessage" placeholder="Type your message..." rows="3" data-i18n-placeholder="sms_placeholder_message"></textarea>
                             <span class="char-count"><span id="charCount">0</span>/160</span>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button id="cancelSmsBtn" class="btn btn-secondary">Cancel</button>
-                        <button id="sendSmsBtn" class="btn btn-primary">Send SMS</button>
+                        <button id="cancelSmsBtn" class="btn btn-secondary" data-i18n="sms_btn_cancel">Cancel</button>
+                        <button id="sendSmsBtn" class="btn btn-primary" data-i18n="sms_btn_send">Send SMS</button>
                     </div>
                 </div>
             </div>
@@ -665,7 +689,7 @@
 
                             <!-- About Section -->
                             <div class="settings-footer">
-                                <p class="settings-version">iRopit v0.21.0</p>
+                                <p class="settings-version">iRopit v0.25.1</p>
                                 <p class="settings-tagline" data-i18n="settings_tagline">Sync your SMS and calls across
                                     all devices</p>
                             </div>

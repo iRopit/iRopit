@@ -18,7 +18,7 @@ import {
 } from "../config/firebase.js";
 
 import { devicesList, smsDevice } from "../ui/dom.js";
-import { showToast, showLoadingOverlay, hideLoading } from "../ui/toasts.js";
+import { showToast, showLoadingOverlay, hideLoading, showConfirmDialog } from "../ui/toasts.js";
 import {
   formatTime,
   getDeviceId,
@@ -218,13 +218,11 @@ export function renderDevices() {
 
   // Add delete handlers
   document.querySelectorAll(".delete-device-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const deviceId = btn.dataset.deviceId;
       const docId = btn.dataset.deviceDocId;
-      if (
-        confirm(`Delete device "${deviceId}"? This will remove all its data.`)
-      ) {
+      if (await showConfirmDialog(`Delete device "${deviceId}"? This will remove all its data.`)) {
         deleteDevice(docId, deviceId);
       }
     });

@@ -28,6 +28,7 @@ import {
   showLoadingOverlay,
   hideLoading,
   showListLoading,
+  showConfirmDialog,
 } from "../ui/toasts.js";
 import {
   formatTime,
@@ -589,10 +590,20 @@ export function updateSMSList(deviceId, newMessages) {
     const resolvedContact =
       msg.contactName || resolveContactName(msg, resolvedPhone);
 
+    // Back-fill deviceName if missing (e.g. older cached messages)
+    const resolvedDeviceName =
+      msg.deviceName ||
+      (() => {
+        const d = state.devices.find((d) => d.id === (msg.deviceId || deviceId));
+        return d ? getFriendlyDeviceName(d) : "";
+      })();
+
     return {
       ...msg,
       phoneNumber: resolvedPhone || msg.phoneNumber || "",
       contactName: resolvedContact || msg.contactName || "",
+      deviceName: resolvedDeviceName,
+      deviceId: msg.deviceId || deviceId,
     };
   });
 
@@ -857,12 +868,7 @@ export function renderSMS(messages) {
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
-        ${
-          selectedTab === "all" && conv.lastMessage.deviceName
-            ? `<div class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</div>`
-            : ""
-        }
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}${conv.lastMessage.deviceName ? ` <span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span>` : ""}</div>
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="Call">
@@ -1303,7 +1309,7 @@ export function showConversation(phoneNumber) {
     const si = document.getElementById("smsSearchInput");
     if (si) {
       si.value = "";
-      si.placeholder = "Search messages...";
+      si.placeholder = getCurrentLanguage() === "ar" ? "...بحث في الرسائل" : "Search messages...";
       delete si.dataset.convWired;
       si.dataset.wired = ""; // will be re-wired by renderSMS
       delete si.dataset.wired;
@@ -1395,10 +1401,10 @@ export function showConversation(phoneNumber) {
 
   // Add delete message handlers
   document.querySelectorAll(".delete-msg-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const msgId = btn.dataset.id;
-      if (confirm("Delete this message?")) {
+      if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "حذف هذه الرسالة؟" : "Delete this message?")) {
         deleteSingleSms(msgId);
       }
     });
@@ -1563,6 +1569,16 @@ export async function markAllSmsAsRead() {
       }));
       state.setAllSMSMessages(updatedMessages);
 
+      // Also update state.allSMS (per-device dict) so updateTabBadges() sees correct counts
+      Object.keys(state.allSMS).forEach((deviceId) => {
+        const updatedDeviceMsgs = (state.allSMS[deviceId] || []).map((msg) => ({
+          ...msg,
+          read: true,
+        }));
+        state.setSMSData(deviceId, updatedDeviceMsgs);
+      });
+      updateTabBadges();
+
       if (state.currentConversation) {
         showConversation(state.currentConversation);
       } else {
@@ -1647,7 +1663,10 @@ export async function deleteAllSms() {
       return;
     }
 
-    if (!confirm(`Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`)) return;
+    if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
+      ? `حذف هذه المحادثة (${msgsToDelete.length} رسالة)؟`
+      : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
+    ))) return;
 
     showLoadingOverlay();
     try {
@@ -1794,7 +1813,7 @@ function _exitMessageSelectionMode() {
  */
 function _updateMessageSelectionToolbar() {
   const total = document.querySelectorAll(".message-bubble[data-msg-id]").length;
-  const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+  const deleteBtn = document.getElementById("deleteAllSmsBtn");
   const countSpan = document.getElementById("smsSelectedCount");
   const selectAllCb = document.getElementById("smsSelectAll");
   if (deleteBtn) deleteBtn.disabled = selectedMessages.size === 0;
@@ -1810,7 +1829,7 @@ function _updateMessageSelectionToolbar() {
  * @param {number} totalConversations - Total number of visible conversations
  */
 function _updateSelectionToolbar(totalConversations) {
-  const deleteBtn = document.getElementById("smsDeleteSelectedBtn");
+  const deleteBtn = document.getElementById("deleteAllSmsBtn");
   const countSpan = document.getElementById("smsSelectedCount");
   const selectAllCb = document.getElementById("smsSelectAll");
 
@@ -1911,7 +1930,10 @@ export function setSelectAll(checked) {
 async function deleteSelectedMessages() {
   if (selectedMessages.size === 0) return;
   const count = selectedMessages.size;
-  if (!confirm(`Delete ${count} message${count > 1 ? "s" : ""}?`)) return;
+  if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
+    ? `حذف ${count} رسالة؟`
+    : `Delete ${count} message${count > 1 ? "s" : ""}?`
+  ))) return;
   showLoadingOverlay();
   try {
     const msgsToDelete = state.allSMSMessages.filter((m) => selectedMessages.has(m.id));
@@ -1952,7 +1974,10 @@ export async function deleteSelectedConversations() {
   if (selectedConversations.size === 0) return;
 
   const count = selectedConversations.size;
-  if (!confirm(`Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`)) return;
+  if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
+    ? `حذف ${count} محادثة؟ سيتم حذف جميع رسائلها.`
+    : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
+  ))) return;
 
   showLoadingOverlay();
   try {
@@ -2058,7 +2083,7 @@ export function exportSMSToCSV() {
     return;
   }
 
-  const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "Device"];
+  const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
   const rows = messages.map((m) => {
     const d = new Date(m.timestamp || 0);
     const date = d.toLocaleDateString("en-GB");
@@ -2067,11 +2092,12 @@ export function exportSMSToCSV() {
     const contact = m.contactName || m.title || "";
     const phone = m.phoneNumber || m.sender || "";
     const body = m.body || m.text || m.content || "";
+    const sim = m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "";
     const device = m.deviceName || "";
-    return [date, time, direction, contact, phone, body, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    return [date, time, direction, contact, phone, body, sim, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
 
-  const csv = [header.join(","), ...rows].join("\n");
+  const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

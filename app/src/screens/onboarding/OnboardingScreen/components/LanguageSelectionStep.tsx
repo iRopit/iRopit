@@ -67,12 +67,13 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderWidth: isSelected ? 2.5 : 1.5,
                   shadowColor: colors.black,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
                 },
               ]}
               onPress={() => onSelectLanguage(lang.code)}
               activeOpacity={0.7}
             >
-              <Text style={localStyles.flag}>{lang.flag}</Text>
+              <Text style={[localStyles.flag, { marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0 }]}>{lang.flag}</Text>
 
               <View style={localStyles.languageInfo}>
                 <Text
@@ -87,6 +88,7 @@ const LanguageSelectionStep: React.FC<LanguageSelectionStepProps> = ({
                   localStyles.radioOuter,
                   {
                     borderColor: isSelected ? colors.primary : colors.border,
+                    marginLeft: 24,
                   },
                 ]}
               >
@@ -137,9 +139,7 @@ const localStyles = StyleSheet.create({
     // marginBottom: 32,
   },
   languageCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    direction: 'ltr',
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -155,7 +155,6 @@ const localStyles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 16,
   },
   radioInner: {
     width: 12,
@@ -164,6 +163,7 @@ const localStyles = StyleSheet.create({
   },
   languageInfo: {
     flex: 1,
+    paddingHorizontal: 4,
   },
   languageName: {
     fontSize: 18,

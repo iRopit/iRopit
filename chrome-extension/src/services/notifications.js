@@ -19,6 +19,7 @@ import {
 } from "../config/firebase.js";
 
 import { notificationsList } from "../ui/dom.js";
+import { showToast, showConfirmDialog } from "../ui/toasts.js";
 import {
   formatTime,
   getNotificationIcon,
@@ -27,7 +28,24 @@ import {
 import { renderAppIcon } from "../utils/appIcons.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
+import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
+
+// ── Selection mode state ──────────────────────────────────────────────────────
+let notifSelectionMode = false;
+let selectedNotifApps = new Set(); // keyed by app key (packageName or appName)
+
+function _updateNotifSelectionToolbar(totalApps) {
+  const deleteBtn = document.getElementById("deleteAllNotifBtn");
+  const countSpan = document.getElementById("notifSelectedCount");
+  const selectAllCb = document.getElementById("notifSelectAll");
+  if (deleteBtn) deleteBtn.disabled = selectedNotifApps.size === 0;
+  if (countSpan) countSpan.textContent = selectedNotifApps.size;
+  if (selectAllCb) {
+    selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
+    selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
+  }
+}
 
 export async function loadNotifications() {
   const user = state.currentUser;
@@ -334,10 +352,12 @@ function renderNotifications(notifications) {
     const latest = group.items[0];
     const unreadCount = group.items.filter(n => !n.read).length;
     const hasUnread = unreadCount > 0;
+    const isSelected = notifSelectionMode && selectedNotifApps.has(key);
     return `
-      <div class="list-item notification-item ${hasUnread ? "unread" : ""}"
+      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
            data-app-key="${escapeHtml(key)}"
            data-app-name="${escapeHtml(group.appName)}">
+        ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
@@ -360,19 +380,63 @@ function renderNotifications(notifications) {
     `;
   }).join("");
 
-  // Click → show detail view for that app group
+  const appKeys = Object.keys(groups);
+
+  // Click → toggle selection or show detail
   notificationsList.querySelectorAll(".notification-item").forEach(item => {
     item.addEventListener("click", () => {
       const key = item.dataset.appKey;
+      if (notifSelectionMode) {
+        const cb = item.querySelector(".notif-checkbox");
+        if (selectedNotifApps.has(key)) {
+          selectedNotifApps.delete(key);
+          item.classList.remove("selected");
+          if (cb) cb.checked = false;
+        } else {
+          selectedNotifApps.add(key);
+          item.classList.add("selected");
+          if (cb) cb.checked = true;
+        }
+        _updateNotifSelectionToolbar(appKeys.length);
+        return;
+      }
       const name = item.dataset.appName;
       const group = groups[key];
       if (group) showNotifDetail(key, name, group.items);
     });
   });
 
-  // Wire the "Clear All" button (use onclick to avoid stacking listeners on re-renders)
-  const clearNotifBtn = document.getElementById("clearAllNotifBtn");
-  if (clearNotifBtn) clearNotifBtn.onclick = clearAllNotifications;
+  _updateNotifSelectionToolbar(appKeys.length);
+
+  // Long-press to enter selection mode
+  let notifLongPressTimer = null;
+  notificationsList.addEventListener("pointerdown", (e) => {
+    const item = e.target.closest(".notification-item");
+    if (!item || notifSelectionMode) return;
+    notifLongPressTimer = setTimeout(() => {
+      notifLongPressTimer = null;
+      const key = item.dataset.appKey;
+      notifSelectionMode = true;
+      selectedNotifApps.clear();
+      document.getElementById("notifSelectBtn")?.classList.add("active");
+      const toolbar = document.getElementById("notifSelectToolbar");
+      if (toolbar) toolbar.style.display = "flex";
+      reRenderNotifications();
+      setTimeout(() => {
+        const el = document.querySelector(`.notification-item[data-app-key="${CSS.escape(key)}"]`);
+        if (el) {
+          selectedNotifApps.add(key);
+          el.classList.add("selected");
+          const cb = el.querySelector(".notif-checkbox");
+          if (cb) cb.checked = true;
+          _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+        }
+      }, 0);
+    }, 500);
+  });
+  notificationsList.addEventListener("pointerup", () => { if (notifLongPressTimer) { clearTimeout(notifLongPressTimer); notifLongPressTimer = null; } });
+  notificationsList.addEventListener("pointercancel", () => { if (notifLongPressTimer) { clearTimeout(notifLongPressTimer); notifLongPressTimer = null; } });
+  notificationsList.addEventListener("pointermove", () => { if (notifLongPressTimer) { clearTimeout(notifLongPressTimer); notifLongPressTimer = null; } });
 
   updateTabBadges();
 }
@@ -513,18 +577,19 @@ async function updateFirestoreNotifications(userId, unreadNotifs) {
 /**
  * Clear notifications from Firestore and local state for the selected device (or all)
  */
-async function clearAllNotifications() {
+export async function clearAllNotifications() {
   const user = state.currentUser;
   if (!user) return;
 
   const selectedTab =
     document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
   const isAll = selectedTab === "all";
+  const isAr = getCurrentLanguage() === "ar";
   const confirmMsg = isAll
-    ? "Clear notifications for ALL devices? This cannot be undone."
-    : "Clear notifications for the selected device? This cannot be undone.";
+    ? (isAr ? "حذف الإشعارات لجميع الأجهزة؟ لا يمكن التراجع." : "Clear notifications for ALL devices? This cannot be undone.")
+    : (isAr ? "حذف إشعارات الجهاز المحدد؟ لا يمكن التراجع." : "Clear notifications for the selected device? This cannot be undone.");
 
-  if (!confirm(confirmMsg)) return;
+  if (!(await showConfirmDialog(confirmMsg))) return;
 
   const targetKeys = isAll
     ? Object.keys(state.allNotifications)
@@ -573,6 +638,103 @@ async function clearAllNotifications() {
   updateTabBadges();
 }
 
+// ── Selection mode exports ────────────────────────────────────────────────────
+
+/** Toggle notifications selection mode on/off */
+export function toggleNotifSelectionMode() {
+  notifSelectionMode = !notifSelectionMode;
+  selectedNotifApps.clear();
+
+  const selectBtn = document.getElementById("notifSelectBtn");
+  const toolbar = document.getElementById("notifSelectToolbar");
+
+  if (notifSelectionMode) {
+    selectBtn?.classList.add("active");
+    if (toolbar) toolbar.style.display = "flex";
+  } else {
+    selectBtn?.classList.remove("active");
+    if (toolbar) toolbar.style.display = "none";
+  }
+  reRenderNotifications();
+  _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+}
+
+/** Toggle select-all for visible notification app groups */
+export function setNotifSelectAll(checked) {
+  const items = document.querySelectorAll(".notification-item[data-app-key]");
+  items.forEach((el) => {
+    const key = el.dataset.appKey;
+    const cb = el.querySelector(".notif-checkbox");
+    if (checked) {
+      selectedNotifApps.add(key);
+      el.classList.add("selected");
+      if (cb) cb.checked = true;
+    } else {
+      selectedNotifApps.delete(key);
+      el.classList.remove("selected");
+      if (cb) cb.checked = false;
+    }
+  });
+  _updateNotifSelectionToolbar(items.length);
+}
+
+/** Delete all selected notification app groups from Firestore */
+export async function deleteSelectedNotifications() {
+  if (selectedNotifApps.size === 0) return;
+  const count = selectedNotifApps.size;
+  const isAr = getCurrentLanguage() === "ar";
+  if (!(await showConfirmDialog(isAr
+    ? `حذف إشعارات ${count} تطبيق؟ لا يمكن التراجع.`
+    : `Delete notifications for ${count} app${count > 1 ? "s" : ""}? This cannot be undone.`
+  ))) return;
+
+  const user = state.currentUser;
+  if (!user) return;
+
+  try {
+    const batch = writeBatch(db);
+    let deletedCount = 0;
+    Object.entries(state.allNotifications).forEach(([deviceKey, notifs]) => {
+      notifs.forEach((n) => {
+        const appKey = n.packageName || n.appName || "unknown";
+        if (!selectedNotifApps.has(appKey) || !n.id || /^-?\d+$/.test(n.id)) return;
+        const deviceId = n.deviceId || deviceKey;
+        let notifRef;
+        if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+          notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
+        } else {
+          notifRef = doc(db, "users", user.uid, "notifications", n.id);
+        }
+        batch.delete(notifRef);
+        deletedCount++;
+      });
+    });
+    if (deletedCount > 0) await batch.commit();
+
+    // Update local state
+    Object.keys(state.allNotifications).forEach((deviceKey) => {
+      const filtered = (state.allNotifications[deviceKey] || []).filter((n) => {
+        const appKey = n.packageName || n.appName || "unknown";
+        return !selectedNotifApps.has(appKey);
+      });
+      state.setNotificationsData(deviceKey, filtered);
+    });
+    showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
+  } catch (error) {
+    console.error("[Notifications] deleteSelectedNotifications error:", error);
+    showToast("Failed to delete selected notifications", "error");
+  }
+
+  // Exit selection mode
+  notifSelectionMode = false;
+  selectedNotifApps.clear();
+  document.getElementById("notifSelectBtn")?.classList.remove("active");
+  const toolbar = document.getElementById("notifSelectToolbar");
+  if (toolbar) toolbar.style.display = "none";
+  reRenderNotifications();
+  updateTabBadges();
+}
+
 /**
  * Export notifications to CSV
  */
@@ -593,7 +755,7 @@ export function exportNotificationsToCSV() {
     const device = n.deviceName || "";
     return [date, time, app, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
-  const csv = [header.join(","), ...rows].join("\n");
+  const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

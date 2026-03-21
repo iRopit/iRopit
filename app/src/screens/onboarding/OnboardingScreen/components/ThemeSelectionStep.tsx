@@ -69,12 +69,7 @@ const ThemeSelectionStep: React.FC<ThemeSelectionStepProps> = ({
       </View>
 
       <View style={styles.themeSelectionContainer}>
-        <View
-          style={[
-            styles.themeOptionsRow,
-            isRTL && { flexDirection: 'row-reverse' },
-          ]}
-        >
+        <View style={styles.themeOptionsRow}>
           {/* Dark Theme */}
           <TouchableOpacity
             style={[

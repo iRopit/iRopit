@@ -14,13 +14,16 @@ import {
 } from "../config/firebase.js"
 
 import { settingsBtn, settingsModal, closeSettingsBtn } from "../ui/dom.js"
-import { showToast, showLoadingOverlay, hideLoading } from "../ui/toasts.js"
+import { showToast, showLoadingOverlay, hideLoading, showConfirmDialog } from "../ui/toasts.js"
 import {
   getCurrentLanguage,
   setCurrentLanguage,
   applyTranslations,
 } from "../utils/i18n.js"
 import * as state from "../state/index.js"
+import { reRenderNotifications } from "./notifications.js"
+import { renderCalls } from "./calls.js"
+import { renderSMS } from "./sms.js"
 
 /**
  * Load user settings from Firebase
@@ -185,9 +188,9 @@ export function initSettingsListeners() {
     ?.addEventListener("click", saveDisplayName)
 
   // Delete account
-  document.getElementById("deleteAccountBtn")?.addEventListener("click", () => {
+  document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
     if (
-      confirm(
+      await showConfirmDialog(
         "Are you sure you want to delete your account? This action cannot be undone."
       )
     ) {
@@ -203,6 +206,10 @@ export function initSettingsListeners() {
       const newLang = e.target.value
       setCurrentLanguage(newLang)
       applyTranslations()
+      // Re-render all lists so dynamic timestamps update
+      reRenderNotifications()
+      renderCalls(state.allCallsData)
+      renderSMS(state.allSMSMessages)
       showToast(
         newLang === "ar" ? "تم تغيير اللغة" : "Language changed",
         "success"

@@ -30,7 +30,7 @@ const PhoneMockup: React.FC<PhoneMockupProps> = ({
         ]}
       >
         <View style={styles.phoneScreen}>
-          <Icon name={iconName} size={56} color={colors.primary} />
+          <Icon name={iconName} size={36} color={colors.primary} />
         </View>
       </View>
     </View>

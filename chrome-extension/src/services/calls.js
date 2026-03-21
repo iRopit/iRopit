@@ -19,7 +19,7 @@ import {
 } from "../config/firebase.js";
 
 import { callsList } from "../ui/dom.js";
-import { showListLoading, showToast } from "../ui/toasts.js";
+import { showListLoading, showToast, showConfirmDialog } from "../ui/toasts.js";
 import {
   formatTime,
   formatDuration,
@@ -28,11 +28,28 @@ import {
   getFriendlyDeviceName,
   getDeviceId,
 } from "../utils/helpers.js";
+import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
 import { getCachedCalls, cacheCallsData } from "./cache.js";
+
+// ── Selection mode state ──────────────────────────────────────────────────────
+let callsSelectionMode = false;
+let selectedCallGroups = new Set(); // keyed by group.phoneNumber
+
+function _updateCallsSelectionToolbar(totalGroups) {
+  const deleteBtn = document.getElementById("deleteAllCallsBtn");
+  const countSpan = document.getElementById("callsSelectedCount");
+  const selectAllCb = document.getElementById("callsSelectAll");
+  if (deleteBtn) deleteBtn.disabled = selectedCallGroups.size === 0;
+  if (countSpan) countSpan.textContent = selectedCallGroups.size;
+  if (selectAllCb) {
+    selectAllCb.checked = selectedCallGroups.size === totalGroups && totalGroups > 0;
+    selectAllCb.indeterminate = selectedCallGroups.size > 0 && selectedCallGroups.size < totalGroups;
+  }
+}
 
 /**
  * Normalize phone number for consistent grouping
@@ -496,6 +513,7 @@ export function renderCalls(calls) {
         : "Unknown";
     if (!grouped[key]) {
       grouped[key] = {
+        key: key,
         phoneNumber: call.phoneNumber || "Unknown",
         contactName: call.contactName || "",
         calls: [],
@@ -522,9 +540,10 @@ export function renderCalls(calls) {
   callsList.innerHTML = callGroups
     .map(
       (group) => `
-    <div class="list-item call-group call-${group.lastCall.type}" data-phone="${
+    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.phoneNumber) ? " selected" : ""}" data-phone="${
       group.phoneNumber
-    }">
+    }" data-group-key="${group.phoneNumber}">
+      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.phoneNumber) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(group.contactName || group.phoneNumber)}
       </div>
@@ -534,12 +553,7 @@ export function renderCalls(calls) {
         </div>
         <div class="list-item-subtitle">${group.calls.length} calls • ${
           group.lastCall.type
-        }</div>
-        ${
-          selectedTab === "all" && group.lastCall.deviceName
-            ? `<div class="device-tag">${group.lastCall.deviceName}</div>`
-            : ""
-        }
+        }${group.lastCall.deviceName ? ` <span class="device-tag">${group.lastCall.deviceName}</span>` : ""}</div>
       </div>
       <div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="Call">
@@ -570,8 +584,23 @@ export function renderCalls(calls) {
 
   // Add click handlers for call groups
   document.querySelectorAll(".call-group").forEach((el) => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e) => {
       const phoneNumber = el.dataset.phone;
+      if (callsSelectionMode) {
+        // Toggle selection
+        const cb = el.querySelector(".call-checkbox");
+        if (selectedCallGroups.has(phoneNumber)) {
+          selectedCallGroups.delete(phoneNumber);
+          el.classList.remove("selected");
+          if (cb) cb.checked = false;
+        } else {
+          selectedCallGroups.add(phoneNumber);
+          el.classList.add("selected");
+          if (cb) cb.checked = true;
+        }
+        _updateCallsSelectionToolbar(callGroups.length);
+        return;
+      }
       showCallHistory(phoneNumber);
     });
 
@@ -591,9 +620,37 @@ export function renderCalls(calls) {
     });
   });
 
-  // Wire the "Clear All" button (use onclick to avoid stacking listeners on re-renders)
-  const clearCallsBtn = document.getElementById("clearAllCallsBtn");
-  if (clearCallsBtn) clearCallsBtn.onclick = clearAllCalls;
+  _updateCallsSelectionToolbar(callGroups.length);
+
+  // Long-press to enter selection mode
+  let callLongPressTimer = null;
+  callsList.addEventListener("pointerdown", (e) => {
+    const group = e.target.closest(".call-group");
+    if (!group || callsSelectionMode) return;
+    callLongPressTimer = setTimeout(() => {
+      callLongPressTimer = null;
+      const phoneNumber = group.dataset.phone;
+      callsSelectionMode = true;
+      selectedCallGroups.clear();
+      document.getElementById("callsSelectBtn")?.classList.add("active");
+      const toolbar = document.getElementById("callsSelectToolbar");
+      if (toolbar) toolbar.style.display = "flex";
+      renderCalls(state.allCallsData);
+      setTimeout(() => {
+        const el = document.querySelector(`.call-group[data-phone="${CSS.escape(phoneNumber)}"]`);
+        if (el) {
+          selectedCallGroups.add(phoneNumber);
+          el.classList.add("selected");
+          const cb = el.querySelector(".call-checkbox");
+          if (cb) cb.checked = true;
+          _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-phone]").length);
+        }
+      }, 0);
+    }, 500);
+  });
+  callsList.addEventListener("pointerup", () => { if (callLongPressTimer) { clearTimeout(callLongPressTimer); callLongPressTimer = null; } });
+  callsList.addEventListener("pointercancel", () => { if (callLongPressTimer) { clearTimeout(callLongPressTimer); callLongPressTimer = null; } });
+  callsList.addEventListener("pointermove", () => { if (callLongPressTimer) { clearTimeout(callLongPressTimer); callLongPressTimer = null; } });
 
   updateTabBadges();
 }
@@ -725,6 +782,94 @@ async function showCallHistory(phoneNumber) {
   });
 }
 
+// ── Selection mode exports ────────────────────────────────────────────────────
+
+/** Toggle calls selection mode on/off */
+export function toggleCallsSelectionMode() {
+  callsSelectionMode = !callsSelectionMode;
+  selectedCallGroups.clear();
+
+  const selectBtn = document.getElementById("callsSelectBtn");
+  const toolbar = document.getElementById("callsSelectToolbar");
+
+  if (callsSelectionMode) {
+    selectBtn?.classList.add("active");
+    if (toolbar) toolbar.style.display = "flex";
+  } else {
+    selectBtn?.classList.remove("active");
+    if (toolbar) toolbar.style.display = "none";
+  }
+  renderCalls(state.allCallsData);
+}
+
+/** Toggle select-all for visible call groups */
+export function setCallsSelectAll(checked) {
+  const groups = document.querySelectorAll(".call-group[data-phone]");
+  groups.forEach((el) => {
+    const phone = el.dataset.phone;
+    const cb = el.querySelector(".call-checkbox");
+    if (checked) {
+      selectedCallGroups.add(phone);
+      el.classList.add("selected");
+      if (cb) cb.checked = true;
+    } else {
+      selectedCallGroups.delete(phone);
+      el.classList.remove("selected");
+      if (cb) cb.checked = false;
+    }
+  });
+  _updateCallsSelectionToolbar(groups.length);
+}
+
+/** Delete all selected call groups from Firestore */
+export async function deleteSelectedCallGroups() {
+  if (selectedCallGroups.size === 0) return;
+  const count = selectedCallGroups.size;
+  const isAr = getCurrentLanguage() === "ar";
+  if (!(await showConfirmDialog(isAr
+    ? `حذف مكالمات ${count} جهة اتصال؟ لا يمكن التراجع.`
+    : `Delete calls for ${count} contact${count > 1 ? "s" : ""}? This cannot be undone.`
+  ))) return;
+
+  const user = state.currentUser;
+  if (!user) return;
+
+  try {
+    const batch = writeBatch(db);
+    let deletedCount = 0;
+    // Find all calls matching the selected phone numbers
+    state.allCallsData.forEach((call) => {
+      if (selectedCallGroups.has(call.phoneNumber) && call.deviceId && call.id) {
+        const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
+        batch.delete(callRef);
+        deletedCount++;
+      }
+    });
+    if (deletedCount > 0) await batch.commit();
+
+    // Update local state
+    const remaining = state.allCallsData.filter((c) => !selectedCallGroups.has(c.phoneNumber));
+    Object.keys(state.allCallsByDevice).forEach((deviceId) => {
+      const updated = (state.allCallsByDevice[deviceId] || []).filter((c) => !selectedCallGroups.has(c.phoneNumber));
+      state.setCallsByDevice(deviceId, updated);
+    });
+    state.setAllCallsData(remaining);
+    showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
+  } catch (error) {
+    console.error("[Calls] deleteSelectedCallGroups error:", error);
+    showToast("Failed to delete selected calls", "error");
+  }
+
+  // Exit selection mode
+  callsSelectionMode = false;
+  selectedCallGroups.clear();
+  document.getElementById("callsSelectBtn")?.classList.remove("active");
+  const toolbar = document.getElementById("callsSelectToolbar");
+  if (toolbar) toolbar.style.display = "none";
+  renderCalls(state.allCallsData);
+  updateTabBadges();
+}
+
 /**
  * Clear call logs from Firestore and local state for the selected device (or all)
  */
@@ -735,11 +880,12 @@ export async function clearAllCalls() {
   const selectedTab =
     document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
   const isAll = selectedTab === "all";
+  const isAr = getCurrentLanguage() === "ar";
   const confirmMsg = isAll
-    ? "Clear call history for ALL devices? This cannot be undone."
-    : "Clear call history for the selected device? This cannot be undone.";
+    ? (isAr ? "حذف سجل المكالمات لجميع الأجهزة؟ لا يمكن التراجع." : "Clear call history for ALL devices? This cannot be undone.")
+    : (isAr ? "حذف سجل المكالمات للجهاز المحدد؟ لا يمكن التراجع." : "Clear call history for the selected device? This cannot be undone.");
 
-  if (!confirm(confirmMsg)) return;
+  if (!(await showConfirmDialog(confirmMsg))) return;
 
   const deviceIds = isAll
     ? Object.keys(state.allCallsByDevice)
@@ -846,7 +992,7 @@ export function exportCallsToCSV() {
     return [date, time, type, contact, phone, duration, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
 
-  const csv = [header.join(","), ...rows].join("\n");
+  const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

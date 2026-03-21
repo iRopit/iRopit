@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StatusBar, Text } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StatusBar, Text, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import { useOnboarding } from './useOnboarding';
@@ -49,6 +49,18 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   // Helper function for translations based on selected language
   const translate = (key: string) => t(key, undefined, selectedLanguage);
 
+  // Handle Android system back button: go to previous step instead of exiting
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentStep > 0) {
+        goBack();
+        return true; // prevent default (exit)
+      }
+      return false; // allow default on step 1
+    });
+    return () => subscription.remove();
+  }, [currentStep, goBack]);
+
   const handleComplete = async () => {
     const success = await completeOnboarding();
     if (success) {
@@ -60,8 +72,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const renderContent = () => {
     switch (currentStep) {
       case 0:
-        return <WelcomeStep colors={colors} translate={translate} />;
-      case 1:
         return (
           <LanguageSelectionStep
             selectedLanguage={selectedLanguage}
@@ -71,6 +81,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             onSelectLanguage={setSelectedLanguage}
           />
         );
+      case 1:
+        return <WelcomeStep colors={colors} translate={translate} />;
       case 2:
         return (
           <PrivacyPolicyStep
@@ -118,9 +130,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   // Get button text based on current step
   const getButtonText = () => {
     const isLastStep = currentStep === totalSteps - 1;
-    if (currentStep === 0) return translate('onboarding.getStarted');
-    if (currentStep === 1)
-      return translate('onboarding.language.confirmLanguage');
+    if (currentStep === 0) return translate('onboarding.language.confirmLanguage');
+    if (currentStep === 1) return translate('onboarding.getStarted');
     if (currentStep === 2) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
     if (currentStep === 3) return translate('onboarding.theme.setAppearance');
     if (currentStep === 4) return translate('onboarding.permissions.continue');
@@ -161,6 +172,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
           <ProgressBar
             currentStep={currentStep}
             totalSteps={totalSteps}
+            isRTL={isRTL}
             colors={colors}
           />
 

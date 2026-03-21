@@ -224,7 +224,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
         <Text
           style={[
             localStyles.title,
-            { color: colors.text, textAlign: 'center' },
+            { color: colors.text },
           ]}
         >
           {t('Privacy Policy & Terms', 'سياسة الخصوصية والشروط')}
@@ -232,7 +232,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
         <Text
           style={[
             localStyles.subtitle,
-            { color: colors.textSecondary, textAlign: 'center' },
+            { color: colors.textSecondary },
           ]}
         >
           {t(
@@ -276,12 +276,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               <Text
                 style={[
                   localStyles.sectionTitle,
-                  {
-                    color: colors.primary,
-                    textAlign: isRTL ? 'right' : 'left',
-                    marginLeft: isRTL ? 0 : 8,
-                    marginRight: isRTL ? 8 : 0,
-                  },
+                  { color: colors.primary },
                 ]}
               >
                 {t('About iRopit', 'حول iRopit')}
@@ -290,11 +285,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
             <Text
               style={[
                 localStyles.bodyText,
-                {
-                  color: colors.text,
-                  textAlign: isRTL ? 'right' : 'left',
-                  writingDirection: isRTL ? 'rtl' : 'ltr',
-                },
+                { color: colors.text },
               ]}
             >
               {t(
@@ -316,12 +307,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               <Text
                 style={[
                   localStyles.sectionTitle,
-                  {
-                    color: colors.primary,
-                    textAlign: isRTL ? 'right' : 'left',
-                    marginLeft: isRTL ? 0 : 8,
-                    marginRight: isRTL ? 8 : 0,
-                  },
+                  { color: colors.primary },
                 ]}
               >
                 {t('Data Collection & Storage', 'جمع البيانات وتخزينها')}
@@ -330,11 +316,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
             <Text
               style={[
                 localStyles.bodyText,
-                {
-                  color: colors.text,
-                  textAlign: isRTL ? 'right' : 'left',
-                  writingDirection: isRTL ? 'rtl' : 'ltr',
-                },
+                { color: colors.text },
               ]}
             >
               {t(
@@ -356,12 +338,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               <Text
                 style={[
                   localStyles.sectionTitle,
-                  {
-                    color: colors.primary,
-                    textAlign: isRTL ? 'right' : 'left',
-                    marginLeft: isRTL ? 0 : 8,
-                    marginRight: isRTL ? 8 : 0,
-                  },
+                  { color: colors.primary },
                 ]}
               >
                 {t('Permissions We Request', 'الصلاحيات التي نطلبها')}
@@ -372,8 +349,6 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                 localStyles.bodyTextSmall,
                 {
                   color: colors.textSecondary,
-                  textAlign: isRTL ? 'right' : 'left',
-                  writingDirection: isRTL ? 'rtl' : 'ltr',
                   marginBottom: 12,
                 },
               ]}
@@ -392,7 +367,6 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                   {
                     backgroundColor: colors.background,
                     borderColor: colors.borderLight,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
                     opacity: itemAnims[index],
                     transform: [
                       {
@@ -413,23 +387,11 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                 >
                   <Icon name={perm.icon} size={22} color={colors.primary} />
                 </View>
-                <View
-                  style={[
-                    localStyles.permContent,
-                    {
-                      alignItems: isRTL ? 'flex-end' : 'flex-start',
-                      marginLeft: isRTL ? 0 : 12,
-                      marginRight: isRTL ? 12 : 0,
-                    },
-                  ]}
-                >
+                <View style={localStyles.permContent}>
                   <Text
                     style={[
                       localStyles.permTitle,
-                      {
-                        color: colors.text,
-                        textAlign: isRTL ? 'right' : 'left',
-                      },
+                      { color: colors.text },
                     ]}
                   >
                     {isRTL ? perm.titleAr : perm.titleEn}
@@ -437,11 +399,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                   <Text
                     style={[
                       localStyles.permDesc,
-                      {
-                        color: colors.textSecondary,
-                        textAlign: isRTL ? 'right' : 'left',
-                        writingDirection: isRTL ? 'rtl' : 'ltr',
-                      },
+                      { color: colors.textSecondary },
                     ]}
                   >
                     {isRTL ? perm.descAr : perm.descEn}
@@ -449,10 +407,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                   <View
                     style={[
                       localStyles.purposeBadge,
-                      {
-                        backgroundColor: `${colors.success}12`,
-                        alignSelf: isRTL ? 'flex-end' : 'flex-start',
-                      },
+                      { backgroundColor: `${colors.success}12` },
                     ]}
                   >
                     <Icon
@@ -463,13 +418,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
                     <Text
                       style={[
                         localStyles.purposeText,
-                        {
-                          color: colors.success,
-                          textAlign: isRTL ? 'right' : 'left',
-                          writingDirection: isRTL ? 'rtl' : 'ltr',
-                          marginLeft: isRTL ? 0 : 6,
-                          marginRight: isRTL ? 6 : 0,
-                        },
+                        { color: colors.success },
                       ]}
                     >
                       {isRTL ? perm.purposeAr : perm.purposeEn}
@@ -492,12 +441,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               <Text
                 style={[
                   localStyles.sectionTitle,
-                  {
-                    color: colors.primary,
-                    textAlign: isRTL ? 'right' : 'left',
-                    marginLeft: isRTL ? 0 : 8,
-                    marginRight: isRTL ? 8 : 0,
-                  },
+                  { color: colors.primary },
                 ]}
               >
                 {t('Your Rights', 'حقوقك')}
@@ -523,28 +467,18 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
             ].map((right, index) => (
               <View
                 key={index}
-                style={[
-                  localStyles.rightItem,
-                  { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
+                style={localStyles.rightItem}
               >
                 <Icon
                   name={right.icon}
                   size={18}
                   color={colors.primary}
-                  style={{
-                    marginLeft: isRTL ? 10 : 0,
-                    marginRight: isRTL ? 0 : 10,
-                  }}
+                  style={{ marginRight: 10 }}
                 />
                 <Text
                   style={[
                     localStyles.rightText,
-                    {
-                      color: colors.text,
-                      textAlign: isRTL ? 'right' : 'left',
-                      writingDirection: isRTL ? 'rtl' : 'ltr',
-                    },
+                    { color: colors.text },
                   ]}
                 >
                   {isRTL ? right.ar : right.en}
@@ -565,12 +499,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               <Text
                 style={[
                   localStyles.sectionTitle,
-                  {
-                    color: colors.primary,
-                    textAlign: isRTL ? 'right' : 'left',
-                    marginLeft: isRTL ? 0 : 8,
-                    marginRight: isRTL ? 8 : 0,
-                  },
+                  { color: colors.primary },
                 ]}
               >
                 {t('Contact Us', 'تواصل معنا')}
@@ -579,16 +508,12 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
             <Text
               style={[
                 localStyles.bodyText,
-                {
-                  color: colors.text,
-                  textAlign: isRTL ? 'right' : 'left',
-                  writingDirection: isRTL ? 'rtl' : 'ltr',
-                },
+                { color: colors.text },
               ]}
             >
               {t(
-                'If you have any questions about this privacy policy or your data, please contact us at: iropitapp@gmail.com',
-                'إذا كان لديك أي أسئلة حول سياسة الخصوصية أو بياناتك، يرجى التواصل معنا على: iropitapp@gmail.com',
+                'If you have any questions about this privacy policy or your data, please contact us at: info@iRopit.com',
+                'إذا كان لديك أي أسئلة حول سياسة الخصوصية أو بياناتك، يرجى التواصل معنا على: info@iRopit.com',
               )}
             </Text>
           </View>
@@ -602,7 +527,6 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
           {
             backgroundColor: accepted ? `${colors.success}10` : colors.surface,
             borderColor: accepted ? colors.success : colors.border,
-            flexDirection: isRTL ? 'row-reverse' : 'row',
           },
         ]}
         onPress={handleToggle}
@@ -623,13 +547,7 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
         <Text
           style={[
             localStyles.checkboxLabel,
-            {
-              color: colors.text,
-              textAlign: isRTL ? 'right' : 'left',
-              writingDirection: isRTL ? 'rtl' : 'ltr',
-              marginLeft: isRTL ? 0 : 12,
-              marginRight: isRTL ? 12 : 0,
-            },
+            { color: colors.text, marginLeft: 12, marginRight: isRTL ? 16 : 0 },
           ]}
         >
           {t(
@@ -651,6 +569,7 @@ const localStyles = StyleSheet.create({
   headerContainer: {
     alignItems: 'center',
     marginBottom: 12,
+    width: '100%',
   },
   shieldBadge: {
     width: 64,
@@ -677,11 +596,13 @@ const localStyles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 4,
     letterSpacing: -0.3,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.8,
+    textAlign: 'center',
   },
   scrollContainer: {
     flex: 1,
@@ -710,6 +631,7 @@ const localStyles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
+    marginLeft: 8,
   },
   bodyText: {
     fontSize: 13.5,
@@ -721,6 +643,7 @@ const localStyles = StyleSheet.create({
     lineHeight: 20,
   },
   permissionCard: {
+    flexDirection: 'row',
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -736,6 +659,7 @@ const localStyles = StyleSheet.create({
   },
   permContent: {
     flex: 1,
+    marginLeft: 12,
   },
   permTitle: {
     fontSize: 14,
@@ -759,8 +683,10 @@ const localStyles = StyleSheet.create({
     lineHeight: 17,
     flex: 1,
     fontWeight: '500',
+    marginLeft: 6,
   },
   rightItem: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
   },
@@ -770,6 +696,7 @@ const localStyles = StyleSheet.create({
     lineHeight: 20,
   },
   checkboxContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     borderRadius: 14,
@@ -789,6 +716,7 @@ const localStyles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
+    marginLeft: 12,
   },
 });
 

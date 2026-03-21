@@ -1,6 +1,7 @@
 /**
  * Utility helper functions
  */
+import { getCurrentLanguage } from "./i18n.js";
 
 /**
  * Escape HTML special characters to prevent XSS
@@ -71,18 +72,19 @@ export function formatTime(timestamp) {
   const date = new Date(timestamp);
   const now = new Date();
 
-  const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const isAr = getCurrentLanguage() === "ar";
+  const time = date.toLocaleTimeString(isAr ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
   // Today
-  if (date.toDateString() === now.toDateString()) return `Today ${time}`;
+  if (date.toDateString() === now.toDateString()) return `${isAr ? "اليوم" : "Today"} ${time}`;
 
   // Yesterday
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
+  if (date.toDateString() === yesterday.toDateString()) return `${isAr ? "أمس" : "Yesterday"} ${time}`;
 
   // Older: date + time
-  return `${date.toLocaleDateString("en-GB")} ${time}`;
+  return `${date.toLocaleDateString(isAr ? "ar-SA" : "en-GB")} ${time}`;
 }
 
 /**

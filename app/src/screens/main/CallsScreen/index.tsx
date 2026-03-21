@@ -178,7 +178,6 @@ const CallsScreen = () => {
         selectedCount={selectedCalls.length}
         onDeleteSelected={handleDeleteSelected}
         isRTL={isRTL}
-        rightComponent={!isSelectMode ? renderDeleteAllButton() : undefined}
       />
 
       {/* Search Bar */}

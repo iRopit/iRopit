@@ -72,10 +72,10 @@ export const createStyles = (colors: ColorTheme) =>
       marginBottom: 16,
     },
     phoneMockup: {
-      width: width * 0.4,
-      height: height * 0.28,
-      borderRadius: 28,
-      borderWidth: 8,
+      width: width * 0.28,
+      height: height * 0.18,
+      borderRadius: 20,
+      borderWidth: 6,
       overflow: 'hidden',
       alignItems: 'center',
       justifyContent: 'center',
@@ -253,6 +253,7 @@ export const createStyles = (colors: ColorTheme) =>
     themeSelectionContainer: {
       width: '100%',
       paddingHorizontal: 20,
+      marginBottom: 20,
     },
     themeOptionsRow: {
       flexDirection: 'row',
