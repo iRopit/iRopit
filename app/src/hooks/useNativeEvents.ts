@@ -72,7 +72,6 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         startOnlineStatusTracking();
         syncContactsToFirebase();
         fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
-        deviceDeleteListenerUnsubscribe.current = startDeviceDeleteListener();
       });
     }
 
@@ -80,10 +79,6 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       if (fcmTokenListenerUnsubscribe.current) {
         fcmTokenListenerUnsubscribe.current();
         fcmTokenListenerUnsubscribe.current = null;
-      }
-      if (deviceDeleteListenerUnsubscribe.current) {
-        deviceDeleteListenerUnsubscribe.current();
-        deviceDeleteListenerUnsubscribe.current = null;
       }
     };
   }, [
@@ -93,8 +88,21 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     startOnlineStatusTracking,
     syncContactsToFirebase,
     startFcmTokenListener,
-    startDeviceDeleteListener,
   ]);
+
+  // Watch for remote device deletion — sign out if device doc is removed
+  useEffect(() => {
+    if (!user || !currentDevice) return;
+
+    deviceDeleteListenerUnsubscribe.current = startDeviceDeleteListener();
+
+    return () => {
+      if (deviceDeleteListenerUnsubscribe.current) {
+        deviceDeleteListenerUnsubscribe.current();
+        deviceDeleteListenerUnsubscribe.current = null;
+      }
+    };
+  }, [user, currentDevice, startDeviceDeleteListener]);
 
   // One-time initial sync of existing calls & SMS from device to Firebase.
   // Runs as soon as both user and currentDevice are ready.
