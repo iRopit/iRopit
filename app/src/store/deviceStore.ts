@@ -38,6 +38,7 @@ interface DeviceState {
   updateFcmToken: (token: string) => Promise<void>;
   startOnlineStatusTracking: () => void;
   startFcmTokenListener: () => () => void;
+  startDeviceDeleteListener: () => () => void;
   cleanup: () => void;
 }
 
@@ -348,6 +349,33 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       console.log('[DeviceStore] FCM token refreshed');
       updateFcmToken(token);
     });
+
+    return unsubscribe;
+  },
+
+  startDeviceDeleteListener: () => {
+    const { currentDevice } = get();
+    if (!currentDevice) return () => {};
+
+    console.log('[DeviceStore] Watching device document:', currentDevice.id);
+
+    const unsubscribe = firestore()
+      .collection(COLLECTIONS.DEVICES)
+      .doc(currentDevice.id)
+      .onSnapshot(
+        doc => {
+          if (!doc.exists) {
+            console.log(
+              '[DeviceStore] Device document deleted remotely — signing out',
+            );
+            const { useAuthStore } = require('../store/authStore');
+            useAuthStore.getState().signOut().catch(() => {});
+          }
+        },
+        error => {
+          console.warn('[DeviceStore] Device delete listener error:', error);
+        },
+      );
 
     return unsubscribe;
   },

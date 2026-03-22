@@ -36,10 +36,12 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     registerDevice,
     startOnlineStatusTracking,
     startFcmTokenListener,
+    startDeviceDeleteListener,
   } = useDeviceStore();
   const { syncContactsToFirebase } = useContactStore();
   const pushListenerUnsubscribe = useRef<(() => void) | null>(null);
   const fcmTokenListenerUnsubscribe = useRef<(() => void) | null>(null);
+  const deviceDeleteListenerUnsubscribe = useRef<(() => void) | null>(null);
   const lastContactSyncRef = useRef<number>(0);
   const initialSyncAttemptedRef = useRef(false);
 
@@ -70,6 +72,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         startOnlineStatusTracking();
         syncContactsToFirebase();
         fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
+        deviceDeleteListenerUnsubscribe.current = startDeviceDeleteListener();
       });
     }
 
@@ -77,6 +80,10 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       if (fcmTokenListenerUnsubscribe.current) {
         fcmTokenListenerUnsubscribe.current();
         fcmTokenListenerUnsubscribe.current = null;
+      }
+      if (deviceDeleteListenerUnsubscribe.current) {
+        deviceDeleteListenerUnsubscribe.current();
+        deviceDeleteListenerUnsubscribe.current = null;
       }
     };
   }, [
@@ -86,6 +93,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     startOnlineStatusTracking,
     syncContactsToFirebase,
     startFcmTokenListener,
+    startDeviceDeleteListener,
   ]);
 
   // One-time initial sync of existing calls & SMS from device to Firebase.
