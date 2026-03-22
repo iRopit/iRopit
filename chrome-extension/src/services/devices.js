@@ -26,6 +26,7 @@ import {
   getFriendlyDeviceName,
   escapeHtml,
 } from "../utils/helpers.js";
+import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 
 /**
@@ -223,7 +224,11 @@ export function renderDevices() {
       const deviceId = btn.dataset.deviceId;
       const docId = btn.dataset.deviceDocId;
       const deviceName = btn.dataset.deviceName || deviceId;
-      if (await showConfirmDialog(`Delete device "${deviceName}"? This will remove all its data.`)) {
+      const isAr = getCurrentLanguage() === "ar";
+      const confirmMsg = isAr
+        ? `حذف الجهاز "${deviceName}"؟ سيتم حذف جميع بياناته.`
+        : `Delete device "${deviceName}"? This will remove all its data.`;
+      if (await showConfirmDialog(confirmMsg)) {
         deleteDevice(docId, deviceId);
       }
     });
@@ -573,22 +578,8 @@ export async function deleteDevice(docId, deviceId) {
 
   showLoadingOverlay();
   try {
-    // Delete device document
+    // Delete only the device document — historical SMS, calls and notifications are preserved
     await deleteDoc(doc(db, "devices", docId));
-
-    // Also delete notifications subcollection for this device
-    const notifPath = `users/${user.uid}/devices/${deviceId}/notifications`;
-    const notifQuery = query(collection(db, notifPath));
-    const notifSnapshot = await getDocs(notifQuery);
-
-    const batch = writeBatch(db);
-    notifSnapshot.forEach((notifDoc) => {
-      batch.delete(notifDoc.ref);
-    });
-
-    if (notifSnapshot.size > 0) {
-      await batch.commit();
-    }
 
     showToast(`Device "${deviceId}" deleted`, "success");
     state.removeDevice(docId);

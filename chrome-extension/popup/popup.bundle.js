@@ -27796,6 +27796,7 @@ ${this.customData.serverResponse}`;
   init_dom();
   init_toasts();
   init_helpers();
+  init_i18n();
   init_state();
   async function registerDevice() {
     const user = currentUser;
@@ -27938,7 +27939,9 @@ ${this.customData.serverResponse}`;
         const deviceId = btn.dataset.deviceId;
         const docId = btn.dataset.deviceDocId;
         const deviceName = btn.dataset.deviceName || deviceId;
-        if (await showConfirmDialog(`Delete device "${deviceName}"? This will remove all its data.`)) {
+        const isAr = getCurrentLanguage() === "ar";
+        const confirmMsg = isAr ? `\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632 "${deviceName}"\u061F \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0628\u064A\u0627\u0646\u0627\u062A\u0647.` : `Delete device "${deviceName}"? This will remove all its data.`;
+        if (await showConfirmDialog(confirmMsg)) {
           deleteDevice(docId, deviceId);
         }
       });
@@ -28165,16 +28168,6 @@ ${this.customData.serverResponse}`;
     showLoadingOverlay();
     try {
       await deleteDoc(doc(db, "devices", docId));
-      const notifPath = `users/${user.uid}/devices/${deviceId}/notifications`;
-      const notifQuery = query(collection(db, notifPath));
-      const notifSnapshot = await getDocs(notifQuery);
-      const batch = writeBatch(db);
-      notifSnapshot.forEach((notifDoc) => {
-        batch.delete(notifDoc.ref);
-      });
-      if (notifSnapshot.size > 0) {
-        await batch.commit();
-      }
       showToast(`Device "${deviceId}" deleted`, "success");
       removeDevice(docId);
       renderDevices();
