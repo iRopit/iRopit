@@ -22652,7 +22652,7 @@ ${this.customData.serverResponse}`;
   });
 
   // src/utils/i18n.js
-  function getCurrentLanguage2() {
+  function getCurrentLanguage() {
     return currentLanguage;
   }
   function setCurrentLanguage(lang) {
@@ -22828,7 +22828,7 @@ ${this.customData.serverResponse}`;
   }
   function showConfirmDialog(message) {
     return new Promise((resolve) => {
-      const isAr = getCurrentLanguage2() === "ar";
+      const isAr = getCurrentLanguage() === "ar";
       const overlay = document.createElement("div");
       overlay.className = "confirm-overlay";
       overlay.innerHTML = `
@@ -22910,7 +22910,7 @@ ${this.customData.serverResponse}`;
     if (!timestamp) return "";
     const date = new Date(timestamp);
     const now = /* @__PURE__ */ new Date();
-    const isAr = getCurrentLanguage2() === "ar";
+    const isAr = getCurrentLanguage() === "ar";
     const time = date.toLocaleTimeString(isAr ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" });
     if (date.toDateString() === now.toDateString()) return `${isAr ? "\u0627\u0644\u064A\u0648\u0645" : "Today"} ${time}`;
     const yesterday = new Date(now);
@@ -24031,7 +24031,7 @@ ${this.customData.serverResponse}`;
               ${getCallIcon(call.type)}
             </div>
             <div class="call-info">
-              <div class="call-type">${call.type}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}</div>
+              <div class="call-type">${call.type}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}${call.deviceName ? ` <span class="device-tag">${call.deviceName}</span>` : ""}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
             </div>
             <div class="call-time">${formatTime(call.timestamp)}</div>
@@ -24089,7 +24089,7 @@ ${this.customData.serverResponse}`;
   async function deleteSelectedCallGroups() {
     if (selectedCallGroups.size === 0) return;
     const count = selectedCallGroups.size;
-    const isAr = getCurrentLanguage2() === "ar";
+    const isAr = getCurrentLanguage() === "ar";
     if (!await showConfirmDialog(
       isAr ? `\u062D\u0630\u0641 \u0645\u0643\u0627\u0644\u0645\u0627\u062A ${count} \u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete calls for ${count} contact${count > 1 ? "s" : ""}? This cannot be undone.`
     )) return;
@@ -24130,7 +24130,7 @@ ${this.customData.serverResponse}`;
     if (!user) return;
     const selectedTab = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const isAll = selectedTab === "all";
-    const isAr = getCurrentLanguage2() === "ar";
+    const isAr = getCurrentLanguage() === "ar";
     const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear call history for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0644\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear call history for the selected device? This cannot be undone.";
     if (!await showConfirmDialog(confirmMsg)) return;
     const deviceIds = isAll ? Object.keys(allCallsByDevice) : [selectedTab];
@@ -24457,7 +24457,7 @@ ${this.customData.serverResponse}`;
           ...data,
           id: firestoreId,
           // Use Firestore ID, not data.id
-          deviceId: "user",
+          deviceId: data.deviceId || "user",
           receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
         });
       });
@@ -24528,6 +24528,13 @@ ${this.customData.serverResponse}`;
       addUnsubscriber(unsub);
     });
   }
+  function resolveDeviceName(notif) {
+    if (notif.deviceName) return notif.deviceName;
+    if (!notif.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications") return null;
+    const device = devices.find((d) => d.id === notif.deviceId);
+    if (!device) return null;
+    return device.nickname || device.name || null;
+  }
   function getMergedNotifications() {
     let merged = [];
     Object.values(allNotifications).forEach((notifs) => {
@@ -24577,12 +24584,19 @@ ${this.customData.serverResponse}`;
     detailTitle.textContent = appName;
     mainView.style.display = "none";
     detailView.style.display = "flex";
+    const unreadInGroup = notifications.filter((n) => !n.read);
+    if (unreadInGroup.length > 0) {
+      unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
+    }
     detailList.innerHTML = notifications.map((notif) => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
          data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
       <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
       <div class="notif-bubble-body">${escapeHtml(notif.text || notif.body || "")}</div>
-      ${notif.deviceName ? `<div class="notif-bubble-time">\u{1F4F1} ${escapeHtml(notif.deviceName)} \xB7 ${formatTime(notif.receivedAt || notif.timestamp)}</div>` : `<div class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</div>`}
+      <div class="notif-bubble-footer">
+        ${resolveDeviceName(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+      </div>
     </div>
   `).join("");
     const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
@@ -24679,8 +24693,8 @@ ${this.customData.serverResponse}`;
           </div>
           <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
-            ${group.items.length} notification${group.items.length > 1 ? "s" : ""}
-            ${latest.deviceName ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(latest.deviceName)}</span>` : ""}
+            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
+            ${resolveDeviceName(latest) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(latest))}</span>` : ""}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
@@ -24866,7 +24880,7 @@ ${this.customData.serverResponse}`;
     if (!user) return;
     const selectedTab = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const isAll = selectedTab === "all";
-    const isAr = getCurrentLanguage2() === "ar";
+    const isAr = getCurrentLanguage() === "ar";
     const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for the selected device? This cannot be undone.";
     if (!await showConfirmDialog(confirmMsg)) return;
     const targetKeys = isAll ? Object.keys(allNotifications) : Object.keys(allNotifications).filter((key) => {
@@ -24944,7 +24958,7 @@ ${this.customData.serverResponse}`;
   async function deleteSelectedNotifications() {
     if (selectedNotifApps.size === 0) return;
     const count = selectedNotifApps.size;
-    const isAr = getCurrentLanguage2() === "ar";
+    const isAr = getCurrentLanguage() === "ar";
     if (!await showConfirmDialog(
       isAr ? `\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${count} \u062A\u0637\u0628\u064A\u0642\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete notifications for ${count} app${count > 1 ? "s" : ""}? This cannot be undone.`
     )) return;
@@ -25095,7 +25109,7 @@ ${this.customData.serverResponse}`;
   }
   function renderChatMessages(messages) {
     const selectedTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const showDeviceName = selectedTab === "all";
+    const showDeviceName = true;
     let filteredMessages = messages;
     if (selectedTab !== "all") {
       filteredMessages = messages.filter((msg) => {
@@ -25708,6 +25722,7 @@ ${this.customData.serverResponse}`;
     deleteSelectedConversations: () => deleteSelectedConversations,
     exportSMSToCSV: () => exportSMSToCSV,
     hasMoreSMS: () => hasMoreSMS,
+    initSMSNavigation: () => initSMSNavigation,
     loadMoreSMS: () => loadMoreSMS,
     loadSMS: () => loadSMS,
     markAllSmsAsRead: () => markAllSmsAsRead,
@@ -26258,7 +26273,8 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}${conv.lastMessage.deviceName ? ` <span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span>` : ""}</div>
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
+        ${conv.lastMessage.deviceName ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="Call">
@@ -26439,6 +26455,40 @@ ${this.customData.serverResponse}`;
   function showSyncIndicator() {
     updateSMSCountIndicator();
   }
+  function _goBackFromConversation() {
+    if (!currentConversation) return;
+    if (messageSelectionMode) {
+      messageSelectionMode = false;
+      selectedMessages.clear();
+      _exitMessageSelectionMode();
+      document.getElementById("smsSelectBtn")?.classList.remove("active");
+      const toolbar = document.getElementById("smsSelectToolbar");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    document.getElementById("smsList")?.classList.remove("conversation-open");
+    setCurrentConversation(null);
+    const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+    if (deleteAllBtn) {
+      deleteAllBtn.title = "Delete selected";
+      deleteAllBtn.disabled = true;
+    }
+    const si = document.getElementById("smsSearchInput");
+    if (si) {
+      si.value = "";
+      si.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Search messages...";
+      delete si.dataset.convWired;
+      si.dataset.wired = "";
+      delete si.dataset.wired;
+    }
+    renderSMS(allSMSMessages);
+  }
+  function initSMSNavigation() {
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("#backToSMS")) {
+        _goBackFromConversation();
+      }
+    });
+  }
   function showConversation(phoneNumber) {
     let normalizedInput;
     if (phoneNumber.startsWith("contact_") || phoneNumber.startsWith("sender_")) {
@@ -26486,6 +26536,7 @@ ${this.customData.serverResponse}`;
     const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
     if (deleteAllBtn) {
       deleteAllBtn.title = "Delete this conversation";
+      deleteAllBtn.disabled = false;
     }
     const smsListElement = document.getElementById("smsList");
     smsListElement.classList.add("conversation-open");
@@ -26578,27 +26629,7 @@ ${this.customData.serverResponse}`;
       });
     }
     document.getElementById("backToSMS")?.addEventListener("click", () => {
-      if (messageSelectionMode) {
-        messageSelectionMode = false;
-        selectedMessages.clear();
-        _exitMessageSelectionMode();
-        document.getElementById("smsSelectBtn")?.classList.remove("active");
-        const toolbar = document.getElementById("smsSelectToolbar");
-        if (toolbar) toolbar.style.display = "none";
-      }
-      document.getElementById("smsList")?.classList.remove("conversation-open");
-      setCurrentConversation(null);
-      const deleteAllBtn2 = document.getElementById("deleteAllSmsBtn");
-      if (deleteAllBtn2) deleteAllBtn2.title = "Delete all";
-      const si = document.getElementById("smsSearchInput");
-      if (si) {
-        si.value = "";
-        si.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Search messages...";
-        delete si.dataset.convWired;
-        si.dataset.wired = "";
-        delete si.dataset.wired;
-      }
-      renderSMS(allSMSMessages);
+      _goBackFromConversation();
     });
     document.getElementById("smsConvCallBtn")?.addEventListener("click", () => {
       const actionsDiv = document.querySelector(".conv-header-actions");
@@ -27201,6 +27232,7 @@ ${this.customData.serverResponse}`;
       init_cryptoService();
       init_contacts();
       init_cache();
+      init_i18n();
       smsUnsubscribeFunctions = [];
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
@@ -28337,7 +28369,7 @@ ${this.customData.serverResponse}`;
     });
     const languageSelect = document.getElementById("languageSelect");
     if (languageSelect) {
-      languageSelect.value = getCurrentLanguage2();
+      languageSelect.value = getCurrentLanguage();
       languageSelect.addEventListener("change", (e) => {
         const newLang = e.target.value;
         setCurrentLanguage(newLang);
@@ -28444,6 +28476,7 @@ ${this.customData.serverResponse}`;
     initSettingsListeners();
     initAuthListeners();
     initNavigation();
+    initSMSNavigation();
     setupServiceWorkerListener();
     initAuthObserver(
       // On login

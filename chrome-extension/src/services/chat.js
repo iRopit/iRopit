@@ -115,7 +115,7 @@ export function renderChatMessages(messages) {
   const selectedTab =
     document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset
       .device || "all";
-  const showDeviceName = selectedTab === "all";
+  const showDeviceName = true;
 
   // Filter messages by selected device
   let filteredMessages = messages;

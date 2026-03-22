@@ -28,6 +28,7 @@ import {
   startPolling,
   stopPolling,
   stopSMSListener,
+  initSMSNavigation,
 } from "./services/sms.js";
 import { loadCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
 import { loadNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
@@ -131,6 +132,7 @@ function init() {
   initSettingsListeners();
   initAuthListeners();
   initNavigation();
+  initSMSNavigation();
 
   // Setup service worker listener
   setupServiceWorkerListener();

@@ -91,7 +91,7 @@ export async function loadNotifications() {
       notifications.push({
         ...data,
         id: firestoreId, // Use Firestore ID, not data.id
-        deviceId: "user",
+        deviceId: data.deviceId || "user",
         receivedAt:
           data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
       });
@@ -179,6 +179,14 @@ export async function loadNotifications() {
   });
 }
 
+function resolveDeviceName(notif) {
+  if (notif.deviceName) return notif.deviceName;
+  if (!notif.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications") return null;
+  const device = state.devices.find((d) => d.id === notif.deviceId);
+  if (!device) return null;
+  return device.nickname || device.name || null;
+}
+
 function getMergedNotifications() {
   let merged = [];
   Object.values(state.allNotifications).forEach((notifs) => {
@@ -242,12 +250,21 @@ function showNotifDetail(appKey, appName, notifications) {
   mainView.style.display = "none";
   detailView.style.display = "flex";
 
+  // Auto-mark all unread notifications in this group as read
+  const unreadInGroup = notifications.filter(n => !n.read);
+  if (unreadInGroup.length > 0) {
+    unreadInGroup.forEach(n => markNotificationAsRead(n.deviceId, n.id));
+  }
+
   detailList.innerHTML = notifications.map(notif => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
          data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
       <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">●</span>'}</div>
       <div class="notif-bubble-body">${escapeHtml(notif.text || notif.body || "")}</div>
-      ${notif.deviceName ? `<div class="notif-bubble-time">📱 ${escapeHtml(notif.deviceName)} · ${formatTime(notif.receivedAt || notif.timestamp)}</div>` : `<div class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</div>`}
+      <div class="notif-bubble-footer">
+        ${resolveDeviceName(notif) ? `<span class="notification-device">📱 ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+      </div>
     </div>
   `).join("");
 
@@ -368,8 +385,8 @@ function renderNotifications(notifications) {
           </div>
           <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
-            ${group.items.length} notification${group.items.length > 1 ? "s" : ""}
-            ${latest.deviceName ? `<span class="notification-device">📱 ${escapeHtml(latest.deviceName)}</span>` : ""}
+            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
+            ${resolveDeviceName(latest) ? `<span class="notification-device">📱 ${escapeHtml(resolveDeviceName(latest))}</span>` : ""}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">

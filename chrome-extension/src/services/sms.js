@@ -43,6 +43,7 @@ import { updateTabBadges } from "./badges.js";
 import { decryptSMS } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
 import { getCachedSMS, cacheSMSData } from "./cache.js";
+import { getCurrentLanguage } from "../utils/i18n.js";
 
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
@@ -868,7 +869,8 @@ export function renderSMS(messages) {
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}${conv.lastMessage.deviceName ? ` <span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span>` : ""}</div>
+        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
+        ${conv.lastMessage.deviceName ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="Call">
@@ -1091,6 +1093,58 @@ function showSyncIndicator() {
 }
 
 /**
+ * Go back from the conversation detail view to the conversation list.
+ * Extracted so it can be called both by the direct listener on #backToSMS
+ * and by the permanent delegated listener set up in initSMSNavigation().
+ */
+function _goBackFromConversation() {
+  // Guard: already on list view (prevents double-execution when both the direct
+  // listener and the delegated listener fire for the same click).
+  if (!state.currentConversation) return;
+
+  // Reset per-message selection mode if active
+  if (messageSelectionMode) {
+    messageSelectionMode = false;
+    selectedMessages.clear();
+    _exitMessageSelectionMode();
+    document.getElementById("smsSelectBtn")?.classList.remove("active");
+    const toolbar = document.getElementById("smsSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+  }
+  document.getElementById("smsList")?.classList.remove("conversation-open");
+  state.setCurrentConversation(null);
+  const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
+  if (deleteAllBtn) {
+    deleteAllBtn.title = "Delete selected";
+    deleteAllBtn.disabled = true;
+  }
+  // Reset search box for list view
+  const si = document.getElementById("smsSearchInput");
+  if (si) {
+    si.value = "";
+    si.placeholder = getCurrentLanguage() === "ar" ? "...بحث في الرسائل" : "Search messages...";
+    delete si.dataset.convWired;
+    si.dataset.wired = ""; // will be re-wired by renderSMS
+    delete si.dataset.wired;
+  }
+  renderSMS(state.allSMSMessages);
+}
+
+/**
+ * Set up a permanent delegated click listener for the SMS back button.
+ * Must be called once at init time from popup.js.
+ * This acts as a reliable fallback in case the direct listener on #backToSMS
+ * (set dynamically inside showConversation) is ever not attached.
+ */
+export function initSMSNavigation() {
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#backToSMS")) {
+      _goBackFromConversation();
+    }
+  });
+}
+
+/**
  * Show conversation detail view
  * @param {string} phoneNumber - Phone number or contact key
  */
@@ -1166,6 +1220,7 @@ export function showConversation(phoneNumber) {
   const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
   if (deleteAllBtn) {
     deleteAllBtn.title = "Delete this conversation";
+    deleteAllBtn.disabled = false;
   }
 
   const smsListElement = document.getElementById("smsList");
@@ -1290,31 +1345,9 @@ export function showConversation(phoneNumber) {
     });
   }
 
-  // Add back button handler
+  // Add back button handler (also covered by the permanent delegation in initSMSNavigation)
   document.getElementById("backToSMS")?.addEventListener("click", () => {
-    // Reset per-message selection mode if active
-    if (messageSelectionMode) {
-      messageSelectionMode = false;
-      selectedMessages.clear();
-      _exitMessageSelectionMode();
-      document.getElementById("smsSelectBtn")?.classList.remove("active");
-      const toolbar = document.getElementById("smsSelectToolbar");
-      if (toolbar) toolbar.style.display = "none";
-    }
-    document.getElementById("smsList")?.classList.remove("conversation-open");
-    state.setCurrentConversation(null);
-    const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
-    if (deleteAllBtn) deleteAllBtn.title = "Delete all";
-    // Reset search box for list view
-    const si = document.getElementById("smsSearchInput");
-    if (si) {
-      si.value = "";
-      si.placeholder = getCurrentLanguage() === "ar" ? "...بحث في الرسائل" : "Search messages...";
-      delete si.dataset.convWired;
-      si.dataset.wired = ""; // will be re-wired by renderSMS
-      delete si.dataset.wired;
-    }
-    renderSMS(state.allSMSMessages);
+    _goBackFromConversation();
   });
 
   // Call button handler in conversation header
