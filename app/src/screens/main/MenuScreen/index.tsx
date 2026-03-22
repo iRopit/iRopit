@@ -40,7 +40,7 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
       {/* Title like Notifications Screen */}
       <View style={styles.titleContainer}>
         <Text style={[styles.title, { color: textColor }]}>
-          {t('menuTitle')}
+          {isRTL ? 'الإعدادات' : 'Settings'}
         </Text>
       </View>
 

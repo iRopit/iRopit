@@ -1,12 +1,15 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
+import firestore from '@react-native-firebase/firestore';
 import { useAuthStore } from '../../../store/authStore';
+import { useDeviceStore } from '../../../store/deviceStore';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MenuSection } from './types';
 
 export const useMenuScreen = (navigation: any) => {
   const { user, signOut } = useAuthStore();
+  const { currentDevice } = useDeviceStore();
   const settings = useSettingsStore();
   const { colors, t, isDarkMode, isRTL } = useTheme();
 
@@ -47,29 +50,36 @@ export const useMenuScreen = (navigation: any) => {
     );
   }, [isRTL, signOut]);
 
-  const handleDeleteAccount = useCallback(() => {
+  const handleDeleteDevice = useCallback(() => {
     Alert.alert(
-      isRTL ? 'حذف الحساب' : 'Delete Account',
+      isRTL ? 'حذف هذا الجهاز' : 'Delete This Device',
       isRTL
-        ? 'هل أنت متأكد؟ سيتم حذف جميع بياناتك نهائياً ولا يمكن استعادتها.'
-        : 'Are you sure? All your data will be permanently deleted and cannot be recovered.',
+        ? 'هل أنت متأكد؟ سيتم حذف هذا الجهاز وسيتم تسجيل الخروج تلقائياً.'
+        : 'Are you sure? This device will be removed and you will be signed out.',
       [
         { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
           text: isRTL ? 'حذف' : 'Delete',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              isRTL ? 'تواصل معنا' : 'Contact Us',
-              isRTL
-                ? 'لحذف حسابك نهائياً، تواصل معنا على iropitapp@gmail.com'
-                : 'To permanently delete your account, contact us at iropitapp@gmail.com',
-            );
+          onPress: async () => {
+            if (!currentDevice) {
+              signOut();
+              return;
+            }
+            try {
+              await firestore()
+                .collection('devices')
+                .doc(currentDevice.id)
+                .delete();
+            } catch (e) {
+              // still sign out even if delete fails
+            }
+            signOut();
           },
         },
       ],
     );
-  }, [isRTL]);
+  }, [isRTL, currentDevice, signOut]);
 
   const navigateToUserSettings = useCallback(() => {
     navigation.navigate('UserSettings');
@@ -137,10 +147,10 @@ export const useMenuScreen = (navigation: any) => {
         },
         {
           icon: 'trash-outline',
-          title: isRTL ? 'حذف الحساب' : 'Delete Account',
+          title: isRTL ? 'حذف هذا الجهاز' : 'Delete This Device',
           subtitle: '',
           danger: true,
-          onPress: handleDeleteAccount,
+          onPress: handleDeleteDevice,
         },
       ],
     },
