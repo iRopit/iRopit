@@ -26881,6 +26881,7 @@ ${this.customData.serverResponse}`;
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
       const isSelected = notifSelectionMode && selectedNotifApps.has(key);
+      const groupDeviceName = resolveDeviceName(latest) || group.items.map(resolveDeviceName).find(Boolean) || null;
       return `
       <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
            data-app-key="${escapeHtml(key)}"
@@ -26897,7 +26898,7 @@ ${this.customData.serverResponse}`;
           <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${unreadCount > 0 ? `${unreadCount} unread` : ""}
-            ${resolveDeviceName(latest) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(latest))}</span>` : ""}
+            ${groupDeviceName ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(groupDeviceName)}</span>` : ""}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
