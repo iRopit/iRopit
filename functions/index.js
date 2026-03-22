@@ -87,6 +87,16 @@ function decryptString(encryptedData, userId) {
 }
 
 /**
+ * Safe decrypt: returns empty string if decryption fails or result is still encrypted
+ */
+function safeDecrypt(value, userId) {
+  if (!value) return "";
+  const result = decryptString(value, userId);
+  if (!result || (typeof result === "string" && result.startsWith(ENCRYPTION_PREFIX))) return "";
+  return result;
+}
+
+/**
  * Cloud Function: Process push notification requests
  * Triggered when a new document is created in push_notifications collection
  */
@@ -113,12 +123,19 @@ exports.sendPushNotification = onDocumentCreated(
       return null;
     }
 
+    // Decrypt title/body if they were stored encrypted
+    const userId = notification.userId;
+    const rawTitle = notification.notification?.title || "New Message";
+    const rawBody = notification.notification?.body || "";
+    const notifTitle = safeDecrypt(rawTitle, userId) || rawTitle;
+    const notifBody = safeDecrypt(rawBody, userId) || rawBody;
+
     // Build the FCM message
     const message = {
       token: fcmToken,
       notification: {
-        title: notification.notification?.title || "New Message",
-        body: notification.notification?.body || "",
+        title: notifTitle,
+        body: notifBody,
       },
       data: {
         type: notification.data?.type || "chat",
@@ -366,12 +383,12 @@ exports.onNewDeviceNotification = onDocumentCreated(
       return null;
     }
 
-    // Decrypt fields if encrypted
-    let title = decryptString(data.title, userId) || data.title || "";
-    let text = decryptString(data.text, userId) || data.text || "";
-    let body = decryptString(data.body, userId) || data.body || text;
-    let contactName =
-      decryptString(data.contactName, userId) || data.contactName || "";
+    // Decrypt fields if encrypted (safeDecrypt returns "" if decryption fails,
+    // preventing raw "ENC:..." strings from leaking into push notification titles)
+    let title = safeDecrypt(data.title, userId) || "";
+    let text = safeDecrypt(data.text, userId) || "";
+    let body = safeDecrypt(data.body, userId) || text;
+    let contactName = safeDecrypt(data.contactName, userId) || "";
     let phoneNumber = data.phoneNumber || "";
 
     // Build notification content based on type
