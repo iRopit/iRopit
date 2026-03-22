@@ -24253,803 +24253,6 @@ ${this.customData.serverResponse}`;
     }
   });
 
-  // src/utils/appIcons.js
-  function getAppIcon2(packageName, firestoreIcon = null) {
-    if (firestoreIcon) {
-      return {
-        type: "image",
-        src: firestoreIcon,
-        name: APP_ICONS[packageName]?.name || packageName
-      };
-    }
-    const mapped = APP_ICONS[packageName];
-    if (mapped) {
-      return {
-        type: "svg",
-        svg: mapped.svg,
-        color: mapped.color,
-        name: mapped.name,
-        textColor: mapped.textColor
-      };
-    }
-    return {
-      type: "svg",
-      svg: APP_ICONS.default.svg,
-      color: APP_ICONS.default.color,
-      name: packageName
-    };
-  }
-  function renderAppIcon(packageName, firestoreIcon = null, size = 40) {
-    const icon = getAppIcon2(packageName, firestoreIcon);
-    if (icon.type === "image") {
-      return `<img src="${icon.src}" alt="${icon.name}" style="width:${size}px;height:${size}px;border-radius:8px;object-fit:cover;" />`;
-    }
-    return `
-    <div style="width:${size}px;height:${size}px;border-radius:8px;background:${icon.color};display:flex;align-items:center;justify-content:center;">
-      <div style="width:${size * 0.6}px;height:${size * 0.6}px;color:${icon.textColor || "#fff"};">
-        ${icon.svg.replace(
-      /fill="[^"]*"/,
-      `fill="${icon.textColor || "#fff"}"`
-    )}
-      </div>
-    </div>
-  `;
-  }
-  var APP_ICONS;
-  var init_appIcons = __esm({
-    "src/utils/appIcons.js"() {
-      APP_ICONS = {
-        // Messaging Apps
-        "com.whatsapp": {
-          name: "WhatsApp",
-          color: "#25D366",
-          svg: `<svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`
-        },
-        "com.whatsapp.w4b": {
-          name: "WhatsApp Business",
-          color: "#25D366",
-          svg: `<svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`
-        },
-        "org.telegram.messenger": {
-          name: "Telegram",
-          color: "#0088cc",
-          svg: `<svg viewBox="0 0 24 24" fill="#0088cc"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`
-        },
-        "com.facebook.orca": {
-          name: "Messenger",
-          color: "#0084FF",
-          svg: `<svg viewBox="0 0 24 24" fill="#0084FF"><path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.654V24l4.088-2.242c1.092.301 2.246.464 3.443.464 6.627 0 12-4.974 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z"/></svg>`
-        },
-        "com.instagram.android": {
-          name: "Instagram",
-          color: "#E4405F",
-          gradient: "linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
-          svg: `<svg viewBox="0 0 24 24" fill="#E4405F"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.757-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>`
-        },
-        "com.snapchat.android": {
-          name: "Snapchat",
-          color: "#FFFC00",
-          textColor: "#000",
-          svg: `<svg viewBox="0 0 24 24" fill="#FFFC00"><path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z"/></svg>`
-        },
-        "com.twitter.android": {
-          name: "X (Twitter)",
-          color: "#000000",
-          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
-        },
-        "com.x.android": {
-          name: "X",
-          color: "#000000",
-          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
-        },
-        "com.facebook.katana": {
-          name: "Facebook",
-          color: "#1877F2",
-          svg: `<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
-        },
-        "com.tiktok.android": {
-          name: "TikTok",
-          color: "#000000",
-          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`
-        },
-        "com.linkedin.android": {
-          name: "LinkedIn",
-          color: "#0A66C2",
-          svg: `<svg viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>`
-        },
-        "com.discord": {
-          name: "Discord",
-          color: "#5865F2",
-          svg: `<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>`
-        },
-        "com.spotify.music": {
-          name: "Spotify",
-          color: "#1DB954",
-          svg: `<svg viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`
-        },
-        "com.google.android.youtube": {
-          name: "YouTube",
-          color: "#FF0000",
-          svg: `<svg viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`
-        },
-        "com.google.android.gm": {
-          name: "Gmail",
-          color: "#EA4335",
-          svg: `<svg viewBox="0 0 24 24" fill="#EA4335"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/></svg>`
-        },
-        "com.microsoft.teams": {
-          name: "Teams",
-          color: "#6264A7",
-          svg: `<svg viewBox="0 0 24 24" fill="#6264A7"><path d="M20.625 8.03h-2.997V6.2a2.291 2.291 0 0 0-.792-1.725 2.576 2.576 0 0 0-1.792-.693h-6.09a2.576 2.576 0 0 0-1.79.693A2.291 2.291 0 0 0 6.37 6.2v6.25a2.291 2.291 0 0 0 .793 1.725 2.576 2.576 0 0 0 1.79.693h6.09a2.576 2.576 0 0 0 1.792-.693 2.291 2.291 0 0 0 .792-1.725v-.87h2.997a.687.687 0 0 0 .687-.687V8.717a.687.687 0 0 0-.687-.687zM12 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5z"/><path d="M19.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/><path d="M21.375 11.25h-3.75a.375.375 0 0 0-.375.375v5.625a2.25 2.25 0 0 1-2.25 2.25H9a.375.375 0 0 0-.375.375v.75c0 .621.504 1.125 1.125 1.125h11.625c.621 0 1.125-.504 1.125-1.125v-8.25c0-.621-.504-1.125-1.125-1.125z"/></svg>`
-        },
-        "com.slack": {
-          name: "Slack",
-          color: "#4A154B",
-          svg: `<svg viewBox="0 0 24 24" fill="#4A154B"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>`
-        },
-        // Default icon for unknown apps
-        default: {
-          name: "App",
-          color: "#d5c19e",
-          svg: `<svg viewBox="0 0 24 24" fill="#d5c19e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`
-        }
-      };
-    }
-  });
-
-  // src/services/notifications.js
-  var notifications_exports = {};
-  __export(notifications_exports, {
-    clearAllNotifications: () => clearAllNotifications2,
-    deleteSelectedNotifications: () => deleteSelectedNotifications,
-    exportNotificationsToCSV: () => exportNotificationsToCSV,
-    loadNotifications: () => loadNotifications,
-    markAllNotificationsAsRead: () => markAllNotificationsAsRead,
-    reRenderNotifications: () => reRenderNotifications,
-    setNotifSelectAll: () => setNotifSelectAll,
-    toggleNotifSelectionMode: () => toggleNotifSelectionMode
-  });
-  function _updateNotifSelectionToolbar(totalApps) {
-    const deleteBtn = document.getElementById("deleteAllNotifBtn");
-    const countSpan = document.getElementById("notifSelectedCount");
-    const selectAllCb = document.getElementById("notifSelectAll");
-    if (deleteBtn) deleteBtn.disabled = selectedNotifApps.size === 0;
-    if (countSpan) countSpan.textContent = selectedNotifApps.size;
-    if (selectAllCb) {
-      selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
-      selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
-    }
-  }
-  async function loadNotifications() {
-    const user = currentUser;
-    if (!user) return;
-    try {
-      const cached = await getCachedNotifications();
-      if (cached && cached.byDevice) {
-        let hasData = false;
-        for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
-          if (notifs.length > 0) {
-            setNotificationsData(deviceId, notifs);
-            hasData = true;
-          }
-        }
-        if (hasData) {
-          const merged = getMergedNotifications();
-          renderNotifications(merged.slice(0, 200));
-          updateTabBadges();
-          if (notificationsList && notificationsList.querySelector(".loading-spinner")) {
-          }
-          console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
-        }
-      }
-    } catch (e) {
-      console.warn("[Notifications] Cache load failed:", e);
-    }
-    const userNotificationsQuery = query(
-      collection(db, "users", user.uid, "notifications"),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
-    const userNotifUnsub = onSnapshot(userNotificationsQuery, (snapshot) => {
-      const notifications = [];
-      snapshot.forEach((doc2) => {
-        const data = doc2.data();
-        const firestoreId = doc2.id;
-        notifications.push({
-          ...data,
-          id: firestoreId,
-          // Use Firestore ID, not data.id
-          deviceId: data.deviceId || "user",
-          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
-        });
-      });
-      updateNotificationsList("_user_notifications", notifications);
-      cacheNotificationsData(allNotifications).catch(() => {
-      });
-    });
-    addUnsubscriber(userNotifUnsub);
-    const devicesQuery = query(
-      collection(db, "devices"),
-      where("userId", "==", user.uid)
-    );
-    const devicesSnapshot = await getDocs(devicesQuery);
-    const devicesList2 = [];
-    devicesSnapshot.forEach((doc2) => {
-      const data = doc2.data();
-      let friendlyName = data.nickname;
-      if (!friendlyName) {
-        if (data.name && /[a-zA-Z]/.test(data.name) && !/^[A-Z0-9]+$/.test(data.name)) {
-          friendlyName = data.name;
-        } else {
-          const platform = (data.platform || "").toLowerCase();
-          friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-        }
-      }
-      devicesList2.push({
-        id: data.id,
-        name: friendlyName
-      });
-    });
-    devicesList2.forEach((device) => {
-      const q2 = query(
-        collection(db, "users", user.uid, "devices", device.id, "notifications"),
-        orderBy("timestamp", "desc"),
-        limit(200)
-      );
-      const unsub = onSnapshot(
-        q2,
-        (snapshot) => {
-          const notifications = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const firestoreId = docSnap.id;
-            console.log(
-              `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`
-            );
-            notifications.push({
-              ...data,
-              id: firestoreId,
-              // Use Firestore ID, not data.id
-              deviceId: device.id,
-              deviceName: device.name
-            });
-          });
-          updateNotificationsList(device.id, notifications);
-          cacheNotificationsData(allNotifications).catch(() => {
-          });
-        }
-        // (error) => {
-        //   console.error(
-        //     "❌ Error loading notifications for device",
-        //     device.id,
-        //     ":",
-        //     error,
-        //   );
-        // },
-      );
-      addUnsubscriber(unsub);
-    });
-  }
-  function resolveDeviceName(notif) {
-    if (notif.deviceName) return notif.deviceName;
-    if (!notif.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications") return null;
-    const device = devices.find((d) => d.id === notif.deviceId);
-    if (!device) return null;
-    return device.nickname || device.name || null;
-  }
-  function getMergedNotifications() {
-    let merged = [];
-    Object.values(allNotifications).forEach((notifs) => {
-      merged = merged.concat(notifs);
-    });
-    const seen = /* @__PURE__ */ new Set();
-    merged = merged.filter((n) => {
-      if (seen.has(n.id)) return false;
-      seen.add(n.id);
-      return true;
-    });
-    merged.sort((a, b) => {
-      const timeA = a.receivedAt || a.timestamp || 0;
-      const timeB = b.receivedAt || b.timestamp || 0;
-      return timeB - timeA;
-    });
-    return merged;
-  }
-  function reRenderNotifications() {
-    const merged = getMergedNotifications();
-    const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
-    renderNotifications(filtered.slice(0, 200));
-  }
-  function wireSearchAndDetail() {
-    if (_searchWired) return;
-    _searchWired = true;
-    const searchInput = document.getElementById("notifSearchInput");
-    if (searchInput) {
-      searchInput.addEventListener("input", () => {
-        reRenderNotifications();
-      });
-    }
-    document.getElementById("notifBackBtn")?.addEventListener("click", () => {
-      hideNotifDetail();
-    });
-  }
-  function getSearchQuery() {
-    return (document.getElementById("notifSearchInput")?.value || "").trim().toLowerCase();
-  }
-  function showNotifDetail(appKey, appName, notifications) {
-    const mainView = document.getElementById("notifMainView");
-    const detailView = document.getElementById("notifDetailView");
-    const detailList = document.getElementById("notifDetailList");
-    const detailTitle = document.getElementById("notifDetailTitle");
-    if (!mainView || !detailView || !detailList) return;
-    detailTitle.textContent = appName;
-    mainView.style.display = "none";
-    detailView.style.display = "flex";
-    const unreadInGroup = notifications.filter((n) => !n.read);
-    if (unreadInGroup.length > 0) {
-      unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
-    }
-    detailList.innerHTML = notifications.map((notif) => `
-    <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
-         data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
-      <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
-      <div class="notif-bubble-body">${escapeHtml(notif.text || notif.body || "")}</div>
-      <div class="notif-bubble-footer">
-        ${resolveDeviceName(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
-        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
-      </div>
-    </div>
-  `).join("");
-    const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
-    detailList.querySelectorAll(".notif-detail-bubble").forEach((item) => {
-      item.addEventListener("click", async () => {
-        const notifId = item.dataset.notifId;
-        const deviceId = item.dataset.deviceId;
-        if (notifId && deviceId) {
-          await markNotificationAsRead(deviceId, notifId);
-          item.classList.remove("unread");
-          item.querySelector(".unread-dot")?.remove();
-        }
-        if (isWhatsApp) {
-          const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
-          const cleanTitle = title.replace(/●/g, "").trim();
-          const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
-          if (phoneMatch) {
-            const phone = cleanTitle.replace(/[^\d+]/g, "");
-            window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
-          } else {
-            window.open("https://web.whatsapp.com/", "_blank");
-          }
-        }
-      });
-    });
-  }
-  function hideNotifDetail() {
-    const mainView = document.getElementById("notifMainView");
-    const detailView = document.getElementById("notifDetailView");
-    if (!mainView || !detailView) return;
-    detailView.style.display = "none";
-    mainView.style.display = "flex";
-  }
-  function updateNotificationsList(deviceId, newNotifications) {
-    setNotificationsData(deviceId, newNotifications);
-    scheduleRender();
-    updateTabBadges();
-  }
-  function scheduleRender() {
-    if (_renderTimer) clearTimeout(_renderTimer);
-    _renderTimer = setTimeout(() => {
-      _renderTimer = null;
-      const merged = getMergedNotifications();
-      const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-      const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
-      renderNotifications(filtered.slice(0, 200));
-    }, 80);
-  }
-  function renderNotifications(notifications) {
-    wireSearchAndDetail();
-    const q2 = getSearchQuery();
-    if (q2) {
-      notifications = notifications.filter(
-        (n) => (n.title || "").toLowerCase().includes(q2) || (n.text || "").toLowerCase().includes(q2) || (n.appName || "").toLowerCase().includes(q2) || (n.body || "").toLowerCase().includes(q2)
-      );
-    }
-    if (notifications.length === 0) {
-      notificationsList.innerHTML = `
-      <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
-        <p>${q2 ? 'No results for "' + q2 + '"' : "No notifications yet"}</p>
-        <span>${q2 ? "Try a different search term" : "Notifications from your phone will appear here"}</span>
-      </div>
-    `;
-      updateTabBadges();
-      return;
-    }
-    const groups = {};
-    notifications.forEach((n) => {
-      const key = n.packageName || n.appName || "unknown";
-      if (!groups[key]) groups[key] = { appName: n.appName || "Unknown App", packageName: n.packageName, appIcon: n.appIcon, items: [] };
-      groups[key].items.push(n);
-    });
-    notificationsList.innerHTML = Object.entries(groups).map(([key, group]) => {
-      const latest = group.items[0];
-      const unreadCount = group.items.filter((n) => !n.read).length;
-      const hasUnread = unreadCount > 0;
-      const isSelected = notifSelectionMode && selectedNotifApps.has(key);
-      return `
-      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
-           data-app-key="${escapeHtml(key)}"
-           data-app-name="${escapeHtml(group.appName)}">
-        ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
-        <div class="list-item-icon notification-icon">
-          ${renderAppIcon(group.packageName, group.appIcon, 40)}
-        </div>
-        <div class="list-item-content">
-          <div class="list-item-title">
-            ${escapeHtml(group.appName)}
-            ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
-          </div>
-          <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
-          <div class="notification-app">
-            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
-            ${resolveDeviceName(latest) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(latest))}</span>` : ""}
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-          <span class="list-item-time">${formatTime(latest.receivedAt || latest.timestamp)}</span>
-          ${unreadCount > 1 ? `<span class="tab-badge" style="position:static;display:inline-block;">${unreadCount}</span>` : ""}
-        </div>
-      </div>
-    `;
-    }).join("");
-    const appKeys = Object.keys(groups);
-    notificationsList.querySelectorAll(".notification-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        const key = item.dataset.appKey;
-        if (notifSelectionMode) {
-          const cb = item.querySelector(".notif-checkbox");
-          if (selectedNotifApps.has(key)) {
-            selectedNotifApps.delete(key);
-            item.classList.remove("selected");
-            if (cb) cb.checked = false;
-          } else {
-            selectedNotifApps.add(key);
-            item.classList.add("selected");
-            if (cb) cb.checked = true;
-          }
-          _updateNotifSelectionToolbar(appKeys.length);
-          return;
-        }
-        const name5 = item.dataset.appName;
-        const group = groups[key];
-        if (group) showNotifDetail(key, name5, group.items);
-      });
-    });
-    _updateNotifSelectionToolbar(appKeys.length);
-    let notifLongPressTimer = null;
-    notificationsList.addEventListener("pointerdown", (e) => {
-      const item = e.target.closest(".notification-item");
-      if (!item || notifSelectionMode) return;
-      notifLongPressTimer = setTimeout(() => {
-        notifLongPressTimer = null;
-        const key = item.dataset.appKey;
-        notifSelectionMode = true;
-        selectedNotifApps.clear();
-        document.getElementById("notifSelectBtn")?.classList.add("active");
-        const toolbar = document.getElementById("notifSelectToolbar");
-        if (toolbar) toolbar.style.display = "flex";
-        reRenderNotifications();
-        setTimeout(() => {
-          const el = document.querySelector(`.notification-item[data-app-key="${CSS.escape(key)}"]`);
-          if (el) {
-            selectedNotifApps.add(key);
-            el.classList.add("selected");
-            const cb = el.querySelector(".notif-checkbox");
-            if (cb) cb.checked = true;
-            _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
-          }
-        }, 0);
-      }, 500);
-    });
-    notificationsList.addEventListener("pointerup", () => {
-      if (notifLongPressTimer) {
-        clearTimeout(notifLongPressTimer);
-        notifLongPressTimer = null;
-      }
-    });
-    notificationsList.addEventListener("pointercancel", () => {
-      if (notifLongPressTimer) {
-        clearTimeout(notifLongPressTimer);
-        notifLongPressTimer = null;
-      }
-    });
-    notificationsList.addEventListener("pointermove", () => {
-      if (notifLongPressTimer) {
-        clearTimeout(notifLongPressTimer);
-        notifLongPressTimer = null;
-      }
-    });
-    updateTabBadges();
-  }
-  async function markNotificationAsRead(deviceId, notifId) {
-    const user = currentUser;
-    if (!user) return;
-    if (!notifId || /^-?\d+$/.test(notifId)) {
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
-      return;
-    }
-    try {
-      if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-        const notifRef = doc(
-          db,
-          "users",
-          user.uid,
-          "devices",
-          deviceId,
-          "notifications",
-          notifId
-        );
-        await updateDoc(notifRef, { read: true });
-      } else {
-        const notifRef = doc(db, "users", user.uid, "notifications", notifId);
-        await updateDoc(notifRef, { read: true });
-      }
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
-    } catch (error) {
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
-    }
-  }
-  async function markAllNotificationsAsRead() {
-    const user = currentUser;
-    if (!user) return;
-    let unreadNotifs = [];
-    Object.entries(allNotifications).forEach(([stateKey, notifs]) => {
-      notifs.forEach((n) => {
-        if (!n.read) {
-          const actualDeviceId = n.deviceId || stateKey;
-          unreadNotifs.push({ ...n, actualDeviceId });
-        }
-      });
-    });
-    console.log(
-      `[Notifications] Found ${unreadNotifs.length} unread notifications to mark`
-    );
-    if (unreadNotifs.length === 0) return;
-    Object.keys(allNotifications).forEach((key) => {
-      const updated = allNotifications[key].map((n) => ({
-        ...n,
-        read: true
-      }));
-      setNotificationsData(key, updated);
-    });
-    updateTabBadges();
-    reRenderNotifications();
-    await updateFirestoreNotifications(user.uid, unreadNotifs);
-  }
-  async function updateFirestoreNotifications(userId, unreadNotifs) {
-    const validNotifs = unreadNotifs.filter((n) => n.id && !/^-?\d+$/.test(n.id));
-    if (validNotifs.length === 0) return;
-    let successCount = 0;
-    let failCount = 0;
-    const BATCH_SIZE = 500;
-    for (let i = 0; i < validNotifs.length; i += BATCH_SIZE) {
-      const chunk = validNotifs.slice(i, i + BATCH_SIZE);
-      const batch = writeBatch(db);
-      chunk.forEach((notif) => {
-        const deviceId = notif.actualDeviceId;
-        let notifRef;
-        if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-          notifRef = doc(db, "users", userId, "devices", deviceId, "notifications", notif.id);
-        } else {
-          notifRef = doc(db, "users", userId, "notifications", notif.id);
-        }
-        batch.update(notifRef, { read: true });
-      });
-      try {
-        await batch.commit();
-        successCount += chunk.length;
-      } catch (e) {
-        failCount += chunk.length;
-        console.warn(`[Notifications] Batch update failed: ${e.message}`);
-      }
-    }
-    console.log(`[Notifications] Done: ${successCount} success, ${failCount} failed`);
-  }
-  async function clearAllNotifications2() {
-    const user = currentUser;
-    if (!user) return;
-    const selectedTab = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const isAll = selectedTab === "all";
-    const isAr = getCurrentLanguage() === "ar";
-    const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for the selected device? This cannot be undone.";
-    if (!await showConfirmDialog(confirmMsg)) return;
-    const targetKeys = isAll ? Object.keys(allNotifications) : Object.keys(allNotifications).filter((key) => {
-      const notifs = allNotifications[key] || [];
-      return notifs.some((n) => (n.deviceId || key) === selectedTab);
-    });
-    try {
-      for (const deviceKey of targetKeys) {
-        const notifs = (allNotifications[deviceKey] || []).filter(
-          (n) => isAll || (n.deviceId || deviceKey) === selectedTab
-        );
-        if (notifs.length === 0) continue;
-        const batch = writeBatch(db);
-        notifs.forEach((n) => {
-          if (!n.id || /^-?\d+$/.test(n.id)) return;
-          const deviceId = n.deviceId || deviceKey;
-          let notifRef;
-          if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-            notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
-          } else {
-            notifRef = doc(db, "users", user.uid, "notifications", n.id);
-          }
-          batch.delete(notifRef);
-        });
-        await batch.commit();
-      }
-    } catch (error) {
-      console.error("[Notifications] Failed to delete from Firestore:", error);
-    }
-    if (isAll) {
-      clearAllNotifications();
-    } else {
-      Object.keys(allNotifications).forEach((key) => {
-        const filtered = (allNotifications[key] || []).filter(
-          (n) => (n.deviceId || key) !== selectedTab
-        );
-        setNotificationsData(key, filtered);
-      });
-    }
-    reRenderNotifications();
-    updateTabBadges();
-  }
-  function toggleNotifSelectionMode() {
-    notifSelectionMode = !notifSelectionMode;
-    selectedNotifApps.clear();
-    const selectBtn = document.getElementById("notifSelectBtn");
-    const toolbar = document.getElementById("notifSelectToolbar");
-    if (notifSelectionMode) {
-      selectBtn?.classList.add("active");
-      if (toolbar) toolbar.style.display = "flex";
-    } else {
-      selectBtn?.classList.remove("active");
-      if (toolbar) toolbar.style.display = "none";
-    }
-    reRenderNotifications();
-    _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
-  }
-  function setNotifSelectAll(checked) {
-    const items = document.querySelectorAll(".notification-item[data-app-key]");
-    items.forEach((el) => {
-      const key = el.dataset.appKey;
-      const cb = el.querySelector(".notif-checkbox");
-      if (checked) {
-        selectedNotifApps.add(key);
-        el.classList.add("selected");
-        if (cb) cb.checked = true;
-      } else {
-        selectedNotifApps.delete(key);
-        el.classList.remove("selected");
-        if (cb) cb.checked = false;
-      }
-    });
-    _updateNotifSelectionToolbar(items.length);
-  }
-  async function deleteSelectedNotifications() {
-    if (selectedNotifApps.size === 0) return;
-    const count = selectedNotifApps.size;
-    const isAr = getCurrentLanguage() === "ar";
-    if (!await showConfirmDialog(
-      isAr ? `\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${count} \u062A\u0637\u0628\u064A\u0642\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete notifications for ${count} app${count > 1 ? "s" : ""}? This cannot be undone.`
-    )) return;
-    const user = currentUser;
-    if (!user) return;
-    try {
-      const batch = writeBatch(db);
-      let deletedCount = 0;
-      Object.entries(allNotifications).forEach(([deviceKey, notifs]) => {
-        notifs.forEach((n) => {
-          const appKey = n.packageName || n.appName || "unknown";
-          if (!selectedNotifApps.has(appKey) || !n.id || /^-?\d+$/.test(n.id)) return;
-          const deviceId = n.deviceId || deviceKey;
-          let notifRef;
-          if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-            notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
-          } else {
-            notifRef = doc(db, "users", user.uid, "notifications", n.id);
-          }
-          batch.delete(notifRef);
-          deletedCount++;
-        });
-      });
-      if (deletedCount > 0) await batch.commit();
-      Object.keys(allNotifications).forEach((deviceKey) => {
-        const filtered = (allNotifications[deviceKey] || []).filter((n) => {
-          const appKey = n.packageName || n.appName || "unknown";
-          return !selectedNotifApps.has(appKey);
-        });
-        setNotificationsData(deviceKey, filtered);
-      });
-      showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
-    } catch (error) {
-      console.error("[Notifications] deleteSelectedNotifications error:", error);
-      showToast("Failed to delete selected notifications", "error");
-    }
-    notifSelectionMode = false;
-    selectedNotifApps.clear();
-    document.getElementById("notifSelectBtn")?.classList.remove("active");
-    const toolbar = document.getElementById("notifSelectToolbar");
-    if (toolbar) toolbar.style.display = "none";
-    reRenderNotifications();
-    updateTabBadges();
-  }
-  function exportNotificationsToCSV() {
-    let notifications = getMergedNotifications();
-    if (notifications.length === 0) {
-      alert("No notifications to export.");
-      return;
-    }
-    const header = ["Date", "Time", "App", "Title", "Body", "Device"];
-    const rows = notifications.map((n) => {
-      const d = new Date(n.receivedAt || n.timestamp || 0);
-      const date = d.toLocaleDateString("en-GB");
-      const time = d.toLocaleTimeString();
-      const app2 = n.appName || n.packageName || "";
-      const title = n.title || "";
-      const body = n.text || n.body || "";
-      const device = n.deviceName || "";
-      return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
-    });
-    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `iRopit-Notifications-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  var notifSelectionMode, selectedNotifApps, _searchWired, _renderTimer;
-  var init_notifications = __esm({
-    "src/services/notifications.js"() {
-      init_firebase();
-      init_dom();
-      init_toasts();
-      init_helpers();
-      init_appIcons();
-      init_state();
-      init_badges();
-      init_i18n();
-      init_cache();
-      notifSelectionMode = false;
-      selectedNotifApps = /* @__PURE__ */ new Set();
-      _searchWired = false;
-      _renderTimer = null;
-    }
-  });
-
   // src/services/chat.js
   var chat_exports = {};
   __export(chat_exports, {
@@ -27251,6 +26454,803 @@ ${this.customData.serverResponse}`;
     }
   });
 
+  // src/utils/appIcons.js
+  function getAppIcon2(packageName, firestoreIcon = null) {
+    if (firestoreIcon) {
+      return {
+        type: "image",
+        src: firestoreIcon,
+        name: APP_ICONS[packageName]?.name || packageName
+      };
+    }
+    const mapped = APP_ICONS[packageName];
+    if (mapped) {
+      return {
+        type: "svg",
+        svg: mapped.svg,
+        color: mapped.color,
+        name: mapped.name,
+        textColor: mapped.textColor
+      };
+    }
+    return {
+      type: "svg",
+      svg: APP_ICONS.default.svg,
+      color: APP_ICONS.default.color,
+      name: packageName
+    };
+  }
+  function renderAppIcon(packageName, firestoreIcon = null, size = 40) {
+    const icon = getAppIcon2(packageName, firestoreIcon);
+    if (icon.type === "image") {
+      return `<img src="${icon.src}" alt="${icon.name}" style="width:${size}px;height:${size}px;border-radius:8px;object-fit:cover;" />`;
+    }
+    return `
+    <div style="width:${size}px;height:${size}px;border-radius:8px;background:${icon.color};display:flex;align-items:center;justify-content:center;">
+      <div style="width:${size * 0.6}px;height:${size * 0.6}px;color:${icon.textColor || "#fff"};">
+        ${icon.svg.replace(
+      /fill="[^"]*"/,
+      `fill="${icon.textColor || "#fff"}"`
+    )}
+      </div>
+    </div>
+  `;
+  }
+  var APP_ICONS;
+  var init_appIcons = __esm({
+    "src/utils/appIcons.js"() {
+      APP_ICONS = {
+        // Messaging Apps
+        "com.whatsapp": {
+          name: "WhatsApp",
+          color: "#25D366",
+          svg: `<svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`
+        },
+        "com.whatsapp.w4b": {
+          name: "WhatsApp Business",
+          color: "#25D366",
+          svg: `<svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`
+        },
+        "org.telegram.messenger": {
+          name: "Telegram",
+          color: "#0088cc",
+          svg: `<svg viewBox="0 0 24 24" fill="#0088cc"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`
+        },
+        "com.facebook.orca": {
+          name: "Messenger",
+          color: "#0084FF",
+          svg: `<svg viewBox="0 0 24 24" fill="#0084FF"><path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.654V24l4.088-2.242c1.092.301 2.246.464 3.443.464 6.627 0 12-4.974 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z"/></svg>`
+        },
+        "com.instagram.android": {
+          name: "Instagram",
+          color: "#E4405F",
+          gradient: "linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
+          svg: `<svg viewBox="0 0 24 24" fill="#E4405F"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.757-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>`
+        },
+        "com.snapchat.android": {
+          name: "Snapchat",
+          color: "#FFFC00",
+          textColor: "#000",
+          svg: `<svg viewBox="0 0 24 24" fill="#FFFC00"><path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z"/></svg>`
+        },
+        "com.twitter.android": {
+          name: "X (Twitter)",
+          color: "#000000",
+          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
+        },
+        "com.x.android": {
+          name: "X",
+          color: "#000000",
+          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`
+        },
+        "com.facebook.katana": {
+          name: "Facebook",
+          color: "#1877F2",
+          svg: `<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`
+        },
+        "com.tiktok.android": {
+          name: "TikTok",
+          color: "#000000",
+          svg: `<svg viewBox="0 0 24 24" fill="#000000"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`
+        },
+        "com.linkedin.android": {
+          name: "LinkedIn",
+          color: "#0A66C2",
+          svg: `<svg viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>`
+        },
+        "com.discord": {
+          name: "Discord",
+          color: "#5865F2",
+          svg: `<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>`
+        },
+        "com.spotify.music": {
+          name: "Spotify",
+          color: "#1DB954",
+          svg: `<svg viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`
+        },
+        "com.google.android.youtube": {
+          name: "YouTube",
+          color: "#FF0000",
+          svg: `<svg viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`
+        },
+        "com.google.android.gm": {
+          name: "Gmail",
+          color: "#EA4335",
+          svg: `<svg viewBox="0 0 24 24" fill="#EA4335"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/></svg>`
+        },
+        "com.microsoft.teams": {
+          name: "Teams",
+          color: "#6264A7",
+          svg: `<svg viewBox="0 0 24 24" fill="#6264A7"><path d="M20.625 8.03h-2.997V6.2a2.291 2.291 0 0 0-.792-1.725 2.576 2.576 0 0 0-1.792-.693h-6.09a2.576 2.576 0 0 0-1.79.693A2.291 2.291 0 0 0 6.37 6.2v6.25a2.291 2.291 0 0 0 .793 1.725 2.576 2.576 0 0 0 1.79.693h6.09a2.576 2.576 0 0 0 1.792-.693 2.291 2.291 0 0 0 .792-1.725v-.87h2.997a.687.687 0 0 0 .687-.687V8.717a.687.687 0 0 0-.687-.687zM12 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5z"/><path d="M19.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/><path d="M21.375 11.25h-3.75a.375.375 0 0 0-.375.375v5.625a2.25 2.25 0 0 1-2.25 2.25H9a.375.375 0 0 0-.375.375v.75c0 .621.504 1.125 1.125 1.125h11.625c.621 0 1.125-.504 1.125-1.125v-8.25c0-.621-.504-1.125-1.125-1.125z"/></svg>`
+        },
+        "com.slack": {
+          name: "Slack",
+          color: "#4A154B",
+          svg: `<svg viewBox="0 0 24 24" fill="#4A154B"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>`
+        },
+        // Default icon for unknown apps
+        default: {
+          name: "App",
+          color: "#d5c19e",
+          svg: `<svg viewBox="0 0 24 24" fill="#d5c19e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`
+        }
+      };
+    }
+  });
+
+  // src/services/notifications.js
+  var notifications_exports = {};
+  __export(notifications_exports, {
+    clearAllNotifications: () => clearAllNotifications2,
+    deleteSelectedNotifications: () => deleteSelectedNotifications,
+    exportNotificationsToCSV: () => exportNotificationsToCSV,
+    loadNotifications: () => loadNotifications,
+    markAllNotificationsAsRead: () => markAllNotificationsAsRead,
+    reRenderNotifications: () => reRenderNotifications,
+    setNotifSelectAll: () => setNotifSelectAll,
+    toggleNotifSelectionMode: () => toggleNotifSelectionMode
+  });
+  function _updateNotifSelectionToolbar(totalApps) {
+    const deleteBtn = document.getElementById("deleteAllNotifBtn");
+    const countSpan = document.getElementById("notifSelectedCount");
+    const selectAllCb = document.getElementById("notifSelectAll");
+    if (deleteBtn) deleteBtn.disabled = selectedNotifApps.size === 0;
+    if (countSpan) countSpan.textContent = selectedNotifApps.size;
+    if (selectAllCb) {
+      selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
+      selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
+    }
+  }
+  async function loadNotifications() {
+    const user = currentUser;
+    if (!user) return;
+    try {
+      const cached = await getCachedNotifications();
+      if (cached && cached.byDevice) {
+        let hasData = false;
+        for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+          if (notifs.length > 0) {
+            setNotificationsData(deviceId, notifs);
+            hasData = true;
+          }
+        }
+        if (hasData) {
+          const merged = getMergedNotifications();
+          renderNotifications(merged.slice(0, 200));
+          updateTabBadges();
+          if (notificationsList && notificationsList.querySelector(".loading-spinner")) {
+          }
+          console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
+        }
+      }
+    } catch (e) {
+      console.warn("[Notifications] Cache load failed:", e);
+    }
+    const userNotificationsQuery = query(
+      collection(db, "users", user.uid, "notifications"),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
+    const userNotifUnsub = onSnapshot(userNotificationsQuery, (snapshot) => {
+      const notifications = [];
+      snapshot.forEach((doc2) => {
+        const data = doc2.data();
+        const firestoreId = doc2.id;
+        notifications.push({
+          ...data,
+          id: firestoreId,
+          // Use Firestore ID, not data.id
+          deviceId: data.deviceId || "user",
+          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
+        });
+      });
+      updateNotificationsList("_user_notifications", notifications);
+      cacheNotificationsData(allNotifications).catch(() => {
+      });
+    });
+    addUnsubscriber(userNotifUnsub);
+    const devicesQuery = query(
+      collection(db, "devices"),
+      where("userId", "==", user.uid)
+    );
+    const devicesSnapshot = await getDocs(devicesQuery);
+    const devicesList2 = [];
+    devicesSnapshot.forEach((doc2) => {
+      const data = doc2.data();
+      let friendlyName = data.nickname;
+      if (!friendlyName) {
+        if (data.name && /[a-zA-Z]/.test(data.name) && !/^[A-Z0-9]+$/.test(data.name)) {
+          friendlyName = data.name;
+        } else {
+          const platform = (data.platform || "").toLowerCase();
+          friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+        }
+      }
+      devicesList2.push({
+        id: data.id,
+        name: friendlyName
+      });
+    });
+    devicesList2.forEach((device) => {
+      const q2 = query(
+        collection(db, "users", user.uid, "devices", device.id, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(200)
+      );
+      const unsub = onSnapshot(
+        q2,
+        (snapshot) => {
+          const notifications = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const firestoreId = docSnap.id;
+            console.log(
+              `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`
+            );
+            notifications.push({
+              ...data,
+              id: firestoreId,
+              // Use Firestore ID, not data.id
+              deviceId: device.id,
+              deviceName: device.name
+            });
+          });
+          updateNotificationsList(device.id, notifications);
+          cacheNotificationsData(allNotifications).catch(() => {
+          });
+        }
+        // (error) => {
+        //   console.error(
+        //     "❌ Error loading notifications for device",
+        //     device.id,
+        //     ":",
+        //     error,
+        //   );
+        // },
+      );
+      addUnsubscriber(unsub);
+    });
+  }
+  function resolveDeviceName(notif) {
+    if (notif.deviceName) return notif.deviceName;
+    if (!notif.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications") return null;
+    const device = devices.find((d) => d.id === notif.deviceId);
+    if (!device) return null;
+    return device.nickname || device.name || null;
+  }
+  function getMergedNotifications() {
+    let merged = [];
+    Object.values(allNotifications).forEach((notifs) => {
+      merged = merged.concat(notifs);
+    });
+    const seen = /* @__PURE__ */ new Set();
+    merged = merged.filter((n) => {
+      if (seen.has(n.id)) return false;
+      seen.add(n.id);
+      return true;
+    });
+    merged.sort((a, b) => {
+      const timeA = a.receivedAt || a.timestamp || 0;
+      const timeB = b.receivedAt || b.timestamp || 0;
+      return timeB - timeA;
+    });
+    return merged;
+  }
+  function reRenderNotifications() {
+    const merged = getMergedNotifications();
+    const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
+    renderNotifications(filtered.slice(0, 200));
+  }
+  function wireSearchAndDetail() {
+    if (_searchWired) return;
+    _searchWired = true;
+    const searchInput = document.getElementById("notifSearchInput");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        reRenderNotifications();
+      });
+    }
+    document.getElementById("notifBackBtn")?.addEventListener("click", () => {
+      hideNotifDetail();
+    });
+  }
+  function getSearchQuery() {
+    return (document.getElementById("notifSearchInput")?.value || "").trim().toLowerCase();
+  }
+  function showNotifDetail(appKey, appName, notifications) {
+    const mainView = document.getElementById("notifMainView");
+    const detailView = document.getElementById("notifDetailView");
+    const detailList = document.getElementById("notifDetailList");
+    const detailTitle = document.getElementById("notifDetailTitle");
+    if (!mainView || !detailView || !detailList) return;
+    detailTitle.textContent = appName;
+    mainView.style.display = "none";
+    detailView.style.display = "flex";
+    const unreadInGroup = notifications.filter((n) => !n.read);
+    if (unreadInGroup.length > 0) {
+      unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
+    }
+    detailList.innerHTML = notifications.map((notif) => `
+    <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
+         data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
+      <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
+      <div class="notif-bubble-body">${escapeHtml(notif.text || notif.body || "")}</div>
+      <div class="notif-bubble-footer">
+        ${resolveDeviceName(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+      </div>
+    </div>
+  `).join("");
+    const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
+    detailList.querySelectorAll(".notif-detail-bubble").forEach((item) => {
+      item.addEventListener("click", async () => {
+        const notifId = item.dataset.notifId;
+        const deviceId = item.dataset.deviceId;
+        if (notifId && deviceId) {
+          await markNotificationAsRead(deviceId, notifId);
+          item.classList.remove("unread");
+          item.querySelector(".unread-dot")?.remove();
+        }
+        if (isWhatsApp) {
+          const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
+          const cleanTitle = title.replace(/●/g, "").trim();
+          const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
+          if (phoneMatch) {
+            const phone = cleanTitle.replace(/[^\d+]/g, "");
+            window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
+          } else {
+            window.open("https://web.whatsapp.com/", "_blank");
+          }
+        }
+      });
+    });
+  }
+  function hideNotifDetail() {
+    const mainView = document.getElementById("notifMainView");
+    const detailView = document.getElementById("notifDetailView");
+    if (!mainView || !detailView) return;
+    detailView.style.display = "none";
+    mainView.style.display = "flex";
+  }
+  function updateNotificationsList(deviceId, newNotifications) {
+    setNotificationsData(deviceId, newNotifications);
+    scheduleRender();
+    updateTabBadges();
+  }
+  function scheduleRender() {
+    if (_renderTimer) clearTimeout(_renderTimer);
+    _renderTimer = setTimeout(() => {
+      _renderTimer = null;
+      const merged = getMergedNotifications();
+      const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+      const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
+      renderNotifications(filtered.slice(0, 200));
+    }, 80);
+  }
+  function renderNotifications(notifications) {
+    wireSearchAndDetail();
+    const q2 = getSearchQuery();
+    if (q2) {
+      notifications = notifications.filter(
+        (n) => (n.title || "").toLowerCase().includes(q2) || (n.text || "").toLowerCase().includes(q2) || (n.appName || "").toLowerCase().includes(q2) || (n.body || "").toLowerCase().includes(q2)
+      );
+    }
+    if (notifications.length === 0) {
+      notificationsList.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <p>${q2 ? 'No results for "' + q2 + '"' : "No notifications yet"}</p>
+        <span>${q2 ? "Try a different search term" : "Notifications from your phone will appear here"}</span>
+      </div>
+    `;
+      updateTabBadges();
+      return;
+    }
+    const groups = {};
+    notifications.forEach((n) => {
+      const key = n.packageName || n.appName || "unknown";
+      if (!groups[key]) groups[key] = { appName: n.appName || "Unknown App", packageName: n.packageName, appIcon: n.appIcon, items: [] };
+      groups[key].items.push(n);
+    });
+    notificationsList.innerHTML = Object.entries(groups).map(([key, group]) => {
+      const latest = group.items[0];
+      const unreadCount = group.items.filter((n) => !n.read).length;
+      const hasUnread = unreadCount > 0;
+      const isSelected = notifSelectionMode && selectedNotifApps.has(key);
+      return `
+      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
+           data-app-key="${escapeHtml(key)}"
+           data-app-name="${escapeHtml(group.appName)}">
+        ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
+        <div class="list-item-icon notification-icon">
+          ${renderAppIcon(group.packageName, group.appIcon, 40)}
+        </div>
+        <div class="list-item-content">
+          <div class="list-item-title">
+            ${escapeHtml(group.appName)}
+            ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
+          </div>
+          <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="notification-app">
+            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
+            ${resolveDeviceName(latest) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(latest))}</span>` : ""}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          <span class="list-item-time">${formatTime(latest.receivedAt || latest.timestamp)}</span>
+          ${unreadCount > 1 ? `<span class="tab-badge" style="position:static;display:inline-block;">${unreadCount}</span>` : ""}
+        </div>
+      </div>
+    `;
+    }).join("");
+    const appKeys = Object.keys(groups);
+    notificationsList.querySelectorAll(".notification-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const key = item.dataset.appKey;
+        if (notifSelectionMode) {
+          const cb = item.querySelector(".notif-checkbox");
+          if (selectedNotifApps.has(key)) {
+            selectedNotifApps.delete(key);
+            item.classList.remove("selected");
+            if (cb) cb.checked = false;
+          } else {
+            selectedNotifApps.add(key);
+            item.classList.add("selected");
+            if (cb) cb.checked = true;
+          }
+          _updateNotifSelectionToolbar(appKeys.length);
+          return;
+        }
+        const name5 = item.dataset.appName;
+        const group = groups[key];
+        if (group) showNotifDetail(key, name5, group.items);
+      });
+    });
+    _updateNotifSelectionToolbar(appKeys.length);
+    let notifLongPressTimer = null;
+    notificationsList.addEventListener("pointerdown", (e) => {
+      const item = e.target.closest(".notification-item");
+      if (!item || notifSelectionMode) return;
+      notifLongPressTimer = setTimeout(() => {
+        notifLongPressTimer = null;
+        const key = item.dataset.appKey;
+        notifSelectionMode = true;
+        selectedNotifApps.clear();
+        document.getElementById("notifSelectBtn")?.classList.add("active");
+        const toolbar = document.getElementById("notifSelectToolbar");
+        if (toolbar) toolbar.style.display = "flex";
+        reRenderNotifications();
+        setTimeout(() => {
+          const el = document.querySelector(`.notification-item[data-app-key="${CSS.escape(key)}"]`);
+          if (el) {
+            selectedNotifApps.add(key);
+            el.classList.add("selected");
+            const cb = el.querySelector(".notif-checkbox");
+            if (cb) cb.checked = true;
+            _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+          }
+        }, 0);
+      }, 500);
+    });
+    notificationsList.addEventListener("pointerup", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
+    notificationsList.addEventListener("pointercancel", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
+    notificationsList.addEventListener("pointermove", () => {
+      if (notifLongPressTimer) {
+        clearTimeout(notifLongPressTimer);
+        notifLongPressTimer = null;
+      }
+    });
+    updateTabBadges();
+  }
+  async function markNotificationAsRead(deviceId, notifId) {
+    const user = currentUser;
+    if (!user) return;
+    if (!notifId || /^-?\d+$/.test(notifId)) {
+      Object.keys(allNotifications).forEach((key) => {
+        const updated = allNotifications[key].map(
+          (n) => n.id === notifId ? { ...n, read: true } : n
+        );
+        setNotificationsData(key, updated);
+      });
+      updateTabBadges();
+      return;
+    }
+    try {
+      if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+        const notifRef = doc(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          deviceId,
+          "notifications",
+          notifId
+        );
+        await updateDoc(notifRef, { read: true });
+      } else {
+        const notifRef = doc(db, "users", user.uid, "notifications", notifId);
+        await updateDoc(notifRef, { read: true });
+      }
+      Object.keys(allNotifications).forEach((key) => {
+        const updated = allNotifications[key].map(
+          (n) => n.id === notifId ? { ...n, read: true } : n
+        );
+        setNotificationsData(key, updated);
+      });
+      updateTabBadges();
+    } catch (error) {
+      Object.keys(allNotifications).forEach((key) => {
+        const updated = allNotifications[key].map(
+          (n) => n.id === notifId ? { ...n, read: true } : n
+        );
+        setNotificationsData(key, updated);
+      });
+      updateTabBadges();
+    }
+  }
+  async function markAllNotificationsAsRead() {
+    const user = currentUser;
+    if (!user) return;
+    let unreadNotifs = [];
+    Object.entries(allNotifications).forEach(([stateKey, notifs]) => {
+      notifs.forEach((n) => {
+        if (!n.read) {
+          const actualDeviceId = n.deviceId || stateKey;
+          unreadNotifs.push({ ...n, actualDeviceId });
+        }
+      });
+    });
+    console.log(
+      `[Notifications] Found ${unreadNotifs.length} unread notifications to mark`
+    );
+    if (unreadNotifs.length === 0) return;
+    Object.keys(allNotifications).forEach((key) => {
+      const updated = allNotifications[key].map((n) => ({
+        ...n,
+        read: true
+      }));
+      setNotificationsData(key, updated);
+    });
+    updateTabBadges();
+    reRenderNotifications();
+    await updateFirestoreNotifications(user.uid, unreadNotifs);
+  }
+  async function updateFirestoreNotifications(userId, unreadNotifs) {
+    const validNotifs = unreadNotifs.filter((n) => n.id && !/^-?\d+$/.test(n.id));
+    if (validNotifs.length === 0) return;
+    let successCount = 0;
+    let failCount = 0;
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < validNotifs.length; i += BATCH_SIZE) {
+      const chunk = validNotifs.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach((notif) => {
+        const deviceId = notif.actualDeviceId;
+        let notifRef;
+        if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+          notifRef = doc(db, "users", userId, "devices", deviceId, "notifications", notif.id);
+        } else {
+          notifRef = doc(db, "users", userId, "notifications", notif.id);
+        }
+        batch.update(notifRef, { read: true });
+      });
+      try {
+        await batch.commit();
+        successCount += chunk.length;
+      } catch (e) {
+        failCount += chunk.length;
+        console.warn(`[Notifications] Batch update failed: ${e.message}`);
+      }
+    }
+    console.log(`[Notifications] Done: ${successCount} success, ${failCount} failed`);
+  }
+  async function clearAllNotifications2() {
+    const user = currentUser;
+    if (!user) return;
+    const selectedTab = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const isAll = selectedTab === "all";
+    const isAr = getCurrentLanguage() === "ar";
+    const confirmMsg = isAll ? isAr ? "\u062D\u0630\u0641 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0644\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for ALL devices? This cannot be undone." : isAr ? "\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u062D\u062F\u062F\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639." : "Clear notifications for the selected device? This cannot be undone.";
+    if (!await showConfirmDialog(confirmMsg)) return;
+    const targetKeys = isAll ? Object.keys(allNotifications) : Object.keys(allNotifications).filter((key) => {
+      const notifs = allNotifications[key] || [];
+      return notifs.some((n) => (n.deviceId || key) === selectedTab);
+    });
+    try {
+      for (const deviceKey of targetKeys) {
+        const notifs = (allNotifications[deviceKey] || []).filter(
+          (n) => isAll || (n.deviceId || deviceKey) === selectedTab
+        );
+        if (notifs.length === 0) continue;
+        const batch = writeBatch(db);
+        notifs.forEach((n) => {
+          if (!n.id || /^-?\d+$/.test(n.id)) return;
+          const deviceId = n.deviceId || deviceKey;
+          let notifRef;
+          if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+            notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
+          } else {
+            notifRef = doc(db, "users", user.uid, "notifications", n.id);
+          }
+          batch.delete(notifRef);
+        });
+        await batch.commit();
+      }
+    } catch (error) {
+      console.error("[Notifications] Failed to delete from Firestore:", error);
+    }
+    if (isAll) {
+      clearAllNotifications();
+    } else {
+      Object.keys(allNotifications).forEach((key) => {
+        const filtered = (allNotifications[key] || []).filter(
+          (n) => (n.deviceId || key) !== selectedTab
+        );
+        setNotificationsData(key, filtered);
+      });
+    }
+    reRenderNotifications();
+    updateTabBadges();
+  }
+  function toggleNotifSelectionMode() {
+    notifSelectionMode = !notifSelectionMode;
+    selectedNotifApps.clear();
+    const selectBtn = document.getElementById("notifSelectBtn");
+    const toolbar = document.getElementById("notifSelectToolbar");
+    if (notifSelectionMode) {
+      selectBtn?.classList.add("active");
+      if (toolbar) toolbar.style.display = "flex";
+    } else {
+      selectBtn?.classList.remove("active");
+      if (toolbar) toolbar.style.display = "none";
+    }
+    reRenderNotifications();
+    _updateNotifSelectionToolbar(document.querySelectorAll(".notification-item[data-app-key]").length);
+  }
+  function setNotifSelectAll(checked) {
+    const items = document.querySelectorAll(".notification-item[data-app-key]");
+    items.forEach((el) => {
+      const key = el.dataset.appKey;
+      const cb = el.querySelector(".notif-checkbox");
+      if (checked) {
+        selectedNotifApps.add(key);
+        el.classList.add("selected");
+        if (cb) cb.checked = true;
+      } else {
+        selectedNotifApps.delete(key);
+        el.classList.remove("selected");
+        if (cb) cb.checked = false;
+      }
+    });
+    _updateNotifSelectionToolbar(items.length);
+  }
+  async function deleteSelectedNotifications() {
+    if (selectedNotifApps.size === 0) return;
+    const count = selectedNotifApps.size;
+    const isAr = getCurrentLanguage() === "ar";
+    if (!await showConfirmDialog(
+      isAr ? `\u062D\u0630\u0641 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${count} \u062A\u0637\u0628\u064A\u0642\u061F \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062A\u0631\u0627\u062C\u0639.` : `Delete notifications for ${count} app${count > 1 ? "s" : ""}? This cannot be undone.`
+    )) return;
+    const user = currentUser;
+    if (!user) return;
+    try {
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+      Object.entries(allNotifications).forEach(([deviceKey, notifs]) => {
+        notifs.forEach((n) => {
+          const appKey = n.packageName || n.appName || "unknown";
+          if (!selectedNotifApps.has(appKey) || !n.id || /^-?\d+$/.test(n.id)) return;
+          const deviceId = n.deviceId || deviceKey;
+          let notifRef;
+          if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+            notifRef = doc(db, "users", user.uid, "devices", deviceId, "notifications", n.id);
+          } else {
+            notifRef = doc(db, "users", user.uid, "notifications", n.id);
+          }
+          batch.delete(notifRef);
+          deletedCount++;
+        });
+      });
+      if (deletedCount > 0) await batch.commit();
+      Object.keys(allNotifications).forEach((deviceKey) => {
+        const filtered = (allNotifications[deviceKey] || []).filter((n) => {
+          const appKey = n.packageName || n.appName || "unknown";
+          return !selectedNotifApps.has(appKey);
+        });
+        setNotificationsData(deviceKey, filtered);
+      });
+      showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
+    } catch (error) {
+      console.error("[Notifications] deleteSelectedNotifications error:", error);
+      showToast("Failed to delete selected notifications", "error");
+    }
+    notifSelectionMode = false;
+    selectedNotifApps.clear();
+    document.getElementById("notifSelectBtn")?.classList.remove("active");
+    const toolbar = document.getElementById("notifSelectToolbar");
+    if (toolbar) toolbar.style.display = "none";
+    reRenderNotifications();
+    updateTabBadges();
+  }
+  function exportNotificationsToCSV() {
+    let notifications = getMergedNotifications();
+    if (notifications.length === 0) {
+      alert("No notifications to export.");
+      return;
+    }
+    const header = ["Date", "Time", "App", "Title", "Body", "Device"];
+    const rows = notifications.map((n) => {
+      const d = new Date(n.receivedAt || n.timestamp || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const app2 = n.appName || n.packageName || "";
+      const title = n.title || "";
+      const body = n.text || n.body || "";
+      const device = n.deviceName || "";
+      return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `iRopit-Notifications-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  var notifSelectionMode, selectedNotifApps, _searchWired, _renderTimer;
+  var init_notifications = __esm({
+    "src/services/notifications.js"() {
+      init_firebase();
+      init_dom();
+      init_toasts();
+      init_helpers();
+      init_appIcons();
+      init_state();
+      init_badges();
+      init_i18n();
+      init_cache();
+      notifSelectionMode = false;
+      selectedNotifApps = /* @__PURE__ */ new Set();
+      _searchWired = false;
+      _renderTimer = null;
+    }
+  });
+
   // src/popup.js
   init_firebase();
   init_state();
@@ -27260,7 +27260,6 @@ ${this.customData.serverResponse}`;
   // src/ui/tabs.js
   init_dom();
   init_calls();
-  init_notifications();
   init_chat();
   function initTabs() {
     tabs.forEach((tab) => {
@@ -27274,8 +27273,6 @@ ${this.customData.serverResponse}`;
         document.getElementById(`${tabName}Tab`)?.classList.add("active");
         if (tabName === "calls") {
           markAllCallsAsViewed();
-        } else if (tabName === "notifications") {
-          markAllNotificationsAsRead();
         } else if (tabName === "chat") {
           scrollChatToBottom();
         }
@@ -27971,6 +27968,8 @@ ${this.customData.serverResponse}`;
     updateSmsDeviceTabs();
     updateCallsDeviceTabs();
     updateNotificationsDeviceTabs();
+    Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => m.reRenderNotifications()).catch(() => {
+    });
   }
   function updateChatDeviceTabs() {
     const devices2 = devices;

@@ -4,7 +4,6 @@
 
 import { tabs, tabContents } from "./dom.js";
 import { markAllCallsAsViewed } from "../services/calls.js";
-import { markAllNotificationsAsRead } from "../services/notifications.js";
 import { scrollChatToBottom } from "../services/chat.js";
 
 /**
@@ -27,8 +26,6 @@ export function initTabs() {
       // Mark all as viewed/read when entering respective tabs
       if (tabName === "calls") {
         markAllCallsAsViewed();
-      } else if (tabName === "notifications") {
-        markAllNotificationsAsRead();
       } else if (tabName === "chat") {
         scrollChatToBottom();
       }

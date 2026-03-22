@@ -274,6 +274,8 @@ export function updateDeviceSelects() {
   updateSmsDeviceTabs();
   updateCallsDeviceTabs();
   updateNotificationsDeviceTabs();
+  // Re-render notifications so device tags resolve with fresh state.devices
+  import("./notifications.js").then(m => m.reRenderNotifications()).catch(() => {});
 }
 
 /**
