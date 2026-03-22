@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
-import firestore from '@react-native-firebase/firestore';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -9,7 +8,7 @@ import { MenuSection } from './types';
 
 export const useMenuScreen = (navigation: any) => {
   const { user, signOut } = useAuthStore();
-  const { currentDevice } = useDeviceStore();
+  const { currentDevice, deleteDevice } = useDeviceStore();
   const settings = useSettingsStore();
   const { colors, t, isDarkMode, isRTL } = useTheme();
 
@@ -67,10 +66,7 @@ export const useMenuScreen = (navigation: any) => {
               return;
             }
             try {
-              await firestore()
-                .collection('devices')
-                .doc(currentDevice.id)
-                .delete();
+              await deleteDevice(currentDevice.id);
             } catch (e) {
               // still sign out even if delete fails
             }
