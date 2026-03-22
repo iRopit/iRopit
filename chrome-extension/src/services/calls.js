@@ -551,9 +551,8 @@ export function renderCalls(calls) {
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.calls.length} calls • ${
-          group.lastCall.type
-        }${group.lastCall.deviceName ? ` <span class="device-tag">${group.lastCall.deviceName}</span>` : ""}</div>
+        <div class="list-item-subtitle">${group.calls.length} calls • ${group.lastCall.type}</div>
+        ${group.lastCall.deviceName ? `<div class="call-device-row"><span class="device-tag">${group.lastCall.deviceName}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="Call">
