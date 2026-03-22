@@ -205,7 +205,7 @@ export function renderDevices() {
         )}</span>
         <button class="delete-device-btn" data-device-id="${
           device.id
-        }" data-device-doc-id="${device.docId}" title="Delete device">
+        }" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="Delete device">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
           </svg>
@@ -222,7 +222,8 @@ export function renderDevices() {
       e.stopPropagation();
       const deviceId = btn.dataset.deviceId;
       const docId = btn.dataset.deviceDocId;
-      if (await showConfirmDialog(`Delete device "${deviceId}"? This will remove all its data.`)) {
+      const deviceName = btn.dataset.deviceName || deviceId;
+      if (await showConfirmDialog(`Delete device "${deviceName}"? This will remove all its data.`)) {
         deleteDevice(docId, deviceId);
       }
     });
