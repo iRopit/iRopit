@@ -24032,8 +24032,9 @@ ${this.customData.serverResponse}`;
               ${getCallIcon(call.type)}
             </div>
             <div class="call-info">
-              <div class="call-type">${call.type}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}${call.deviceName ? ` <span class="device-tag">${call.deviceName}</span>` : ""}</div>
+              <div class="call-type">${call.type}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
+              ${call.deviceName || call.simSlot != null && call.simSlot >= 0 ? `<div class="call-detail-meta">${call.deviceName ? `<span class="device-tag">${call.deviceName}</span>` : ""}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}</div>` : ""}
             </div>
             <div class="call-time">${formatTime(call.timestamp)}</div>
           </div>
