@@ -27817,7 +27817,12 @@ ${this.customData.serverResponse}`;
     if (!user) return;
     const deviceId = await getDeviceId();
     const existingDeviceRef = doc(db, "devices", deviceId);
-    const existingDevice = await getDoc(existingDeviceRef);
+    let existingDevice = { exists: () => false };
+    try {
+      existingDevice = await getDoc(existingDeviceRef);
+    } catch (readError) {
+      console.log("[Device] Could not read existing device doc (may belong to another user), will claim it:", readError?.code);
+    }
     await setDoc(
       existingDeviceRef,
       {

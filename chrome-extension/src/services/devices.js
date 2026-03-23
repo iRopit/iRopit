@@ -41,8 +41,16 @@ export async function registerDevice() {
   const deviceId = await getDeviceId();
 
   // Check if device already exists to avoid duplicates
+  // Wrapped in try-catch: if the doc belongs to another user (different account
+  // previously signed in on this browser), the read is blocked by Firestore rules.
+  // We proceed with setDoc which claims the device under the current user's uid.
   const existingDeviceRef = doc(db, "devices", deviceId);
-  const existingDevice = await getDoc(existingDeviceRef);
+  let existingDevice = { exists: () => false };
+  try {
+    existingDevice = await getDoc(existingDeviceRef);
+  } catch (readError) {
+    console.log("[Device] Could not read existing device doc (may belong to another user), will claim it:", readError?.code);
+  }
 
   await setDoc(
     existingDeviceRef,

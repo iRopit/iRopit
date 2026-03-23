@@ -139,13 +139,22 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       }
 
       // Check if device already exists to preserve nickname
-      const existingDoc = await firestore()
-        .collection(COLLECTIONS.DEVICES)
-        .doc(deviceId)
-        .get();
-
-      const existingData = existingDoc.data();
-      const savedNickname = existingData?.nickname || null;
+      // Wrapped in try-catch: if doc belongs to another user, permission-denied
+      // is thrown here. We catch it and proceed without the existing data,
+      // letting the write below claim the device under the current user's uid.
+      let savedNickname: string | null = null;
+      let savedCreatedAt: number | null = null;
+      try {
+        const existingDoc = await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .doc(deviceId)
+          .get();
+        const existingData = existingDoc.data();
+        savedNickname = existingData?.nickname || null;
+        savedCreatedAt = existingData?.createdAt || null;
+      } catch (readError: any) {
+        console.log('[DeviceStore] Could not read existing device doc (may belong to another user), will claim it:', readError?.code);
+      }
 
       // Build device object with no undefined values (Firebase rejects undefined)
       const device: Device = {
@@ -156,7 +165,7 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         model: deviceModel,
         userId: user.uid,
         lastSeen: Date.now(),
-        createdAt: existingData?.createdAt || Date.now(),
+        createdAt: savedCreatedAt || Date.now(),
         isOnline: true,
       };
 
