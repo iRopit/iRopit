@@ -45,10 +45,10 @@ service cloud.firestore {
     // Top-level devices collection
     match /devices/{deviceId} {
       allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      // Allow write if the caller is writing their own userId — this lets a user
-      // "claim" a device that was previously registered under a different account
-      // (e.g. signing in with an old account on a device used by another user).
-      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // create/update: caller must write their own userId
+      allow create, update: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // delete: caller must own the document they are deleting
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // SMS requests (for sending SMS via Android device)

@@ -38,23 +38,11 @@ export async function registerDevice() {
   const user = state.currentUser;
   if (!user) return;
 
-  const deviceId = await getDeviceId();
-
-  // Check if device already exists to avoid duplicates
-  // Wrapped in try-catch: if the doc belongs to another user (different account
-  // previously signed in on this browser), the read is blocked by Firestore rules.
-  // We proceed with setDoc which claims the device under the current user's uid.
-  const existingDeviceRef = doc(db, "devices", deviceId);
-  let existingDevice = { exists: () => false };
   try {
-    existingDevice = await getDoc(existingDeviceRef);
-  } catch (readError) {
-    console.log("[Device] Could not read existing device doc (may belong to another user), will claim it:", readError?.code);
-  }
+    // Pass user.uid so each account gets its own persistent device ID
+    const deviceId = await getDeviceId(user.uid);
 
-  await setDoc(
-    existingDeviceRef,
-    {
+    const deviceData = {
       id: deviceId,
       userId: user.uid,
       name: "Chrome Extension",
@@ -63,19 +51,28 @@ export async function registerDevice() {
       model: navigator.userAgent,
       lastActiveAt: Date.now(),
       isOnline: true,
-    },
-    { merge: true },
-  );
+    };
 
-  console.log(
-    `[Device] Registered/updated Chrome extension device: ${deviceId}`,
-    {
-      existed: existingDevice.exists(),
-    },
-  );
+    const existingDeviceRef = doc(db, "devices", deviceId);
 
-  // Clean up any duplicate extension devices (devices with same userId and type but different IDs)
-  await cleanupDuplicateExtensions(user.uid, deviceId);
+    // Try merge first (preserves existing fields like nickname)
+    try {
+      await setDoc(existingDeviceRef, deviceData, { merge: true });
+    } catch (mergeError) {
+      // merge can fail if doc belongs to another user; overwrite entirely
+      console.warn("[Device] merge write failed, overwriting:", mergeError?.code);
+      await setDoc(existingDeviceRef, deviceData);
+    }
+
+    console.log(`[Device] Registered/updated Chrome extension device: ${deviceId}`);
+
+    // Clean up duplicates fire-and-forget — never block or throw here
+    cleanupDuplicateExtensions(user.uid, deviceId).catch((e) =>
+      console.warn("[Device] cleanup duplicates failed (non-critical):", e?.code),
+    );
+  } catch (error) {
+    console.error("[Device] registerDevice failed:", error?.code, error?.message);
+  }
 }
 
 /**
@@ -134,19 +131,25 @@ export async function loadDevices() {
 
   const q = query(collection(db, "devices"), where("userId", "==", user.uid));
 
-  const unsub = onSnapshot(q, (snapshot) => {
-    const newDevices = [];
-    snapshot.forEach((doc) => {
-      newDevices.push({
-        ...doc.data(),
-        docId: doc.id,
+  const unsub = onSnapshot(
+    q,
+    (snapshot) => {
+      const newDevices = [];
+      snapshot.forEach((doc) => {
+        newDevices.push({
+          ...doc.data(),
+          docId: doc.id,
+        });
       });
-    });
 
-    state.setDevices(newDevices);
-    renderDevices();
-    updateDeviceSelects();
-  });
+      state.setDevices(newDevices);
+      renderDevices();
+      updateDeviceSelects();
+    },
+    (error) => {
+      console.error("[Device] loadDevices onSnapshot error:", error?.code, error?.message);
+    },
+  );
 
   state.addUnsubscriber(unsub);
 }
@@ -587,7 +590,7 @@ export async function deleteDevice(docId, deviceId) {
   if (!user || !docId) return;
 
   // Check if this is the current Chrome extension device
-  const currentDeviceId = await getDeviceId();
+  const currentDeviceId = await getDeviceId(user.uid);
   const isOwnDevice = deviceId === currentDeviceId;
 
   showLoadingOverlay();

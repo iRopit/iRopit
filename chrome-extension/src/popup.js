@@ -141,8 +141,10 @@ function init() {
   initAuthObserver(
     // On login
     async (user) => {
-      // Don't await registerDevice - load data immediately for instant cache display
-      registerDevice();
+      // Register device first so loadDevices snapshot sees it
+      await registerDevice().catch((err) =>
+        console.error("[Popup] registerDevice error:", err),
+      );
       loadData();
     },
     // On logout

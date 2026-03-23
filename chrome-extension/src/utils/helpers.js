@@ -117,14 +117,16 @@ export function getInitials(name) {
  * Generate unique device ID for this extension
  * @returns {Promise<string>} Device ID
  */
-export async function getDeviceId() {
+export async function getDeviceId(userId) {
+  // Use a per-user key so different accounts don't share a device ID
+  const storageKey = userId ? `deviceId_${userId}` : "deviceId";
   return new Promise((resolve) => {
-    chrome.storage.local.get(["deviceId"], (result) => {
-      if (result.deviceId) {
-        resolve(result.deviceId);
+    chrome.storage.local.get([storageKey], (result) => {
+      if (result[storageKey]) {
+        resolve(result[storageKey]);
       } else {
         const newId = "ext_" + Math.random().toString(36).substr(2, 9);
-        chrome.storage.local.set({ deviceId: newId });
+        chrome.storage.local.set({ [storageKey]: newId });
         resolve(newId);
       }
     });

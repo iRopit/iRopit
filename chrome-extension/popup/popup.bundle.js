@@ -22894,14 +22894,15 @@ ${this.customData.serverResponse}`;
     }
     return name5.substring(0, 2).toUpperCase();
   }
-  async function getDeviceId() {
+  async function getDeviceId(userId) {
+    const storageKey = userId ? `deviceId_${userId}` : "deviceId";
     return new Promise((resolve) => {
-      chrome.storage.local.get(["deviceId"], (result) => {
-        if (result.deviceId) {
-          resolve(result.deviceId);
+      chrome.storage.local.get([storageKey], (result) => {
+        if (result[storageKey]) {
+          resolve(result[storageKey]);
         } else {
           const newId = "ext_" + Math.random().toString(36).substr(2, 9);
-          chrome.storage.local.set({ deviceId: newId });
+          chrome.storage.local.set({ [storageKey]: newId });
           resolve(newId);
         }
       });
@@ -27815,17 +27816,9 @@ ${this.customData.serverResponse}`;
   async function registerDevice() {
     const user = currentUser;
     if (!user) return;
-    const deviceId = await getDeviceId();
-    const existingDeviceRef = doc(db, "devices", deviceId);
-    let existingDevice = { exists: () => false };
     try {
-      existingDevice = await getDoc(existingDeviceRef);
-    } catch (readError) {
-      console.log("[Device] Could not read existing device doc (may belong to another user), will claim it:", readError?.code);
-    }
-    await setDoc(
-      existingDeviceRef,
-      {
+      const deviceId = await getDeviceId(user.uid);
+      const deviceData = {
         id: deviceId,
         userId: user.uid,
         name: "Chrome Extension",
@@ -27834,16 +27827,21 @@ ${this.customData.serverResponse}`;
         model: navigator.userAgent,
         lastActiveAt: Date.now(),
         isOnline: true
-      },
-      { merge: true }
-    );
-    console.log(
-      `[Device] Registered/updated Chrome extension device: ${deviceId}`,
-      {
-        existed: existingDevice.exists()
+      };
+      const existingDeviceRef = doc(db, "devices", deviceId);
+      try {
+        await setDoc(existingDeviceRef, deviceData, { merge: true });
+      } catch (mergeError) {
+        console.warn("[Device] merge write failed, overwriting:", mergeError?.code);
+        await setDoc(existingDeviceRef, deviceData);
       }
-    );
-    await cleanupDuplicateExtensions(user.uid, deviceId);
+      console.log(`[Device] Registered/updated Chrome extension device: ${deviceId}`);
+      cleanupDuplicateExtensions(user.uid, deviceId).catch(
+        (e) => console.warn("[Device] cleanup duplicates failed (non-critical):", e?.code)
+      );
+    } catch (error) {
+      console.error("[Device] registerDevice failed:", error?.code, error?.message);
+    }
   }
   async function cleanupDuplicateExtensions(userId, currentDeviceId) {
     try {
@@ -27878,18 +27876,24 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     if (!user) return;
     const q2 = query(collection(db, "devices"), where("userId", "==", user.uid));
-    const unsub = onSnapshot(q2, (snapshot) => {
-      const newDevices = [];
-      snapshot.forEach((doc2) => {
-        newDevices.push({
-          ...doc2.data(),
-          docId: doc2.id
+    const unsub = onSnapshot(
+      q2,
+      (snapshot) => {
+        const newDevices = [];
+        snapshot.forEach((doc2) => {
+          newDevices.push({
+            ...doc2.data(),
+            docId: doc2.id
+          });
         });
-      });
-      setDevices(newDevices);
-      renderDevices();
-      updateDeviceSelects();
-    });
+        setDevices(newDevices);
+        renderDevices();
+        updateDeviceSelects();
+      },
+      (error) => {
+        console.error("[Device] loadDevices onSnapshot error:", error?.code, error?.message);
+      }
+    );
     addUnsubscriber(unsub);
   }
   function renderDevices() {
@@ -28184,7 +28188,7 @@ ${this.customData.serverResponse}`;
   async function deleteDevice(docId, deviceId) {
     const user = currentUser;
     if (!user || !docId) return;
-    const currentDeviceId = await getDeviceId();
+    const currentDeviceId = await getDeviceId(user.uid);
     const isOwnDevice = deviceId === currentDeviceId;
     showLoadingOverlay();
     try {
@@ -28537,7 +28541,9 @@ ${this.customData.serverResponse}`;
     initAuthObserver(
       // On login
       async (user) => {
-        registerDevice();
+        await registerDevice().catch(
+          (err) => console.error("[Popup] registerDevice error:", err)
+        );
         loadData();
       },
       // On logout

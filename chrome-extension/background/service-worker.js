@@ -21,6 +21,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
+import { decrypt } from "../src/services/cryptoService.js";
 
 console.log("ZyncIT: Service Worker starting...");
 
@@ -531,26 +532,33 @@ function listenForSMSFromDevice(deviceId, deviceName) {
         seenSMSIds.add(docId);
 
         const sms = change.doc.data();
-        const body = sms.body || sms.message || sms.content || sms.text || "";
-        const sender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
+        const rawBody = sms.body || sms.message || sms.content || sms.text || "";
+        const rawSender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
 
-        const otp = extractOTP(body);
-        if (!otp) return;
+        // Decrypt fields (they may be encrypted with ENC: prefix)
+        const uid = currentUser?.uid;
+        Promise.all([
+          decrypt(rawBody, uid),
+          decrypt(rawSender, uid),
+        ]).then(([body, sender]) => {
+          const otp = extractOTP(body);
+          if (!otp) return;
 
-        console.log("ZyncIT: 🔑 OTP detected from", deviceName, ":", otp, "sender:", sender);
+          console.log("ZyncIT: 🔑 OTP detected from", deviceName, ":", otp, "sender:", sender);
 
-        // Show Chrome notification
-        const notifId = `iropit_otp_${Date.now()}`;
-        chrome.notifications.create(notifId, {
-          type: "basic",
-          iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-          title: `OTP from ${sender || deviceName}`,
-          message: `${otp} — Copied to clipboard`,
-          priority: 2,
-        }, () => { void chrome.runtime.lastError; });
+          // Show Chrome notification
+          const notifId = `iropit_otp_${Date.now()}`;
+          chrome.notifications.create(notifId, {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+            title: `OTP from ${sender || deviceName}`,
+            message: `${otp} — Copied to clipboard`,
+            priority: 2,
+          }, () => { void chrome.runtime.lastError; });
 
-        // Forward OTP to the active browser tab (content script handles clipboard + paste)
-        sendOTPToActiveTab(otp, sender, body);
+          // Forward OTP to the active browser tab (content script handles clipboard + paste)
+          sendOTPToActiveTab(otp, sender, body);
+        }).catch((err) => console.warn("ZyncIT: OTP decrypt error:", err));
       });
     },
     (error) => {
@@ -564,10 +572,11 @@ function listenForSMSFromDevice(deviceId, deviceName) {
 // ─── Chrome Notification Display ─────────────────────────────────────────────
 
 // Show Chrome notification
-function showNotification(data) {
+async function showNotification(data) {
+  const uid = currentUser?.uid;
   const appName = data.appName || data.packageName || "App";
-  const title = data.title || data.contactName || "New Notification";
-  const message = data.body || data.text || data.content || "";
+  const title = await decrypt(data.title || data.contactName || "New Notification", uid);
+  const message = await decrypt(data.body || data.text || data.content || "", uid);
   const iconUrl = chrome.runtime.getURL("assets/icon128.png");
   const notificationType = data.type || "notification";
 
@@ -632,8 +641,9 @@ function showNotification(data) {
   );
 }
 
-function showCallNotification(call) {
-  const contactInfo = call.contactName || call.phoneNumber || "Unknown";
+async function showCallNotification(call) {
+  const uid = currentUser?.uid;
+  const contactInfo = await decrypt(call.contactName || call.phoneNumber || "Unknown", uid);
   const callType = call.type || "incoming";
   const deviceInfo = call.deviceName ? ` - ${call.deviceName}` : "";
 
