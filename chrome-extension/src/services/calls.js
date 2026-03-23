@@ -102,6 +102,19 @@ export async function markAllCallsAsViewed() {
   );
   state.setAllCallsData(updatedCalls);
 
+  // FIX: Also update allCallsByDevice so any future updateCallsList() merge
+  // doesn't overwrite the viewed flags back to false.
+  for (const deviceId of Object.keys(state.allCallsByDevice)) {
+    const deviceCalls = state.allCallsByDevice[deviceId].map((call) =>
+      call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call,
+    );
+    state.setCallsByDevice(deviceId, deviceCalls);
+  }
+
+  // FIX: Re-save the cache immediately so that if the popup is closed before
+  // Firestore batch.commit() returns, the next open still shows viewed: true.
+  cacheCallsData(state.allCallsByDevice, updatedCalls).catch(() => {});
+
   // Re-render calls list to update UI
   renderCalls(updatedCalls);
 
@@ -388,8 +401,22 @@ export async function loadCalls() {
  * @param {Array} newCalls - Array of calls
  */
 function updateCallsList(deviceId, newCalls) {
+  // Preserve viewed:true for any calls already marked in current state.
+  // This prevents a race where Firestore getDocs returns stale data (without
+  // viewed:true) after markAllCallsAsViewed has already updated in-memory state.
+  const existingById = new Map(
+    (state.allCallsByDevice[deviceId] || []).map((c) => [c.id, c]),
+  );
+  const preservedCalls = newCalls.map((call) => {
+    const existing = existingById.get(call.id);
+    if (existing && existing.viewed && !call.viewed) {
+      return { ...call, viewed: true };
+    }
+    return call;
+  });
+
   // Store calls by device using setter
-  state.setCallsByDevice(deviceId, newCalls);
+  state.setCallsByDevice(deviceId, preservedCalls);
 
   // Merge all calls from all devices
   let merged = [];
@@ -551,7 +578,7 @@ export function renderCalls(calls) {
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.calls.length} calls • ${group.lastCall.type}</div>
+        <div class="list-item-subtitle">${group.lastCall.type}</div>
         ${group.lastCall.deviceName ? `<div class="call-device-row"><span class="device-tag">${group.lastCall.deviceName}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">

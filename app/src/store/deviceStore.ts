@@ -357,23 +357,54 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     const { currentDevice } = get();
     if (!currentDevice) return () => {};
 
-    console.log('[DeviceStore] Watching device document:', currentDevice.id);
+    console.log('[DeviceStore] Starting device delete listener for:', currentDevice.id);
+
+    // Skip the first snapshot — it may reflect a stale Firestore cache from
+    // a previous deletion and would incorrectly trigger sign-out on re-login.
+    let isFirstSnapshot = true;
 
     const unsubscribe = firestore()
       .collection(COLLECTIONS.DEVICES)
       .doc(currentDevice.id)
       .onSnapshot(
-        doc => {
-          if (!doc.exists) {
-            console.log(
-              '[DeviceStore] Device document deleted remotely — signing out',
+        snapshot => {
+          // exists may be a getter property (boolean) or a method (function) depending on RN Firebase version
+          const docExists = typeof snapshot.exists === 'function'
+            ? (snapshot.exists as unknown as () => boolean)()
+            : snapshot.exists;
+          console.log('[DeviceStore] Device snapshot — exists:', docExists, 'firstSnapshot:', isFirstSnapshot);
+          if (isFirstSnapshot) {
+            isFirstSnapshot = false;
+            return; // Ignore first (potentially stale cached) snapshot
+          }
+          if (!docExists) {
+            console.log('[DeviceStore] Device document deleted remotely — signing out');
+            const { Alert } = require('react-native');
+            Alert.alert(
+              'Device Removed',
+              'This device has been removed. You will be signed out.',
+              [{
+                text: 'OK',
+                onPress: () => {
+                  useAuthStore.getState().signOut().catch((err: any) => {
+                    console.error('[DeviceStore] Sign out after delete failed:', err);
+                  });
+                },
+              }],
+              { cancelable: false },
             );
-            const { useAuthStore } = require('../store/authStore');
-            useAuthStore.getState().signOut().catch(() => {});
           }
         },
         error => {
-          console.warn('[DeviceStore] Device delete listener error:', error);
+          console.warn('[DeviceStore] Device delete listener error:', error.code || error.message);
+          // Only auto-signout on permission-denied AFTER the first snapshot was processed.
+          // During initial setup (isFirstSnapshot still true) the error is a stale rule
+          // mismatch — not an account deletion. After that, permission-denied means the
+          // Firebase auth account was deleted remotely (e.g. via Delete Account in Chrome).
+          if (!isFirstSnapshot && error?.code === 'firestore/permission-denied') {
+            console.log('[DeviceStore] Permission denied after registration — account likely deleted, signing out');
+            useAuthStore.getState().signOut().catch(() => {});
+          }
         },
       );
 

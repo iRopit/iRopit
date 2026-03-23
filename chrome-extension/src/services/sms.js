@@ -1530,16 +1530,28 @@ async function sendConversationMessage(phoneNumber, inputElement) {
       timestamp: timestamp,
     });
 
+    // Derive contactName from the conversation key (contact_Name → Name)
+    const sentContactName = phoneNumber.startsWith("contact_")
+      ? phoneNumber.replace("contact_", "")
+      : undefined;
+
     const newSmsMessage = {
       id: docRef.id,
+      docId: docRef.id,
       phoneNumber: actualPhoneNumber,
       body: message,
       type: "sent",
       direction: "outgoing",
       timestamp: timestamp,
       read: true,
+      deviceId: deviceId,
       deviceName: deviceName,
+      ...(sentContactName ? { contactName: sentContactName } : {}),
     };
+
+    // Add to per-device dict so it survives realtime updateSMSList rebuilds
+    const currentDeviceSMS = state.getSMSData(deviceId) || [];
+    state.setSMSData(deviceId, [...currentDeviceSMS, newSmsMessage]);
 
     const updatedMessages = [...state.allSMSMessages, newSmsMessage];
     state.setAllSMSMessages(updatedMessages);
@@ -1587,8 +1599,17 @@ export async function markAllSmsAsRead() {
     let count = 0;
 
     for (const msg of state.allSMSMessages) {
-      if (!msg.read && msg.docRef) {
-        batch.update(msg.docRef, { read: true });
+      if (!msg.read && msg.id && msg.deviceId) {
+        const notifRef = doc(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          msg.deviceId,
+          "notifications",
+          msg.id,
+        );
+        batch.set(notifRef, { read: true }, { merge: true });
         count++;
       }
     }
@@ -1640,8 +1661,17 @@ async function markConversationAsRead(conversation) {
     let count = 0;
 
     for (const msg of conversation) {
-      if (!msg.read && msg.docRef) {
-        batch.update(msg.docRef, { read: true });
+      if (!msg.read && msg.id && msg.deviceId) {
+        const notifRef = doc(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          msg.deviceId,
+          "notifications",
+          msg.id,
+        );
+        batch.set(notifRef, { read: true }, { merge: true });
         count++;
       }
     }

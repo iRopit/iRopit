@@ -32,6 +32,7 @@ export function startPushNotificationListener() {
   // Listen for push notifications targeted at this device
   const unsubscribe = firestore()
     .collection('push_notifications')
+    .where('userId', '==', user.uid)
     .where('deviceId', '==', currentDevice.id)
     .where('status', '==', 'pending')
     .onSnapshot(

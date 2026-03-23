@@ -129,7 +129,7 @@ const AR_TRANSLATIONS = {
   everyHour: 'كل ساعة',
 
   // Login Screen
-  appTagline: 'مزامنة أجهزتك بسلاسة، اربطها',
+  appTagline: 'مزامنة أجهزتك بسلاسة،\nاربطها',
   welcomeBack: 'مرحباً بك في iRopit',
   signInToContinue: 'سجل دخولك للمتابعة',
   emailPlaceholder: 'البريد الإلكتروني',
@@ -306,7 +306,7 @@ const EN_TRANSLATIONS = {
   everyHour: 'Every hour',
 
   // Login Screen
-  appTagline: 'Sync your devices seamlessly, Rope it',
+  appTagline: 'Sync your devices seamlessly,\nRope it',
   welcomeBack: 'Welcome to iRopit',
   signInToContinue: 'Sign in to continue',
   emailPlaceholder: 'Email Address',

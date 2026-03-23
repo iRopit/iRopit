@@ -13274,31 +13274,6 @@
     const t = {};
     return void 0 !== e.timeoutSeconds && (t.timeoutSeconds = e.timeoutSeconds), t;
   }
-  function connectFirestoreEmulator(e, t, n, r = {}) {
-    e = __PRIVATE_cast(e, Firestore$1);
-    const i = isCloudWorkstation(t), s = e._getSettings(), o = {
-      ...s,
-      emulatorOptions: e._getEmulatorOptions()
-    }, _ = `${t}:${n}`;
-    i && (pingServer(`https://${_}`), updateEmulatorBanner("Firestore", true)), s.host !== an && s.host !== _ && __PRIVATE_logWarn("Host has been set in both settings() and connectFirestoreEmulator(), emulator host will be used.");
-    const a = {
-      ...s,
-      host: _,
-      ssl: i,
-      emulatorOptions: r
-    };
-    if (!deepEqual(a, o) && (e._setSettings(a), r.mockUserToken)) {
-      let t2, n2;
-      if ("string" == typeof r.mockUserToken) t2 = r.mockUserToken, n2 = User.MOCK_USER;
-      else {
-        t2 = createMockUserToken(r.mockUserToken, e._app?.options.projectId);
-        const i2 = r.mockUserToken.sub || r.mockUserToken.user_id;
-        if (!i2) throw new FirestoreError(N.INVALID_ARGUMENT, "mockUserToken must contain 'sub' or 'user_id' field!");
-        n2 = new User(i2);
-      }
-      e._authCredentials = new __PRIVATE_EmulatorAuthCredentialsProvider(new __PRIVATE_OAuthToken(t2, n2));
-    }
-  }
   function collection(e, t, ...n) {
     if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t), e instanceof Firestore$1) {
       const r = ResourcePath.fromString(t, ...n);
@@ -13350,15 +13325,22 @@
       return false;
     })(e, ["next", "error", "complete"]);
   }
-  function getFirestore(e, n) {
-    const r = "object" == typeof e ? e : getApp(), i = "string" == typeof e ? e : n || lt, s = _getProvider(r, "firestore").getImmediate({
-      identifier: i
-    });
-    if (!s._initialized) {
-      const e2 = getDefaultEmulatorHostnameAndPort("firestore");
-      e2 && connectFirestoreEmulator(s, ...e2);
+  function initializeFirestore(e, t, n) {
+    n || (n = lt);
+    const r = _getProvider(e, "firestore");
+    if (r.isInitialized(n)) {
+      const e2 = r.getImmediate({
+        identifier: n
+      }), i = r.getOptions(n);
+      if (deepEqual(i, t)) return e2;
+      throw new FirestoreError(N.FAILED_PRECONDITION, "initializeFirestore() has already been called with different options. To avoid this error, call initializeFirestore() with the same options as when it was originally called, or call getFirestore() to return the already initialized instance.");
     }
-    return s;
+    if (void 0 !== t.cacheSizeBytes && void 0 !== t.localCache) throw new FirestoreError(N.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
+    if (void 0 !== t.cacheSizeBytes && -1 !== t.cacheSizeBytes && t.cacheSizeBytes < Bt) throw new FirestoreError(N.INVALID_ARGUMENT, "cacheSizeBytes must be at least 1048576");
+    return t.host && isCloudWorkstation(t.host) && pingServer(t.host), r.initialize({
+      options: t,
+      instanceIdentifier: n
+    });
   }
   function ensureFirestoreConfigured(e) {
     if (e._terminated) throw new FirestoreError(N.FAILED_PRECONDITION, "The client has already been terminated.");
@@ -13870,7 +13852,7 @@
   function writeBatch(e) {
     return ensureFirestoreConfigured(e = __PRIVATE_cast(e, Firestore)), new WriteBatch(e, ((t) => executeWrite(e, t)));
   }
-  var F, M, User, x, O, N, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_EmulatorAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, B, L, k, BasePath, ResourcePath, q, FieldPath$1, DocumentKey, Q, $, Timestamp, SnapshotVersion, U, FieldIndex, IndexOffset, K, PersistenceTransaction, PersistencePromise, __PRIVATE_ListenSequence, j, J, H, Y, X, te, oe, _e, Pe, Ie, Ae, ge, pe, we, be, Ce, Fe, Ne, qe, Ke, He, Ze, Xe, et, tt, nt, it, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, ot, _t, at, ut, ct, DatabaseInfo, lt, DatabaseId, ht, Pt, Tt, It, Et, At, ObjectValue, MutableDocument, Bound, OrderBy, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ObjectMap, Rt, Vt, mt, ft, gt, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericIncrementTransformOperation, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, MutationBatch, MutationBatchResult, Overlay, ExistenceFilter, pt, yt, wt, St, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, __PRIVATE_WatchChangeAggregator, bt, Dt, Ct, JsonProtoSerializer, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_FirestoreIndexValueWriter, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, Mt, xt, Ot, LruParams, __PRIVATE_TargetIdGenerator, Nt, Bt, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, RemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, Ut, Kt, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_NoopConnectivityMonitor, Jt, __PRIVATE_BrowserConnectivityMonitor, Ht, Yt, Zt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Xt, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, en, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, __PRIVATE_OnlineStateTracker, tn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, nn, rn, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, sn, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, on, FirestoreClient, _n, an, un, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, cn, __PRIVATE_AsyncQueueImpl, Firestore, Bytes, FieldPath, FieldValue, GeoPoint, VectorValue, hn, ParsedSetData, ParsedUpdateData, __PRIVATE_ParseContextImpl, __PRIVATE_UserDataReader, __PRIVATE_DeleteFieldValueImpl, Pn, DocumentSnapshot$1, QueryDocumentSnapshot$1, AppliableConstraint, QueryConstraint, QueryFieldFilterConstraint, QueryCompositeFilterConstraint, QueryOrderByConstraint, QueryLimitConstraint, QueryStartAtConstraint, AbstractUserDataWriter, SnapshotMetadata, DocumentSnapshot, QueryDocumentSnapshot, QuerySnapshot, __PRIVATE_ExpUserDataWriter, WriteBatch;
+  var F, M, User, x, O, N, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, B, L, k, BasePath, ResourcePath, q, FieldPath$1, DocumentKey, Q, $, Timestamp, SnapshotVersion, U, FieldIndex, IndexOffset, K, PersistenceTransaction, PersistencePromise, __PRIVATE_ListenSequence, j, J, H, Y, X, te, oe, _e, Pe, Ie, Ae, ge, pe, we, be, Ce, Fe, Ne, qe, Ke, He, Ze, Xe, et, tt, nt, it, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, ot, _t, at, ut, ct, DatabaseInfo, lt, DatabaseId, ht, Pt, Tt, It, Et, At, ObjectValue, MutableDocument, Bound, OrderBy, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ObjectMap, Rt, Vt, mt, ft, gt, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericIncrementTransformOperation, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, MutationBatch, MutationBatchResult, Overlay, ExistenceFilter, pt, yt, wt, St, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, __PRIVATE_WatchChangeAggregator, bt, Dt, Ct, JsonProtoSerializer, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_FirestoreIndexValueWriter, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, Mt, xt, Ot, LruParams, __PRIVATE_TargetIdGenerator, Nt, Bt, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, RemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, Ut, Kt, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_NoopConnectivityMonitor, Jt, __PRIVATE_BrowserConnectivityMonitor, Ht, Yt, Zt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Xt, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, en, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, __PRIVATE_OnlineStateTracker, tn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, nn, rn, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, sn, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, on, FirestoreClient, _n, an, un, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, cn, __PRIVATE_AsyncQueueImpl, Firestore, Bytes, FieldPath, FieldValue, GeoPoint, VectorValue, hn, ParsedSetData, ParsedUpdateData, __PRIVATE_ParseContextImpl, __PRIVATE_UserDataReader, __PRIVATE_DeleteFieldValueImpl, Pn, DocumentSnapshot$1, QueryDocumentSnapshot$1, AppliableConstraint, QueryConstraint, QueryFieldFilterConstraint, QueryCompositeFilterConstraint, QueryOrderByConstraint, QueryLimitConstraint, QueryStartAtConstraint, AbstractUserDataWriter, SnapshotMetadata, DocumentSnapshot, QueryDocumentSnapshot, QuerySnapshot, __PRIVATE_ExpUserDataWriter, WriteBatch;
   var init_index_esm7 = __esm({
     "node_modules/@firebase/firestore/dist/index.esm.js"() {
       init_index_esm4();
@@ -14047,28 +14029,6 @@
           e.enqueueRetryable((() => t(User.UNAUTHENTICATED)));
         }
         shutdown() {
-        }
-      };
-      __PRIVATE_EmulatorAuthCredentialsProvider = class {
-        constructor(e) {
-          this.token = e, /**
-           * Stores the listener registered with setChangeListener()
-           * This isn't actually necessary since the UID never changes, but we use this
-           * to verify the listen contract is adhered to in tests.
-           */
-          this.changeListener = null;
-        }
-        getToken() {
-          return Promise.resolve(this.token);
-        }
-        invalidateToken() {
-        }
-        start(e, t) {
-          this.changeListener = t, // Fire with initial user.
-          e.enqueueRetryable((() => t(this.token.user)));
-        }
-        shutdown() {
-          this.changeListener = null;
         }
       };
       __PRIVATE_FirebaseAuthCredentialsProvider = class {
@@ -22483,7 +22443,9 @@ ${this.customData.serverResponse}`;
       init_firebase_config();
       app = initializeApp(firebase_config_default);
       auth = getAuth(app);
-      db = getFirestore(app);
+      db = initializeFirestore(app, {
+        experimentalForceLongPolling: true
+      });
       storage = getStorage(app);
     }
   });
@@ -23180,6 +23142,9 @@ ${this.customData.serverResponse}`;
   async function decryptCall(call, userId) {
     return decryptFields(call, userId, ENCRYPTED_FIELDS.call);
   }
+  async function decryptNotification(notification, userId) {
+    return decryptFields(notification, userId, ENCRYPTED_FIELDS.notification);
+  }
   var ENCRYPTION_PREFIX, SALT_LENGTH, IV_LENGTH, ENCRYPTED_FIELDS;
   var init_cryptoService = __esm({
     "src/services/cryptoService.js"() {
@@ -23552,6 +23517,14 @@ ${this.customData.serverResponse}`;
       (call) => call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
     );
     setAllCallsData(updatedCalls);
+    for (const deviceId of Object.keys(allCallsByDevice)) {
+      const deviceCalls = allCallsByDevice[deviceId].map(
+        (call) => call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
+      );
+      setCallsByDevice(deviceId, deviceCalls);
+    }
+    cacheCallsData(allCallsByDevice, updatedCalls).catch(() => {
+    });
     renderCalls(updatedCalls);
     try {
       const batch = writeBatch(db);
@@ -23738,7 +23711,17 @@ ${this.customData.serverResponse}`;
     }
   }
   function updateCallsList(deviceId, newCalls) {
-    setCallsByDevice(deviceId, newCalls);
+    const existingById = new Map(
+      (allCallsByDevice[deviceId] || []).map((c) => [c.id, c])
+    );
+    const preservedCalls = newCalls.map((call) => {
+      const existing = existingById.get(call.id);
+      if (existing && existing.viewed && !call.viewed) {
+        return { ...call, viewed: true };
+      }
+      return call;
+    });
+    setCallsByDevice(deviceId, preservedCalls);
     let merged = [];
     Object.values(allCallsByDevice).forEach((calls) => {
       merged = merged.concat(calls);
@@ -23855,7 +23838,7 @@ ${this.customData.serverResponse}`;
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.calls.length} calls \u2022 ${group.lastCall.type}</div>
+        <div class="list-item-subtitle">${group.lastCall.type}</div>
         ${group.lastCall.deviceName ? `<div class="call-device-row"><span class="device-tag">${group.lastCall.deviceName}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
@@ -25966,16 +25949,22 @@ ${this.customData.serverResponse}`;
         status: "pending",
         timestamp
       });
+      const sentContactName = phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : void 0;
       const newSmsMessage = {
         id: docRef.id,
+        docId: docRef.id,
         phoneNumber: actualPhoneNumber,
         body: message,
         type: "sent",
         direction: "outgoing",
         timestamp,
         read: true,
-        deviceName
+        deviceId,
+        deviceName,
+        ...sentContactName ? { contactName: sentContactName } : {}
       };
+      const currentDeviceSMS = getSMSData(deviceId) || [];
+      setSMSData(deviceId, [...currentDeviceSMS, newSmsMessage]);
       const updatedMessages = [...allSMSMessages, newSmsMessage];
       setAllSMSMessages(updatedMessages);
       if (currentConversation === phoneNumber) {
@@ -26011,8 +26000,17 @@ ${this.customData.serverResponse}`;
       const batch = writeBatch(db);
       let count = 0;
       for (const msg of allSMSMessages) {
-        if (!msg.read && msg.docRef) {
-          batch.update(msg.docRef, { read: true });
+        if (!msg.read && msg.id && msg.deviceId) {
+          const notifRef = doc(
+            db,
+            "users",
+            user.uid,
+            "devices",
+            msg.deviceId,
+            "notifications",
+            msg.id
+          );
+          batch.set(notifRef, { read: true }, { merge: true });
           count++;
         }
       }
@@ -26053,8 +26051,17 @@ ${this.customData.serverResponse}`;
       const batch = writeBatch(db);
       let count = 0;
       for (const msg of conversation) {
-        if (!msg.read && msg.docRef) {
-          batch.update(msg.docRef, { read: true });
+        if (!msg.read && msg.id && msg.deviceId) {
+          const notifRef = doc(
+            db,
+            "users",
+            user.uid,
+            "devices",
+            msg.deviceId,
+            "notifications",
+            msg.id
+          );
+          batch.set(notifRef, { read: true }, { merge: true });
           count++;
         }
       }
@@ -26627,20 +26634,24 @@ ${this.customData.serverResponse}`;
     try {
       const cached = await getCachedNotifications();
       if (cached && cached.byDevice) {
-        let hasData = false;
-        for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
-          if (notifs.length > 0) {
-            setNotificationsData(deviceId, notifs);
-            hasData = true;
+        const firstNotif = Object.values(cached.byDevice).flat()[0];
+        const isEncrypted = firstNotif && (String(firstNotif.title || "").startsWith("ENC:") || String(firstNotif.body || "").startsWith("ENC:") || String(firstNotif.text || "").startsWith("ENC:"));
+        if (isEncrypted) {
+          console.log("[Notifications] \u{1F511} Cache has encrypted data \u2014 skipping, waiting for fresh decrypted data");
+        } else {
+          let hasData = false;
+          for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+            if (notifs.length > 0) {
+              setNotificationsData(deviceId, notifs);
+              hasData = true;
+            }
           }
-        }
-        if (hasData) {
-          const merged = getMergedNotifications();
-          renderNotifications(merged.slice(0, 200));
-          updateTabBadges();
-          if (notificationsList && notificationsList.querySelector(".loading-spinner")) {
+          if (hasData) {
+            const merged = getMergedNotifications();
+            renderNotifications(merged.slice(0, 200));
+            updateTabBadges();
+            console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
           }
-          console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
         }
       }
     } catch (e) {
@@ -26651,19 +26662,20 @@ ${this.customData.serverResponse}`;
       orderBy("createdAt", "desc"),
       limit(200)
     );
-    const userNotifUnsub = onSnapshot(userNotificationsQuery, (snapshot) => {
-      const notifications = [];
-      snapshot.forEach((doc2) => {
-        const data = doc2.data();
-        const firestoreId = doc2.id;
-        notifications.push({
-          ...data,
-          id: firestoreId,
-          // Use Firestore ID, not data.id
-          deviceId: data.deviceId || "user",
-          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
-        });
-      });
+    const userNotifUnsub = onSnapshot(userNotificationsQuery, async (snapshot) => {
+      const notifications = await Promise.all(
+        snapshot.docs.map(async (doc2) => {
+          let data = doc2.data();
+          data = await decryptNotification(data, user.uid);
+          const firestoreId = doc2.id;
+          return {
+            ...data,
+            id: firestoreId,
+            deviceId: data.deviceId || "user",
+            receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
+          };
+        })
+      );
       updateNotificationsList("_user_notifications", notifications);
       cacheNotificationsData(allNotifications).catch(() => {
       });
@@ -26699,22 +26711,23 @@ ${this.customData.serverResponse}`;
       );
       const unsub = onSnapshot(
         q2,
-        (snapshot) => {
-          const notifications = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const firestoreId = docSnap.id;
-            console.log(
-              `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`
-            );
-            notifications.push({
-              ...data,
-              id: firestoreId,
-              // Use Firestore ID, not data.id
-              deviceId: device.id,
-              deviceName: device.name
-            });
-          });
+        async (snapshot) => {
+          const notifications = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, user.uid);
+              const firestoreId = docSnap.id;
+              console.log(
+                `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`
+              );
+              return {
+                ...data,
+                id: firestoreId,
+                deviceId: device.id,
+                deviceName: device.name
+              };
+            })
+          );
           updateNotificationsList(device.id, notifications);
           cacheNotificationsData(allNotifications).catch(() => {
           });
@@ -27245,6 +27258,7 @@ ${this.customData.serverResponse}`;
       init_badges();
       init_i18n();
       init_cache();
+      init_cryptoService();
       notifSelectionMode = false;
       selectedNotifApps = /* @__PURE__ */ new Set();
       _searchWired = false;
@@ -28165,13 +28179,25 @@ ${this.customData.serverResponse}`;
   async function deleteDevice(docId, deviceId) {
     const user = currentUser;
     if (!user || !docId) return;
+    const currentDeviceId = await getDeviceId();
+    const isOwnDevice = deviceId === currentDeviceId;
     showLoadingOverlay();
     try {
       await deleteDoc(doc(db, "devices", docId));
-      showToast(`Device "${deviceId}" deleted`, "success");
-      removeDevice(docId);
-      renderDevices();
-      updateDeviceSelects();
+      if (isOwnDevice) {
+        if (typeof chrome !== "undefined" && chrome.identity) {
+          chrome.identity.getAuthToken({ interactive: false }, (token) => {
+            if (token) chrome.identity.removeCachedAuthToken({ token });
+          });
+        }
+        await signOut(auth);
+        showToast("Device removed and signed out", "success");
+      } else {
+        showToast(`Device "${deviceId}" deleted`, "success");
+        removeDevice(docId);
+        renderDevices();
+        updateDeviceSelects();
+      }
     } catch (error) {
       console.error("Delete device error:", error);
       showToast("Failed to delete device", "error");
@@ -28343,6 +28369,35 @@ ${this.customData.serverResponse}`;
     }
     hideLoading();
   }
+  async function deleteAccount2() {
+    const user = currentUser;
+    if (!user) return;
+    showLoadingOverlay();
+    try {
+      const devicesSnap = await getDocs(
+        query(collection(db, "devices"), where("userId", "==", user.uid))
+      );
+      const deviceDeletes = devicesSnap.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deviceDeletes);
+      await deleteDoc(doc(db, "users", user.uid));
+      await auth.currentUser.delete();
+      if (typeof chrome !== "undefined" && chrome.identity) {
+        chrome.identity.getAuthToken({ interactive: false }, (token) => {
+          if (token) chrome.identity.removeCachedAuthToken({ token });
+        });
+      }
+      await signOut(auth);
+      showToast("Account deleted", "success");
+    } catch (error) {
+      console.error("Delete account error:", error);
+      if (error.code === "auth/requires-recent-login") {
+        showToast("Please sign out and sign in again before deleting your account", "error");
+      } else {
+        showToast("Failed to delete account", "error");
+      }
+      hideLoading();
+    }
+  }
   function initSettingsListeners() {
     settingsBtn?.addEventListener("click", () => {
       settingsModal.classList.remove("hidden");
@@ -28358,9 +28413,9 @@ ${this.customData.serverResponse}`;
     document.getElementById("saveDisplayNameBtn")?.addEventListener("click", saveDisplayName);
     document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
       if (await showConfirmDialog(
-        "Are you sure you want to delete your account? This action cannot be undone."
+        "Are you sure you want to permanently delete your account? All devices, SMS history, call logs, and notifications will be erased. This cannot be undone."
       )) {
-        showToast("Account deletion coming soon", "info");
+        await deleteAccount2();
       }
     });
     const languageSelect = document.getElementById("languageSelect");

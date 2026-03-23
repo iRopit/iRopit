@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read/write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Devices subcollection
+      match /devices/{deviceId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        // Notifications (SMS, calls) under each device
+        match /notifications/{notifId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // Contacts under each device
+        match /contacts/{contactId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // Calls under each device
+        match /calls/{callId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // Messages under each device
+        match /messages/{messageId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+
+      // User-level notifications
+      match /notifications/{notifId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User-level messages
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Top-level devices collection
+    match /devices/{deviceId} {
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow write: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+    }
+
+    // SMS requests (for sending SMS via Android device)
+    match /sms_requests/{requestId} {
+      allow read, write: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Chats
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Push notifications (Chrome extension → mobile app)
+    match /push_notifications/{notifId} {
+      allow read, write: if request.auth != null && (
+        resource == null || resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Top-level SMS and calls collections (legacy)
+    match /sms/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /calls/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

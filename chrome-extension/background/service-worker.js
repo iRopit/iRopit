@@ -507,7 +507,8 @@ function listenForSMSFromDevice(deviceId, deviceName) {
   const seenSMSIds = new Set();
 
   const smsQuery = query(
-    collection(db, "users", currentUser.uid, "devices", deviceId, "sms"),
+    collection(db, "users", currentUser.uid, "devices", deviceId, "notifications"),
+    where("type", "==", "sms"),
     orderBy("timestamp", "desc"),
     limit(20),
   );

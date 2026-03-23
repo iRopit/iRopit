@@ -4,6 +4,7 @@
 
 import {
   db,
+  auth,
   collection,
   doc,
   getDoc,
@@ -15,6 +16,7 @@ import {
   query,
   where,
   onSnapshot,
+  signOut,
 } from "../config/firebase.js";
 
 import { devicesList, smsDevice } from "../ui/dom.js";
@@ -576,15 +578,30 @@ export async function deleteDevice(docId, deviceId) {
   const user = state.currentUser;
   if (!user || !docId) return;
 
+  // Check if this is the current Chrome extension device
+  const currentDeviceId = await getDeviceId();
+  const isOwnDevice = deviceId === currentDeviceId;
+
   showLoadingOverlay();
   try {
-    // Delete only the device document — historical SMS, calls and notifications are preserved
+    // Delete the device document — Cloud Function handles subcollection cleanup
     await deleteDoc(doc(db, "devices", docId));
 
-    showToast(`Device "${deviceId}" deleted`, "success");
-    state.removeDevice(docId);
-    renderDevices();
-    updateDeviceSelects();
+    if (isOwnDevice) {
+      // Revoke Chrome identity token and sign out
+      if (typeof chrome !== "undefined" && chrome.identity) {
+        chrome.identity.getAuthToken({ interactive: false }, (token) => {
+          if (token) chrome.identity.removeCachedAuthToken({ token });
+        });
+      }
+      await signOut(auth);
+      showToast("Device removed and signed out", "success");
+    } else {
+      showToast(`Device "${deviceId}" deleted`, "success");
+      state.removeDevice(docId);
+      renderDevices();
+      updateDeviceSelects();
+    }
   } catch (error) {
     console.error("Delete device error:", error);
     showToast("Failed to delete device", "error");

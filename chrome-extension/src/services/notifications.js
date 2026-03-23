@@ -30,6 +30,7 @@ import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
+import { decryptNotification } from "./cryptoService.js";
 
 // ── Selection mode state ──────────────────────────────────────────────────────
 let notifSelectionMode = false;
@@ -55,22 +56,30 @@ export async function loadNotifications() {
   try {
     const cached = await getCachedNotifications();
     if (cached && cached.byDevice) {
-      let hasData = false;
-      for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
-        if (notifs.length > 0) {
-          state.setNotificationsData(deviceId, notifs);
-          hasData = true;
+      // Skip cache if it still contains encrypted data (ENC: prefix)
+      const firstNotif = Object.values(cached.byDevice).flat()[0];
+      const isEncrypted =
+        firstNotif &&
+        (String(firstNotif.title || "").startsWith("ENC:") ||
+          String(firstNotif.body || "").startsWith("ENC:") ||
+          String(firstNotif.text || "").startsWith("ENC:"));
+      if (isEncrypted) {
+        console.log("[Notifications] 🔑 Cache has encrypted data — skipping, waiting for fresh decrypted data");
+        // Skip stale encrypted cache; fresh decrypted data will arrive via onSnapshot
+      } else {
+        let hasData = false;
+        for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+          if (notifs.length > 0) {
+            state.setNotificationsData(deviceId, notifs);
+            hasData = true;
+          }
         }
-      }
-      if (hasData) {
-        const merged = getMergedNotifications();
-        renderNotifications(merged.slice(0, 200));
-        updateTabBadges();
-        // Hide the loading spinner since we showed cached data
-        if (notificationsList && notificationsList.querySelector('.loading-spinner')) {
-          // spinner will be replaced by the rendered list above
+        if (hasData) {
+          const merged = getMergedNotifications();
+          renderNotifications(merged.slice(0, 200));
+          updateTabBadges();
+          console.log("[Notifications] 📦 Showed cached notifications instantly");
         }
-        console.log("[Notifications] 📦 Showed cached notifications instantly");
       }
     }
   } catch (e) {
@@ -83,19 +92,20 @@ export async function loadNotifications() {
     limit(200),
   );
 
-  const userNotifUnsub = onSnapshot(userNotificationsQuery, (snapshot) => {
-    const notifications = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const firestoreId = doc.id; // Save the actual Firestore document ID
-      notifications.push({
-        ...data,
-        id: firestoreId, // Use Firestore ID, not data.id
-        deviceId: data.deviceId || "user",
-        receivedAt:
-          data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
-      });
-    });
+  const userNotifUnsub = onSnapshot(userNotificationsQuery, async (snapshot) => {
+    const notifications = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        let data = doc.data();
+        data = await decryptNotification(data, user.uid);
+        const firestoreId = doc.id;
+        return {
+          ...data,
+          id: firestoreId,
+          deviceId: data.deviceId || "user",
+          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+        };
+      }),
+    );
     updateNotificationsList("_user_notifications", notifications);
     // Persist to cache after each update
     cacheNotificationsData(state.allNotifications).catch(() => {});
@@ -146,21 +156,23 @@ export async function loadNotifications() {
 
     const unsub = onSnapshot(
       q,
-      (snapshot) => {
-        const notifications = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const firestoreId = docSnap.id; // Save the actual Firestore document ID
-          console.log(
-            `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`,
-          );
-          notifications.push({
-            ...data,
-            id: firestoreId, // Use Firestore ID, not data.id
-            deviceId: device.id,
-            deviceName: device.name,
-          });
-        });
+      async (snapshot) => {
+        const notifications = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptNotification(data, user.uid);
+            const firestoreId = docSnap.id;
+            console.log(
+              `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`,
+            );
+            return {
+              ...data,
+              id: firestoreId,
+              deviceId: device.id,
+              deviceName: device.name,
+            };
+          }),
+        );
         updateNotificationsList(device.id, notifications);
         // Persist to cache after each device update
         cacheNotificationsData(state.allNotifications).catch(() => {});

@@ -12,7 +12,9 @@ import {
   updatePassword,
 } from "firebase/auth";
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   getDoc,
@@ -36,7 +38,9 @@ import firebaseConfig from "../../firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 const storage = getStorage(app);
 
 export {

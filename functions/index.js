@@ -3,7 +3,7 @@
  * Handles push notifications via FCM
  */
 
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -519,6 +519,129 @@ exports.onNewDeviceNotification = onDocumentCreated(
       return { success: true, sentTo: sendPromises.length };
     } catch (error) {
       console.error("[onNewDeviceNotification] Error:", error);
+      return { error: error.message };
+    }
+  },
+);
+
+/**
+ * Helper: delete all docs returned by a Firestore query/collection ref in batches of 400.
+ */
+async function deleteInBatches(ref) {
+  const snapshot = await ref.get();
+  if (snapshot.empty) return 0;
+
+  let count = 0;
+  let batch = db.batch();
+  let batchCount = 0;
+
+  for (const docSnap of snapshot.docs) {
+    batch.delete(docSnap.ref);
+    batchCount++;
+    count++;
+    if (batchCount >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      batchCount = 0;
+    }
+  }
+
+  if (batchCount > 0) await batch.commit();
+  return count;
+}
+
+/**
+ * Cloud Function: Clean up all device data when a device document is deleted.
+ * Triggered by deletions from both Chrome extension and mobile app.
+ * Removes: SMS, calls, notifications, chats, and messages linked to the device.
+ */
+exports.onDeviceDeleted = onDocumentDeleted(
+  "devices/{docId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return null;
+
+    const device = snap.data();
+    const userId = device.userId;
+    const deviceId = device.id || event.params.docId;
+
+    if (!userId || !deviceId) {
+      console.log(`[onDeviceDeleted] Missing userId or deviceId for doc ${event.params.docId}`);
+      return null;
+    }
+
+    console.log(`[onDeviceDeleted] Cleaning up data for device "${deviceId}" of user "${userId}"`);
+
+    try {
+      const userDeviceRef = db
+        .collection("users").doc(userId)
+        .collection("devices").doc(deviceId);
+
+      const [
+        notifSubCount,
+        callsSubCount,
+        smsCount,
+        callsTopCount,
+        chatsSentCount,
+        chatsRecvCount,
+        messagesCount,
+        userNotifsCount,
+      ] = await Promise.all([
+        // Subcollection: users/{userId}/devices/{deviceId}/notifications
+        deleteInBatches(userDeviceRef.collection("notifications")),
+        // Subcollection: users/{userId}/devices/{deviceId}/calls
+        deleteInBatches(userDeviceRef.collection("calls")),
+        // Top-level sms collection
+        deleteInBatches(
+          db.collection("sms")
+            .where("userId", "==", userId)
+            .where("deviceId", "==", deviceId),
+        ),
+        // Top-level calls collection
+        deleteInBatches(
+          db.collection("calls")
+            .where("userId", "==", userId)
+            .where("deviceId", "==", deviceId),
+        ),
+        // Chats sent by this device
+        deleteInBatches(
+          db.collection("chats").where("senderDeviceId", "==", deviceId),
+        ),
+        // Chats received by this device
+        deleteInBatches(
+          db.collection("chats").where("receiverDeviceId", "==", deviceId),
+        ),
+        // users/{userId}/messages where deviceId matches
+        deleteInBatches(
+          db.collection("users").doc(userId)
+            .collection("messages")
+            .where("deviceId", "==", deviceId),
+        ),
+        // users/{userId}/notifications where deviceId matches
+        deleteInBatches(
+          db.collection("users").doc(userId)
+            .collection("notifications")
+            .where("deviceId", "==", deviceId),
+        ),
+      ]);
+
+      // Delete the nested users/{userId}/devices/{deviceId} document itself
+      await userDeviceRef.delete().catch(() => {});
+
+      console.log(`[onDeviceDeleted] Cleanup complete for device "${deviceId}":`, {
+        notificationsSubcollection: notifSubCount,
+        callsSubcollection: callsSubCount,
+        smsDocuments: smsCount,
+        callsDocuments: callsTopCount,
+        chatsSent: chatsSentCount,
+        chatsReceived: chatsRecvCount,
+        messages: messagesCount,
+        userNotifications: userNotifsCount,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error(`[onDeviceDeleted] Error cleaning up device "${deviceId}":`, error);
       return { error: error.message };
     }
   },

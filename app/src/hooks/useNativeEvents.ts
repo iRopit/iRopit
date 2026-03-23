@@ -70,7 +70,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     if (user && !currentDevice) {
       registerDevice().then(() => {
         startOnlineStatusTracking();
-        syncContactsToFirebase();
+        // Delay contact sync slightly to ensure Firestore auth token is ready
+        setTimeout(() => syncContactsToFirebase(), 2000);
         fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
       });
     }
@@ -91,8 +92,10 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   ]);
 
   // Watch for remote device deletion — sign out if device doc is removed
+  // Use currentDevice?.id (primitive) to avoid re-triggering on every object reference change
+  const currentDeviceId = currentDevice?.id;
   useEffect(() => {
-    if (!user || !currentDevice) return;
+    if (!user || !currentDeviceId) return;
 
     deviceDeleteListenerUnsubscribe.current = startDeviceDeleteListener();
 
@@ -102,7 +105,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         deviceDeleteListenerUnsubscribe.current = null;
       }
     };
-  }, [user, currentDevice, startDeviceDeleteListener]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentDeviceId]);
 
   // One-time initial sync of existing calls & SMS from device to Firebase.
   // Runs as soon as both user and currentDevice are ready.

@@ -294,12 +294,11 @@ const ChatScreen = () => {
     >
       {renderHeader()}
 
-      {/* Screen Title with Delete button */}
+      {/* Screen Title */}
       <ScreenTitle
         title={isRTL ? 'الدردشة' : 'Chat'}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
-        rightComponent={renderDeleteButton()}
       />
 
       <View style={{ flex: 1 }}>

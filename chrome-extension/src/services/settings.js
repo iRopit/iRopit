@@ -9,6 +9,12 @@ import {
   doc,
   getDoc,
   updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  signOut,
   signInWithEmailAndPassword,
   updatePassword,
 } from "../config/firebase.js"
@@ -164,6 +170,48 @@ function showChangePasswordModal() {
 }
 
 /**
+ * Delete account: remove all devices, history, user doc, then sign out
+ */
+async function deleteAccount() {
+  const user = state.currentUser
+  if (!user) return
+
+  showLoadingOverlay()
+  try {
+    // 1. Delete all device documents (Cloud Function handles subcollection cleanup)
+    const devicesSnap = await getDocs(
+      query(collection(db, "devices"), where("userId", "==", user.uid))
+    )
+    const deviceDeletes = devicesSnap.docs.map((d) => deleteDoc(d.ref))
+    await Promise.all(deviceDeletes)
+
+    // 2. Delete user document
+    await deleteDoc(doc(db, "users", user.uid))
+
+    // 3. Delete Firebase Auth account
+    await auth.currentUser.delete()
+
+    // 4. Revoke Chrome identity token & sign out
+    if (typeof chrome !== "undefined" && chrome.identity) {
+      chrome.identity.getAuthToken({ interactive: false }, (token) => {
+        if (token) chrome.identity.removeCachedAuthToken({ token })
+      })
+    }
+    await signOut(auth)
+
+    showToast("Account deleted", "success")
+  } catch (error) {
+    console.error("Delete account error:", error)
+    if (error.code === "auth/requires-recent-login") {
+      showToast("Please sign out and sign in again before deleting your account", "error")
+    } else {
+      showToast("Failed to delete account", "error")
+    }
+    hideLoading()
+  }
+}
+
+/**
  * Initialize settings event listeners
  */
 export function initSettingsListeners() {
@@ -191,10 +239,10 @@ export function initSettingsListeners() {
   document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
     if (
       await showConfirmDialog(
-        "Are you sure you want to delete your account? This action cannot be undone."
+        "Are you sure you want to permanently delete your account? All devices, SMS history, call logs, and notifications will be erased. This cannot be undone."
       )
     ) {
-      showToast("Account deletion coming soon", "info")
+      await deleteAccount()
     }
   })
 

@@ -78,7 +78,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
       set({ contacts: formattedContacts, isLoading: false });
       console.log(`[ContactStore] Loaded ${formattedContacts.length} contacts`);
     } catch (error: any) {
-      console.error('[ContactStore] Error loading contacts:', error);
+      console.warn('[ContactStore] Error loading contacts:', error);
       set({ isLoading: false, error: error.message });
     }
   },
@@ -153,7 +153,14 @@ export const useContactStore = create<ContactState>((set, get) => ({
         `[ContactStore] Synced ${contacts.length} contacts to Firebase`,
       );
     } catch (error: any) {
-      console.error('[ContactStore] Error syncing contacts:', error);
+      const code = error?.code || '';
+      if (code === 'firestore/unavailable' || code === 'unavailable') {
+        // Transient network error during startup — will retry on next foreground
+        console.log('[ContactStore] Firestore unavailable, will retry later');
+        set({ isSyncing: false });
+        return;
+      }
+      console.warn('[ContactStore] Error syncing contacts (code:', code, '):', error);
       set({ isSyncing: false, error: error.message });
     }
   },
