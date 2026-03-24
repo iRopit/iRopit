@@ -23780,6 +23780,11 @@ ${this.customData.serverResponse}`;
       callsSearch.dataset.wired = "1";
       callsSearch.addEventListener("input", () => renderCalls(allCallsData));
     }
+    const callsUnreadCb = document.getElementById("callsShowUnread");
+    if (callsUnreadCb && !callsUnreadCb.dataset.wired) {
+      callsUnreadCb.dataset.wired = "1";
+      callsUnreadCb.addEventListener("change", () => renderCalls(allCallsData));
+    }
     const searchQuery = (document.getElementById("callsSearchInput")?.value || "").trim().toLowerCase();
     if (searchQuery) {
       filteredCalls = filteredCalls.filter((call) => {
@@ -23825,9 +23830,25 @@ ${this.customData.serverResponse}`;
         grouped[key].lastCall = call;
       }
     });
-    const callGroups = Object.values(grouped).sort(
+    let callGroups = Object.values(grouped).sort(
       (a, b) => (b.lastCall.timestamp || 0) - (a.lastCall.timestamp || 0)
     );
+    if (document.getElementById("callsShowUnread")?.checked) {
+      callGroups = callGroups.filter((g) => g.unviewedMissedCount > 0);
+    }
+    if (callGroups.length === 0) {
+      callsList.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+        </svg>
+        <p>No unread calls</p>
+        <span>No missed calls to review</span>
+      </div>
+    `;
+      updateTabBadges();
+      return;
+    }
     callsList.innerHTML = callGroups.map(
       (group) => `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.phoneNumber) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.phoneNumber}">
@@ -25342,6 +25363,11 @@ ${this.customData.serverResponse}`;
       searchInput.dataset.wired = "1";
       searchInput.addEventListener("input", () => renderSMS(allSMSMessages));
     }
+    const smsUnreadCb = document.getElementById("smsShowUnread");
+    if (smsUnreadCb && !smsUnreadCb.dataset.wired) {
+      smsUnreadCb.dataset.wired = "1";
+      smsUnreadCb.addEventListener("change", () => renderSMS(allSMSMessages));
+    }
     const smsListElement = document.getElementById("smsList");
     if (!smsListElement) {
       return;
@@ -25440,9 +25466,25 @@ ${this.customData.serverResponse}`;
         }
       }
     });
-    const conversations = Object.values(grouped).sort(
+    let conversations = Object.values(grouped).sort(
       (a, b) => (b.lastMessage.timestamp || 0) - (a.lastMessage.timestamp || 0)
     );
+    if (document.getElementById("smsShowUnread")?.checked) {
+      conversations = conversations.filter((c) => c.unreadCount > 0);
+    }
+    if (conversations.length === 0) {
+      smsListElement.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <p>No unread messages</p>
+        <span>All conversations have been read</span>
+      </div>
+    `;
+      updateTabBadges();
+      return;
+    }
     smsListElement.innerHTML = conversations.map(
       (conv) => {
         let hoverPhone = conv.phoneNumber;
@@ -26785,6 +26827,12 @@ ${this.customData.serverResponse}`;
         reRenderNotifications();
       });
     }
+    const notifUnreadCb = document.getElementById("notifShowUnread");
+    if (notifUnreadCb) {
+      notifUnreadCb.addEventListener("change", () => {
+        reRenderNotifications();
+      });
+    }
     document.getElementById("notifBackBtn")?.addEventListener("click", () => {
       hideNotifDetail();
     });
@@ -26890,7 +26938,25 @@ ${this.customData.serverResponse}`;
       if (!groups[key]) groups[key] = { appName: n.appName || "Unknown App", packageName: n.packageName, appIcon: n.appIcon, items: [] };
       groups[key].items.push(n);
     });
-    notificationsList.innerHTML = Object.entries(groups).map(([key, group]) => {
+    let groupEntries = Object.entries(groups);
+    if (document.getElementById("notifShowUnread")?.checked) {
+      groupEntries = groupEntries.filter(([, group]) => group.items.some((n) => !n.read));
+    }
+    if (groupEntries.length === 0) {
+      notificationsList.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <p>No unread notifications</p>
+        <span>All notifications have been read</span>
+      </div>
+    `;
+      updateTabBadges();
+      return;
+    }
+    notificationsList.innerHTML = groupEntries.map(([key, group]) => {
       const latest = group.items[0];
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
@@ -26922,7 +26988,7 @@ ${this.customData.serverResponse}`;
       </div>
     `;
     }).join("");
-    const appKeys = Object.keys(groups);
+    const appKeys = groupEntries.map(([key]) => key);
     notificationsList.querySelectorAll(".notification-item").forEach((item) => {
       item.addEventListener("click", () => {
         const key = item.dataset.appKey;

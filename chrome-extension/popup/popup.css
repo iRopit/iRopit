@@ -702,6 +702,39 @@ body[dir="rtl"] {
   font-weight: 600;
 }
 
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.show-unread-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.show-unread-toggle input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.show-unread-toggle:has(input:checked) {
+  color: var(--primary);
+}
+
 .clear-all-btn {
   background: none;
   border: 1px solid rgba(255, 255, 255, 0.15);

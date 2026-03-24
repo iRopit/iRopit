@@ -505,6 +505,13 @@ export function renderCalls(calls) {
     callsSearch.addEventListener("input", () => renderCalls(state.allCallsData));
   }
 
+  // Wire unread filter checkbox once
+  const callsUnreadCb = document.getElementById("callsShowUnread");
+  if (callsUnreadCb && !callsUnreadCb.dataset.wired) {
+    callsUnreadCb.dataset.wired = "1";
+    callsUnreadCb.addEventListener("change", () => renderCalls(state.allCallsData));
+  }
+
   // Apply search filter
   const searchQuery = (document.getElementById("callsSearchInput")?.value || "").trim().toLowerCase();
   if (searchQuery) {
@@ -560,9 +567,28 @@ export function renderCalls(calls) {
   });
 
   // Sort by last call timestamp
-  const callGroups = Object.values(grouped).sort(
+  let callGroups = Object.values(grouped).sort(
     (a, b) => (b.lastCall.timestamp || 0) - (a.lastCall.timestamp || 0),
   );
+
+  // Apply unread filter
+  if (document.getElementById("callsShowUnread")?.checked) {
+    callGroups = callGroups.filter(g => g.unviewedMissedCount > 0);
+  }
+
+  if (callGroups.length === 0) {
+    callsList.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+        </svg>
+        <p>No unread calls</p>
+        <span>No missed calls to review</span>
+      </div>
+    `;
+    updateTabBadges();
+    return;
+  }
 
   callsList.innerHTML = callGroups
     .map(

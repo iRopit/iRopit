@@ -242,6 +242,13 @@ function wireSearchAndDetail() {
     });
   }
 
+  const notifUnreadCb = document.getElementById("notifShowUnread");
+  if (notifUnreadCb) {
+    notifUnreadCb.addEventListener("change", () => {
+      reRenderNotifications();
+    });
+  }
+
   document.getElementById("notifBackBtn")?.addEventListener("click", () => {
     hideNotifDetail();
   });
@@ -377,7 +384,28 @@ function renderNotifications(notifications) {
     groups[key].items.push(n);
   });
 
-  notificationsList.innerHTML = Object.entries(groups).map(([key, group]) => {
+  // Apply unread filter
+  let groupEntries = Object.entries(groups);
+  if (document.getElementById("notifShowUnread")?.checked) {
+    groupEntries = groupEntries.filter(([, group]) => group.items.some(n => !n.read));
+  }
+
+  if (groupEntries.length === 0) {
+    notificationsList.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <p>No unread notifications</p>
+        <span>All notifications have been read</span>
+      </div>
+    `;
+    updateTabBadges();
+    return;
+  }
+
+  notificationsList.innerHTML = groupEntries.map(([key, group]) => {
     const latest = group.items[0];
     const unreadCount = group.items.filter(n => !n.read).length;
     const hasUnread = unreadCount > 0;
@@ -411,7 +439,7 @@ function renderNotifications(notifications) {
     `;
   }).join("");
 
-  const appKeys = Object.keys(groups);
+  const appKeys = groupEntries.map(([key]) => key);
 
   // Click → toggle selection or show detail
   notificationsList.querySelectorAll(".notification-item").forEach(item => {

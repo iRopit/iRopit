@@ -712,6 +712,13 @@ export function renderSMS(messages) {
     searchInput.addEventListener("input", () => renderSMS(state.allSMSMessages));
   }
 
+  // Wire unread filter checkbox once
+  const smsUnreadCb = document.getElementById("smsShowUnread");
+  if (smsUnreadCb && !smsUnreadCb.dataset.wired) {
+    smsUnreadCb.dataset.wired = "1";
+    smsUnreadCb.addEventListener("change", () => renderSMS(state.allSMSMessages));
+  }
+
   const smsListElement = document.getElementById("smsList");
 
   if (!smsListElement) {
@@ -844,9 +851,28 @@ export function renderSMS(messages) {
   });
 
   // Sort by last message timestamp
-  const conversations = Object.values(grouped).sort(
+  let conversations = Object.values(grouped).sort(
     (a, b) => (b.lastMessage.timestamp || 0) - (a.lastMessage.timestamp || 0),
   );
+
+  // Apply unread filter
+  if (document.getElementById("smsShowUnread")?.checked) {
+    conversations = conversations.filter(c => c.unreadCount > 0);
+  }
+
+  if (conversations.length === 0) {
+    smsListElement.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <p>No unread messages</p>
+        <span>All conversations have been read</span>
+      </div>
+    `;
+    updateTabBadges();
+    return;
+  }
 
   smsListElement.innerHTML = conversations
     .map(
