@@ -396,8 +396,8 @@ body[dir="rtl"] {
   position: absolute;
   top: 2px;
   right: 29px;
-  background: var(--error);
-  color: white;
+  background: var(--primary-light);
+  color: #000000;
   font-size: 9px;
   font-weight: 600;
   min-width: 14px;
@@ -732,7 +732,7 @@ body[dir="rtl"] {
 }
 
 .show-unread-toggle:has(input:checked) {
-  color: var(--primary);
+  color: var(--text);
 }
 
 .clear-all-btn {

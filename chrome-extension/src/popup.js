@@ -188,3 +188,8 @@ function init() {
 
 // Start the extension
 init();
+
+// Clean up Firestore listeners when popup closes to avoid WebChannel transport errors
+window.addEventListener("pagehide", () => {
+  cleanupSubscriptions();
+});

@@ -28640,6 +28640,9 @@ ${this.customData.serverResponse}`;
     });
   }
   init();
+  window.addEventListener("pagehide", () => {
+    cleanupSubscriptions();
+  });
 })();
 /*! Bundled license information:
 
