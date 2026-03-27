@@ -18,29 +18,77 @@ export function updateTabBadges() {
   ).length
   updateBadge("chatBadge", chatUnread)
 
-  // SMS badge - count unread SMS in conversations
-  const smsUnread = Object.values(state.allSMS).reduce(
-    (count, conversation) => {
-      return count + conversation.filter((msg) => !msg.read).length
-    },
-    0
+  // Derive all counts from state.devices so header badges always match device tab "All" counts
+  const smsUnread = state.devices.reduce(
+    (total, d) => total + (state.allSMS[d.id] || []).filter(m => !m.read).length, 0
   )
   updateBadge("smsBadge", smsUnread)
 
-  // Calls badge - count missed calls that haven't been viewed
-  const missedCalls = state.allCallsData.filter(
-    (call) => call.type === "missed" && !call.viewed
-  ).length
+  const missedCalls = getCallsCount("all")
   updateBadge("callsBadge", missedCalls)
 
-  // Notifications badge - count unread notifications
-  const notifUnread = Object.values(state.allNotifications).reduce(
-    (count, notifList) => {
-      return count + notifList.filter((notif) => !notif.read).length
-    },
-    0
+  const notifUnread = state.devices.reduce(
+    (total, d) => total + (state.allNotifications[d.id] || []).filter(n => !n.read).length, 0
   )
   updateBadge("notificationsBadge", notifUnread)
+
+  // Refresh device tab counts in the left panel
+  refreshDeviceTabCounts()
+}
+
+/**
+ * Refresh unread counts shown next to device names in device tab panels.
+ * Called automatically from updateTabBadges() so all mark-as-read actions stay in sync.
+ */
+function refreshDeviceTabCounts() {
+  const sections = [
+    { containerId: "smsDeviceTabs",           countFn: (id) => getSmsCount(id) },
+    { containerId: "callsDeviceTabs",         countFn: (id) => getCallsCount(id) },
+    { containerId: "notificationsDeviceTabs", countFn: (id) => getNotifsCount(id) },
+  ]
+
+  sections.forEach(({ containerId, countFn }) => {
+    const container = document.getElementById(containerId)
+    if (!container) return
+    container.querySelectorAll(".device-tab").forEach(tab => {
+      const deviceId = tab.dataset.device
+      const count = countFn(deviceId)
+      let countSpan = tab.querySelector(".device-tab-count")
+      if (count > 0) {
+        if (!countSpan) {
+          countSpan = document.createElement("span")
+          countSpan.className = "device-tab-count"
+          tab.appendChild(countSpan)
+        }
+        countSpan.textContent = `(${count > 99 ? "99+" : count})`
+      } else {
+        countSpan?.remove()
+      }
+    })
+  })
+}
+
+function getSmsCount(deviceId) {
+  if (deviceId === "all") return state.devices.reduce((t, d) => t + getSmsCount(d.id), 0)
+  return (state.allSMS[deviceId] || []).filter(m => !m.read).length
+}
+
+function getCallsCount(deviceId) {
+  if (deviceId === "all") return state.devices.reduce((t, d) => t + getCallsCount(d.id), 0)
+  // Use allCallsData (render source) to stay in sync with what's actually displayed
+  return (state.allCallsData || []).filter(c => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length
+}
+
+function getNotifsCount(deviceId) {
+  if (deviceId === "all") return state.devices.reduce((t, d) => t + getNotifsCount(d.id), 0)
+  return (state.allNotifications[deviceId] || []).filter(n => !n.read).length
+}
+
+function getDeviceCount(deviceId) {
+  if (deviceId === "all") {
+    return state.devices.reduce((total, d) => total + getDeviceCount(d.id), 0)
+  }
+  return getSmsCount(deviceId) + getCallsCount(deviceId) + getNotifsCount(deviceId)
 }
 
 /**

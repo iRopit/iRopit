@@ -91,20 +91,26 @@ export async function markAllCallsAsViewed() {
   const user = state.currentUser;
   if (!user) return;
 
+  const activeDevice = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
+
   const missedToMark = state.allCallsData.filter(
-    (call) => call.type === "missed" && !call.viewed,
+    (call) => call.type === "missed" && !call.viewed &&
+      (activeDevice === "all" || call.deviceId === activeDevice),
   );
 
   if (missedToMark.length === 0) return;
 
   const updatedCalls = state.allCallsData.map((call) =>
-    call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call,
+    call.type === "missed" && !call.viewed &&
+    (activeDevice === "all" || call.deviceId === activeDevice)
+      ? { ...call, viewed: true } : call,
   );
   state.setAllCallsData(updatedCalls);
 
-  // FIX: Also update allCallsByDevice so any future updateCallsList() merge
+  // Also update allCallsByDevice so any future updateCallsList() merge
   // doesn't overwrite the viewed flags back to false.
-  for (const deviceId of Object.keys(state.allCallsByDevice)) {
+  const deviceIds = activeDevice === "all" ? Object.keys(state.allCallsByDevice) : [activeDevice];
+  for (const deviceId of deviceIds) {
     const deviceCalls = state.allCallsByDevice[deviceId].map((call) =>
       call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call,
     );

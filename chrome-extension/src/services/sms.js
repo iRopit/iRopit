@@ -1619,13 +1619,15 @@ export async function markAllSmsAsRead() {
   const user = state.currentUser;
   if (!user || state.allSMSMessages.length === 0) return;
 
+  const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+
   showLoadingOverlay();
   try {
     const batch = writeBatch(db);
     let count = 0;
 
     for (const msg of state.allSMSMessages) {
-      if (!msg.read && msg.id && msg.deviceId) {
+      if (!msg.read && msg.id && msg.deviceId && (activeDevice === "all" || msg.deviceId === activeDevice)) {
         const notifRef = doc(
           db,
           "users",
@@ -1643,14 +1645,14 @@ export async function markAllSmsAsRead() {
     if (count > 0) {
       await batch.commit();
       showToast(`${count} messages marked as read`, "success");
-      const updatedMessages = state.allSMSMessages.map((msg) => ({
-        ...msg,
-        read: true,
-      }));
+      const updatedMessages = state.allSMSMessages.map((msg) => (
+        (activeDevice === "all" || msg.deviceId === activeDevice) ? { ...msg, read: true } : msg
+      ));
       state.setAllSMSMessages(updatedMessages);
 
       // Also update state.allSMS (per-device dict) so updateTabBadges() sees correct counts
-      Object.keys(state.allSMS).forEach((deviceId) => {
+      const deviceIds = activeDevice === "all" ? Object.keys(state.allSMS) : [activeDevice];
+      deviceIds.forEach((deviceId) => {
         const updatedDeviceMsgs = (state.allSMS[deviceId] || []).map((msg) => ({
           ...msg,
           read: true,

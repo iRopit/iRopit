@@ -557,30 +557,32 @@ export async function markAllNotificationsAsRead() {
   const user = state.currentUser;
   if (!user) return;
 
-  // Get all unread notifications with their correct deviceId
+  const activeDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+
+  // Get unread notifications filtered by active device
   let unreadNotifs = [];
   Object.entries(state.allNotifications).forEach(([stateKey, notifs]) => {
     notifs.forEach((n) => {
       if (!n.read) {
-        // Use the deviceId stored in the notification itself, fallback to stateKey
         const actualDeviceId = n.deviceId || stateKey;
-        unreadNotifs.push({ ...n, actualDeviceId });
+        if (activeDevice === "all" || actualDeviceId === activeDevice) {
+          unreadNotifs.push({ ...n, actualDeviceId });
+        }
       }
     });
   });
-
-  console.log(
-    `[Notifications] Found ${unreadNotifs.length} unread notifications to mark`,
-  );
 
   if (unreadNotifs.length === 0) return;
 
   // Update local state IMMEDIATELY (for instant UI update)
   Object.keys(state.allNotifications).forEach((key) => {
-    const updated = state.allNotifications[key].map((n) => ({
-      ...n,
-      read: true,
-    }));
+    const updated = state.allNotifications[key].map((n) => {
+      const actualDeviceId = n.deviceId || key;
+      if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
+        return { ...n, read: true };
+      }
+      return n;
+    });
     state.setNotificationsData(key, updated);
   });
 

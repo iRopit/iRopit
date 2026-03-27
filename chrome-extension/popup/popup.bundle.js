@@ -22965,24 +22965,57 @@ ${this.customData.serverResponse}`;
       (msg) => !msg.read && msg.senderId !== user.uid
     ).length;
     updateBadge("chatBadge", chatUnread);
-    const smsUnread = Object.values(allSMS).reduce(
-      (count, conversation) => {
-        return count + conversation.filter((msg) => !msg.read).length;
-      },
+    const smsUnread = devices.reduce(
+      (total, d) => total + (allSMS[d.id] || []).filter((m) => !m.read).length,
       0
     );
     updateBadge("smsBadge", smsUnread);
-    const missedCalls = allCallsData.filter(
-      (call) => call.type === "missed" && !call.viewed
-    ).length;
+    const missedCalls = getCallsCount("all");
     updateBadge("callsBadge", missedCalls);
-    const notifUnread = Object.values(allNotifications).reduce(
-      (count, notifList) => {
-        return count + notifList.filter((notif) => !notif.read).length;
-      },
+    const notifUnread = devices.reduce(
+      (total, d) => total + (allNotifications[d.id] || []).filter((n) => !n.read).length,
       0
     );
     updateBadge("notificationsBadge", notifUnread);
+    refreshDeviceTabCounts();
+  }
+  function refreshDeviceTabCounts() {
+    const sections = [
+      { containerId: "smsDeviceTabs", countFn: (id) => getSmsCount(id) },
+      { containerId: "callsDeviceTabs", countFn: (id) => getCallsCount(id) },
+      { containerId: "notificationsDeviceTabs", countFn: (id) => getNotifsCount(id) }
+    ];
+    sections.forEach(({ containerId, countFn }) => {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.querySelectorAll(".device-tab").forEach((tab) => {
+        const deviceId = tab.dataset.device;
+        const count = countFn(deviceId);
+        let countSpan = tab.querySelector(".device-tab-count");
+        if (count > 0) {
+          if (!countSpan) {
+            countSpan = document.createElement("span");
+            countSpan.className = "device-tab-count";
+            tab.appendChild(countSpan);
+          }
+          countSpan.textContent = `(${count > 99 ? "99+" : count})`;
+        } else {
+          countSpan?.remove();
+        }
+      });
+    });
+  }
+  function getSmsCount(deviceId) {
+    if (deviceId === "all") return devices.reduce((t, d) => t + getSmsCount(d.id), 0);
+    return (allSMS[deviceId] || []).filter((m) => !m.read).length;
+  }
+  function getCallsCount(deviceId) {
+    if (deviceId === "all") return devices.reduce((t, d) => t + getCallsCount(d.id), 0);
+    return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
+  }
+  function getNotifsCount(deviceId) {
+    if (deviceId === "all") return devices.reduce((t, d) => t + getNotifsCount(d.id), 0);
+    return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
   }
   function updateBadge(badgeId, count) {
     const badge = document.getElementById(badgeId);
@@ -23510,15 +23543,17 @@ ${this.customData.serverResponse}`;
   async function markAllCallsAsViewed() {
     const user = currentUser;
     if (!user) return;
+    const activeDevice = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const missedToMark = allCallsData.filter(
-      (call) => call.type === "missed" && !call.viewed
+      (call) => call.type === "missed" && !call.viewed && (activeDevice === "all" || call.deviceId === activeDevice)
     );
     if (missedToMark.length === 0) return;
     const updatedCalls = allCallsData.map(
-      (call) => call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
+      (call) => call.type === "missed" && !call.viewed && (activeDevice === "all" || call.deviceId === activeDevice) ? { ...call, viewed: true } : call
     );
     setAllCallsData(updatedCalls);
-    for (const deviceId of Object.keys(allCallsByDevice)) {
+    const deviceIds = activeDevice === "all" ? Object.keys(allCallsByDevice) : [activeDevice];
+    for (const deviceId of deviceIds) {
       const deviceCalls = allCallsByDevice[deviceId].map(
         (call) => call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
       );
@@ -26038,12 +26073,13 @@ ${this.customData.serverResponse}`;
   async function markAllSmsAsRead() {
     const user = currentUser;
     if (!user || allSMSMessages.length === 0) return;
+    const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
     showLoadingOverlay();
     try {
       const batch = writeBatch(db);
       let count = 0;
       for (const msg of allSMSMessages) {
-        if (!msg.read && msg.id && msg.deviceId) {
+        if (!msg.read && msg.id && msg.deviceId && (activeDevice === "all" || msg.deviceId === activeDevice)) {
           const notifRef = doc(
             db,
             "users",
@@ -26060,12 +26096,10 @@ ${this.customData.serverResponse}`;
       if (count > 0) {
         await batch.commit();
         showToast(`${count} messages marked as read`, "success");
-        const updatedMessages = allSMSMessages.map((msg) => ({
-          ...msg,
-          read: true
-        }));
+        const updatedMessages = allSMSMessages.map((msg) => activeDevice === "all" || msg.deviceId === activeDevice ? { ...msg, read: true } : msg);
         setAllSMSMessages(updatedMessages);
-        Object.keys(allSMS).forEach((deviceId) => {
+        const deviceIds = activeDevice === "all" ? Object.keys(allSMS) : [activeDevice];
+        deviceIds.forEach((deviceId) => {
           const updatedDeviceMsgs = (allSMS[deviceId] || []).map((msg) => ({
             ...msg,
             read: true
@@ -27106,24 +27140,27 @@ ${this.customData.serverResponse}`;
   async function markAllNotificationsAsRead() {
     const user = currentUser;
     if (!user) return;
+    const activeDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
     let unreadNotifs = [];
     Object.entries(allNotifications).forEach(([stateKey, notifs]) => {
       notifs.forEach((n) => {
         if (!n.read) {
           const actualDeviceId = n.deviceId || stateKey;
-          unreadNotifs.push({ ...n, actualDeviceId });
+          if (activeDevice === "all" || actualDeviceId === activeDevice) {
+            unreadNotifs.push({ ...n, actualDeviceId });
+          }
         }
       });
     });
-    console.log(
-      `[Notifications] Found ${unreadNotifs.length} unread notifications to mark`
-    );
     if (unreadNotifs.length === 0) return;
     Object.keys(allNotifications).forEach((key) => {
-      const updated = allNotifications[key].map((n) => ({
-        ...n,
-        read: true
-      }));
+      const updated = allNotifications[key].map((n) => {
+        const actualDeviceId = n.deviceId || key;
+        if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
+          return { ...n, read: true };
+        }
+        return n;
+      });
       setNotificationsData(key, updated);
     });
     updateTabBadges();
@@ -28105,6 +28142,23 @@ ${this.customData.serverResponse}`;
       });
     });
   }
+  function mobileDevicesOnly() {
+    return devices.filter(
+      (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
+    );
+  }
+  function getSmsDeviceCount(deviceId) {
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getSmsDeviceCount(d.id), 0);
+    return (allSMS[deviceId] || []).filter((m) => !m.read).length;
+  }
+  function getCallsDeviceCount(deviceId) {
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getCallsDeviceCount(d.id), 0);
+    return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
+  }
+  function getNotifsDeviceCount(deviceId) {
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getNotifsDeviceCount(d.id), 0);
+    return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
+  }
   function updateSmsDeviceTabs() {
     const devices2 = devices;
     const smsDeviceTabs = document.getElementById("smsDeviceTabs");
@@ -28117,14 +28171,18 @@ ${this.customData.serverResponse}`;
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getSmsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
+    const allCount = getSmsDeviceCount("all");
+    const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
     smsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28133,7 +28191,7 @@ ${this.customData.serverResponse}`;
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -28173,14 +28231,18 @@ ${this.customData.serverResponse}`;
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getCallsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
+    const allCount = getCallsDeviceCount("all");
+    const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
     callsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28189,7 +28251,7 @@ ${this.customData.serverResponse}`;
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -28216,14 +28278,18 @@ ${this.customData.serverResponse}`;
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getNotifsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
+    const allCount = getNotifsDeviceCount("all");
+    const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
     notificationsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28232,7 +28298,7 @@ ${this.customData.serverResponse}`;
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;

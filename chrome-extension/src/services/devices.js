@@ -357,6 +357,33 @@ export function updateChatDeviceTabs() {
   });
 }
 
+function mobileDevicesOnly() {
+  return state.devices.filter(
+    (d) =>
+      d.type === "mobile" ||
+      d.type === "phone" ||
+      d.platform === "android" ||
+      d.platform === "ios" ||
+      d.platform === "Android",
+  );
+}
+
+function getSmsDeviceCount(deviceId) {
+  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getSmsDeviceCount(d.id), 0);
+  return (state.allSMS[deviceId] || []).filter(m => !m.read).length;
+}
+
+function getCallsDeviceCount(deviceId) {
+  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getCallsDeviceCount(d.id), 0);
+  // Use allCallsData (render source) to stay in sync with what's actually displayed
+  return (state.allCallsData || []).filter(c => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
+}
+
+function getNotifsDeviceCount(deviceId) {
+  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getNotifsDeviceCount(d.id), 0);
+  return (state.allNotifications[deviceId] || []).filter(n => !n.read).length;
+}
+
 /**
  * Update SMS device tabs (filter SMS by device)
  */
@@ -384,16 +411,20 @@ export function updateSmsDeviceTabs() {
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getSmsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     })
     .join("");
 
   const allActive = currentSelected === "all" ? " active" : "";
+  const allCount = getSmsDeviceCount("all");
+  const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
 
   smsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
@@ -403,7 +434,7 @@ export function updateSmsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -468,16 +499,20 @@ export function updateCallsDeviceTabs() {
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getCallsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     })
     .join("");
 
   const allActive = currentSelected === "all" ? " active" : "";
+  const allCount = getCallsDeviceCount("all");
+  const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
 
   callsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
@@ -487,7 +522,7 @@ export function updateCallsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -535,16 +570,20 @@ export function updateNotificationsDeviceTabs() {
       const deviceName = getFriendlyDeviceName(d);
       const platformIcon = getPlatformIcon(d.platform);
       const isActive = currentSelected === d.id ? " active" : "";
+      const count = getNotifsDeviceCount(d.id);
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
       return `
         <button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
           ${platformIcon}
-          <span>${escapeHtml(deviceName)}</span>
+          <span>${escapeHtml(deviceName)}</span>${countHtml}
         </button>
       `;
     })
     .join("");
 
   const allActive = currentSelected === "all" ? " active" : "";
+  const allCount = getNotifsDeviceCount("all");
+  const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
 
   notificationsDeviceTabs.innerHTML = `
     <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
@@ -554,7 +593,7 @@ export function updateNotificationsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All</span>
+      <span>All</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;

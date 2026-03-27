@@ -997,6 +997,16 @@ body[dir="rtl"] .device-tag {
   flex-shrink: 0;
 }
 
+.device-tab-count {
+  font-size: 11px;
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+.device-tab.active .device-tab-count {
+  opacity: 0.85;
+}
+
 /* Chat */
 .chat-messages {
   flex: 1;
