@@ -992,6 +992,7 @@ export function renderSMS(messages) {
       if (phone) {
         let clean = phone.replace(/[^\d+]/g, "");
         if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("00")) clean = clean.slice(2);
         else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
         window.open(`https://wa.me/${clean}`, "_blank");
       }
@@ -1401,6 +1402,7 @@ export function showConversation(phoneNumber) {
     if (phone) {
       let clean = phone.replace(/[^\d+]/g, "");
       if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("00")) clean = clean.slice(2);
       else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
       window.open(`https://wa.me/${clean}`, "_blank");
     }

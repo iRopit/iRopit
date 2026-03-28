@@ -11,7 +11,7 @@ import {
 } from "./ui/dom.js";
 import { showToast, showListLoading, showLoadingOverlay } from "./ui/toasts.js";
 import { initTabs } from "./ui/tabs.js";
-import { initSmsModal, initProfileFooter } from "./ui/modals.js";
+import { initSmsModal, initCallModal, initProfileFooter } from "./ui/modals.js";
 import { initNavigation } from "./ui/navigation.js";
 
 // Import services
@@ -127,6 +127,7 @@ function init() {
   // Initialize UI
   initTabs();
   initSmsModal();
+  initCallModal();
   initProfileFooter();
   initChatListeners();
   initSettingsListeners();

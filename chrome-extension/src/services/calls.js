@@ -673,6 +673,7 @@ export function renderCalls(calls) {
       e.stopPropagation();
       let clean = phoneNumber.replace(/[^\d+]/g, "");
       if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("00")) clean = clean.slice(2);
       else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
       window.open(`https://wa.me/${clean}`, "_blank");
     });
@@ -836,6 +837,7 @@ async function showCallHistory(phoneNumber) {
   document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
     let clean = phoneNumber.replace(/[^\d+]/g, "");
     if (clean.startsWith("+")) clean = clean.slice(1);
+    else if (clean.startsWith("00")) clean = clean.slice(2);
     else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
     window.open(`https://wa.me/${clean}`, "_blank");
   });
@@ -995,11 +997,11 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
   // Determine target device: always query Firestore for the most recent Android device
   let targetDeviceId = preferredDeviceId;
   if (!targetDeviceId) {
-    const devicesSnapshot = await getDocs(collection(db, "devices"));
+    const devicesSnapshot = await getDocs(query(collection(db, "devices"), where("userId", "==", user.uid)));
     const androidDevices = devicesSnapshot.docs
       .filter((d) => {
         const data = d.data();
-        return data.userId === user.uid && !String(data.id || d.id).startsWith("ext_");
+        return !String(data.id || d.id).startsWith("ext_");
       })
       .sort((a, b) => (b.data().lastSeen || 0) - (a.data().lastSeen || 0));
     if (androidDevices.length === 0) {

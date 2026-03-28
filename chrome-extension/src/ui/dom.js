@@ -46,6 +46,15 @@ export const smsPhone = document.getElementById("smsPhone");
 export const smsMessage = document.getElementById("smsMessage");
 export const charCount = document.getElementById("charCount");
 
+// Call Modal
+export const callModal = document.getElementById("callModal");
+export const newCallBtn = document.getElementById("newCallBtn");
+export const closeCallModal = document.getElementById("closeCallModal");
+export const cancelCallBtn = document.getElementById("cancelCallBtn");
+export const sendCallBtn = document.getElementById("sendCallBtn");
+export const callDevice = document.getElementById("callDevice");
+export const callPhone = document.getElementById("callPhone");
+
 // Chat elements
 export const chatInput = document.getElementById("chatInput");
 export const sendChatBtn = document.getElementById("sendChatBtn");

@@ -22559,7 +22559,7 @@ ${this.customData.serverResponse}`;
   });
 
   // src/ui/dom.js
-  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, smsModal, newSmsBtn, closeSmsModal, cancelSmsBtn, sendSmsBtn, smsDevice, smsPhone, smsMessage, charCount, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark;
+  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, smsModal, newSmsBtn, closeSmsModal, cancelSmsBtn, sendSmsBtn, smsDevice, smsPhone, smsMessage, charCount, callModal, newCallBtn, closeCallModal, cancelCallBtn, sendCallBtn, callDevice, callPhone, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark;
   var init_dom = __esm({
     "src/ui/dom.js"() {
       authContainer = document.getElementById("authContainer");
@@ -22595,6 +22595,13 @@ ${this.customData.serverResponse}`;
       smsPhone = document.getElementById("smsPhone");
       smsMessage = document.getElementById("smsMessage");
       charCount = document.getElementById("charCount");
+      callModal = document.getElementById("callModal");
+      newCallBtn = document.getElementById("newCallBtn");
+      closeCallModal = document.getElementById("closeCallModal");
+      cancelCallBtn = document.getElementById("cancelCallBtn");
+      sendCallBtn = document.getElementById("sendCallBtn");
+      callDevice = document.getElementById("callDevice");
+      callPhone = document.getElementById("callPhone");
       chatInput = document.getElementById("chatInput");
       sendChatBtn = document.getElementById("sendChatBtn");
       chatMessages = document.getElementById("chatMessages");
@@ -23947,6 +23954,7 @@ ${this.customData.serverResponse}`;
         e.stopPropagation();
         let clean = phoneNumber.replace(/[^\d+]/g, "");
         if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("00")) clean = clean.slice(2);
         else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
         window.open(`https://wa.me/${clean}`, "_blank");
       });
@@ -24093,6 +24101,7 @@ ${this.customData.serverResponse}`;
     document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
       let clean = phoneNumber.replace(/[^\d+]/g, "");
       if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("00")) clean = clean.slice(2);
       else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
       window.open(`https://wa.me/${clean}`, "_blank");
     });
@@ -24217,10 +24226,10 @@ ${this.customData.serverResponse}`;
     }
     let targetDeviceId = preferredDeviceId;
     if (!targetDeviceId) {
-      const devicesSnapshot = await getDocs(collection(db, "devices"));
+      const devicesSnapshot = await getDocs(query(collection(db, "devices"), where("userId", "==", user.uid)));
       const androidDevices = devicesSnapshot.docs.filter((d) => {
         const data = d.data();
-        return data.userId === user.uid && !String(data.id || d.id).startsWith("ext_");
+        return !String(data.id || d.id).startsWith("ext_");
       }).sort((a, b) => (b.data().lastSeen || 0) - (a.data().lastSeen || 0));
       if (androidDevices.length === 0) {
         showToast("No Android device available", "error");
@@ -25636,6 +25645,7 @@ ${this.customData.serverResponse}`;
         if (phone) {
           let clean = phone.replace(/[^\d+]/g, "");
           if (clean.startsWith("+")) clean = clean.slice(1);
+          else if (clean.startsWith("00")) clean = clean.slice(2);
           else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
           window.open(`https://wa.me/${clean}`, "_blank");
         }
@@ -25913,6 +25923,7 @@ ${this.customData.serverResponse}`;
       if (phone) {
         let clean = phone.replace(/[^\d+]/g, "");
         if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("00")) clean = clean.slice(2);
         else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
         window.open(`https://wa.me/${clean}`, "_blank");
       }
@@ -26929,8 +26940,11 @@ ${this.customData.serverResponse}`;
           const cleanTitle = title.replace(/●/g, "").trim();
           const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
           if (phoneMatch) {
-            const phone = cleanTitle.replace(/[^\d+]/g, "");
-            window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
+            let phone = cleanTitle.replace(/[^\d+]/g, "");
+            if (phone.startsWith("+")) phone = phone.slice(1);
+            else if (phone.startsWith("00")) phone = phone.slice(2);
+            else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
+            window.open(`https://wa.me/${phone}`, "_blank");
           } else {
             window.open("https://web.whatsapp.com/", "_blank");
           }
@@ -27633,6 +27647,154 @@ ${this.customData.serverResponse}`;
     }
     hideLoading();
   }
+  function initCallModal() {
+    const contactsGroup2 = document.getElementById("callContactsGroup");
+    const contactsDropdown = document.getElementById("callContactsDropdown");
+    const contactsSearch2 = document.getElementById("callContactsSearch");
+    const contactsList = document.getElementById("callContactsList");
+    const phoneHint2 = document.getElementById("callPhoneHint");
+    let callDeviceContacts = [];
+    let isCallContactsLoading = false;
+    let lastCallContactsDeviceId = null;
+    let lastCallContactsLoadedAt = 0;
+    async function refreshCallContacts(force = false) {
+      const deviceId = callDevice?.value;
+      if (!deviceId) return;
+      const isRecent = lastCallContactsDeviceId === deviceId && Date.now() - lastCallContactsLoadedAt < 3e3;
+      if (!force && isRecent) return;
+      contactsGroup2.style.display = "block";
+      phoneHint2.style.display = "block";
+      contactsSearch2.value = "";
+      callDeviceContacts = [];
+      renderCallContacts([]);
+      isCallContactsLoading = true;
+      contactsSearch2.placeholder = "\u23F3 Loading contacts...";
+      callDeviceContacts = await loadContactsForDevice(deviceId);
+      isCallContactsLoading = false;
+      lastCallContactsDeviceId = deviceId;
+      lastCallContactsLoadedAt = Date.now();
+      if (callDeviceContacts.length > 0) {
+        contactsSearch2.placeholder = `Search ${callDeviceContacts.length} contacts...`;
+        renderCallContacts(callDeviceContacts);
+      } else {
+        contactsSearch2.placeholder = "No contacts found";
+      }
+    }
+    function renderCallContacts(contacts) {
+      if (!contactsList) return;
+      if (contacts.length === 0) {
+        contactsList.innerHTML = '<div class="no-contacts">No contacts found</div>';
+        return;
+      }
+      const rows = [];
+      contacts.forEach((contact) => {
+        const phones = contact.phoneNumbers && contact.phoneNumbers.length > 0 ? contact.phoneNumbers : [contact.phoneNumber];
+        const uniquePhones = [...new Set(phones.filter(Boolean))];
+        uniquePhones.forEach((phone) => rows.push({ contact, phone }));
+      });
+      contactsList.innerHTML = rows.map(
+        ({ contact, phone }) => `
+      <div class="contact-item" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(contact.name)}">
+        <div class="contact-avatar">${getInitials2(contact.name)}</div>
+        <div class="contact-info">
+          <div class="contact-name">${escapeHtml(contact.name)}</div>
+          <div class="contact-phone">${escapeHtml(phone)}</div>
+        </div>
+      </div>
+    `
+      ).join("");
+      contactsList.querySelectorAll(".contact-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const phone = item.dataset.phone;
+          const name5 = item.dataset.name;
+          if (callPhone) callPhone.value = phone;
+          if (contactsSearch2) contactsSearch2.value = `${name5} (${phone})`;
+          contactsDropdown?.classList.add("hidden");
+        });
+      });
+    }
+    function resetCallContactsUI() {
+      if (contactsGroup2) contactsGroup2.style.display = "none";
+      if (contactsSearch2) {
+        contactsSearch2.value = "";
+        contactsSearch2.placeholder = "Search contacts by name or number...";
+      }
+      if (phoneHint2) phoneHint2.style.display = "none";
+      callDeviceContacts = [];
+    }
+    function closeModal() {
+      callModal?.classList.add("hidden");
+      contactsDropdown?.classList.add("hidden");
+      resetCallContactsUI();
+    }
+    newCallBtn?.addEventListener("click", () => {
+      callModal?.classList.remove("hidden");
+      if (callDevice?.value) {
+        contactsGroup2.style.display = "block";
+        phoneHint2.style.display = "block";
+        refreshCallContacts(true);
+      }
+    });
+    closeCallModal?.addEventListener("click", closeModal);
+    cancelCallBtn?.addEventListener("click", closeModal);
+    callDevice?.addEventListener("change", async () => {
+      if (callDevice.value) {
+        await refreshCallContacts(true);
+      } else {
+        contactsGroup2.style.display = "none";
+        phoneHint2.style.display = "none";
+        callDeviceContacts = [];
+        renderCallContacts([]);
+      }
+    });
+    contactsSearch2?.addEventListener("focus", () => refreshCallContacts());
+    contactsSearch2?.addEventListener("click", () => refreshCallContacts());
+    contactsSearch2?.addEventListener("focus", () => {
+      if (callDeviceContacts.length > 0 && !isCallContactsLoading) {
+        contactsDropdown?.classList.remove("hidden");
+      }
+    });
+    contactsSearch2?.addEventListener("input", () => {
+      const filtered = searchContacts(callDeviceContacts, contactsSearch2.value);
+      renderCallContacts(filtered);
+      if (filtered.length > 0) contactsDropdown?.classList.remove("hidden");
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#callContactsGroup") && !e.target.closest("#callContactsSearch")) {
+        contactsDropdown?.classList.add("hidden");
+      }
+    });
+    sendCallBtn?.addEventListener("click", async () => {
+      const user = currentUser;
+      const deviceId = callDevice?.value;
+      const phone = callPhone?.value.trim();
+      if (!deviceId) {
+        showToast("Please select a device", "error");
+        return;
+      }
+      if (!phone) {
+        showToast("Please enter a phone number", "error");
+        return;
+      }
+      showLoadingOverlay();
+      try {
+        await addDoc(collection(db, "call_requests"), {
+          userId: user.uid,
+          fromDeviceId: await getDeviceId(),
+          toDeviceId: deviceId,
+          phoneNumber: phone,
+          status: "pending",
+          timestamp: Date.now()
+        });
+        showToast("Call request sent to device", "success");
+        closeModal();
+        if (callPhone) callPhone.value = "";
+      } catch (error) {
+        showToast("Failed to send call request", "error");
+      }
+      hideLoading();
+    });
+  }
   function initProfileFooter() {
     const manifest = chrome.runtime.getManifest();
     const versionStr = `v${manifest.version}`;
@@ -28113,6 +28275,9 @@ ${this.customData.serverResponse}`;
     }).join("");
     if (smsDevice) {
       smsDevice.innerHTML = '<option value="">Select device...</option>' + smsOptions;
+    }
+    if (callDevice) {
+      callDevice.innerHTML = '<option value="">Select device...</option>' + smsOptions;
     }
     updateChatDeviceTabs();
     updateSmsDeviceTabs();
@@ -28682,6 +28847,7 @@ ${this.customData.serverResponse}`;
     applyTranslations();
     initTabs();
     initSmsModal();
+    initCallModal();
     initProfileFooter();
     initChatListeners();
     initSettingsListeners();

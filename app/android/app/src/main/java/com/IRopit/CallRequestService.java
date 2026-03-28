@@ -21,6 +21,8 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class CallRequestService extends Service {
     private static final String TAG = "CallRequestService";
@@ -73,9 +75,15 @@ public class CallRequestService extends Service {
     private void startListening() {
         if (callRequestListener != null) return;
 
-        Log.d(TAG, "Starting call request listener for device: " + deviceId);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "Firebase Auth user is null - cannot listen for call requests");
+            return;
+        }
+        Log.d(TAG, "Starting call request listener for device: " + deviceId + ", auth uid: " + currentUser.getUid());
 
         callRequestListener = db.collection("call_requests")
+            .whereEqualTo("userId", userId)
             .whereEqualTo("toDeviceId", deviceId)
             .whereEqualTo("status", "pending")
             .addSnapshotListener((snapshots, error) -> {

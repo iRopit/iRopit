@@ -303,8 +303,11 @@ function showNotifDetail(appKey, appName, notifications) {
         const cleanTitle = title.replace(/●/g, "").trim();
         const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
         if (phoneMatch) {
-          const phone = cleanTitle.replace(/[^\d+]/g, "");
-          window.open(`https://wa.me/${phone.startsWith("+") ? phone.slice(1) : phone}`, "_blank");
+          let phone = cleanTitle.replace(/[^\d+]/g, "");
+          if (phone.startsWith("+")) phone = phone.slice(1);
+          else if (phone.startsWith("00")) phone = phone.slice(2);
+          else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
+          window.open(`https://wa.me/${phone}`, "_blank");
         } else {
           window.open("https://web.whatsapp.com/", "_blank");
         }

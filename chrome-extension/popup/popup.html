@@ -74,7 +74,7 @@
                         </svg>
                         Sign in with Google
                     </button>
-                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v0.25.6</p>
+                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v0.25.7</p>
                 </div>
             </div>
 
@@ -316,6 +316,7 @@
                         <div class="content-header">
                             <h3 data-i18n="section_call_history">Call History</h3>
                             <div class="header-actions">
+                                <button id="newCallBtn" class="btn btn-small btn-primary" data-i18n="new_call">New Call</button>
                                 <button id="callsSelectBtn" class="btn btn-small btn-secondary" title="Select calls" data-i18n-title="tooltip_select_calls">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -502,7 +503,7 @@
                         <span id="userNameChat" class="profile-name-footer">User</span>
                         <span id="userEmailChat" class="profile-email-footer">user@email.com</span>
                     </div>
-                    <span id="extensionVersion" class="profile-version-footer">v0.25.6</span>
+                    <span id="extensionVersion" class="profile-version-footer">v0.25.7</span>
                     <button id="logoutBtnChat" class="profile-logout-btn-footer" title="Logout">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -563,6 +564,58 @@
                     <div class="modal-footer">
                         <button id="cancelSmsBtn" class="btn btn-secondary" data-i18n="sms_btn_cancel">Cancel</button>
                         <button id="sendSmsBtn" class="btn btn-primary" data-i18n="sms_btn_send">Send SMS</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Call Modal -->
+            <div id="callModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>New Call</h3>
+                        <button id="closeCallModal" class="icon-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="callDevice">Call from device</label>
+                            <select id="callDevice" class="device-select">
+                                <option value="">Select device...</option>
+                            </select>
+                        </div>
+
+                        <!-- Contacts Select - shows after device selection -->
+                        <div class="form-group" id="callContactsGroup" style="display: none;">
+                            <label>📇 Select from contacts</label>
+                            <div class="contacts-select-wrapper">
+                                <input type="text" id="callContactsSearch" class="contacts-search-input" placeholder="Search contacts by name or number...">
+                                <div id="callContactsDropdown" class="contacts-dropdown hidden">
+                                    <div id="callContactsList" class="contacts-list">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="callPhone">Phone number</label>
+                            <input type="tel" id="callPhone" placeholder="+1234567890" autocomplete="off">
+                            <small class="form-hint" id="callPhoneHint" style="display: none; color: #666; margin-top: 4px;">
+                                Or type a number manually
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancelCallBtn" class="btn btn-secondary">Cancel</button>
+                        <button id="sendCallBtn" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;">
+                                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.09 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/>
+                            </svg>
+                            Call
+                        </button>
                     </div>
                 </div>
             </div>
@@ -707,7 +760,7 @@
 
                             <!-- About Section -->
                             <div class="settings-footer">
-                                <p class="settings-version">iRopit v0.25.6</p>
+                                <p class="settings-version">iRopit v0.25.7</p>
                                 <p class="settings-tagline" data-i18n="settings_tagline">Sync your SMS and calls across
                                     all devices</p>
                             </div>

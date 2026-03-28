@@ -72,6 +72,21 @@ const AppContent = () => {
             ]);
           }
 
+          // Request CALL_PHONE so DialerActivity can place calls directly (no extra tap)
+          const hasCallPhone = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+          );
+          if (!hasCallPhone) {
+            await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+              {
+                title: 'Allow iRopit to make calls',
+                message: 'iRopit needs permission to place calls from the extension.',
+                buttonPositive: 'Allow',
+              },
+            );
+          }
+
           // Request POST_NOTIFICATIONS on Android 13+ — without it, ALL app
           // notifications (including the dial-prompt) are silently suppressed.
           if (Platform.Version >= 33) {

@@ -19,7 +19,7 @@ import {
   signOut,
 } from "../config/firebase.js";
 
-import { devicesList, smsDevice } from "../ui/dom.js";
+import { devicesList, smsDevice, callDevice } from "../ui/dom.js";
 import { showToast, showLoadingOverlay, hideLoading, showConfirmDialog } from "../ui/toasts.js";
 import {
   formatTime,
@@ -285,6 +285,11 @@ export function updateDeviceSelects() {
 
   if (smsDevice) {
     smsDevice.innerHTML =
+      '<option value="">Select device...</option>' + smsOptions;
+  }
+
+  if (callDevice) {
+    callDevice.innerHTML =
       '<option value="">Select device...</option>' + smsOptions;
   }
 

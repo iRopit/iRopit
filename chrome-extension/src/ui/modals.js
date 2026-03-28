@@ -13,6 +13,13 @@ import {
   smsPhone,
   smsMessage,
   charCount,
+  callModal,
+  newCallBtn,
+  closeCallModal,
+  cancelCallBtn,
+  sendCallBtn,
+  callDevice,
+  callPhone,
 } from "./dom.js";
 
 import { db, collection, addDoc } from "../config/firebase.js";
@@ -324,6 +331,189 @@ async function sendNewSms() {
   }
 
   hideLoading();
+}
+
+/**
+ * Initialize Call modal event listeners
+ */
+export function initCallModal() {
+  const contactsGroup = document.getElementById("callContactsGroup");
+  const contactsDropdown = document.getElementById("callContactsDropdown");
+  const contactsSearch = document.getElementById("callContactsSearch");
+  const contactsList = document.getElementById("callContactsList");
+  const phoneHint = document.getElementById("callPhoneHint");
+
+  // Local state for call modal contacts
+  let callDeviceContacts = [];
+  let isCallContactsLoading = false;
+  let lastCallContactsDeviceId = null;
+  let lastCallContactsLoadedAt = 0;
+
+  async function refreshCallContacts(force = false) {
+    const deviceId = callDevice?.value;
+    if (!deviceId) return;
+
+    const isRecent =
+      lastCallContactsDeviceId === deviceId &&
+      Date.now() - lastCallContactsLoadedAt < 3000;
+    if (!force && isRecent) return;
+
+    contactsGroup.style.display = "block";
+    phoneHint.style.display = "block";
+    contactsSearch.value = "";
+    callDeviceContacts = [];
+    renderCallContacts([]);
+
+    isCallContactsLoading = true;
+    contactsSearch.placeholder = "⏳ Loading contacts...";
+
+    callDeviceContacts = await loadContactsForDevice(deviceId);
+
+    isCallContactsLoading = false;
+    lastCallContactsDeviceId = deviceId;
+    lastCallContactsLoadedAt = Date.now();
+
+    if (callDeviceContacts.length > 0) {
+      contactsSearch.placeholder = `Search ${callDeviceContacts.length} contacts...`;
+      renderCallContacts(callDeviceContacts);
+    } else {
+      contactsSearch.placeholder = "No contacts found";
+    }
+  }
+
+  function renderCallContacts(contacts) {
+    if (!contactsList) return;
+    if (contacts.length === 0) {
+      contactsList.innerHTML = '<div class="no-contacts">No contacts found</div>';
+      return;
+    }
+    const rows = [];
+    contacts.forEach((contact) => {
+      const phones =
+        contact.phoneNumbers && contact.phoneNumbers.length > 0
+          ? contact.phoneNumbers
+          : [contact.phoneNumber];
+      const uniquePhones = [...new Set(phones.filter(Boolean))];
+      uniquePhones.forEach((phone) => rows.push({ contact, phone }));
+    });
+    contactsList.innerHTML = rows
+      .map(
+        ({ contact, phone }) => `
+      <div class="contact-item" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(contact.name)}">
+        <div class="contact-avatar">${getInitials(contact.name)}</div>
+        <div class="contact-info">
+          <div class="contact-name">${escapeHtml(contact.name)}</div>
+          <div class="contact-phone">${escapeHtml(phone)}</div>
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+    contactsList.querySelectorAll(".contact-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const phone = item.dataset.phone;
+        const name = item.dataset.name;
+        if (callPhone) callPhone.value = phone;
+        if (contactsSearch) contactsSearch.value = `${name} (${phone})`;
+        contactsDropdown?.classList.add("hidden");
+      });
+    });
+  }
+
+  function resetCallContactsUI() {
+    if (contactsGroup) contactsGroup.style.display = "none";
+    if (contactsSearch) {
+      contactsSearch.value = "";
+      contactsSearch.placeholder = "Search contacts by name or number...";
+    }
+    if (phoneHint) phoneHint.style.display = "none";
+    callDeviceContacts = [];
+  }
+
+  function closeModal() {
+    callModal?.classList.add("hidden");
+    contactsDropdown?.classList.add("hidden");
+    resetCallContactsUI();
+  }
+
+  newCallBtn?.addEventListener("click", () => {
+    callModal?.classList.remove("hidden");
+    if (callDevice?.value) {
+      contactsGroup.style.display = "block";
+      phoneHint.style.display = "block";
+      refreshCallContacts(true);
+    }
+  });
+
+  closeCallModal?.addEventListener("click", closeModal);
+  cancelCallBtn?.addEventListener("click", closeModal);
+
+  callDevice?.addEventListener("change", async () => {
+    if (callDevice.value) {
+      await refreshCallContacts(true);
+    } else {
+      contactsGroup.style.display = "none";
+      phoneHint.style.display = "none";
+      callDeviceContacts = [];
+      renderCallContacts([]);
+    }
+  });
+
+  contactsSearch?.addEventListener("focus", () => refreshCallContacts());
+  contactsSearch?.addEventListener("click", () => refreshCallContacts());
+  contactsSearch?.addEventListener("focus", () => {
+    if (callDeviceContacts.length > 0 && !isCallContactsLoading) {
+      contactsDropdown?.classList.remove("hidden");
+    }
+  });
+  contactsSearch?.addEventListener("input", () => {
+    const filtered = searchContacts(callDeviceContacts, contactsSearch.value);
+    renderCallContacts(filtered);
+    if (filtered.length > 0) contactsDropdown?.classList.remove("hidden");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (
+      !e.target.closest("#callContactsGroup") &&
+      !e.target.closest("#callContactsSearch")
+    ) {
+      contactsDropdown?.classList.add("hidden");
+    }
+  });
+
+  sendCallBtn?.addEventListener("click", async () => {
+    const user = state.currentUser;
+    const deviceId = callDevice?.value;
+    const phone = callPhone?.value.trim();
+
+    if (!deviceId) {
+      showToast("Please select a device", "error");
+      return;
+    }
+    if (!phone) {
+      showToast("Please enter a phone number", "error");
+      return;
+    }
+
+    showLoadingOverlay();
+    try {
+      await addDoc(collection(db, "call_requests"), {
+        userId: user.uid,
+        fromDeviceId: await getDeviceId(),
+        toDeviceId: deviceId,
+        phoneNumber: phone,
+        status: "pending",
+        timestamp: Date.now(),
+      });
+
+      showToast("Call request sent to device", "success");
+      closeModal();
+      if (callPhone) callPhone.value = "";
+    } catch (error) {
+      showToast("Failed to send call request", "error");
+    }
+    hideLoading();
+  });
 }
 
 /**
