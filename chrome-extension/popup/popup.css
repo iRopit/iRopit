@@ -215,6 +215,7 @@ body[dir="rtl"] {
   font-size: 14px;
   transition: all 0.2s ease;
   background: var(--surface);
+  color: var(--text);
 }
 
 .form-group input:focus,
