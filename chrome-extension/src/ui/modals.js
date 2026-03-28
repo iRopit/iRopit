@@ -302,8 +302,13 @@ async function sendNewSms() {
       direction: "outgoing",
       timestamp: timestamp,
       read: true,
+      deviceId: deviceId,
       deviceName: deviceName,
     };
+
+    // Update per-device dict (so the message appears in the conversation view)
+    const currentDeviceSMS = state.getSMSData(deviceId) || [];
+    state.setSMSData(deviceId, [...currentDeviceSMS, newSmsMessage]);
 
     const updatedMessages = [...state.allSMSMessages, newSmsMessage];
     state.setAllSMSMessages(updatedMessages);

@@ -290,11 +290,13 @@ export async function loadSMS() {
     // Then start realtime listeners for new messages only
     const loadPromises = devicesList.map(async (device) => {
       // Initialize pagination state for this device
-      paginationState[device.id] = {
+      // Capture local ref so a paginationState reset mid-flight doesn't crash us
+      const devicePagState = {
         lastTimestamp: null,
         hasMore: true,
         loading: false,
       };
+      paginationState[device.id] = devicePagState;
 
       const q = query(
         collection(
@@ -349,9 +351,11 @@ export async function loadSMS() {
         // Track pagination cursor
         if (messages.length > 0) {
           const oldestMsg = messages[messages.length - 1];
-          paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+          devicePagState.lastTimestamp = oldestMsg.timestamp;
+          if (paginationState[device.id]) paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
         }
-        paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
+        devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
+        if (paginationState[device.id]) paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
         updateSMSList(device.id, messages);
       } catch (error) {
         console.error(`❌ SMS load error for device ${device.id}:`, error);
@@ -1233,7 +1237,12 @@ export function showConversation(phoneNumber) {
   markConversationAsRead(conversation);
 
   const contactName =
-    conversation[0].contactName || conversation[0].title || phoneNumber;
+    conversation.find(m => m.contactName && m.contactName.trim() && !isPhoneNumberLike(m.contactName))?.contactName ||
+    conversation.find(m => m.title && m.title.trim() && !isPhoneNumberLike(m.title))?.title ||
+    getContactName(conversation.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber))?.phoneNumber || phoneNumber) ||
+    (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) ||
+    conversation[0].phoneNumber ||
+    phoneNumber;
   // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
   const realPhoneNumber = conversation.find(m => {
     const p = m.phoneNumber || m.sender || "";
@@ -1538,10 +1547,28 @@ async function sendConversationMessage(phoneNumber, inputElement) {
     return;
   }
 
-  const deviceId = androidDevices[0].data().id;
+  // Prefer the device that already has messages in this conversation,
+  // so replying always uses the same phone that received the original messages.
+  const normalizedActual = normalizePhoneNumber(actualPhoneNumber);
+  const conversationMsgs = state.allSMSMessages.filter((msg) => {
+    const msgPhone = normalizePhoneNumber(msg.phoneNumber || msg.sender || "");
+    return msgPhone === normalizedActual && msg.deviceId;
+  });
+  let preferredDeviceId = null;
+  if (conversationMsgs.length > 0) {
+    const recentMsg = conversationMsgs.reduce((latest, m) =>
+      (m.timestamp || 0) > (latest.timestamp || 0) ? m : latest,
+    );
+    preferredDeviceId = recentMsg.deviceId;
+  }
+  const selectedDevice =
+    (preferredDeviceId && androidDevices.find((d) => d.data().id === preferredDeviceId)) ||
+    androidDevices[0];
+
+  const deviceId = selectedDevice.data().id;
   const deviceName =
-    androidDevices[0].data().nickname ||
-    androidDevices[0].data().name ||
+    selectedDevice.data().nickname ||
+    selectedDevice.data().name ||
     "Android";
 
   try {

@@ -25,6 +25,8 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -163,9 +165,16 @@ public class SmsRequestService extends Service {
             return;
         }
 
-        Log.d(TAG, "Starting SMS request listener for device: " + deviceId);
+        // Verify Firebase Auth is available (needed for Firestore security rules)
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "Firebase Auth user is null - cannot listen for SMS requests");
+            return;
+        }
+        Log.d(TAG, "Starting SMS request listener for device: " + deviceId + ", auth uid: " + currentUser.getUid());
 
         smsRequestListener = db.collection("sms_requests")
+            .whereEqualTo("userId", userId)
             .whereEqualTo("toDeviceId", deviceId)
             .whereEqualTo("status", "pending")
             .addSnapshotListener((snapshots, error) -> {
@@ -226,6 +235,9 @@ public class SmsRequestService extends Service {
             db.collection("sms_requests").document(docId)
                 .update("status", "failed")
                 .addOnFailureListener(err -> Log.e(TAG, "Failed to update status: " + err));
+
+            // Still save the message so it persists in the extension after refresh
+            saveSentMessage(phoneNumber, message);
         }
     }
 

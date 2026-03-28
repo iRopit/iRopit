@@ -7,6 +7,7 @@ import android.os.Build;
 import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -24,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ReactModule(name = ShareModule.NAME)
-public class ShareModule extends ReactContextBaseJavaModule {
+public class ShareModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
     public static final String NAME = "ShareModule";
     private static final String TAG = "ShareModule";
@@ -45,6 +46,25 @@ public class ShareModule extends ReactContextBaseJavaModule {
         super(reactContext);
         this.reactContext = reactContext;
         instance = this;
+        // Register lifecycle listener so tryEmitPending() is called when the
+        // React activity resumes — this covers cold-start where processIntent
+        // was called in onCreate() before the bridge was ready.
+        reactContext.addLifecycleEventListener(this);
+    }
+
+    @Override
+    public void onHostResume() {
+        // Activity came to foreground — React instance should be active now.
+        // Attempt to emit any pending share data that arrived during cold start.
+        tryEmitPending();
+    }
+
+    @Override
+    public void onHostPause() {}
+
+    @Override
+    public void onHostDestroy() {
+        reactContext.removeLifecycleEventListener(this);
     }
 
     @Override

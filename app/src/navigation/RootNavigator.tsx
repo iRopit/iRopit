@@ -30,6 +30,12 @@ const RootNavigator = () => {
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [shareData, setShareData] = useState<SharedData | null>(null);
 
+  // Subscribe to pendingShare so the effect below re-runs when it changes.
+  // Without this subscription, the effect only ran when auth/onboarding state
+  // changed — missing the case where those were already stable when the cold-
+  // start share data arrived (pollNative resolved after app was fully loaded).
+  const pendingShare = useShareStore(state => state.pendingShare);
+
   const handleShare = useCallback((data: SharedData) => {
     if (isFileShare(data)) {
       // File/image share — check if auth is ready to show popup immediately
@@ -49,22 +55,24 @@ const RootNavigator = () => {
 
   useShareReceive(handleShare);
 
-  // After auth + onboarding finish, handle any pending share (cold launch)
+  // After auth + onboarding finish, handle any pending share (cold launch).
+  // pendingShare is in the dep array so this effect re-runs when the store
+  // value changes — critical for cold-start when all other conditions are
+  // already stable before pollNative() delivers the data.
   useEffect(() => {
     if (isLoading || checkingOnboarding || !isAuthenticated || !hasCompletedOnboarding) return;
-    const pending = useShareStore.getState().pendingShare;
-    if (!pending) return;
+    if (!pendingShare) return;
 
-    if (isFileShare(pending)) {
+    if (isFileShare(pendingShare)) {
       // File/image share — show standalone popup (no navigation needed)
       useShareStore.getState().clearPendingShare();
-      setShareData(pending);
+      setShareData(pendingShare);
     } else {
       // Text share — navigate to chat
       const timer = setTimeout(() => navigateToChat(), 300);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, checkingOnboarding, isAuthenticated, hasCompletedOnboarding]);
+  }, [isLoading, checkingOnboarding, isAuthenticated, hasCompletedOnboarding, pendingShare]);
 
   // Check onboarding status on mount
   useEffect(() => {

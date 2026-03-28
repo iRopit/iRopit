@@ -25111,11 +25111,12 @@ ${this.customData.serverResponse}`;
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
-        paginationState[device.id] = {
+        const devicePagState = {
           lastTimestamp: null,
           hasMore: true,
           loading: false
         };
+        paginationState[device.id] = devicePagState;
         const q2 = query(
           collection(
             db,
@@ -25159,9 +25160,11 @@ ${this.customData.serverResponse}`;
           );
           if (messages.length > 0) {
             const oldestMsg = messages[messages.length - 1];
-            paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+            devicePagState.lastTimestamp = oldestMsg.timestamp;
+            if (paginationState[device.id]) paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
           }
-          paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
+          devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
+          if (paginationState[device.id]) paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
           updateSMSList(device.id, messages);
         } catch (error) {
           console.error(`\u274C SMS load error for device ${device.id}:`, error);
@@ -25792,7 +25795,7 @@ ${this.customData.serverResponse}`;
       return;
     }
     markConversationAsRead(conversation);
-    const contactName = conversation[0].contactName || conversation[0].title || phoneNumber;
+    const contactName = conversation.find((m) => m.contactName && m.contactName.trim() && !isPhoneNumberLike2(m.contactName))?.contactName || conversation.find((m) => m.title && m.title.trim() && !isPhoneNumberLike2(m.title))?.title || getContactName(conversation.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber))?.phoneNumber || phoneNumber) || (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) || conversation[0].phoneNumber || phoneNumber;
     const realPhoneNumber = conversation.find((m) => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
@@ -26014,8 +26017,21 @@ ${this.customData.serverResponse}`;
       showToast("No Android device available to send SMS", "error");
       return;
     }
-    const deviceId = androidDevices[0].data().id;
-    const deviceName = androidDevices[0].data().nickname || androidDevices[0].data().name || "Android";
+    const normalizedActual = normalizePhoneNumber3(actualPhoneNumber);
+    const conversationMsgs = allSMSMessages.filter((msg) => {
+      const msgPhone = normalizePhoneNumber3(msg.phoneNumber || msg.sender || "");
+      return msgPhone === normalizedActual && msg.deviceId;
+    });
+    let preferredDeviceId = null;
+    if (conversationMsgs.length > 0) {
+      const recentMsg = conversationMsgs.reduce(
+        (latest, m) => (m.timestamp || 0) > (latest.timestamp || 0) ? m : latest
+      );
+      preferredDeviceId = recentMsg.deviceId;
+    }
+    const selectedDevice = preferredDeviceId && androidDevices.find((d) => d.data().id === preferredDeviceId) || androidDevices[0];
+    const deviceId = selectedDevice.data().id;
+    const deviceName = selectedDevice.data().nickname || selectedDevice.data().name || "Android";
     try {
       const timestamp = Date.now();
       const docRef = await addDoc(collection(db, "sms_requests"), {
@@ -27599,8 +27615,11 @@ ${this.customData.serverResponse}`;
         direction: "outgoing",
         timestamp,
         read: true,
+        deviceId,
         deviceName
       };
+      const currentDeviceSMS = getSMSData(deviceId) || [];
+      setSMSData(deviceId, [...currentDeviceSMS, newSmsMessage]);
       const updatedMessages = [...allSMSMessages, newSmsMessage];
       setAllSMSMessages(updatedMessages);
       renderSMS(updatedMessages);
