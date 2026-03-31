@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "iRopit",
   "description": "Sync SMS, Calls and Chat between your devices seamlessly",
-  "version": "0.25.7",
-  "version_name": "0.25.7",
+  "version": "1.0.0",
+  "version_name": "1.0.0",
   "permissions": ["storage", "notifications", "identity", "alarms", "clipboardWrite", "activeTab", "tabs", "contextMenus", "downloads"],
   "content_scripts": [
     {
