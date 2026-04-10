@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "React Native Metro Bundler",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "app",
+      "port": 8081
+    },
+    {
+      "name": "Next.js Website",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "website",
+      "port": 3000
+    },
+    {
+      "name": "Firebase Functions Emulator",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "serve"],
+      "cwd": "functions",
+      "port": 5001
+    }
+  ]
+}
