@@ -149,20 +149,12 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="border border-primary text-primary hover:bg-primary/10 px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all"
-                >
-                  {t("nav.login")}
-                </Link>
-                <Link
-                  href="/signup"
-                  className="bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all hover:scale-105"
-                >
-                  {t("nav.signup")}
-                </Link>
-              </>
+              <Link
+                href="/login"
+                className="border border-primary text-primary hover:bg-primary/10 px-5 py-2.5 rounded-[var(--radius)] text-sm font-semibold transition-all"
+              >
+                {t("nav.login")}
+              </Link>
             )}
           </div>
 
@@ -212,20 +204,12 @@ export default function Navbar() {
               {t("nav.dashboard")}
             </Link>
           ) : (
-            <div className="flex flex-col gap-2 mt-3">
-              <Link
-                href="/login"
-                className="block text-center border border-primary text-primary hover:bg-primary/10 px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors"
-              >
-                {t("nav.login")}
-              </Link>
-              <Link
-                href="/signup"
-                className="block text-center bg-primary hover:bg-primary-dark text-txt-inverse px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors"
-              >
-                {t("nav.signup")}
-              </Link>
-            </div>
+            <Link
+              href="/login"
+              className="block text-center border border-primary text-primary hover:bg-primary/10 px-5 py-3 rounded-[var(--radius)] text-sm font-semibold transition-colors mt-3"
+            >
+              {t("nav.login")}
+            </Link>
           )}
         </div>
       </div>
