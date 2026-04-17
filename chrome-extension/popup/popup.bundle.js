@@ -25179,13 +25179,11 @@ ${this.customData.serverResponse}`;
           console.error(`\u274C SMS load error for device ${device.id}:`, error);
         }
       });
+      startSMSRealtimeListeners(user.uid, devicesList2);
       await Promise.all(loadPromises);
-      console.log(
-        "[SMS] \u2705 Initial load complete, starting realtime listeners..."
-      );
+      console.log("[SMS] \u2705 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
-      startSMSRealtimeListeners(user.uid, devicesList2);
     } catch (error) {
       console.error("\u274C loadSMS error:", error);
       isSyncing = false;
@@ -25200,12 +25198,47 @@ ${this.customData.serverResponse}`;
         orderBy("timestamp", "desc"),
         limit(10)
       );
-      let isInitialSnapshot = true;
+      let initialSnapshotDone = false;
       const unsub = onSnapshot(
         q2,
         async (snapshot) => {
-          if (isInitialSnapshot) {
-            isInitialSnapshot = false;
+          if (!initialSnapshotDone) {
+            initialSnapshotDone = true;
+            const messages = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
+                const messageId = docSnap.id;
+                let data = docSnap.data();
+                data = await decryptSMSCached(data, userId, messageId);
+                const resolvedPhone = resolvePhoneNumber(data);
+                const resolvedContact = resolveContactName(data, resolvedPhone);
+                processedMessageIds.add(messageId);
+                return {
+                  ...data,
+                  id: messageId,
+                  docId: messageId,
+                  docRef: docSnap.ref,
+                  deviceId: device.id,
+                  deviceName: device.name,
+                  phoneNumber: resolvedPhone,
+                  contactName: resolvedContact,
+                  body: data.text || data.content || data.body || "",
+                  timestamp: data.timestamp || data.receivedAt || Date.now(),
+                  read: data.read === true,
+                  type: data.type || "sms"
+                };
+              })
+            );
+            if (messages.length > 0) {
+              const existing = getSMSData(device.id) || [];
+              const existingIds = new Set(existing.map((m) => m.id));
+              const brandNew = messages.filter((m) => !existingIds.has(m.id));
+              if (brandNew.length > 0 || existing.length === 0) {
+                updateSMSList(device.id, [
+                  ...messages,
+                  ...existing.filter((m) => !messages.some((n) => n.id === m.id))
+                ]);
+              }
+            }
             return;
           }
           let hasNewMessages = false;

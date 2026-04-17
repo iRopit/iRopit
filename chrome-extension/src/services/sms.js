@@ -362,17 +362,16 @@ export async function loadSMS() {
       }
     });
 
-    // Load all devices in parallel
+    // Start realtime listeners immediately so new messages appear within ~1s
+    // The first snapshot will show the latest messages even before getDocs completes
+    startSMSRealtimeListeners(user.uid, devicesList);
+
+    // Load all devices in parallel (full history runs in background)
     await Promise.all(loadPromises);
-    console.log(
-      "[SMS] ✅ Initial load complete, starting realtime listeners...",
-    );
+    console.log("[SMS] ✅ Initial load complete");
 
     isSyncing = false;
     updateSMSCountIndicator();
-
-    // Now start lightweight realtime listeners for NEW messages only
-    startSMSRealtimeListeners(user.uid, devicesList);
   } catch (error) {
     console.error("❌ loadSMS error:", error);
     isSyncing = false;
@@ -394,18 +393,54 @@ function startSMSRealtimeListeners(userId, devicesList) {
       limit(10),
     );
 
-    let isInitialSnapshot = true;
+    let initialSnapshotDone = false;
 
     const unsub = onSnapshot(
       q,
       async (snapshot) => {
-        // Skip initial snapshot - we already loaded data with getDocs
-        if (isInitialSnapshot) {
-          isInitialSnapshot = false;
+        // First snapshot: process latest messages immediately
+        // This shows new messages within ~1s of connection, before getDocs completes
+        if (!initialSnapshotDone) {
+          initialSnapshotDone = true;
+          const messages = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const messageId = docSnap.id;
+              let data = docSnap.data();
+              data = await decryptSMSCached(data, userId, messageId);
+              const resolvedPhone = resolvePhoneNumber(data);
+              const resolvedContact = resolveContactName(data, resolvedPhone);
+              processedMessageIds.add(messageId);
+              return {
+                ...data,
+                id: messageId,
+                docId: messageId,
+                docRef: docSnap.ref,
+                deviceId: device.id,
+                deviceName: device.name,
+                phoneNumber: resolvedPhone,
+                contactName: resolvedContact,
+                body: data.text || data.content || data.body || "",
+                timestamp: data.timestamp || data.receivedAt || Date.now(),
+                read: data.read === true,
+                type: data.type || "sms",
+              };
+            }),
+          );
+          if (messages.length > 0) {
+            const existing = state.getSMSData(device.id) || [];
+            const existingIds = new Set(existing.map((m) => m.id));
+            const brandNew = messages.filter((m) => !existingIds.has(m.id));
+            if (brandNew.length > 0 || existing.length === 0) {
+              updateSMSList(device.id, [
+                ...messages,
+                ...existing.filter((m) => !messages.some((n) => n.id === m.id)),
+              ]);
+            }
+          }
           return;
         }
 
-        // Only process CHANGES, not all docs
+        // Subsequent snapshots: handle real-time changes only
         let hasNewMessages = false;
         for (const change of snapshot.docChanges()) {
           if (change.type === "added" || change.type === "modified") {
