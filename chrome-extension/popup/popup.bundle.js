@@ -25065,6 +25065,7 @@ ${this.customData.serverResponse}`;
     }
     stopSMSListener();
     let hasCachedData = false;
+    const cachedNewestTimestamps = {};
     try {
       const cached = await getCachedSMS();
       if (cached && cached.allMessages && cached.allMessages.length > 0) {
@@ -25075,6 +25076,11 @@ ${this.customData.serverResponse}`;
         if (cached.byDevice) {
           for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
             setSMSData(deviceId, msgs);
+            if (msgs && msgs.length > 0) {
+              cachedNewestTimestamps[deviceId] = Math.max(
+                ...msgs.map((m) => m.timestamp || 0)
+              );
+            }
           }
         }
         setAllSMSMessages(cached.allMessages);
@@ -25126,23 +25132,43 @@ ${this.customData.serverResponse}`;
           loading: false
         };
         paginationState[device.id] = devicePagState;
-        const q2 = query(
-          collection(
-            db,
-            "users",
-            user.uid,
-            "devices",
-            device.id,
-            "notifications"
-          ),
-          where("type", "==", "sms"),
-          orderBy("timestamp", "desc"),
-          limit(PAGE_SIZE)
-        );
+        const cachedNewestTs = cachedNewestTimestamps[device.id];
+        const isDelta = !!cachedNewestTs;
+        let q2;
+        if (isDelta) {
+          q2 = query(
+            collection(
+              db,
+              "users",
+              user.uid,
+              "devices",
+              device.id,
+              "notifications"
+            ),
+            where("type", "==", "sms"),
+            where("timestamp", ">", cachedNewestTs),
+            orderBy("timestamp", "desc"),
+            limit(PAGE_SIZE)
+          );
+        } else {
+          q2 = query(
+            collection(
+              db,
+              "users",
+              user.uid,
+              "devices",
+              device.id,
+              "notifications"
+            ),
+            where("type", "==", "sms"),
+            orderBy("timestamp", "desc"),
+            limit(PAGE_SIZE)
+          );
+        }
         try {
           const snapshot = await getDocs(q2);
           console.log(
-            `[SMS] Loaded ${snapshot.size} messages from device ${device.id}`
+            `[SMS] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} messages from device ${device.id}`
           );
           const messages = await Promise.all(
             snapshot.docs.map(async (docSnap) => {
@@ -25167,14 +25193,36 @@ ${this.customData.serverResponse}`;
               };
             })
           );
-          if (messages.length > 0) {
-            const oldestMsg = messages[messages.length - 1];
-            devicePagState.lastTimestamp = oldestMsg.timestamp;
-            if (paginationState[device.id]) paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+          if (isDelta) {
+            const cachedMessages = getSMSData(device.id) || [];
+            const cachedIds = new Set(cachedMessages.map((m) => m.id));
+            const brandNew = messages.filter((m) => !cachedIds.has(m.id));
+            console.log(
+              `[SMS] \u{1F504} Delta: ${brandNew.length} new messages since cache for device ${device.id}`
+            );
+            const merged = [...brandNew, ...cachedMessages];
+            if (cachedMessages.length > 0) {
+              const oldestCached = cachedMessages[cachedMessages.length - 1];
+              devicePagState.lastTimestamp = oldestCached.timestamp;
+              if (paginationState[device.id])
+                paginationState[device.id].lastTimestamp = oldestCached.timestamp;
+            }
+            devicePagState.hasMore = cachedMessages.length >= PAGE_SIZE;
+            if (paginationState[device.id])
+              paginationState[device.id].hasMore = cachedMessages.length >= PAGE_SIZE;
+            updateSMSList(device.id, merged);
+          } else {
+            if (messages.length > 0) {
+              const oldestMsg = messages[messages.length - 1];
+              devicePagState.lastTimestamp = oldestMsg.timestamp;
+              if (paginationState[device.id])
+                paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+            }
+            devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
+            if (paginationState[device.id])
+              paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
+            updateSMSList(device.id, messages);
           }
-          devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
-          if (paginationState[device.id]) paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
-          updateSMSList(device.id, messages);
         } catch (error) {
           console.error(`\u274C SMS load error for device ${device.id}:`, error);
         }
