@@ -5,7 +5,7 @@
 
 // App Info
 export const APP_NAME = "iRopit";
-export const APP_VERSION = "1.0.3";
+export const APP_VERSION = "1.0.4";
 
 // Firebase Collections
 export const COLLECTIONS = {

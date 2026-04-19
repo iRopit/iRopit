@@ -10,8 +10,8 @@ const CACHE_KEYS = {
   TIMESTAMP: "cache_timestamp",
 };
 
-// Max cache age: 24 hours
-const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000;
+// Max cache age: 7 days
+const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -102,8 +102,8 @@ export async function getCachedNotifications() {
     const result = await chrome.storage.local.get([CACHE_KEYS.NOTIFICATIONS]);
     const data = result[CACHE_KEYS.NOTIFICATIONS];
     if (!data) return null;
-    // Expire after 24 hours
-    if (Date.now() - (data.savedAt || 0) > 24 * 60 * 60 * 1000) {
+    // Expire after 7 days
+    if (Date.now() - (data.savedAt || 0) > 7 * 24 * 60 * 60 * 1000) {
       await chrome.storage.local.remove([CACHE_KEYS.NOTIFICATIONS]);
       return null;
     }
