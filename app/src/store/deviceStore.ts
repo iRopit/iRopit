@@ -24,6 +24,8 @@ interface Device {
   lastSeen?: number;
   isOnline?: boolean;
   fcmToken?: string;
+  batteryLevel?: number;
+  isCharging?: boolean;
 }
 
 interface DeviceState {
@@ -156,6 +158,15 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         console.log('[DeviceStore] Could not read existing device doc (may belong to another user), will claim it:', readError?.code);
       }
 
+      // Get battery info
+      let batteryLevel: number | undefined;
+      let isCharging: boolean | undefined;
+      try {
+        const rawLevel = await DeviceInfo.getBatteryLevel();
+        if (rawLevel >= 0) batteryLevel = Math.round(rawLevel * 100);
+        isCharging = await DeviceInfo.isBatteryCharging();
+      } catch (_) {}
+
       // Build device object with no undefined values (Firebase rejects undefined)
       const device: Device = {
         id: deviceId,
@@ -178,6 +189,10 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       if (fcmToken) {
         device.fcmToken = fcmToken;
       }
+
+      // Add battery info if available
+      if (batteryLevel !== undefined) device.batteryLevel = batteryLevel;
+      if (isCharging !== undefined) device.isCharging = isCharging;
 
       // Save to Firestore - always use set with merge to avoid not-found errors
       await firestore()
@@ -294,20 +309,28 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     if (!currentDevice) return;
 
     try {
+      const updateData: Record<string, any> = {
+        isOnline,
+        lastSeen: Date.now(),
+      };
+
+      // Refresh battery when coming to foreground
+      if (isOnline) {
+        try {
+          const rawLevel = await DeviceInfo.getBatteryLevel();
+          if (rawLevel >= 0) updateData.batteryLevel = Math.round(rawLevel * 100);
+          updateData.isCharging = await DeviceInfo.isBatteryCharging();
+        } catch (_) {}
+      }
+
       // Use set with merge to avoid not-found errors
       await firestore()
         .collection(COLLECTIONS.DEVICES)
         .doc(currentDevice.id)
-        .set(
-          {
-            isOnline,
-            lastSeen: Date.now(),
-          },
-          { merge: true },
-        );
+        .set(updateData, { merge: true });
 
       set({
-        currentDevice: { ...currentDevice, isOnline, lastSeen: Date.now() },
+        currentDevice: { ...currentDevice, ...updateData },
       });
     } catch (error) {}
   },

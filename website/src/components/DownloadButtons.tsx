@@ -28,7 +28,9 @@ export default function DownloadButtons({
 
       {/* Chrome Extension Button */}
       <Link
-        href="#"
+        href="https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar"
+        target="_blank"
+        rel="noopener noreferrer"
         className="group flex items-center gap-3 bg-txt dark:bg-surface-secondary text-txt-inverse dark:text-txt px-5 py-3 rounded-[var(--radius)] hover:bg-txt/90 dark:hover:bg-surface-tertiary transition-all hover:scale-105 dark:border dark:border-border"
       >
         <svg
