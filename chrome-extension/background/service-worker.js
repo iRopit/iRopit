@@ -19219,8 +19219,12 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
   }
   chrome.notifications.clear(notificationId);
 });
-chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
-chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 });
+
+// Keep service worker alive - CRITICAL for real-time notifications
+chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 }); // Every 30 seconds
+chrome.alarms.create("checkNotifications", { periodInMinutes: 1 }); // Every 60 seconds
+
+// Poll for new notifications (backup for when onSnapshot fails)
 async function pollForNewNotifications() {
   if (!currentUser) return;
   try {

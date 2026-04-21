@@ -658,6 +658,14 @@ public class NotificationService extends NotificationListenerService {
      */
     private void sendToFirebase(int id, String key, String packageName, String title,
             String text, String bigText, String subText, String type,
+
+        // Skip media playback/status notifications (Spotify, YouTube Music, etc.)
+        // These notifications update very frequently while music is playing and are
+        // not meaningful events for notification sync.
+        if (isMediaPlaybackNotification(notification, packageName, title, text)) {
+            Log.d(TAG, "Skipping media playback notification: " + packageName + " - " + key);
+            return;
+        }
             long timestamp, String appName, boolean isMissedCall, String appIcon,
             String extractedPhoneNumber) {
         try {
@@ -1093,6 +1101,59 @@ public class NotificationService extends NotificationListenerService {
                lower.contains("unread messages") ||
                lower.matches(".*\\d+\\s*رسائل.*") ||
                lower.matches(".*\\d+\\s*رسالة.*");
+    }
+
+    /**
+     * Detect media playback notifications (music/video transport controls) that
+     * can fire repeatedly while playback state changes.
+     */
+    private boolean isMediaPlaybackNotification(Notification notification, String packageName, String title, String text) {
+        if (notification == null) return false;
+
+        // Android transport category is the strongest signal for media playback.
+        if (Notification.CATEGORY_TRANSPORT.equals(notification.category)) {
+            return true;
+        }
+
+        Bundle extras = notification.extras;
+        if (extras != null) {
+            // Media notifications typically include a media session token reference.
+            if (extras.containsKey("android.mediaSession") || extras.containsKey("android.mediaRemoteDevice")) {
+                return true;
+            }
+        }
+
+        // Fallback for OEM variants where category is not set consistently.
+        String combined = ((title != null ? title : "") + " " + (text != null ? text : "")).toLowerCase();
+        boolean hasPlaybackKeyword =
+                combined.contains("now playing") ||
+                combined.contains("playing") ||
+                combined.contains("paused") ||
+                combined.contains("next track") ||
+                combined.contains("previous track") ||
+                combined.contains("قيد التشغيل") ||
+                combined.contains("يتم التشغيل") ||
+                combined.contains("إيقاف مؤقت");
+
+        return isKnownMediaAppPackage(packageName) && hasPlaybackKeyword;
+    }
+
+    private boolean isKnownMediaAppPackage(String packageName) {
+        if (packageName == null) return false;
+
+        return packageName.equals("com.spotify.music") ||
+               packageName.equals("com.google.android.apps.youtube.music") ||
+               packageName.equals("com.google.android.youtube") ||
+               packageName.equals("deezer.android.app") ||
+               packageName.equals("com.apple.android.music") ||
+               packageName.equals("com.soundcloud.android") ||
+               packageName.equals("com.gaana") ||
+               packageName.equals("com.jio.media.jiobeats") ||
+               packageName.equals("com.saavn.android") ||
+               packageName.equals("com.amazon.mp3") ||
+               packageName.equals("com.shazam.android") ||
+               packageName.contains("music") ||
+               packageName.contains("player");
     }
 
     /**

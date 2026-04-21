@@ -248,6 +248,8 @@ export async function loadCalls() {
 
   // === STEP 1: Show cached calls instantly ===
   let hasCachedData = false;
+  // Track newest cached timestamp per device for delta loading
+  const cachedNewestTimestamps = {};
   try {
     const cached = await getCachedCalls();
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
@@ -258,6 +260,12 @@ export async function loadCalls() {
       if (cached.byDevice) {
         for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
           state.setCallsByDevice(deviceId, calls);
+          // Record newest timestamp per device for delta fetch
+          if (calls && calls.length > 0) {
+            cachedNewestTimestamps[deviceId] = Math.max(
+              ...calls.map((c) => c.timestamp || 0),
+            );
+          }
         }
       }
       state.setAllCallsData(cached.allCalls);
@@ -315,16 +323,32 @@ export async function loadCalls() {
 
   // Load all devices in parallel with getDocs (one-time, fast)
   const loadPromises = devicesList.map(async (device) => {
-    const q = query(
-      collection(db, "users", user.uid, "devices", device.id, "calls"),
-      orderBy("timestamp", "desc"),
-      limit(200),
-    );
+    // Delta fetch: if we have cached data, only query calls newer than cache
+    const cachedNewestTs = cachedNewestTimestamps[device.id];
+    const isDelta = !!cachedNewestTs;
+
+    let q;
+    if (isDelta) {
+      // Only fetch calls newer than the newest cached call
+      q = query(
+        collection(db, "users", user.uid, "devices", device.id, "calls"),
+        where("timestamp", ">", cachedNewestTs),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+    } else {
+      // No cache - full fetch
+      q = query(
+        collection(db, "users", user.uid, "devices", device.id, "calls"),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+    }
 
     try {
       const snapshot = await getDocs(q);
       console.log(
-        `[Calls] Loaded ${snapshot.size} calls from device ${device.id}`,
+        `[Calls] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} calls from device ${device.id}`,
       );
 
       const calls = await Promise.all(
@@ -334,7 +358,20 @@ export async function loadCalls() {
           return processCallDoc(data, docSnap.id, device.id, device.name);
         }),
       );
-      updateCallsList(device.id, calls);
+
+      if (isDelta) {
+        // Delta merge: combine new calls with cached ones
+        const cachedCalls = state.allCallsByDevice[device.id] || [];
+        const cachedIds = new Set(cachedCalls.map((c) => c.id));
+        const brandNew = calls.filter((c) => !cachedIds.has(c.id));
+        console.log(
+          `[Calls] 🔄 Delta: ${brandNew.length} new calls since cache for device ${device.id}`,
+        );
+        const merged = [...brandNew, ...cachedCalls];
+        updateCallsList(device.id, merged);
+      } else {
+        updateCallsList(device.id, calls);
+      }
     } catch (error) {
       console.error(`❌ Calls load error for device ${device.id}:`, error);
     }

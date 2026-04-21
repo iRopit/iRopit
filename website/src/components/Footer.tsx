@@ -16,7 +16,7 @@ const footerLinks = {
   ],
   download: [
     { href: "#", label: "Google Play Store", external: true },
-    { href: "#", label: "Chrome Web Store", external: true },
+    { href: "https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar", label: "Chrome Web Store", external: true },
   ],
 };
 
@@ -103,6 +103,8 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.external ? "noopener noreferrer" : undefined}
                     className="text-sm text-txt-secondary hover:text-primary transition-colors inline-flex items-center gap-1"
                   >
                     {link.label}

@@ -217,6 +217,8 @@ export async function loadSMS() {
 
   // === STEP 1: Show cached data instantly ===
   let hasCachedData = false;
+  // Track newest cached timestamp per device for delta loading
+  const cachedNewestTimestamps = {};
   try {
     const cached = await getCachedSMS();
     if (cached && cached.allMessages && cached.allMessages.length > 0) {
@@ -228,6 +230,12 @@ export async function loadSMS() {
       if (cached.byDevice) {
         for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
           state.setSMSData(deviceId, msgs);
+          // Record newest timestamp per device for delta fetch
+          if (msgs && msgs.length > 0) {
+            cachedNewestTimestamps[deviceId] = Math.max(
+              ...msgs.map((m) => m.timestamp || 0),
+            );
+          }
         }
       }
       state.setAllSMSMessages(cached.allMessages);
@@ -298,25 +306,49 @@ export async function loadSMS() {
       };
       paginationState[device.id] = devicePagState;
 
-      const q = query(
-        collection(
-          db,
-          "users",
-          user.uid,
-          "devices",
-          device.id,
-          "notifications",
-        ),
-        where("type", "==", "sms"),
-        orderBy("timestamp", "desc"),
-        limit(PAGE_SIZE),
-      );
+      // Delta fetch: if we have cached data, only query messages newer than cache
+      const cachedNewestTs = cachedNewestTimestamps[device.id];
+      const isDelta = !!cachedNewestTs;
+
+      let q;
+      if (isDelta) {
+        // Only fetch messages newer than the newest cached message
+        q = query(
+          collection(
+            db,
+            "users",
+            user.uid,
+            "devices",
+            device.id,
+            "notifications",
+          ),
+          where("type", "==", "sms"),
+          where("timestamp", ">", cachedNewestTs),
+          orderBy("timestamp", "desc"),
+          limit(PAGE_SIZE),
+        );
+      } else {
+        // No cache - full fetch
+        q = query(
+          collection(
+            db,
+            "users",
+            user.uid,
+            "devices",
+            device.id,
+            "notifications",
+          ),
+          where("type", "==", "sms"),
+          orderBy("timestamp", "desc"),
+          limit(PAGE_SIZE),
+        );
+      }
 
       try {
         // One-time fetch - much faster than onSnapshot for bulk data
         const snapshot = await getDocs(q);
         console.log(
-          `[SMS] Loaded ${snapshot.size} messages from device ${device.id}`,
+          `[SMS] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
 
         // Decrypt all messages in parallel with caching
@@ -348,31 +380,58 @@ export async function loadSMS() {
           }),
         );
 
-        // Track pagination cursor
-        if (messages.length > 0) {
-          const oldestMsg = messages[messages.length - 1];
-          devicePagState.lastTimestamp = oldestMsg.timestamp;
-          if (paginationState[device.id]) paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+        if (isDelta) {
+          // Delta merge: combine new messages with cached ones
+          const cachedMessages = state.getSMSData(device.id) || [];
+          const cachedIds = new Set(cachedMessages.map((m) => m.id));
+          const brandNew = messages.filter((m) => !cachedIds.has(m.id));
+          console.log(
+            `[SMS] 🔄 Delta: ${brandNew.length} new messages since cache for device ${device.id}`,
+          );
+          const merged = [...brandNew, ...cachedMessages];
+
+          // Pagination cursor: use oldest from cached data (bottom boundary unchanged)
+          if (cachedMessages.length > 0) {
+            const oldestCached = cachedMessages[cachedMessages.length - 1];
+            devicePagState.lastTimestamp = oldestCached.timestamp;
+            if (paginationState[device.id])
+              paginationState[device.id].lastTimestamp = oldestCached.timestamp;
+          }
+          devicePagState.hasMore = cachedMessages.length >= PAGE_SIZE;
+          if (paginationState[device.id])
+            paginationState[device.id].hasMore =
+              cachedMessages.length >= PAGE_SIZE;
+
+          updateSMSList(device.id, merged);
+        } else {
+          // Full load path
+          // Track pagination cursor
+          if (messages.length > 0) {
+            const oldestMsg = messages[messages.length - 1];
+            devicePagState.lastTimestamp = oldestMsg.timestamp;
+            if (paginationState[device.id])
+              paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
+          }
+          devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
+          if (paginationState[device.id])
+            paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
+          updateSMSList(device.id, messages);
         }
-        devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
-        if (paginationState[device.id]) paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
-        updateSMSList(device.id, messages);
       } catch (error) {
         console.error(`❌ SMS load error for device ${device.id}:`, error);
       }
     });
 
-    // Load all devices in parallel
+    // Start realtime listeners immediately so new messages appear within ~1s
+    // The first snapshot will show the latest messages even before getDocs completes
+    startSMSRealtimeListeners(user.uid, devicesList);
+
+    // Load all devices in parallel (full history runs in background)
     await Promise.all(loadPromises);
-    console.log(
-      "[SMS] ✅ Initial load complete, starting realtime listeners...",
-    );
+    console.log("[SMS] ✅ Initial load complete");
 
     isSyncing = false;
     updateSMSCountIndicator();
-
-    // Now start lightweight realtime listeners for NEW messages only
-    startSMSRealtimeListeners(user.uid, devicesList);
   } catch (error) {
     console.error("❌ loadSMS error:", error);
     isSyncing = false;
@@ -394,18 +453,54 @@ function startSMSRealtimeListeners(userId, devicesList) {
       limit(10),
     );
 
-    let isInitialSnapshot = true;
+    let initialSnapshotDone = false;
 
     const unsub = onSnapshot(
       q,
       async (snapshot) => {
-        // Skip initial snapshot - we already loaded data with getDocs
-        if (isInitialSnapshot) {
-          isInitialSnapshot = false;
+        // First snapshot: process latest messages immediately
+        // This shows new messages within ~1s of connection, before getDocs completes
+        if (!initialSnapshotDone) {
+          initialSnapshotDone = true;
+          const messages = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const messageId = docSnap.id;
+              let data = docSnap.data();
+              data = await decryptSMSCached(data, userId, messageId);
+              const resolvedPhone = resolvePhoneNumber(data);
+              const resolvedContact = resolveContactName(data, resolvedPhone);
+              processedMessageIds.add(messageId);
+              return {
+                ...data,
+                id: messageId,
+                docId: messageId,
+                docRef: docSnap.ref,
+                deviceId: device.id,
+                deviceName: device.name,
+                phoneNumber: resolvedPhone,
+                contactName: resolvedContact,
+                body: data.text || data.content || data.body || "",
+                timestamp: data.timestamp || data.receivedAt || Date.now(),
+                read: data.read === true,
+                type: data.type || "sms",
+              };
+            }),
+          );
+          if (messages.length > 0) {
+            const existing = state.getSMSData(device.id) || [];
+            const existingIds = new Set(existing.map((m) => m.id));
+            const brandNew = messages.filter((m) => !existingIds.has(m.id));
+            if (brandNew.length > 0 || existing.length === 0) {
+              updateSMSList(device.id, [
+                ...messages,
+                ...existing.filter((m) => !messages.some((n) => n.id === m.id)),
+              ]);
+            }
+          }
           return;
         }
 
-        // Only process CHANGES, not all docs
+        // Subsequent snapshots: handle real-time changes only
         let hasNewMessages = false;
         for (const change of snapshot.docChanges()) {
           if (change.type === "added" || change.type === "modified") {

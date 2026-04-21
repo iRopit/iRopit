@@ -19,7 +19,7 @@ import {
 } from "../config/firebase.js";
 
 import { notificationsList } from "../ui/dom.js";
-import { showToast, showConfirmDialog } from "../ui/toasts.js";
+import { showToast, showConfirmDialog, showListLoading } from "../ui/toasts.js";
 import {
   formatTime,
   getNotificationIcon,
@@ -31,6 +31,34 @@ import { updateTabBadges } from "./badges.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
 import { decryptNotification } from "./cryptoService.js";
+
+// ── Sync state ───────────────────────────────────────────────────────────────
+let isSyncingNotif = false;
+let pendingNotifSnapshots = 0;
+
+function updateNotifSyncIndicator() {
+  // Remove stale indicator first (renderNotifications replaces innerHTML)
+  document.getElementById("notifSyncIndicator")?.remove();
+
+  if (!isSyncingNotif) return;
+
+  const container = document.getElementById("notificationsList");
+  if (!container) return;
+  const indicator = document.createElement("div");
+  indicator.id = "notifSyncIndicator";
+  indicator.className = "sms-count-indicator";
+  indicator.innerHTML = `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
+  container.appendChild(indicator);
+}
+
+function notifSnapshotReady() {
+  pendingNotifSnapshots--;
+  if (pendingNotifSnapshots <= 0) {
+    pendingNotifSnapshots = 0;
+    isSyncingNotif = false;
+    updateNotifSyncIndicator();
+  }
+}
 
 // ── Selection mode state ──────────────────────────────────────────────────────
 let notifSelectionMode = false;
@@ -53,6 +81,7 @@ export async function loadNotifications() {
   if (!user) return;
 
   // === STEP 1: Show cached notifications instantly ===
+  let hasCachedData = false;
   try {
     const cached = await getCachedNotifications();
     if (cached && cached.byDevice) {
@@ -75,6 +104,7 @@ export async function loadNotifications() {
           }
         }
         if (hasData) {
+          hasCachedData = true;
           const merged = getMergedNotifications();
           renderNotifications(merged.slice(0, 200));
           updateTabBadges();
@@ -86,33 +116,15 @@ export async function loadNotifications() {
     console.warn("[Notifications] Cache load failed:", e);
   }
 
-  const userNotificationsQuery = query(
-    collection(db, "users", user.uid, "notifications"),
-    orderBy("createdAt", "desc"),
-    limit(200),
-  );
+  // Show loading spinner only if no cached data
+  if (!hasCachedData && notificationsList) {
+    showListLoading(notificationsList);
+  }
 
-  const userNotifUnsub = onSnapshot(userNotificationsQuery, async (snapshot) => {
-    const notifications = await Promise.all(
-      snapshot.docs.map(async (doc) => {
-        let data = doc.data();
-        data = await decryptNotification(data, user.uid);
-        const firestoreId = doc.id;
-        return {
-          ...data,
-          id: firestoreId,
-          deviceId: data.deviceId || "user",
-          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
-        };
-      }),
-    );
-    updateNotificationsList("_user_notifications", notifications);
-    // Persist to cache after each update
-    cacheNotificationsData(state.allNotifications).catch(() => {});
-  });
-  state.addUnsubscriber(userNotifUnsub);
-
-  // === STEP 2: Fetch devices and subscribe to device notifications ===
+  // === STEP 2: Get devices list FIRST so we know the total snapshot count
+  //             before registering any listeners (avoids race condition where
+  //             user-notif snapshot fires while we still await getDocs, causing
+  //             the counter to hit 0 too early and clearing isSyncingNotif).
   const devicesQuery = query(
     collection(db, "devices"),
     where("userId", "==", user.uid),
@@ -146,7 +158,42 @@ export async function loadNotifications() {
     });
   });
 
-  // Subscribe to notifications from each device
+  // Now that we know the device count, set the total pending snapshots BEFORE
+  // registering any listeners so notifSnapshotReady() can't race to 0.
+  pendingNotifSnapshots = 1 + devicesList.length; // 1 = user notifications
+  isSyncingNotif = true;
+  updateNotifSyncIndicator();
+
+  // === STEP 3: Subscribe to user-level notifications ===
+  const userNotificationsQuery = query(
+    collection(db, "users", user.uid, "notifications"),
+    orderBy("createdAt", "desc"),
+    limit(200),
+  );
+
+  let userNotifFirstSnap = true;
+  const userNotifUnsub = onSnapshot(userNotificationsQuery, async (snapshot) => {
+    const notifications = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        let data = doc.data();
+        data = await decryptNotification(data, user.uid);
+        const firestoreId = doc.id;
+        return {
+          ...data,
+          id: firestoreId,
+          deviceId: data.deviceId || "user",
+          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+        };
+      }),
+    );
+    updateNotificationsList("_user_notifications", notifications);
+    if (userNotifFirstSnap) { userNotifFirstSnap = false; notifSnapshotReady(); }
+    // Persist to cache after each update
+    cacheNotificationsData(state.allNotifications).catch(() => {});
+  });
+  state.addUnsubscriber(userNotifUnsub);
+
+  // === STEP 4: Subscribe to device notifications ===
   devicesList.forEach((device) => {
     const q = query(
       collection(db, "users", user.uid, "devices", device.id, "notifications"),
@@ -154,6 +201,7 @@ export async function loadNotifications() {
       limit(200),
     );
 
+    let deviceFirstSnap = true;
     const unsub = onSnapshot(
       q,
       async (snapshot) => {
@@ -174,17 +222,10 @@ export async function loadNotifications() {
           }),
         );
         updateNotificationsList(device.id, notifications);
+        if (deviceFirstSnap) { deviceFirstSnap = false; notifSnapshotReady(); }
         // Persist to cache after each device update
         cacheNotificationsData(state.allNotifications).catch(() => {});
       },
-      // (error) => {
-      //   console.error(
-      //     "❌ Error loading notifications for device",
-      //     device.id,
-      //     ":",
-      //     error,
-      //   );
-      // },
     );
 
     state.addUnsubscriber(unsub);
@@ -376,6 +417,7 @@ function renderNotifications(notifications) {
       </div>
     `;
     updateTabBadges();
+    updateNotifSyncIndicator();
     return;
   }
 
@@ -405,6 +447,7 @@ function renderNotifications(notifications) {
       </div>
     `;
     updateTabBadges();
+    updateNotifSyncIndicator();
     return;
   }
 
@@ -501,6 +544,7 @@ function renderNotifications(notifications) {
   notificationsList.addEventListener("pointermove", () => { if (notifLongPressTimer) { clearTimeout(notifLongPressTimer); notifLongPressTimer = null; } });
 
   updateTabBadges();
+  updateNotifSyncIndicator();
 }
 
 async function markNotificationAsRead(deviceId, notifId) {
