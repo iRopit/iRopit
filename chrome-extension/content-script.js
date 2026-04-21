@@ -18,14 +18,12 @@
     navigator.clipboard
       .writeText(otp)
       .then(() => {
-        console.log("iRopit: OTP copied to clipboard:", otp);
         // 2. Try to auto-paste into focused / OTP input
         autoPasteOTP(otp);
         // 3. Show in-page toast
         showOTPToast(otp, sender);
       })
       .catch((err) => {
-        console.warn("iRopit: Clipboard write failed, trying fallback:", err);
         // Fallback: use execCommand
         fallbackCopy(otp);
         autoPasteOTP(otp);
@@ -73,7 +71,6 @@
     // Fire change/input events so frameworks (React, Angular, Vue) pick it up
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    console.log("iRopit: OTP auto-pasted into input field");
   }
 
   function isTextInput(el) {

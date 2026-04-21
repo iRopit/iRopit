@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 const extDir = path.resolve(__dirname);
-const zipName = "IRopit-Extension-C1.1.12.zip";
+const zipName = "IRopit-Extension-C1.1.24.zip";
 const zipPath = path.join(extDir, zipName);
 
 // Remove old zip

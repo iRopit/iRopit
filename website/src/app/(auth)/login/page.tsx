@@ -25,8 +25,18 @@ export default function LoginPage() {
     try {
       await loginWithGoogle();
       router.push("/dashboard");
-    } catch {
-      setError(t("errors.googleFailed"));
+    } catch (err: unknown) {
+      console.error("Google sign-in error:", err);
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/unauthorized-domain") {
+        setError(t("errors.googleFailed") + " (unauthorized domain)");
+      } else if (code === "auth/popup-closed-by-user") {
+        setError(t("errors.googleFailed") + " (popup closed)");
+      } else if (code === "auth/popup-blocked") {
+        setError(t("errors.googleFailed") + " (popup blocked)");
+      } else {
+        setError(t("errors.googleFailed"));
+      }
     } finally {
       setLoading(false);
     }

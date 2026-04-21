@@ -10,7 +10,7 @@ import {
   signInWithCredential,
   updateProfile,
   updatePassword,
-} from "firebase/auth";
+} from "firebase/auth/web-extension";
 import {
   initializeFirestore,
   persistentLocalCache,

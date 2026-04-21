@@ -242,10 +242,6 @@
   function isReactNative() {
     return typeof navigator === "object" && navigator["product"] === "ReactNative";
   }
-  function isIE() {
-    const ua = getUA();
-    return ua.indexOf("MSIE ") >= 0 || ua.indexOf("Trident/") >= 0;
-  }
   function isSafari() {
     return !isNode() && !!navigator.userAgent && navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
   }
@@ -285,14 +281,6 @@
       const value = data[key];
       return value != null ? String(value) : `<${key}?>`;
     });
-  }
-  function isEmpty(obj) {
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        return false;
-      }
-    }
-    return true;
   }
   function deepEqual(a, b) {
     if (a === b) {
@@ -380,7 +368,7 @@
       return service;
     }
   }
-  var stringToByteArray$1, byteArrayToString, base64, DecodeBase64StringError, base64Encode, base64urlEncodeWithoutPadding, base64Decode, getDefaultsFromGlobal, getDefaultsFromEnvVariable, getDefaultsFromCookie, getDefaults, getDefaultEmulatorHost, getDefaultEmulatorHostnameAndPort, getDefaultAppConfig, getExperimentalSetting, Deferred, emulatorStatus, previouslyDismissed, ERROR_NAME, FirebaseError, ErrorFactory, PATTERN, ObserverProxy, MAX_VALUE_MILLIS;
+  var stringToByteArray$1, byteArrayToString, base64, DecodeBase64StringError, base64Encode, base64urlEncodeWithoutPadding, base64Decode, getDefaultsFromGlobal, getDefaultsFromEnvVariable, getDefaultsFromCookie, getDefaults, getDefaultEmulatorHost, getDefaultEmulatorHostnameAndPort, getDefaultAppConfig, Deferred, emulatorStatus, previouslyDismissed, ERROR_NAME, FirebaseError, ErrorFactory, PATTERN, ObserverProxy, MAX_VALUE_MILLIS;
   var init_index_esm = __esm({
     "node_modules/@firebase/util/dist/index.esm.js"() {
       init_postinstall();
@@ -681,7 +669,6 @@
         }
       };
       getDefaultAppConfig = () => getDefaults()?.config;
-      getExperimentalSetting = (name5) => getDefaults()?.[`_${name5}`];
       Deferred = class {
         constructor() {
           this.reject = () => {
@@ -2119,7 +2106,7 @@
     }
   });
 
-  // node_modules/@firebase/auth/dist/esm/index-36fcbc82.js
+  // node_modules/@firebase/auth/dist/web-extension-esm/register-21a33d64.js
   function _prodErrorMap() {
     return {
       [
@@ -2182,9 +2169,6 @@
     if (!assertion) {
       debugFail(message);
     }
-  }
-  function _getCurrentUrl() {
-    return typeof self !== "undefined" && self.location?.href || "";
   }
   function _isHttpOrHttps() {
     return _getCurrentScheme() === "http:" || _getCurrentScheme() === "https:";
@@ -2625,18 +2609,6 @@
   function _isWebOS(ua = getUA()) {
     return /webos/i.test(ua);
   }
-  function _isIOS(ua = getUA()) {
-    return /iphone|ipad|ipod/i.test(ua) || /macintosh/i.test(ua) && /mobile/i.test(ua);
-  }
-  function _isIOSStandalone(ua = getUA()) {
-    return _isIOS(ua) && !!window.navigator?.standalone;
-  }
-  function _isIE10() {
-    return isIE() && document.documentMode === 10;
-  }
-  function _isMobileBrowser(ua = getUA()) {
-    return _isIOS(ua) || _isAndroid(ua) || _isWebOS(ua) || _isBlackBerry(ua) || /windows phone/i.test(ua) || _isIEMobile(ua);
-  }
   function _getClientVersion(clientPlatform, frameworks = []) {
     let reportedPlatform;
     switch (clientPlatform) {
@@ -2658,21 +2630,8 @@
   function _castAuth(auth2) {
     return getModularInstance(auth2);
   }
-  function _setExternalJSProvider(p) {
-    externalJSProvider = p;
-  }
-  function _loadJS(url) {
-    return externalJSProvider.loadJS(url);
-  }
-  function _recaptchaEnterpriseScriptUrl() {
-    return externalJSProvider.recaptchaEnterpriseScript;
-  }
-  function _gapiScriptUrl() {
-    return externalJSProvider.gapiScript;
-  }
-  function _generateCallbackName(prefix) {
-    return `__${prefix}${Math.floor(Math.random() * 1e6)}`;
-  }
+  function _loadJS(url) { return Promise.reject(new Error("disabled")); }
+  function _recaptchaEnterpriseScriptUrl() { return ""; }
   async function injectRecaptchaFields(auth2, request, action, isCaptchaResp = false, isFakeToken = false) {
     const verifier = new RecaptchaEnterpriseVerifier(auth2);
     let captchaResponse;
@@ -2801,24 +2760,6 @@
       }
     } else {
       return Promise.reject(recaptchaAuthProvider + " provider is not supported.");
-    }
-  }
-  async function _initializeRecaptchaConfig(auth2) {
-    const authInternal = _castAuth(auth2);
-    const response = await getRecaptchaConfig(authInternal, {
-      clientType: "CLIENT_TYPE_WEB",
-      version: "RECAPTCHA_ENTERPRISE"
-      /* RecaptchaVersion.ENTERPRISE */
-    });
-    const config = new RecaptchaConfig(response);
-    if (authInternal.tenantId == null) {
-      authInternal._agentRecaptchaConfig = config;
-    } else {
-      authInternal._tenantRecaptchaConfigs[authInternal.tenantId] = config;
-    }
-    if (config.isAnyProviderEnabled()) {
-      const verifier = new RecaptchaEnterpriseVerifier(authInternal);
-      void verifier.verify();
     }
   }
   function initializeAuth(app2, deps) {
@@ -2965,26 +2906,6 @@
   async function signInWithIdp(auth2, request) {
     return _performSignInRequest(auth2, "POST", "/v1/accounts:signInWithIdp", _addTidIfNecessary(auth2, request));
   }
-  async function sendPhoneVerificationCode(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v1/accounts:sendVerificationCode", _addTidIfNecessary(auth2, request));
-  }
-  async function signInWithPhoneNumber$1(auth2, request) {
-    return _performSignInRequest(auth2, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth2, request));
-  }
-  async function linkWithPhoneNumber$1(auth2, request) {
-    const response = await _performSignInRequest(auth2, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth2, request));
-    if (response.temporaryProof) {
-      throw _makeTaggedError(auth2, "account-exists-with-different-credential", response);
-    }
-    return response;
-  }
-  async function verifyPhoneNumberForExisting(auth2, request) {
-    const apiRequest = {
-      ...request,
-      operation: "REAUTH"
-    };
-    return _performSignInRequest(auth2, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth2, apiRequest), VERIFY_PHONE_NUMBER_FOR_EXISTING_ERROR_MAP_);
-  }
   function parseMode(mode) {
     switch (mode) {
       case "recoverEmail":
@@ -3030,50 +2951,6 @@
       }
       throw error;
     });
-  }
-  async function _link$1(user, credential, bypassAuthState = false) {
-    const response = await _logoutIfInvalidated(user, credential._linkToIdToken(user.auth, await user.getIdToken()), bypassAuthState);
-    return UserCredentialImpl._forOperation(user, "link", response);
-  }
-  async function _reauthenticate(user, credential, bypassAuthState = false) {
-    const { auth: auth2 } = user;
-    if (_isFirebaseServerApp(auth2.app)) {
-      return Promise.reject(_serverAppCurrentUserOperationNotSupportedError(auth2));
-    }
-    const operationType = "reauthenticate";
-    try {
-      const response = await _logoutIfInvalidated(user, _processCredentialSavingMfaContextIfNecessary(auth2, operationType, credential, user), bypassAuthState);
-      _assert(
-        response.idToken,
-        auth2,
-        "internal-error"
-        /* AuthErrorCode.INTERNAL_ERROR */
-      );
-      const parsed = _parseToken(response.idToken);
-      _assert(
-        parsed,
-        auth2,
-        "internal-error"
-        /* AuthErrorCode.INTERNAL_ERROR */
-      );
-      const { sub: localId } = parsed;
-      _assert(
-        user.uid === localId,
-        auth2,
-        "user-mismatch"
-        /* AuthErrorCode.USER_MISMATCH */
-      );
-      return UserCredentialImpl._forOperation(user, operationType, response);
-    } catch (e) {
-      if (e?.code === `auth/${"user-not-found"}`) {
-        _fail(
-          auth2,
-          "user-mismatch"
-          /* AuthErrorCode.USER_MISMATCH */
-        );
-      }
-      throw e;
-    }
   }
   async function _signInWithCredential(auth2, credential, bypassAuthState = false) {
     if (_isFirebaseServerApp(auth2.app)) {
@@ -3165,38 +3042,17 @@
     }
     await userInternal._updateTokensIfNecessary(response);
   }
-  function onIdTokenChanged(auth2, nextOrObserver, error, completed) {
-    return getModularInstance(auth2).onIdTokenChanged(nextOrObserver, error, completed);
-  }
-  function beforeAuthStateChanged(auth2, callback, onAbort) {
-    return getModularInstance(auth2).beforeAuthStateChanged(callback, onAbort);
-  }
   function onAuthStateChanged(auth2, nextOrObserver, error, completed) {
     return getModularInstance(auth2).onAuthStateChanged(nextOrObserver, error, completed);
   }
   function signOut(auth2) {
     return getModularInstance(auth2).signOut();
   }
-  function startEnrollPhoneMfa(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth2, request));
-  }
-  function finalizeEnrollPhoneMfa(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth2, request));
-  }
   function startEnrollTotpMfa(auth2, request) {
     return _performApiRequest(auth2, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth2, request));
   }
   function finalizeEnrollTotpMfa(auth2, request) {
     return _performApiRequest(auth2, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth2, request));
-  }
-  function getDocumentCookie(name5) {
-    const escapedName = name5.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
-    const matcher = RegExp(`${escapedName}=([^;]+)`);
-    return document.cookie.match(matcher)?.[1] ?? null;
-  }
-  function getCookieName(key) {
-    const isDevMode = window.location.protocol === "http:";
-    return `${isDevMode ? "__dev_" : "__HOST-"}FIREBASE_${key.split(":")[3]}`;
   }
   function _allSettled(promises) {
     return Promise.all(promises.map(async (promise) => {
@@ -3223,9 +3079,6 @@
   }
   function _window() {
     return window;
-  }
-  function _setWindowLocation(url) {
-    _window().location.href = url;
   }
   function _isWorker() {
     return typeof _window()["WorkerGlobalScope"] !== "undefined" && typeof _window()["importScripts"] === "function";
@@ -3296,558 +3149,8 @@
     const request = getObjectStore(db2, true).delete(key);
     return new DBPromise(request).toPromise();
   }
-  function startSignInPhoneMfa(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v2/accounts/mfaSignIn:start", _addTidIfNecessary(auth2, request));
-  }
-  function finalizeSignInPhoneMfa(auth2, request) {
-    return _performApiRequest(auth2, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth2, request));
-  }
   function finalizeSignInTotpMfa(auth2, request) {
     return _performApiRequest(auth2, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth2, request));
-  }
-  async function _verifyPhoneNumber(auth2, options, verifier) {
-    if (!auth2._getRecaptchaConfig()) {
-      try {
-        await _initializeRecaptchaConfig(auth2);
-      } catch (error) {
-        console.log("Failed to initialize reCAPTCHA Enterprise config. Triggering the reCAPTCHA v2 verification.");
-      }
-    }
-    try {
-      let phoneInfoOptions;
-      if (typeof options === "string") {
-        phoneInfoOptions = {
-          phoneNumber: options
-        };
-      } else {
-        phoneInfoOptions = options;
-      }
-      if ("session" in phoneInfoOptions) {
-        const session = phoneInfoOptions.session;
-        if ("phoneNumber" in phoneInfoOptions) {
-          _assert(
-            session.type === "enroll",
-            auth2,
-            "internal-error"
-            /* AuthErrorCode.INTERNAL_ERROR */
-          );
-          const startPhoneMfaEnrollmentRequest = {
-            idToken: session.credential,
-            phoneEnrollmentInfo: {
-              phoneNumber: phoneInfoOptions.phoneNumber,
-              clientType: "CLIENT_TYPE_WEB"
-              /* RecaptchaClientType.WEB */
-            }
-          };
-          const startEnrollPhoneMfaActionCallback = async (authInstance, request) => {
-            if (request.phoneEnrollmentInfo.captchaResponse === FAKE_TOKEN) {
-              _assert(
-                verifier?.type === RECAPTCHA_VERIFIER_TYPE,
-                authInstance,
-                "argument-error"
-                /* AuthErrorCode.ARGUMENT_ERROR */
-              );
-              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
-              return startEnrollPhoneMfa(authInstance, requestWithRecaptchaV2);
-            }
-            return startEnrollPhoneMfa(authInstance, request);
-          };
-          const startPhoneMfaEnrollmentResponse = handleRecaptchaFlow(
-            auth2,
-            startPhoneMfaEnrollmentRequest,
-            "mfaSmsEnrollment",
-            startEnrollPhoneMfaActionCallback,
-            "PHONE_PROVIDER"
-            /* RecaptchaAuthProvider.PHONE_PROVIDER */
-          );
-          const response = await startPhoneMfaEnrollmentResponse.catch((error) => {
-            return Promise.reject(error);
-          });
-          return response.phoneSessionInfo.sessionInfo;
-        } else {
-          _assert(
-            session.type === "signin",
-            auth2,
-            "internal-error"
-            /* AuthErrorCode.INTERNAL_ERROR */
-          );
-          const mfaEnrollmentId = phoneInfoOptions.multiFactorHint?.uid || phoneInfoOptions.multiFactorUid;
-          _assert(
-            mfaEnrollmentId,
-            auth2,
-            "missing-multi-factor-info"
-            /* AuthErrorCode.MISSING_MFA_INFO */
-          );
-          const startPhoneMfaSignInRequest = {
-            mfaPendingCredential: session.credential,
-            mfaEnrollmentId,
-            phoneSignInInfo: {
-              clientType: "CLIENT_TYPE_WEB"
-              /* RecaptchaClientType.WEB */
-            }
-          };
-          const startSignInPhoneMfaActionCallback = async (authInstance, request) => {
-            if (request.phoneSignInInfo.captchaResponse === FAKE_TOKEN) {
-              _assert(
-                verifier?.type === RECAPTCHA_VERIFIER_TYPE,
-                authInstance,
-                "argument-error"
-                /* AuthErrorCode.ARGUMENT_ERROR */
-              );
-              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
-              return startSignInPhoneMfa(authInstance, requestWithRecaptchaV2);
-            }
-            return startSignInPhoneMfa(authInstance, request);
-          };
-          const startPhoneMfaSignInResponse = handleRecaptchaFlow(
-            auth2,
-            startPhoneMfaSignInRequest,
-            "mfaSmsSignIn",
-            startSignInPhoneMfaActionCallback,
-            "PHONE_PROVIDER"
-            /* RecaptchaAuthProvider.PHONE_PROVIDER */
-          );
-          const response = await startPhoneMfaSignInResponse.catch((error) => {
-            return Promise.reject(error);
-          });
-          return response.phoneResponseInfo.sessionInfo;
-        }
-      } else {
-        const sendPhoneVerificationCodeRequest = {
-          phoneNumber: phoneInfoOptions.phoneNumber,
-          clientType: "CLIENT_TYPE_WEB"
-          /* RecaptchaClientType.WEB */
-        };
-        const sendPhoneVerificationCodeActionCallback = async (authInstance, request) => {
-          if (request.captchaResponse === FAKE_TOKEN) {
-            _assert(
-              verifier?.type === RECAPTCHA_VERIFIER_TYPE,
-              authInstance,
-              "argument-error"
-              /* AuthErrorCode.ARGUMENT_ERROR */
-            );
-            const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
-            return sendPhoneVerificationCode(authInstance, requestWithRecaptchaV2);
-          }
-          return sendPhoneVerificationCode(authInstance, request);
-        };
-        const sendPhoneVerificationCodeResponse = handleRecaptchaFlow(
-          auth2,
-          sendPhoneVerificationCodeRequest,
-          "sendVerificationCode",
-          sendPhoneVerificationCodeActionCallback,
-          "PHONE_PROVIDER"
-          /* RecaptchaAuthProvider.PHONE_PROVIDER */
-        );
-        const response = await sendPhoneVerificationCodeResponse.catch((error) => {
-          return Promise.reject(error);
-        });
-        return response.sessionInfo;
-      }
-    } finally {
-      verifier?._reset();
-    }
-  }
-  async function injectRecaptchaV2Token(auth2, request, recaptchaV2Verifier) {
-    _assert(
-      recaptchaV2Verifier.type === RECAPTCHA_VERIFIER_TYPE,
-      auth2,
-      "argument-error"
-      /* AuthErrorCode.ARGUMENT_ERROR */
-    );
-    const recaptchaV2Token = await recaptchaV2Verifier.verify();
-    _assert(
-      typeof recaptchaV2Token === "string",
-      auth2,
-      "argument-error"
-      /* AuthErrorCode.ARGUMENT_ERROR */
-    );
-    const newRequest = { ...request };
-    if ("phoneEnrollmentInfo" in newRequest) {
-      const phoneNumber = newRequest.phoneEnrollmentInfo.phoneNumber;
-      const captchaResponse = newRequest.phoneEnrollmentInfo.captchaResponse;
-      const clientType = newRequest.phoneEnrollmentInfo.clientType;
-      const recaptchaVersion = newRequest.phoneEnrollmentInfo.recaptchaVersion;
-      Object.assign(newRequest, {
-        "phoneEnrollmentInfo": {
-          phoneNumber,
-          recaptchaToken: recaptchaV2Token,
-          captchaResponse,
-          clientType,
-          recaptchaVersion
-        }
-      });
-      return newRequest;
-    } else if ("phoneSignInInfo" in newRequest) {
-      const captchaResponse = newRequest.phoneSignInInfo.captchaResponse;
-      const clientType = newRequest.phoneSignInInfo.clientType;
-      const recaptchaVersion = newRequest.phoneSignInInfo.recaptchaVersion;
-      Object.assign(newRequest, {
-        "phoneSignInInfo": {
-          recaptchaToken: recaptchaV2Token,
-          captchaResponse,
-          clientType,
-          recaptchaVersion
-        }
-      });
-      return newRequest;
-    } else {
-      Object.assign(newRequest, { "recaptchaToken": recaptchaV2Token });
-      return newRequest;
-    }
-  }
-  function _withDefaultResolver(auth2, resolverOverride) {
-    if (resolverOverride) {
-      return _getInstance(resolverOverride);
-    }
-    _assert(
-      auth2._popupRedirectResolver,
-      auth2,
-      "argument-error"
-      /* AuthErrorCode.ARGUMENT_ERROR */
-    );
-    return auth2._popupRedirectResolver;
-  }
-  function _signIn(params) {
-    return _signInWithCredential(params.auth, new IdpCredential(params), params.bypassAuthState);
-  }
-  function _reauth(params) {
-    const { auth: auth2, user } = params;
-    _assert(
-      user,
-      auth2,
-      "internal-error"
-      /* AuthErrorCode.INTERNAL_ERROR */
-    );
-    return _reauthenticate(user, new IdpCredential(params), params.bypassAuthState);
-  }
-  async function _link(params) {
-    const { auth: auth2, user } = params;
-    _assert(
-      user,
-      auth2,
-      "internal-error"
-      /* AuthErrorCode.INTERNAL_ERROR */
-    );
-    return _link$1(user, new IdpCredential(params), params.bypassAuthState);
-  }
-  async function _getAndClearPendingRedirectStatus(resolver, auth2) {
-    const key = pendingRedirectKey(auth2);
-    const persistence = resolverPersistence(resolver);
-    if (!await persistence._isAvailable()) {
-      return false;
-    }
-    const hasPendingRedirect = await persistence._get(key) === "true";
-    await persistence._remove(key);
-    return hasPendingRedirect;
-  }
-  function _overrideRedirectResult(auth2, result) {
-    redirectOutcomeMap.set(auth2._key(), result);
-  }
-  function resolverPersistence(resolver) {
-    return _getInstance(resolver._redirectPersistence);
-  }
-  function pendingRedirectKey(auth2) {
-    return _persistenceKeyName(PENDING_REDIRECT_KEY, auth2.config.apiKey, auth2.name);
-  }
-  async function _getRedirectResult(auth2, resolverExtern, bypassAuthState = false) {
-    if (_isFirebaseServerApp(auth2.app)) {
-      return Promise.reject(_serverAppCurrentUserOperationNotSupportedError(auth2));
-    }
-    const authInternal = _castAuth(auth2);
-    const resolver = _withDefaultResolver(authInternal, resolverExtern);
-    const action = new RedirectAction(authInternal, resolver, bypassAuthState);
-    const result = await action.execute();
-    if (result && !bypassAuthState) {
-      delete result.user._redirectEventId;
-      await authInternal._persistUserIfCurrent(result.user);
-      await authInternal._setRedirectUser(null, resolverExtern);
-    }
-    return result;
-  }
-  function eventUid(e) {
-    return [e.type, e.eventId, e.sessionId, e.tenantId].filter((v) => v).join("-");
-  }
-  function isNullRedirectEvent({ type, error }) {
-    return type === "unknown" && error?.code === `auth/${"no-auth-event"}`;
-  }
-  function isRedirectEvent(event) {
-    switch (event.type) {
-      case "signInViaRedirect":
-      case "linkViaRedirect":
-      case "reauthViaRedirect":
-        return true;
-      case "unknown":
-        return isNullRedirectEvent(event);
-      default:
-        return false;
-    }
-  }
-  async function _getProjectConfig(auth2, request = {}) {
-    return _performApiRequest(auth2, "GET", "/v1/projects", request);
-  }
-  async function _validateOrigin(auth2) {
-    if (auth2.config.emulator) {
-      return;
-    }
-    const { authorizedDomains } = await _getProjectConfig(auth2);
-    for (const domain of authorizedDomains) {
-      try {
-        if (matchDomain(domain)) {
-          return;
-        }
-      } catch {
-      }
-    }
-    _fail(
-      auth2,
-      "unauthorized-domain"
-      /* AuthErrorCode.INVALID_ORIGIN */
-    );
-  }
-  function matchDomain(expected) {
-    const currentUrl = _getCurrentUrl();
-    const { protocol, hostname } = new URL(currentUrl);
-    if (expected.startsWith("chrome-extension://")) {
-      const ceUrl = new URL(expected);
-      if (ceUrl.hostname === "" && hostname === "") {
-        return protocol === "chrome-extension:" && expected.replace("chrome-extension://", "") === currentUrl.replace("chrome-extension://", "");
-      }
-      return protocol === "chrome-extension:" && ceUrl.hostname === hostname;
-    }
-    if (!HTTP_REGEX.test(protocol)) {
-      return false;
-    }
-    if (IP_ADDRESS_REGEX.test(expected)) {
-      return hostname === expected;
-    }
-    const escapedDomainPattern = expected.replace(/\./g, "\\.");
-    const re = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
-    return re.test(hostname);
-  }
-  function resetUnloadedGapiModules() {
-    const beacon = _window().___jsl;
-    if (beacon?.H) {
-      for (const hint of Object.keys(beacon.H)) {
-        beacon.H[hint].r = beacon.H[hint].r || [];
-        beacon.H[hint].L = beacon.H[hint].L || [];
-        beacon.H[hint].r = [...beacon.H[hint].L];
-        if (beacon.CP) {
-          for (let i = 0; i < beacon.CP.length; i++) {
-            beacon.CP[i] = null;
-          }
-        }
-      }
-    }
-  }
-  function loadGapi(auth2) {
-    return new Promise((resolve, reject) => {
-      function loadGapiIframe() {
-        resetUnloadedGapiModules();
-        gapi.load("gapi.iframes", {
-          callback: () => {
-            resolve(gapi.iframes.getContext());
-          },
-          ontimeout: () => {
-            resetUnloadedGapiModules();
-            reject(_createError(
-              auth2,
-              "network-request-failed"
-              /* AuthErrorCode.NETWORK_REQUEST_FAILED */
-            ));
-          },
-          timeout: NETWORK_TIMEOUT.get()
-        });
-      }
-      if (_window().gapi?.iframes?.Iframe) {
-        resolve(gapi.iframes.getContext());
-      } else if (!!_window().gapi?.load) {
-        loadGapiIframe();
-      } else {
-        const cbName = _generateCallbackName("iframefcb");
-        _window()[cbName] = () => {
-          if (!!gapi.load) {
-            loadGapiIframe();
-          } else {
-            reject(_createError(
-              auth2,
-              "network-request-failed"
-              /* AuthErrorCode.NETWORK_REQUEST_FAILED */
-            ));
-          }
-        };
-        return _loadJS(`${_gapiScriptUrl()}?onload=${cbName}`).catch((e) => reject(e));
-      }
-    }).catch((error) => {
-      cachedGApiLoader = null;
-      throw error;
-    });
-  }
-  function _loadGapi(auth2) {
-    cachedGApiLoader = cachedGApiLoader || loadGapi(auth2);
-    return cachedGApiLoader;
-  }
-  function getIframeUrl(auth2) {
-    const config = auth2.config;
-    _assert(
-      config.authDomain,
-      auth2,
-      "auth-domain-config-required"
-      /* AuthErrorCode.MISSING_AUTH_DOMAIN */
-    );
-    const url = config.emulator ? _emulatorUrl(config, EMULATED_IFRAME_PATH) : `https://${auth2.config.authDomain}/${IFRAME_PATH}`;
-    const params = {
-      apiKey: config.apiKey,
-      appName: auth2.name,
-      v: SDK_VERSION
-    };
-    const eid = EID_FROM_APIHOST.get(auth2.config.apiHost);
-    if (eid) {
-      params.eid = eid;
-    }
-    const frameworks = auth2._getFrameworks();
-    if (frameworks.length) {
-      params.fw = frameworks.join(",");
-    }
-    return `${url}?${querystring(params).slice(1)}`;
-  }
-  async function _openIframe(auth2) {
-    const context = await _loadGapi(auth2);
-    const gapi2 = _window().gapi;
-    _assert(
-      gapi2,
-      auth2,
-      "internal-error"
-      /* AuthErrorCode.INTERNAL_ERROR */
-    );
-    return context.open({
-      where: document.body,
-      url: getIframeUrl(auth2),
-      messageHandlersFilter: gapi2.iframes.CROSS_ORIGIN_IFRAMES_FILTER,
-      attributes: IFRAME_ATTRIBUTES,
-      dontclear: true
-    }, (iframe) => new Promise(async (resolve, reject) => {
-      await iframe.restyle({
-        // Prevent iframe from closing on mouse out.
-        setHideOnLeave: false
-      });
-      const networkError = _createError(
-        auth2,
-        "network-request-failed"
-        /* AuthErrorCode.NETWORK_REQUEST_FAILED */
-      );
-      const networkErrorTimer = _window().setTimeout(() => {
-        reject(networkError);
-      }, PING_TIMEOUT.get());
-      function clearTimerAndResolve() {
-        _window().clearTimeout(networkErrorTimer);
-        resolve(iframe);
-      }
-      iframe.ping(clearTimerAndResolve).then(clearTimerAndResolve, () => {
-        reject(networkError);
-      });
-    }));
-  }
-  function _open(auth2, url, name5, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT) {
-    const top = Math.max((window.screen.availHeight - height) / 2, 0).toString();
-    const left = Math.max((window.screen.availWidth - width) / 2, 0).toString();
-    let target = "";
-    const options = {
-      ...BASE_POPUP_OPTIONS,
-      width: width.toString(),
-      height: height.toString(),
-      top,
-      left
-    };
-    const ua = getUA().toLowerCase();
-    if (name5) {
-      target = _isChromeIOS(ua) ? TARGET_BLANK : name5;
-    }
-    if (_isFirefox(ua)) {
-      url = url || FIREFOX_EMPTY_URL;
-      options.scrollbars = "yes";
-    }
-    const optionsString = Object.entries(options).reduce((accum, [key, value]) => `${accum}${key}=${value},`, "");
-    if (_isIOSStandalone(ua) && target !== "_self") {
-      openAsNewWindowIOS(url || "", target);
-      return new AuthPopup(null);
-    }
-    const newWin = window.open(url || "", target, optionsString);
-    _assert(
-      newWin,
-      auth2,
-      "popup-blocked"
-      /* AuthErrorCode.POPUP_BLOCKED */
-    );
-    try {
-      newWin.focus();
-    } catch (e) {
-    }
-    return new AuthPopup(newWin);
-  }
-  function openAsNewWindowIOS(url, target) {
-    const el = document.createElement("a");
-    el.href = url;
-    el.target = target;
-    const click = document.createEvent("MouseEvent");
-    click.initMouseEvent("click", true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 1, null);
-    el.dispatchEvent(click);
-  }
-  async function _getRedirectUrl(auth2, provider, authType, redirectUrl, eventId, additionalParams) {
-    _assert(
-      auth2.config.authDomain,
-      auth2,
-      "auth-domain-config-required"
-      /* AuthErrorCode.MISSING_AUTH_DOMAIN */
-    );
-    _assert(
-      auth2.config.apiKey,
-      auth2,
-      "invalid-api-key"
-      /* AuthErrorCode.INVALID_API_KEY */
-    );
-    const params = {
-      apiKey: auth2.config.apiKey,
-      appName: auth2.name,
-      authType,
-      redirectUrl,
-      v: SDK_VERSION,
-      eventId
-    };
-    if (provider instanceof FederatedAuthProvider) {
-      provider.setDefaultLanguage(auth2.languageCode);
-      params.providerId = provider.providerId || "";
-      if (!isEmpty(provider.getCustomParameters())) {
-        params.customParameters = JSON.stringify(provider.getCustomParameters());
-      }
-      for (const [key, value] of Object.entries(additionalParams || {})) {
-        params[key] = value;
-      }
-    }
-    if (provider instanceof BaseOAuthProvider) {
-      const scopes = provider.getScopes().filter((scope) => scope !== "");
-      if (scopes.length > 0) {
-        params.scopes = scopes.join(",");
-      }
-    }
-    if (auth2.tenantId) {
-      params.tid = auth2.tenantId;
-    }
-    const paramsDict = params;
-    for (const key of Object.keys(paramsDict)) {
-      if (paramsDict[key] === void 0) {
-        delete paramsDict[key];
-      }
-    }
-    const appCheckToken = await auth2._getAppCheckToken();
-    const appCheckTokenFragment = appCheckToken ? `#${FIREBASE_APP_CHECK_FRAGMENT_ID}=${encodeURIComponent(appCheckToken)}` : "";
-    return `${getHandlerBase(auth2)}?${querystring(paramsDict).slice(1)}${appCheckTokenFragment}`;
-  }
-  function getHandlerBase({ config }) {
-    if (!config.emulator) {
-      return `https://${config.authDomain}/${WIDGET_PATH}`;
-    }
-    return _emulatorUrl(config, EMULATOR_WIDGET_PATH);
   }
   function _isEmptyString(input) {
     return typeof input === "undefined" || input?.length === 0;
@@ -3920,44 +3223,13 @@
     registerVersion(name3, version3, getVersionForPlatform(clientPlatform));
     registerVersion(name3, version3, "esm2020");
   }
-  function getAuth(app2 = getApp()) {
-    const provider = _getProvider(app2, "auth");
-    if (provider.isInitialized()) {
-      return provider.getImmediate();
-    }
-    const auth2 = initializeAuth(app2, {
-      popupRedirectResolver: browserPopupRedirectResolver,
-      persistence: [
-        indexedDBLocalPersistence,
-        browserLocalPersistence,
-        browserSessionPersistence
-      ]
-    });
-    const authTokenSyncPath = getExperimentalSetting("authTokenSyncURL");
-    if (authTokenSyncPath && typeof isSecureContext === "boolean" && isSecureContext) {
-      const authTokenSyncUrl = new URL(authTokenSyncPath, location.origin);
-      if (location.origin === authTokenSyncUrl.origin) {
-        const mintCookie = mintCookieFactory(authTokenSyncUrl.toString());
-        beforeAuthStateChanged(auth2, mintCookie, () => mintCookie(auth2.currentUser));
-        onIdTokenChanged(auth2, (user) => mintCookie(user));
-      }
-    }
-    const authEmulatorHost = getDefaultEmulatorHost("auth");
-    if (authEmulatorHost) {
-      connectAuthEmulator(auth2, `http://${authEmulatorHost}`);
-    }
-    return auth2;
-  }
-  function getScriptParentElement() {
-    return document.getElementsByTagName("head")?.[0] ?? document;
-  }
-  var prodErrorMap, _DEFAULT_AUTH_ERROR_FACTORY, logClient, Delay, FetchProvider, SERVER_ERROR_MAP, CookieAuthProxiedEndpoints, DEFAULT_API_TIMEOUT_MS, NetworkTimeout, RecaptchaConfig, ProactiveRefresh, UserMetadata, StsTokenManager, UserImpl, instanceCache, InMemoryPersistence, inMemoryPersistence, PersistenceUserManager, AuthMiddlewareQueue, MINIMUM_MIN_PASSWORD_LENGTH, PasswordPolicyImpl, AuthImpl, Subscription, externalJSProvider, MockGreCAPTCHATopLevel, MockGreCAPTCHA, RECAPTCHA_ENTERPRISE_VERIFIER_TYPE, FAKE_TOKEN, RecaptchaEnterpriseVerifier, AuthCredential, EmailAuthCredential, IDP_REQUEST_URI$1, OAuthCredential, VERIFY_PHONE_NUMBER_FOR_EXISTING_ERROR_MAP_, PhoneAuthCredential, ActionCodeURL, EmailAuthProvider, FederatedAuthProvider, BaseOAuthProvider, FacebookAuthProvider, GoogleAuthProvider, GithubAuthProvider, TwitterAuthProvider, UserCredentialImpl, MultiFactorError, STORAGE_AVAILABLE_KEY, BrowserPersistenceClass, _POLLING_INTERVAL_MS$1, IE10_LOCAL_STORAGE_SYNC_DELAY, BrowserLocalPersistence, browserLocalPersistence, POLLING_INTERVAL_MS, CookiePersistence, BrowserSessionPersistence, browserSessionPersistence, Receiver, Sender, DB_NAME2, DB_VERSION2, DB_OBJECTSTORE_NAME, DB_DATA_KEYPATH, DBPromise, _POLLING_INTERVAL_MS, _TRANSACTION_RETRY_COUNT, IndexedDBLocalPersistence, indexedDBLocalPersistence, _JSLOAD_CALLBACK, NETWORK_TIMEOUT_DELAY, RECAPTCHA_VERIFIER_TYPE, PhoneAuthProvider, IdpCredential, AbstractPopupRedirectOperation, _POLL_WINDOW_CLOSE_TIMEOUT, PopupOperation, PENDING_REDIRECT_KEY, redirectOutcomeMap, RedirectAction, EVENT_DUPLICATION_CACHE_DURATION_MS, AuthEventManager, IP_ADDRESS_REGEX, HTTP_REGEX, NETWORK_TIMEOUT, cachedGApiLoader, PING_TIMEOUT, IFRAME_PATH, EMULATED_IFRAME_PATH, IFRAME_ATTRIBUTES, EID_FROM_APIHOST, BASE_POPUP_OPTIONS, DEFAULT_WIDTH, DEFAULT_HEIGHT, TARGET_BLANK, FIREFOX_EMPTY_URL, AuthPopup, WIDGET_PATH, EMULATOR_WIDGET_PATH, FIREBASE_APP_CHECK_FRAGMENT_ID, WEB_STORAGE_SUPPORT_KEY, BrowserPopupRedirectResolver, browserPopupRedirectResolver, MultiFactorAssertionImpl, PhoneMultiFactorAssertionImpl, PhoneMultiFactorGenerator, TotpMultiFactorGenerator, TotpMultiFactorAssertionImpl, TotpSecret, name3, version3, AuthInterop, DEFAULT_ID_TOKEN_MAX_AGE, authIdTokenMaxAge, lastPostedIdToken, mintCookieFactory;
-  var init_index_36fcbc82 = __esm({
-    "node_modules/@firebase/auth/dist/esm/index-36fcbc82.js"() {
-      init_index_esm4();
+  var prodErrorMap, _DEFAULT_AUTH_ERROR_FACTORY, logClient, Delay, FetchProvider, SERVER_ERROR_MAP, CookieAuthProxiedEndpoints, DEFAULT_API_TIMEOUT_MS, NetworkTimeout, RecaptchaConfig, ProactiveRefresh, UserMetadata, StsTokenManager, UserImpl, instanceCache, InMemoryPersistence, inMemoryPersistence, PersistenceUserManager, AuthMiddlewareQueue, MINIMUM_MIN_PASSWORD_LENGTH, PasswordPolicyImpl, AuthImpl, Subscription, externalJSProvider, MockGreCAPTCHATopLevel, MockGreCAPTCHA, RECAPTCHA_ENTERPRISE_VERIFIER_TYPE, FAKE_TOKEN, RecaptchaEnterpriseVerifier, AuthCredential, EmailAuthCredential, IDP_REQUEST_URI$1, OAuthCredential, ActionCodeURL, EmailAuthProvider, FederatedAuthProvider, BaseOAuthProvider, FacebookAuthProvider, GoogleAuthProvider, GithubAuthProvider, TwitterAuthProvider, UserCredentialImpl, MultiFactorError, STORAGE_AVAILABLE_KEY, Receiver, Sender, DB_NAME2, DB_VERSION2, DB_OBJECTSTORE_NAME, DB_DATA_KEYPATH, DBPromise, _POLLING_INTERVAL_MS, _TRANSACTION_RETRY_COUNT, IndexedDBLocalPersistence, indexedDBLocalPersistence, MultiFactorAssertionImpl, TotpMultiFactorGenerator, TotpMultiFactorAssertionImpl, TotpSecret, name3, version3, AuthInterop;
+  var init_register_21a33d64 = __esm({
+    "node_modules/@firebase/auth/dist/web-extension-esm/register-21a33d64.js"() {
       init_index_esm();
-      init_index_esm3();
+      init_index_esm4();
       init_index_esm2();
+      init_index_esm3();
       prodErrorMap = _prodErrorMap;
       _DEFAULT_AUTH_ERROR_FACTORY = new ErrorFactory("auth", "Firebase", _prodErrorMap());
       logClient = new Logger("@firebase/auth");
@@ -5729,15 +5001,7 @@
                   reject(new Error("RecaptchaVerifier is only supported in browser"));
                   return;
                 }
-                let url = _recaptchaEnterpriseScriptUrl();
-                if (url.length !== 0) {
-                  url += siteKey;
-                }
-                _loadJS(url).then(() => {
-                  retrieveRecaptchaToken(siteKey, resolve, reject);
-                }).catch((error) => {
-                  reject(error);
-                });
+                reject(new Error("RecaptchaVerifier not available in extension"));
               }
             }).catch((error) => {
               reject(error);
@@ -6002,92 +5266,6 @@
             request.postBody = querystring(postBody);
           }
           return request;
-        }
-      };
-      VERIFY_PHONE_NUMBER_FOR_EXISTING_ERROR_MAP_ = {
-        [
-          "USER_NOT_FOUND"
-          /* ServerError.USER_NOT_FOUND */
-        ]: "user-not-found"
-        /* AuthErrorCode.USER_DELETED */
-      };
-      PhoneAuthCredential = class _PhoneAuthCredential extends AuthCredential {
-        constructor(params) {
-          super(
-            "phone",
-            "phone"
-            /* SignInMethod.PHONE */
-          );
-          this.params = params;
-        }
-        /** @internal */
-        static _fromVerification(verificationId, verificationCode) {
-          return new _PhoneAuthCredential({ verificationId, verificationCode });
-        }
-        /** @internal */
-        static _fromTokenResponse(phoneNumber, temporaryProof) {
-          return new _PhoneAuthCredential({ phoneNumber, temporaryProof });
-        }
-        /** @internal */
-        _getIdTokenResponse(auth2) {
-          return signInWithPhoneNumber$1(auth2, this._makeVerificationRequest());
-        }
-        /** @internal */
-        _linkToIdToken(auth2, idToken) {
-          return linkWithPhoneNumber$1(auth2, {
-            idToken,
-            ...this._makeVerificationRequest()
-          });
-        }
-        /** @internal */
-        _getReauthenticationResolver(auth2) {
-          return verifyPhoneNumberForExisting(auth2, this._makeVerificationRequest());
-        }
-        /** @internal */
-        _makeVerificationRequest() {
-          const { temporaryProof, phoneNumber, verificationId, verificationCode } = this.params;
-          if (temporaryProof && phoneNumber) {
-            return { temporaryProof, phoneNumber };
-          }
-          return {
-            sessionInfo: verificationId,
-            code: verificationCode
-          };
-        }
-        /** {@inheritdoc AuthCredential.toJSON} */
-        toJSON() {
-          const obj = {
-            providerId: this.providerId
-          };
-          if (this.params.phoneNumber) {
-            obj.phoneNumber = this.params.phoneNumber;
-          }
-          if (this.params.temporaryProof) {
-            obj.temporaryProof = this.params.temporaryProof;
-          }
-          if (this.params.verificationCode) {
-            obj.verificationCode = this.params.verificationCode;
-          }
-          if (this.params.verificationId) {
-            obj.verificationId = this.params.verificationId;
-          }
-          return obj;
-        }
-        /** Generates a phone credential based on a plain object or a JSON string. */
-        static fromJSON(json) {
-          if (typeof json === "string") {
-            json = JSON.parse(json);
-          }
-          const { verificationId, verificationCode, phoneNumber, temporaryProof } = json;
-          if (!verificationCode && !verificationId && !phoneNumber && !temporaryProof) {
-            return null;
-          }
-          return new _PhoneAuthCredential({
-            verificationId,
-            verificationCode,
-            phoneNumber,
-            temporaryProof
-          });
         }
       };
       ActionCodeURL = class _ActionCodeURL {
@@ -6553,286 +5731,6 @@
         }
       };
       STORAGE_AVAILABLE_KEY = "__sak";
-      BrowserPersistenceClass = class {
-        constructor(storageRetriever, type) {
-          this.storageRetriever = storageRetriever;
-          this.type = type;
-        }
-        _isAvailable() {
-          try {
-            if (!this.storage) {
-              return Promise.resolve(false);
-            }
-            this.storage.setItem(STORAGE_AVAILABLE_KEY, "1");
-            this.storage.removeItem(STORAGE_AVAILABLE_KEY);
-            return Promise.resolve(true);
-          } catch {
-            return Promise.resolve(false);
-          }
-        }
-        _set(key, value) {
-          this.storage.setItem(key, JSON.stringify(value));
-          return Promise.resolve();
-        }
-        _get(key) {
-          const json = this.storage.getItem(key);
-          return Promise.resolve(json ? JSON.parse(json) : null);
-        }
-        _remove(key) {
-          this.storage.removeItem(key);
-          return Promise.resolve();
-        }
-        get storage() {
-          return this.storageRetriever();
-        }
-      };
-      _POLLING_INTERVAL_MS$1 = 1e3;
-      IE10_LOCAL_STORAGE_SYNC_DELAY = 10;
-      BrowserLocalPersistence = class extends BrowserPersistenceClass {
-        constructor() {
-          super(
-            () => window.localStorage,
-            "LOCAL"
-            /* PersistenceType.LOCAL */
-          );
-          this.boundEventHandler = (event, poll) => this.onStorageEvent(event, poll);
-          this.listeners = {};
-          this.localCache = {};
-          this.pollTimer = null;
-          this.fallbackToPolling = _isMobileBrowser();
-          this._shouldAllowMigration = true;
-        }
-        forAllChangedKeys(cb) {
-          for (const key of Object.keys(this.listeners)) {
-            const newValue = this.storage.getItem(key);
-            const oldValue = this.localCache[key];
-            if (newValue !== oldValue) {
-              cb(key, oldValue, newValue);
-            }
-          }
-        }
-        onStorageEvent(event, poll = false) {
-          if (!event.key) {
-            this.forAllChangedKeys((key2, _oldValue, newValue) => {
-              this.notifyListeners(key2, newValue);
-            });
-            return;
-          }
-          const key = event.key;
-          if (poll) {
-            this.detachListener();
-          } else {
-            this.stopPolling();
-          }
-          const triggerListeners = () => {
-            const storedValue2 = this.storage.getItem(key);
-            if (!poll && this.localCache[key] === storedValue2) {
-              return;
-            }
-            this.notifyListeners(key, storedValue2);
-          };
-          const storedValue = this.storage.getItem(key);
-          if (_isIE10() && storedValue !== event.newValue && event.newValue !== event.oldValue) {
-            setTimeout(triggerListeners, IE10_LOCAL_STORAGE_SYNC_DELAY);
-          } else {
-            triggerListeners();
-          }
-        }
-        notifyListeners(key, value) {
-          this.localCache[key] = value;
-          const listeners = this.listeners[key];
-          if (listeners) {
-            for (const listener of Array.from(listeners)) {
-              listener(value ? JSON.parse(value) : value);
-            }
-          }
-        }
-        startPolling() {
-          this.stopPolling();
-          this.pollTimer = setInterval(() => {
-            this.forAllChangedKeys((key, oldValue, newValue) => {
-              this.onStorageEvent(
-                new StorageEvent("storage", {
-                  key,
-                  oldValue,
-                  newValue
-                }),
-                /* poll */
-                true
-              );
-            });
-          }, _POLLING_INTERVAL_MS$1);
-        }
-        stopPolling() {
-          if (this.pollTimer) {
-            clearInterval(this.pollTimer);
-            this.pollTimer = null;
-          }
-        }
-        attachListener() {
-          window.addEventListener("storage", this.boundEventHandler);
-        }
-        detachListener() {
-          window.removeEventListener("storage", this.boundEventHandler);
-        }
-        _addListener(key, listener) {
-          if (Object.keys(this.listeners).length === 0) {
-            if (this.fallbackToPolling) {
-              this.startPolling();
-            } else {
-              this.attachListener();
-            }
-          }
-          if (!this.listeners[key]) {
-            this.listeners[key] = /* @__PURE__ */ new Set();
-            this.localCache[key] = this.storage.getItem(key);
-          }
-          this.listeners[key].add(listener);
-        }
-        _removeListener(key, listener) {
-          if (this.listeners[key]) {
-            this.listeners[key].delete(listener);
-            if (this.listeners[key].size === 0) {
-              delete this.listeners[key];
-            }
-          }
-          if (Object.keys(this.listeners).length === 0) {
-            this.detachListener();
-            this.stopPolling();
-          }
-        }
-        // Update local cache on base operations:
-        async _set(key, value) {
-          await super._set(key, value);
-          this.localCache[key] = JSON.stringify(value);
-        }
-        async _get(key) {
-          const value = await super._get(key);
-          this.localCache[key] = JSON.stringify(value);
-          return value;
-        }
-        async _remove(key) {
-          await super._remove(key);
-          delete this.localCache[key];
-        }
-      };
-      BrowserLocalPersistence.type = "LOCAL";
-      browserLocalPersistence = BrowserLocalPersistence;
-      POLLING_INTERVAL_MS = 1e3;
-      CookiePersistence = class {
-        constructor() {
-          this.type = "COOKIE";
-          this.listenerUnsubscribes = /* @__PURE__ */ new Map();
-        }
-        // used to get the URL to the backend to proxy to
-        _getFinalTarget(originalUrl) {
-          if (typeof window === void 0) {
-            return originalUrl;
-          }
-          const url = new URL(`${window.location.origin}/__cookies__`);
-          url.searchParams.set("finalTarget", originalUrl);
-          return url;
-        }
-        // To be a usable persistence method in a chain browserCookiePersistence ensures that
-        // prerequisites have been met, namely that we're in a secureContext, navigator and document are
-        // available and cookies are enabled. Not all UAs support these method, so fallback accordingly.
-        async _isAvailable() {
-          if (typeof isSecureContext === "boolean" && !isSecureContext) {
-            return false;
-          }
-          if (typeof navigator === "undefined" || typeof document === "undefined") {
-            return false;
-          }
-          return navigator.cookieEnabled ?? true;
-        }
-        // Set should be a noop as we expect middleware to handle this
-        async _set(_key, _value) {
-          return;
-        }
-        // Attempt to get the cookie from cookieStore, fallback to document.cookie
-        async _get(key) {
-          if (!this._isAvailable()) {
-            return null;
-          }
-          const name5 = getCookieName(key);
-          if (window.cookieStore) {
-            const cookie = await window.cookieStore.get(name5);
-            return cookie?.value;
-          }
-          return getDocumentCookie(name5);
-        }
-        // Log out by overriding the idToken with a sentinel value of ""
-        async _remove(key) {
-          if (!this._isAvailable()) {
-            return;
-          }
-          const existingValue = await this._get(key);
-          if (!existingValue) {
-            return;
-          }
-          const name5 = getCookieName(key);
-          document.cookie = `${name5}=;Max-Age=34560000;Partitioned;Secure;SameSite=Strict;Path=/;Priority=High`;
-          await fetch(`/__cookies__`, { method: "DELETE" }).catch(() => void 0);
-        }
-        // Listen for cookie changes, both cookieStore and fallback to polling document.cookie
-        _addListener(key, listener) {
-          if (!this._isAvailable()) {
-            return;
-          }
-          const name5 = getCookieName(key);
-          if (window.cookieStore) {
-            const cb = ((event) => {
-              const changedCookie = event.changed.find((change) => change.name === name5);
-              if (changedCookie) {
-                listener(changedCookie.value);
-              }
-              const deletedCookie = event.deleted.find((change) => change.name === name5);
-              if (deletedCookie) {
-                listener(null);
-              }
-            });
-            const unsubscribe2 = () => window.cookieStore.removeEventListener("change", cb);
-            this.listenerUnsubscribes.set(listener, unsubscribe2);
-            return window.cookieStore.addEventListener("change", cb);
-          }
-          let lastValue = getDocumentCookie(name5);
-          const interval = setInterval(() => {
-            const currentValue = getDocumentCookie(name5);
-            if (currentValue !== lastValue) {
-              listener(currentValue);
-              lastValue = currentValue;
-            }
-          }, POLLING_INTERVAL_MS);
-          const unsubscribe = () => clearInterval(interval);
-          this.listenerUnsubscribes.set(listener, unsubscribe);
-        }
-        _removeListener(_key, listener) {
-          const unsubscribe = this.listenerUnsubscribes.get(listener);
-          if (!unsubscribe) {
-            return;
-          }
-          unsubscribe();
-          this.listenerUnsubscribes.delete(listener);
-        }
-      };
-      CookiePersistence.type = "COOKIE";
-      BrowserSessionPersistence = class extends BrowserPersistenceClass {
-        constructor() {
-          super(
-            () => window.sessionStorage,
-            "SESSION"
-            /* PersistenceType.SESSION */
-          );
-        }
-        _addListener(_key, _listener) {
-          return;
-        }
-        _removeListener(_key, _listener) {
-          return;
-        }
-      };
-      BrowserSessionPersistence.type = "SESSION";
-      browserSessionPersistence = BrowserSessionPersistence;
       Receiver = class _Receiver {
         constructor(eventTarget) {
           this.eventTarget = eventTarget;
@@ -7275,610 +6173,6 @@
       };
       IndexedDBLocalPersistence.type = "LOCAL";
       indexedDBLocalPersistence = IndexedDBLocalPersistence;
-      _JSLOAD_CALLBACK = _generateCallbackName("rcb");
-      NETWORK_TIMEOUT_DELAY = new Delay(3e4, 6e4);
-      RECAPTCHA_VERIFIER_TYPE = "recaptcha";
-      PhoneAuthProvider = class _PhoneAuthProvider {
-        /**
-         * @param auth - The Firebase {@link Auth} instance in which sign-ins should occur.
-         *
-         */
-        constructor(auth2) {
-          this.providerId = _PhoneAuthProvider.PROVIDER_ID;
-          this.auth = _castAuth(auth2);
-        }
-        /**
-         *
-         * Starts a phone number authentication flow by sending a verification code to the given phone
-         * number.
-         *
-         * @example
-         * ```javascript
-         * const provider = new PhoneAuthProvider(auth);
-         * const verificationId = await provider.verifyPhoneNumber(phoneNumber, applicationVerifier);
-         * // Obtain verificationCode from the user.
-         * const authCredential = PhoneAuthProvider.credential(verificationId, verificationCode);
-         * const userCredential = await signInWithCredential(auth, authCredential);
-         * ```
-         *
-         * @example
-         * An alternative flow is provided using the `signInWithPhoneNumber` method.
-         * ```javascript
-         * const confirmationResult = signInWithPhoneNumber(auth, phoneNumber, applicationVerifier);
-         * // Obtain verificationCode from the user.
-         * const userCredential = confirmationResult.confirm(verificationCode);
-         * ```
-         *
-         * @param phoneInfoOptions - The user's {@link PhoneInfoOptions}. The phone number should be in
-         * E.164 format (e.g. +16505550101).
-         * @param applicationVerifier - An {@link ApplicationVerifier}, which prevents
-         * requests from unauthorized clients. This SDK includes an implementation
-         * based on reCAPTCHA v2, {@link RecaptchaVerifier}. If you've enabled
-         * reCAPTCHA Enterprise bot protection in Enforce mode, this parameter is
-         * optional; in all other configurations, the parameter is required.
-         *
-         * @returns A Promise for a verification ID that can be passed to
-         * {@link PhoneAuthProvider.credential} to identify this flow.
-         */
-        verifyPhoneNumber(phoneOptions, applicationVerifier) {
-          return _verifyPhoneNumber(this.auth, phoneOptions, getModularInstance(applicationVerifier));
-        }
-        /**
-         * Creates a phone auth credential, given the verification ID from
-         * {@link PhoneAuthProvider.verifyPhoneNumber} and the code that was sent to the user's
-         * mobile device.
-         *
-         * @example
-         * ```javascript
-         * const provider = new PhoneAuthProvider(auth);
-         * const verificationId = provider.verifyPhoneNumber(phoneNumber, applicationVerifier);
-         * // Obtain verificationCode from the user.
-         * const authCredential = PhoneAuthProvider.credential(verificationId, verificationCode);
-         * const userCredential = signInWithCredential(auth, authCredential);
-         * ```
-         *
-         * @example
-         * An alternative flow is provided using the `signInWithPhoneNumber` method.
-         * ```javascript
-         * const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, applicationVerifier);
-         * // Obtain verificationCode from the user.
-         * const userCredential = await confirmationResult.confirm(verificationCode);
-         * ```
-         *
-         * @param verificationId - The verification ID returned from {@link PhoneAuthProvider.verifyPhoneNumber}.
-         * @param verificationCode - The verification code sent to the user's mobile device.
-         *
-         * @returns The auth provider credential.
-         */
-        static credential(verificationId, verificationCode) {
-          return PhoneAuthCredential._fromVerification(verificationId, verificationCode);
-        }
-        /**
-         * Generates an {@link AuthCredential} from a {@link UserCredential}.
-         * @param userCredential - The user credential.
-         */
-        static credentialFromResult(userCredential) {
-          const credential = userCredential;
-          return _PhoneAuthProvider.credentialFromTaggedObject(credential);
-        }
-        /**
-         * Returns an {@link AuthCredential} when passed an error.
-         *
-         * @remarks
-         *
-         * This method works for errors like
-         * `auth/account-exists-with-different-credentials`. This is useful for
-         * recovering when attempting to set a user's phone number but the number
-         * in question is already tied to another account. For example, the following
-         * code tries to update the current user's phone number, and if that
-         * fails, links the user with the account associated with that number:
-         *
-         * ```js
-         * const provider = new PhoneAuthProvider(auth);
-         * const verificationId = await provider.verifyPhoneNumber(number, verifier);
-         * try {
-         *   const code = ''; // Prompt the user for the verification code
-         *   await updatePhoneNumber(
-         *       auth.currentUser,
-         *       PhoneAuthProvider.credential(verificationId, code));
-         * } catch (e) {
-         *   if ((e as FirebaseError)?.code === 'auth/account-exists-with-different-credential') {
-         *     const cred = PhoneAuthProvider.credentialFromError(e);
-         *     await linkWithCredential(auth.currentUser, cred);
-         *   }
-         * }
-         *
-         * // At this point, auth.currentUser.phoneNumber === number.
-         * ```
-         *
-         * @param error - The error to generate a credential from.
-         */
-        static credentialFromError(error) {
-          return _PhoneAuthProvider.credentialFromTaggedObject(error.customData || {});
-        }
-        static credentialFromTaggedObject({ _tokenResponse: tokenResponse }) {
-          if (!tokenResponse) {
-            return null;
-          }
-          const { phoneNumber, temporaryProof } = tokenResponse;
-          if (phoneNumber && temporaryProof) {
-            return PhoneAuthCredential._fromTokenResponse(phoneNumber, temporaryProof);
-          }
-          return null;
-        }
-      };
-      PhoneAuthProvider.PROVIDER_ID = "phone";
-      PhoneAuthProvider.PHONE_SIGN_IN_METHOD = "phone";
-      IdpCredential = class extends AuthCredential {
-        constructor(params) {
-          super(
-            "custom",
-            "custom"
-            /* ProviderId.CUSTOM */
-          );
-          this.params = params;
-        }
-        _getIdTokenResponse(auth2) {
-          return signInWithIdp(auth2, this._buildIdpRequest());
-        }
-        _linkToIdToken(auth2, idToken) {
-          return signInWithIdp(auth2, this._buildIdpRequest(idToken));
-        }
-        _getReauthenticationResolver(auth2) {
-          return signInWithIdp(auth2, this._buildIdpRequest());
-        }
-        _buildIdpRequest(idToken) {
-          const request = {
-            requestUri: this.params.requestUri,
-            sessionId: this.params.sessionId,
-            postBody: this.params.postBody,
-            tenantId: this.params.tenantId,
-            pendingToken: this.params.pendingToken,
-            returnSecureToken: true,
-            returnIdpCredential: true
-          };
-          if (idToken) {
-            request.idToken = idToken;
-          }
-          return request;
-        }
-      };
-      AbstractPopupRedirectOperation = class {
-        constructor(auth2, filter, resolver, user, bypassAuthState = false) {
-          this.auth = auth2;
-          this.resolver = resolver;
-          this.user = user;
-          this.bypassAuthState = bypassAuthState;
-          this.pendingPromise = null;
-          this.eventManager = null;
-          this.filter = Array.isArray(filter) ? filter : [filter];
-        }
-        execute() {
-          return new Promise(async (resolve, reject) => {
-            this.pendingPromise = { resolve, reject };
-            try {
-              this.eventManager = await this.resolver._initialize(this.auth);
-              await this.onExecution();
-              this.eventManager.registerConsumer(this);
-            } catch (e) {
-              this.reject(e);
-            }
-          });
-        }
-        async onAuthEvent(event) {
-          const { urlResponse, sessionId, postBody, tenantId, error, type } = event;
-          if (error) {
-            this.reject(error);
-            return;
-          }
-          const params = {
-            auth: this.auth,
-            requestUri: urlResponse,
-            sessionId,
-            tenantId: tenantId || void 0,
-            postBody: postBody || void 0,
-            user: this.user,
-            bypassAuthState: this.bypassAuthState
-          };
-          try {
-            this.resolve(await this.getIdpTask(type)(params));
-          } catch (e) {
-            this.reject(e);
-          }
-        }
-        onError(error) {
-          this.reject(error);
-        }
-        getIdpTask(type) {
-          switch (type) {
-            case "signInViaPopup":
-            case "signInViaRedirect":
-              return _signIn;
-            case "linkViaPopup":
-            case "linkViaRedirect":
-              return _link;
-            case "reauthViaPopup":
-            case "reauthViaRedirect":
-              return _reauth;
-            default:
-              _fail(
-                this.auth,
-                "internal-error"
-                /* AuthErrorCode.INTERNAL_ERROR */
-              );
-          }
-        }
-        resolve(cred) {
-          debugAssert(this.pendingPromise, "Pending promise was never set");
-          this.pendingPromise.resolve(cred);
-          this.unregisterAndCleanUp();
-        }
-        reject(error) {
-          debugAssert(this.pendingPromise, "Pending promise was never set");
-          this.pendingPromise.reject(error);
-          this.unregisterAndCleanUp();
-        }
-        unregisterAndCleanUp() {
-          if (this.eventManager) {
-            this.eventManager.unregisterConsumer(this);
-          }
-          this.pendingPromise = null;
-          this.cleanUp();
-        }
-      };
-      _POLL_WINDOW_CLOSE_TIMEOUT = new Delay(2e3, 1e4);
-      PopupOperation = class _PopupOperation extends AbstractPopupRedirectOperation {
-        constructor(auth2, filter, provider, resolver, user) {
-          super(auth2, filter, resolver, user);
-          this.provider = provider;
-          this.authWindow = null;
-          this.pollId = null;
-          if (_PopupOperation.currentPopupAction) {
-            _PopupOperation.currentPopupAction.cancel();
-          }
-          _PopupOperation.currentPopupAction = this;
-        }
-        async executeNotNull() {
-          const result = await this.execute();
-          _assert(
-            result,
-            this.auth,
-            "internal-error"
-            /* AuthErrorCode.INTERNAL_ERROR */
-          );
-          return result;
-        }
-        async onExecution() {
-          debugAssert(this.filter.length === 1, "Popup operations only handle one event");
-          const eventId = _generateEventId();
-          this.authWindow = await this.resolver._openPopup(
-            this.auth,
-            this.provider,
-            this.filter[0],
-            // There's always one, see constructor
-            eventId
-          );
-          this.authWindow.associatedEvent = eventId;
-          this.resolver._originValidation(this.auth).catch((e) => {
-            this.reject(e);
-          });
-          this.resolver._isIframeWebStorageSupported(this.auth, (isSupported) => {
-            if (!isSupported) {
-              this.reject(_createError(
-                this.auth,
-                "web-storage-unsupported"
-                /* AuthErrorCode.WEB_STORAGE_UNSUPPORTED */
-              ));
-            }
-          });
-          this.pollUserCancellation();
-        }
-        get eventId() {
-          return this.authWindow?.associatedEvent || null;
-        }
-        cancel() {
-          this.reject(_createError(
-            this.auth,
-            "cancelled-popup-request"
-            /* AuthErrorCode.EXPIRED_POPUP_REQUEST */
-          ));
-        }
-        cleanUp() {
-          if (this.authWindow) {
-            this.authWindow.close();
-          }
-          if (this.pollId) {
-            window.clearTimeout(this.pollId);
-          }
-          this.authWindow = null;
-          this.pollId = null;
-          _PopupOperation.currentPopupAction = null;
-        }
-        pollUserCancellation() {
-          const poll = () => {
-            if (this.authWindow?.window?.closed) {
-              this.pollId = window.setTimeout(
-                () => {
-                  this.pollId = null;
-                  this.reject(_createError(
-                    this.auth,
-                    "popup-closed-by-user"
-                    /* AuthErrorCode.POPUP_CLOSED_BY_USER */
-                  ));
-                },
-                8e3
-                /* _Timeout.AUTH_EVENT */
-              );
-              return;
-            }
-            this.pollId = window.setTimeout(poll, _POLL_WINDOW_CLOSE_TIMEOUT.get());
-          };
-          poll();
-        }
-      };
-      PopupOperation.currentPopupAction = null;
-      PENDING_REDIRECT_KEY = "pendingRedirect";
-      redirectOutcomeMap = /* @__PURE__ */ new Map();
-      RedirectAction = class extends AbstractPopupRedirectOperation {
-        constructor(auth2, resolver, bypassAuthState = false) {
-          super(auth2, [
-            "signInViaRedirect",
-            "linkViaRedirect",
-            "reauthViaRedirect",
-            "unknown"
-            /* AuthEventType.UNKNOWN */
-          ], resolver, void 0, bypassAuthState);
-          this.eventId = null;
-        }
-        /**
-         * Override the execute function; if we already have a redirect result, then
-         * just return it.
-         */
-        async execute() {
-          let readyOutcome = redirectOutcomeMap.get(this.auth._key());
-          if (!readyOutcome) {
-            try {
-              const hasPendingRedirect = await _getAndClearPendingRedirectStatus(this.resolver, this.auth);
-              const result = hasPendingRedirect ? await super.execute() : null;
-              readyOutcome = () => Promise.resolve(result);
-            } catch (e) {
-              readyOutcome = () => Promise.reject(e);
-            }
-            redirectOutcomeMap.set(this.auth._key(), readyOutcome);
-          }
-          if (!this.bypassAuthState) {
-            redirectOutcomeMap.set(this.auth._key(), () => Promise.resolve(null));
-          }
-          return readyOutcome();
-        }
-        async onAuthEvent(event) {
-          if (event.type === "signInViaRedirect") {
-            return super.onAuthEvent(event);
-          } else if (event.type === "unknown") {
-            this.resolve(null);
-            return;
-          }
-          if (event.eventId) {
-            const user = await this.auth._redirectUserForId(event.eventId);
-            if (user) {
-              this.user = user;
-              return super.onAuthEvent(event);
-            } else {
-              this.resolve(null);
-            }
-          }
-        }
-        async onExecution() {
-        }
-        cleanUp() {
-        }
-      };
-      EVENT_DUPLICATION_CACHE_DURATION_MS = 10 * 60 * 1e3;
-      AuthEventManager = class {
-        constructor(auth2) {
-          this.auth = auth2;
-          this.cachedEventUids = /* @__PURE__ */ new Set();
-          this.consumers = /* @__PURE__ */ new Set();
-          this.queuedRedirectEvent = null;
-          this.hasHandledPotentialRedirect = false;
-          this.lastProcessedEventTime = Date.now();
-        }
-        registerConsumer(authEventConsumer) {
-          this.consumers.add(authEventConsumer);
-          if (this.queuedRedirectEvent && this.isEventForConsumer(this.queuedRedirectEvent, authEventConsumer)) {
-            this.sendToConsumer(this.queuedRedirectEvent, authEventConsumer);
-            this.saveEventToCache(this.queuedRedirectEvent);
-            this.queuedRedirectEvent = null;
-          }
-        }
-        unregisterConsumer(authEventConsumer) {
-          this.consumers.delete(authEventConsumer);
-        }
-        onEvent(event) {
-          if (this.hasEventBeenHandled(event)) {
-            return false;
-          }
-          let handled = false;
-          this.consumers.forEach((consumer) => {
-            if (this.isEventForConsumer(event, consumer)) {
-              handled = true;
-              this.sendToConsumer(event, consumer);
-              this.saveEventToCache(event);
-            }
-          });
-          if (this.hasHandledPotentialRedirect || !isRedirectEvent(event)) {
-            return handled;
-          }
-          this.hasHandledPotentialRedirect = true;
-          if (!handled) {
-            this.queuedRedirectEvent = event;
-            handled = true;
-          }
-          return handled;
-        }
-        sendToConsumer(event, consumer) {
-          if (event.error && !isNullRedirectEvent(event)) {
-            const code = event.error.code?.split("auth/")[1] || "internal-error";
-            consumer.onError(_createError(this.auth, code));
-          } else {
-            consumer.onAuthEvent(event);
-          }
-        }
-        isEventForConsumer(event, consumer) {
-          const eventIdMatches = consumer.eventId === null || !!event.eventId && event.eventId === consumer.eventId;
-          return consumer.filter.includes(event.type) && eventIdMatches;
-        }
-        hasEventBeenHandled(event) {
-          if (Date.now() - this.lastProcessedEventTime >= EVENT_DUPLICATION_CACHE_DURATION_MS) {
-            this.cachedEventUids.clear();
-          }
-          return this.cachedEventUids.has(eventUid(event));
-        }
-        saveEventToCache(event) {
-          this.cachedEventUids.add(eventUid(event));
-          this.lastProcessedEventTime = Date.now();
-        }
-      };
-      IP_ADDRESS_REGEX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
-      HTTP_REGEX = /^https?/;
-      NETWORK_TIMEOUT = new Delay(3e4, 6e4);
-      cachedGApiLoader = null;
-      PING_TIMEOUT = new Delay(5e3, 15e3);
-      IFRAME_PATH = "__/auth/iframe";
-      EMULATED_IFRAME_PATH = "emulator/auth/iframe";
-      IFRAME_ATTRIBUTES = {
-        style: {
-          position: "absolute",
-          top: "-100px",
-          width: "1px",
-          height: "1px"
-        },
-        "aria-hidden": "true",
-        tabindex: "-1"
-      };
-      EID_FROM_APIHOST = /* @__PURE__ */ new Map([
-        ["identitytoolkit.googleapis.com", "p"],
-        // production
-        ["staging-identitytoolkit.sandbox.googleapis.com", "s"],
-        // staging
-        ["test-identitytoolkit.sandbox.googleapis.com", "t"]
-        // test
-      ]);
-      BASE_POPUP_OPTIONS = {
-        location: "yes",
-        resizable: "yes",
-        statusbar: "yes",
-        toolbar: "no"
-      };
-      DEFAULT_WIDTH = 500;
-      DEFAULT_HEIGHT = 600;
-      TARGET_BLANK = "_blank";
-      FIREFOX_EMPTY_URL = "http://localhost";
-      AuthPopup = class {
-        constructor(window2) {
-          this.window = window2;
-          this.associatedEvent = null;
-        }
-        close() {
-          if (this.window) {
-            try {
-              this.window.close();
-            } catch (e) {
-            }
-          }
-        }
-      };
-      WIDGET_PATH = "__/auth/handler";
-      EMULATOR_WIDGET_PATH = "emulator/auth/handler";
-      FIREBASE_APP_CHECK_FRAGMENT_ID = encodeURIComponent("fac");
-      WEB_STORAGE_SUPPORT_KEY = "webStorageSupport";
-      BrowserPopupRedirectResolver = class {
-        constructor() {
-          this.eventManagers = {};
-          this.iframes = {};
-          this.originValidationPromises = {};
-          this._redirectPersistence = browserSessionPersistence;
-          this._completeRedirectFn = _getRedirectResult;
-          this._overrideRedirectResult = _overrideRedirectResult;
-        }
-        // Wrapping in async even though we don't await anywhere in order
-        // to make sure errors are raised as promise rejections
-        async _openPopup(auth2, provider, authType, eventId) {
-          debugAssert(this.eventManagers[auth2._key()]?.manager, "_initialize() not called before _openPopup()");
-          const url = await _getRedirectUrl(auth2, provider, authType, _getCurrentUrl(), eventId);
-          return _open(auth2, url, _generateEventId());
-        }
-        async _openRedirect(auth2, provider, authType, eventId) {
-          await this._originValidation(auth2);
-          const url = await _getRedirectUrl(auth2, provider, authType, _getCurrentUrl(), eventId);
-          _setWindowLocation(url);
-          return new Promise(() => {
-          });
-        }
-        _initialize(auth2) {
-          const key = auth2._key();
-          if (this.eventManagers[key]) {
-            const { manager, promise: promise2 } = this.eventManagers[key];
-            if (manager) {
-              return Promise.resolve(manager);
-            } else {
-              debugAssert(promise2, "If manager is not set, promise should be");
-              return promise2;
-            }
-          }
-          const promise = this.initAndGetManager(auth2);
-          this.eventManagers[key] = { promise };
-          promise.catch(() => {
-            delete this.eventManagers[key];
-          });
-          return promise;
-        }
-        async initAndGetManager(auth2) {
-          const iframe = await _openIframe(auth2);
-          const manager = new AuthEventManager(auth2);
-          iframe.register("authEvent", (iframeEvent) => {
-            _assert(
-              iframeEvent?.authEvent,
-              auth2,
-              "invalid-auth-event"
-              /* AuthErrorCode.INVALID_AUTH_EVENT */
-            );
-            const handled = manager.onEvent(iframeEvent.authEvent);
-            return {
-              status: handled ? "ACK" : "ERROR"
-              /* GapiOutcome.ERROR */
-            };
-          }, gapi.iframes.CROSS_ORIGIN_IFRAMES_FILTER);
-          this.eventManagers[auth2._key()] = { manager };
-          this.iframes[auth2._key()] = iframe;
-          return manager;
-        }
-        _isIframeWebStorageSupported(auth2, cb) {
-          const iframe = this.iframes[auth2._key()];
-          iframe.send(WEB_STORAGE_SUPPORT_KEY, { type: WEB_STORAGE_SUPPORT_KEY }, (result) => {
-            const isSupported = result?.[0]?.[WEB_STORAGE_SUPPORT_KEY];
-            if (isSupported !== void 0) {
-              cb(!!isSupported);
-            }
-            _fail(
-              auth2,
-              "internal-error"
-              /* AuthErrorCode.INTERNAL_ERROR */
-            );
-          }, gapi.iframes.CROSS_ORIGIN_IFRAMES_FILTER);
-        }
-        _originValidation(auth2) {
-          const key = auth2._key();
-          if (!this.originValidationPromises[key]) {
-            this.originValidationPromises[key] = _validateOrigin(auth2);
-          }
-          return this.originValidationPromises[key];
-        }
-        get _shouldInitProactively() {
-          return _isMobileBrowser() || _isSafari() || _isIOS();
-        }
-      };
-      browserPopupRedirectResolver = BrowserPopupRedirectResolver;
       MultiFactorAssertionImpl = class {
         constructor(factorId) {
           this.factorId = factorId;
@@ -7894,52 +6188,6 @@
           }
         }
       };
-      PhoneMultiFactorAssertionImpl = class _PhoneMultiFactorAssertionImpl extends MultiFactorAssertionImpl {
-        constructor(credential) {
-          super(
-            "phone"
-            /* FactorId.PHONE */
-          );
-          this.credential = credential;
-        }
-        /** @internal */
-        static _fromCredential(credential) {
-          return new _PhoneMultiFactorAssertionImpl(credential);
-        }
-        /** @internal */
-        _finalizeEnroll(auth2, idToken, displayName) {
-          return finalizeEnrollPhoneMfa(auth2, {
-            idToken,
-            displayName,
-            phoneVerificationInfo: this.credential._makeVerificationRequest()
-          });
-        }
-        /** @internal */
-        _finalizeSignIn(auth2, mfaPendingCredential) {
-          return finalizeSignInPhoneMfa(auth2, {
-            mfaPendingCredential,
-            phoneVerificationInfo: this.credential._makeVerificationRequest()
-          });
-        }
-      };
-      PhoneMultiFactorGenerator = class {
-        constructor() {
-        }
-        /**
-         * Provides a {@link PhoneMultiFactorAssertion} to confirm ownership of the phone second factor.
-         *
-         * @remarks
-         * This method does not work in a Node.js environment.
-         *
-         * @param phoneAuthCredential - A credential provided by {@link PhoneAuthProvider.credential}.
-         * @returns A {@link PhoneMultiFactorAssertion} which can be used with
-         * {@link MultiFactorResolver.resolveSignIn}
-         */
-        static assertion(credential) {
-          return PhoneMultiFactorAssertionImpl._fromCredential(credential);
-        }
-      };
-      PhoneMultiFactorGenerator.FACTOR_ID = "phone";
       TotpMultiFactorGenerator = class {
         /**
          * Provides a {@link TotpMultiFactorAssertion} to confirm ownership of
@@ -8139,72 +6387,43 @@
           }
         }
       };
-      DEFAULT_ID_TOKEN_MAX_AGE = 5 * 60;
-      authIdTokenMaxAge = getExperimentalSetting("authIdTokenMaxAge") || DEFAULT_ID_TOKEN_MAX_AGE;
-      lastPostedIdToken = null;
-      mintCookieFactory = (url) => async (user) => {
-        const idTokenResult = user && await user.getIdTokenResult();
-        const idTokenAge = idTokenResult && ((/* @__PURE__ */ new Date()).getTime() - Date.parse(idTokenResult.issuedAtTime)) / 1e3;
-        if (idTokenAge && idTokenAge > authIdTokenMaxAge) {
-          return;
-        }
-        const idToken = idTokenResult?.token;
-        if (lastPostedIdToken === idToken) {
-          return;
-        }
-        lastPostedIdToken = idToken;
-        await fetch(url, {
-          method: idToken ? "POST" : "DELETE",
-          headers: idToken ? {
-            "Authorization": `Bearer ${idToken}`
-          } : {}
-        });
-      };
-      _setExternalJSProvider({
-        loadJS(url) {
-          return new Promise((resolve, reject) => {
-            const el = document.createElement("script");
-            el.setAttribute("src", url);
-            el.onload = resolve;
-            el.onerror = (e) => {
-              const error = _createError(
-                "internal-error"
-                /* AuthErrorCode.INTERNAL_ERROR */
-              );
-              error.customData = e;
-              reject(error);
-            };
-            el.type = "text/javascript";
-            el.charset = "UTF-8";
-            getScriptParentElement().appendChild(el);
-          });
-        },
-        gapiScript: "https://apis.google.com/js/api.js",
-        recaptchaV2Script: "https://www.google.com/recaptcha/api.js",
-        recaptchaEnterpriseScript: "https://www.google.com/recaptcha/enterprise.js?render="
-      });
+    }
+  });
+
+  // node_modules/@firebase/auth/dist/web-extension-esm/index.js
+  function getAuth(app2 = getApp()) {
+    const provider = _getProvider(app2, "auth");
+    if (provider.isInitialized()) {
+      return provider.getImmediate();
+    }
+    const auth2 = initializeAuth(app2, {
+      persistence: [indexedDBLocalPersistence]
+    });
+    const authEmulatorHost = getDefaultEmulatorHost("auth");
+    if (authEmulatorHost) {
+      connectAuthEmulator(auth2, `http://${authEmulatorHost}`);
+    }
+    return auth2;
+  }
+  var init_web_extension_esm = __esm({
+    "node_modules/@firebase/auth/dist/web-extension-esm/index.js"() {
+      init_register_21a33d64();
+      init_register_21a33d64();
+      init_index_esm4();
+      init_index_esm();
+      init_index_esm2();
+      init_index_esm3();
       registerAuth(
-        "Browser"
-        /* ClientPlatform.BROWSER */
+        "WebExtension"
+        /* ClientPlatform.WEB_EXTENSION */
       );
     }
   });
 
-  // node_modules/@firebase/auth/dist/esm/index.js
-  var init_esm = __esm({
-    "node_modules/@firebase/auth/dist/esm/index.js"() {
-      init_index_36fcbc82();
-      init_index_esm4();
-      init_index_esm();
-      init_index_esm3();
-      init_index_esm2();
-    }
-  });
-
-  // node_modules/firebase/auth/dist/esm/index.esm.js
+  // node_modules/firebase/auth/web-extension/dist/esm/index.esm.js
   var init_index_esm6 = __esm({
-    "node_modules/firebase/auth/dist/esm/index.esm.js"() {
-      init_esm();
+    "node_modules/firebase/auth/web-extension/dist/esm/index.esm.js"() {
+      init_web_extension_esm();
     }
   });
 
@@ -10928,7 +9147,7 @@
   function forEach(e, t) {
     for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t(n, e[n]);
   }
-  function isEmpty2(e) {
+  function isEmpty(e) {
     for (const t in e) if (Object.prototype.hasOwnProperty.call(e, t)) return false;
     return true;
   }
@@ -13544,7 +11763,7 @@
   }
   function __PRIVATE_parseObject(e, t) {
     const n = {};
-    return isEmpty2(e) ? (
+    return isEmpty(e) ? (
       // If we encounter an empty object, we explicitly add it to the update
       // mask to ensure that the server creates a map entry.
       t.path && t.path.length > 0 && t.fieldMask.push(t.path)
@@ -15777,7 +13996,7 @@
           }));
         }
         isEmpty() {
-          return isEmpty2(this.inner);
+          return isEmpty(this.inner);
         }
         size() {
           return this.innerSize;
@@ -21399,7 +19618,7 @@ This typically indicates that your device does not have a healthy Internet conne
     }
     return handler;
   }
-  function sharedErrorHandler(location2) {
+  function sharedErrorHandler(location) {
     function errorHandler(xhr, err) {
       let newErr;
       if (xhr.getStatus() === 401) {
@@ -21414,10 +19633,10 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       } else {
         if (xhr.getStatus() === 402) {
-          newErr = quotaExceeded(location2.bucket);
+          newErr = quotaExceeded(location.bucket);
         } else {
           if (xhr.getStatus() === 403) {
-            newErr = unauthorized(location2.path);
+            newErr = unauthorized(location.path);
           } else {
             newErr = err;
           }
@@ -21429,41 +19648,41 @@ This typically indicates that your device does not have a healthy Internet conne
     }
     return errorHandler;
   }
-  function objectErrorHandler(location2) {
-    const shared = sharedErrorHandler(location2);
+  function objectErrorHandler(location) {
+    const shared = sharedErrorHandler(location);
     function errorHandler(xhr, err) {
       let newErr = shared(xhr, err);
       if (xhr.getStatus() === 404) {
-        newErr = objectNotFound(location2.path);
+        newErr = objectNotFound(location.path);
       }
       newErr.serverResponse = err.serverResponse;
       return newErr;
     }
     return errorHandler;
   }
-  function getDownloadUrl(service, location2, mappings) {
-    const urlPart = location2.fullServerUrl();
+  function getDownloadUrl(service, location, mappings) {
+    const urlPart = location.fullServerUrl();
     const url = makeUrl(urlPart, service.host, service._protocol);
     const method = "GET";
     const timeout = service.maxOperationRetryTime;
     const requestInfo = new RequestInfo(url, method, downloadUrlHandler(service, mappings), timeout);
-    requestInfo.errorHandler = objectErrorHandler(location2);
+    requestInfo.errorHandler = objectErrorHandler(location);
     return requestInfo;
   }
   function determineContentType_(metadata, blob) {
     return metadata && metadata["contentType"] || blob && blob.type() || "application/octet-stream";
   }
-  function metadataForUpload_(location2, blob, metadata) {
+  function metadataForUpload_(location, blob, metadata) {
     const metadataClone = Object.assign({}, metadata);
-    metadataClone["fullPath"] = location2.path;
+    metadataClone["fullPath"] = location.path;
     metadataClone["size"] = blob.size();
     if (!metadataClone["contentType"]) {
       metadataClone["contentType"] = determineContentType_(null, blob);
     }
     return metadataClone;
   }
-  function multipartUpload(service, location2, mappings, blob, metadata) {
-    const urlPart = location2.bucketOnlyServerUrl();
+  function multipartUpload(service, location, mappings, blob, metadata) {
+    const urlPart = location.bucketOnlyServerUrl();
     const headers = {
       "X-Goog-Upload-Protocol": "multipart"
     };
@@ -21476,7 +19695,7 @@ This typically indicates that your device does not have a healthy Internet conne
     }
     const boundary = genBoundary();
     headers["Content-Type"] = "multipart/related; boundary=" + boundary;
-    const metadata_ = metadataForUpload_(location2, blob, metadata);
+    const metadata_ = metadataForUpload_(location, blob, metadata);
     const metadataString = toResourceString(metadata_, mappings);
     const preBlobPart = "--" + boundary + "\r\nContent-Type: application/json; charset=utf-8\r\n\r\n" + metadataString + "\r\n--" + boundary + "\r\nContent-Type: " + metadata_["contentType"] + "\r\n\r\n";
     const postBlobPart = "\r\n--" + boundary + "--";
@@ -21492,7 +19711,7 @@ This typically indicates that your device does not have a healthy Internet conne
     requestInfo.urlParams = urlParams;
     requestInfo.headers = headers;
     requestInfo.body = body.uploadData();
-    requestInfo.errorHandler = sharedErrorHandler(location2);
+    requestInfo.errorHandler = sharedErrorHandler(location);
     return requestInfo;
   }
   function newTextConnection() {
@@ -21520,8 +19739,8 @@ This typically indicates that your device does not have a healthy Internet conne
   }
   function _getChild$1(ref2, childPath) {
     const newPath = child(ref2._location.path, childPath);
-    const location2 = new Location(ref2._location.bucket, newPath);
-    return new Reference(ref2.storage, location2);
+    const location = new Location(ref2._location.bucket, newPath);
+    return new Reference(ref2.storage, location);
   }
   function isUrl(path) {
     return /^[A-Za-z]+:\/\//.test(path);
@@ -21736,7 +19955,7 @@ ${this.customData.serverResponse}`;
           }
         }
         static makeFromUrl(url, host) {
-          let location2 = null;
+          let location = null;
           const bucketDomain = "([A-Za-z0-9.\\-_]+)";
           function gsModify(loc) {
             if (loc.path.charAt(loc.path.length - 1) === "/") {
@@ -21780,15 +19999,15 @@ ${this.customData.serverResponse}`;
               if (!pathValue) {
                 pathValue = "";
               }
-              location2 = new _Location(bucketValue, pathValue);
-              group.postModify(location2);
+              location = new _Location(bucketValue, pathValue);
+              group.postModify(location);
               break;
             }
           }
-          if (location2 == null) {
+          if (location == null) {
             throw invalidUrl(url);
           }
-          return location2;
+          return location;
         }
       };
       FailRequest = class {
@@ -22194,12 +20413,12 @@ ${this.customData.serverResponse}`;
         }
       };
       Reference = class _Reference {
-        constructor(_service, location2) {
+        constructor(_service, location) {
           this._service = _service;
-          if (location2 instanceof Location) {
-            this._location = location2;
+          if (location instanceof Location) {
+            this._location = location;
           } else {
-            this._location = Location.makeFromUrl(location2, _service.host);
+            this._location = Location.makeFromUrl(location, _service.host);
           }
         }
         /**
@@ -22210,15 +20429,15 @@ ${this.customData.serverResponse}`;
         toString() {
           return "gs://" + this._location.bucket + "/" + this._location.path;
         }
-        _newRef(service, location2) {
-          return new _Reference(service, location2);
+        _newRef(service, location) {
+          return new _Reference(service, location);
         }
         /**
          * A reference to the root of this object's bucket.
          */
         get root() {
-          const location2 = new Location(this._location.bucket, "");
-          return this._newRef(this._service, location2);
+          const location = new Location(this._location.bucket, "");
+          return this._newRef(this._service, location);
         }
         /**
          * The name of the bucket containing this reference's object.
@@ -22254,8 +20473,8 @@ ${this.customData.serverResponse}`;
           if (newPath === null) {
             return null;
           }
-          const location2 = new Location(this._location.bucket, newPath);
-          return new _Reference(this._service, location2);
+          const location = new Location(this._location.bucket, newPath);
+          return new _Reference(this._service, location);
         }
         /**
          * Utility function to throw an error in methods that do not accept a root reference.
@@ -22426,7 +20645,8 @@ ${this.customData.serverResponse}`;
         projectId: "iropit-64ea0",
         storageBucket: "iropit-64ea0.firebasestorage.app",
         messagingSenderId: "723637478368",
-        appId: "1:723637478368:web:277907c0fe3aa0db38c185"
+        appId: "1:723637478368:web:277907c0fe3aa0db38c185",
+        measurementId: "G-CFH48HR9R2"
       };
       firebase_config_default = firebaseConfig;
     }
@@ -29099,23 +27319,7 @@ firebase/app/dist/esm/index.esm.js:
    * limitations under the License.
    *)
 
-@firebase/auth/dist/esm/index-36fcbc82.js:
-  (**
-   * @license
-   * Copyright 2021 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
+@firebase/auth/dist/web-extension-esm/register-21a33d64.js:
   (**
    * @license
    * Copyright 2020 Google LLC
@@ -29182,7 +27386,7 @@ firebase/app/dist/esm/index.esm.js:
    *)
   (**
    * @license
-   * Copyright 2025 Google LLC
+   * Copyright 2020 Google LLC.
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
@@ -29196,9 +27400,11 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
+
+@firebase/auth/dist/web-extension-esm/index.js:
   (**
    * @license
-   * Copyright 2020 Google LLC.
+   * Copyright 2023 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.

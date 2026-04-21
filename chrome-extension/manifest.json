@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "iRopit",
   "description": "Sync SMS, Calls and Chat between your devices seamlessly",
-  "version": "1.0.0",
-  "version_name": "1.0.0",
+  "version": "1.1.24",
+  "version_name": "1.1.24",
   "permissions": ["storage", "notifications", "identity", "alarms", "clipboardWrite", "activeTab", "tabs", "contextMenus", "downloads"],
   "content_scripts": [
     {
@@ -13,7 +13,6 @@
     }
   ],
   "host_permissions": [
-    "<all_urls>",
     "https://*.firebaseio.com/*",
     "https://*.googleapis.com/*",
     "https://firestore.googleapis.com/*",
@@ -44,5 +43,6 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2mY8E9rN5wOVk9X6J5w7lE1kM3ug9K5qL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9K5pL8qN7F9m2Q+o5Y5L6p8N3zMq9QIDAQAB"
+  "homepage_url": "https://www.iropit.com",
+  "privacy_policy_url": "https://www.iropit.com/privacy-policy"
 }

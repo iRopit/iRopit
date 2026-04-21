@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "723637478368-majmpd1i9c8qjc91e0k2d8e285ulm21i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.IRopit",
+            "certificate_hash": "76863cffc22be83d3d71b790af406431a968a76e"
+          }
+        },
+        {
+          "client_id": "723637478368-of28ljcg8jdm8p1mruujmfhdld9tsk9c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.IRopit",
+            "certificate_hash": "7208dabed0484d4ea4cc805194bc9f10b029f34a"
+          }
+        },
+        {
           "client_id": "723637478368-p06utrdgc5q57bvpe224g1n1kncrokes.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -35,7 +51,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "723637478368-dq4ad954ot30p4bes5iuk5ba8bud1ecl.apps.googleusercontent.com",
+              "client_id": "723637478368-8vceokc6jdb1uc9fbht1megnl9urrfnk.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

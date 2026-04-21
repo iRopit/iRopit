@@ -1,10 +1,13 @@
 {
   "name": "chrome-extension",
-  "version": "1.1.21",
+  "version": "1.1.24",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild src/popup.js --bundle --outfile=popup/popup.bundle.js --platform=browser --format=iife && esbuild src/sms-window.js --bundle --outfile=popup/sms-window.bundle.js --platform=browser --format=iife",
+    "build": "node build.js",
+    "build:old": "esbuild src/popup.js --bundle --outfile=popup/popup.bundle.js --platform=browser --format=iife --tree-shaking=true && esbuild src/sms-window.js --bundle --outfile=popup/sms-window.bundle.js --platform=browser --format=iife --tree-shaking=true && node patch-bundle.js",
+    "patch": "node patch-bundle.js",
+    "zip": "node build-zip.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,6 +17,7 @@
     "firebase": "^12.7.0"
   },
   "devDependencies": {
+    "archiver": "^7.0.1",
     "esbuild": "^0.27.2"
   }
 }
