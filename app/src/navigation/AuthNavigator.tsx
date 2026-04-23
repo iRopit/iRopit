@@ -6,7 +6,7 @@ import { AuthStackParamList } from '../types';
 import { COLORS } from '../theme/colors';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
-
+//test
 const AuthNavigator = () => {
   return (
     <Stack.Navigator
