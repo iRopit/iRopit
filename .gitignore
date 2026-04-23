@@ -89,3 +89,7 @@ chrome-extension/*.zip
 *.tmp
 *.temp
 .cache/
+
+# Secrets - NEVER commit
+.secrets/
+*.pem

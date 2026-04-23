@@ -32,6 +32,18 @@ const db = getFirestore(app);
 
 console.log("ZyncIT: Firebase initialized");
 
+// Globally swallow Firestore permission-denied errors that happen during sign-out.
+// These are expected: in-flight queries fail when the auth token is revoked.
+self.addEventListener("unhandledrejection", (event) => {
+  const reason = event?.reason;
+  if (
+    reason?.code === "permission-denied" ||
+    /Missing or insufficient permissions/i.test(reason?.message || "")
+  ) {
+    event.preventDefault();
+  }
+});
+
 let currentUser = null;
 let currentDeviceId = null;
 // Store last timestamp to avoid duplicate notifications
@@ -382,6 +394,7 @@ function listenToDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error(
         "ZyncIT: Firestore listener error for device",
         deviceId,
@@ -438,6 +451,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error(
         "ZyncIT: Call listener error for device",
         deviceId,
@@ -562,6 +576,7 @@ function listenForSMSFromDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
     },
   );
@@ -733,7 +748,9 @@ chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 }); // Every 
 
 // Poll for new notifications (backup for when onSnapshot fails)
 async function pollForNewNotifications() {
-  if (!currentUser) return;
+  // Double-check auth: local cache AND live Firebase auth state.
+  // Prevents permission-denied races right after signOut().
+  if (!currentUser || !auth.currentUser) return;
 
   try {
     // Get devices
@@ -810,6 +827,13 @@ async function pollForNewNotifications() {
       });
     }
   } catch (error) {
+    // Silently ignore permission errors that occur during sign-out race.
+    if (
+      error?.code === "permission-denied" ||
+      !auth.currentUser
+    ) {
+      return;
+    }
     console.error("ZyncIT: Poll error:", error);
   }
 }

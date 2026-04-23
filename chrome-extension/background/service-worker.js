@@ -18702,6 +18702,12 @@ var app = initializeApp(firebase_config_default);
 var auth = getAuth(app);
 var db = getFirestore(app);
 console.log("ZyncIT: Firebase initialized");
+self.addEventListener("unhandledrejection", (event) => {
+  const reason = event?.reason;
+  if (reason?.code === "permission-denied" || /Missing or insufficient permissions/i.test(reason?.message || "")) {
+    event.preventDefault();
+  }
+});
 var currentUser = null;
 var currentDeviceId = null;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
@@ -18960,6 +18966,7 @@ function listenToDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error(
         "ZyncIT: Firestore listener error for device",
         deviceId,
@@ -19003,6 +19010,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error(
         "ZyncIT: Call listener error for device",
         deviceId,
@@ -19086,6 +19094,7 @@ function listenForSMSFromDevice(deviceId, deviceName) {
       });
     },
     (error) => {
+      if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
     }
   );
@@ -19222,7 +19231,7 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 });
 async function pollForNewNotifications() {
-  if (!currentUser) return;
+  if (!currentUser || !auth.currentUser) return;
   try {
     const devicesQuery = query(
       collection(db, "devices"),
@@ -19277,6 +19286,9 @@ async function pollForNewNotifications() {
       });
     }
   } catch (error) {
+    if (error?.code === "permission-denied" || !auth.currentUser) {
+      return;
+    }
     console.error("ZyncIT: Poll error:", error);
   }
 }

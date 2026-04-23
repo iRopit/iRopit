@@ -73,6 +73,7 @@ export async function loadContactsForDevice(deviceId) {
     );
     return contacts;
   } catch (error) {
+    if (error?.code === "permission-denied") return [];
     console.error("[Contacts] Error loading contacts:", error);
     return [];
   }
@@ -172,6 +173,7 @@ export async function loadAllContacts() {
           );
         },
         (error) => {
+          if (error?.code === "permission-denied") return;
           console.error(
             `[Contacts] Listener error for device ${device.id}:`,
             error,

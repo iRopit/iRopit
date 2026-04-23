@@ -4,6 +4,10 @@
 .env.production
 firebase-config.js
 
+# Private keys (extension signing) - NEVER commit
+*.pem
+extension-private-key*
+
 # Build outputs
 dist/
 build/

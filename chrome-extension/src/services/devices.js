@@ -118,6 +118,7 @@ async function cleanupDuplicateExtensions(userId, currentDeviceId) {
       );
     }
   } catch (error) {
+    if (error?.code === "permission-denied") return;
     console.error("[Device] Error cleaning up duplicates:", error);
   }
 }

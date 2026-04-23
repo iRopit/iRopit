@@ -433,7 +433,9 @@ export async function loadSMS() {
     isSyncing = false;
     updateSMSCountIndicator();
   } catch (error) {
-    console.error("❌ loadSMS error:", error);
+    if (error?.code !== "permission-denied") {
+      console.error("❌ loadSMS error:", error);
+    }
     isSyncing = false;
     updateSMSCountIndicator();
   }
@@ -547,6 +549,7 @@ function startSMSRealtimeListeners(userId, devicesList) {
         }
       },
       (error) => {
+        if (error?.code === "permission-denied") return;
         console.error(
           `❌ SMS realtime listener error for device ${device.id}:`,
           error,

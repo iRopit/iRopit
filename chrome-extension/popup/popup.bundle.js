@@ -24980,6 +24980,7 @@ ${this.customData.serverResponse}`;
       );
       return contacts;
     } catch (error) {
+      if (error?.code === "permission-denied") return [];
       console.error("[Contacts] Error loading contacts:", error);
       return [];
     }
@@ -25056,6 +25057,7 @@ ${this.customData.serverResponse}`;
             );
           },
           (error) => {
+            if (error?.code === "permission-denied") return;
             console.error(
               `[Contacts] Listener error for device ${device.id}:`,
               error
@@ -26987,7 +26989,9 @@ ${this.customData.serverResponse}`;
       isSyncing = false;
       updateSMSCountIndicator();
     } catch (error) {
-      console.error("\u274C loadSMS error:", error);
+      if (error?.code !== "permission-denied") {
+        console.error("\u274C loadSMS error:", error);
+      }
       isSyncing = false;
       updateSMSCountIndicator();
     }
@@ -27084,6 +27088,7 @@ ${this.customData.serverResponse}`;
           }
         },
         (error) => {
+          if (error?.code === "permission-denied") return;
           console.error(
             `\u274C SMS realtime listener error for device ${device.id}:`,
             error
@@ -30022,6 +30027,7 @@ ${this.customData.serverResponse}`;
         );
       }
     } catch (error) {
+      if (error?.code === "permission-denied") return;
       console.error("[Device] Error cleaning up duplicates:", error);
     }
   }
@@ -30665,6 +30671,12 @@ ${this.customData.serverResponse}`;
   // src/popup.js
   init_cache();
   init_i18n();
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event?.reason;
+    if (reason?.code === "permission-denied" || /Missing or insufficient permissions/i.test(reason?.message || "")) {
+      event.preventDefault();
+    }
+  });
   async function loadDevicesAndContacts() {
     let attempts = 0;
     while (devices.length === 0 && attempts < 50) {

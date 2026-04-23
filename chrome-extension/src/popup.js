@@ -1,5 +1,16 @@
 import "./config/firebase.js";
 
+// Globally swallow Firestore permission-denied errors during sign-out.
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event?.reason;
+  if (
+    reason?.code === "permission-denied" ||
+    /Missing or insufficient permissions/i.test(reason?.message || "")
+  ) {
+    event.preventDefault();
+  }
+});
+
 import * as state from "./state/index.js";
 
 import {
