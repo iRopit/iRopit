@@ -1,15 +1,14 @@
-const { execSync } = require("child_process");
+const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
 
 const extDir = path.resolve(__dirname);
-const zipName = "IRopit-Extension-C1.1.24.zip";
+const pkg = require("./package.json");
+const zipName = `IRopit-Extension-C${pkg.version}.zip`;
 const zipPath = path.join(extDir, zipName);
 
-// Remove old zip
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-// Files to include (relative to extDir)
 const files = [
   "manifest.json",
   "firebase-config.js",
@@ -26,51 +25,25 @@ const files = [
   "background/service-worker.js",
 ];
 
-// Verify all files exist
 for (const f of files) {
-  const fp = path.join(extDir, f);
-  if (!fs.existsSync(fp)) {
+  if (!fs.existsSync(path.join(extDir, f))) {
     console.error(`Missing: ${f}`);
     process.exit(1);
   }
 }
 
-// Use tar to create zip (available on Windows 10+)
-const fileList = files.map((f) => `"${f}"`).join(" ");
-try {
-  execSync(`tar -acf "${zipName}" ${fileList}`, {
-    cwd: extDir,
-    stdio: "inherit",
-  });
-  const stats = fs.statSync(zipPath);
-  console.log(`\nCreated: ${zipPath} (${(stats.size / 1024).toFixed(1)} KB)`);
-} catch (e) {
-  console.error("tar failed, trying PowerShell...");
-  // Fallback: use PowerShell
-  const psCmd = `
-    $tempDir = Join-Path $env:TEMP 'iropit-ext';
-    if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force };
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null;
-    New-Item -ItemType Directory -Path (Join-Path $tempDir 'assets') -Force | Out-Null;
-    New-Item -ItemType Directory -Path (Join-Path $tempDir 'popup') -Force | Out-Null;
-    New-Item -ItemType Directory -Path (Join-Path $tempDir 'background') -Force | Out-Null;
-    ${files
-      .map((f) => {
-        const src = path.join(extDir, f).replace(/\//g, "\\");
-        const dest = path
-          .join("$tempDir", path.dirname(f))
-          .replace(/\//g, "\\");
-        return `Copy-Item '${src}' '${dest}'`;
-      })
-      .join("; ")};
-    Compress-Archive -Path (Join-Path $tempDir '*') -DestinationPath '${zipPath}' -Force;
-    Remove-Item $tempDir -Recurse -Force;
-  `;
-  execSync(`powershell -Command "${psCmd.replace(/"/g, '\\"')}"`, {
-    stdio: "inherit",
-  });
-  if (fs.existsSync(zipPath)) {
-    const stats = fs.statSync(zipPath);
-    console.log(`Created: ${zipPath} (${(stats.size / 1024).toFixed(1)} KB)`);
-  }
+const output = fs.createWriteStream(zipPath);
+const archive = archiver("zip", { zlib: { level: 9 } });
+
+output.on("close", () => {
+  console.log(`\nCreated: ${zipPath} (${(archive.pointer() / 1024).toFixed(1)} KB)`);
+});
+archive.on("error", (err) => {
+  throw err;
+});
+
+archive.pipe(output);
+for (const f of files) {
+  archive.file(path.join(extDir, f), { name: f });
 }
+archive.finalize();
