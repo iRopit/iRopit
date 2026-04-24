@@ -18626,8 +18626,7 @@ var firebaseConfig = {
   projectId: "iropit-64ea0",
   storageBucket: "iropit-64ea0.firebasestorage.app",
   messagingSenderId: "723637478368",
-  appId: "1:723637478368:web:277907c0fe3aa0db38c185",
-  measurementId: "G-CFH48HR9R2"
+  appId: "1:723637478368:web:277907c0fe3aa0db38c185"
 };
 var firebase_config_default = firebaseConfig;
 
@@ -18849,6 +18848,20 @@ function listenToUserNotifications() {
             notification.title
           );
           showNotification(notification);
+          const uid = currentUser?.uid;
+          Promise.all([
+            decrypt(notification.title || notification.contactName || "", uid),
+            decrypt(notification.body || notification.text || notification.content || "", uid)
+          ]).then(([decTitle, decBody]) => {
+            const combined = `${decTitle} ${decBody}`;
+            const otp = extractOTP(combined);
+            if (otp) {
+              const appName = notification.appName || notification.packageName || "";
+              console.log("ZyncIT: \u{1F511} OTP detected from notification:", otp, "app:", appName);
+              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            }
+          }).catch(() => {
+          });
           chrome.runtime.sendMessage({
             type: "newNotification",
             data: notification
@@ -18957,6 +18970,20 @@ function listenToDevice(deviceId, deviceName) {
             deviceName: deviceName || notification.deviceName
           };
           showNotification(notificationWithDevice);
+          const uid = currentUser?.uid;
+          Promise.all([
+            decrypt(notification.title || notification.contactName || "", uid),
+            decrypt(notification.body || notification.text || notification.content || "", uid)
+          ]).then(([decTitle, decBody]) => {
+            const combined = `${decTitle} ${decBody}`;
+            const otp = extractOTP(combined);
+            if (otp) {
+              const appName = notification.appName || notification.packageName || "";
+              console.log("ZyncIT: \u{1F511} OTP detected from notification:", otp, "app:", appName);
+              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            }
+          }).catch(() => {
+          });
           chrome.runtime.sendMessage({
             type: "newNotification",
             data: notification

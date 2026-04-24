@@ -24148,8 +24148,7 @@ ${this.customData.serverResponse}`;
         projectId: "iropit-64ea0",
         storageBucket: "iropit-64ea0.firebasestorage.app",
         messagingSenderId: "723637478368",
-        appId: "1:723637478368:web:277907c0fe3aa0db38c185",
-        measurementId: "G-CFH48HR9R2"
+        appId: "1:723637478368:web:277907c0fe3aa0db38c185"
       };
       firebase_config_default = firebaseConfig;
     }
