@@ -242,6 +242,21 @@ function listenToUserNotifications() {
           );
           showNotification(notification);
 
+          // OTP detection from email/app notifications
+          const uid = currentUser?.uid;
+          Promise.all([
+            decrypt(notification.title || notification.contactName || "", uid),
+            decrypt(notification.body || notification.text || notification.content || "", uid),
+          ]).then(([decTitle, decBody]) => {
+            const combined = `${decTitle} ${decBody}`;
+            const otp = extractOTP(combined);
+            if (otp) {
+              const appName = notification.appName || notification.packageName || "";
+              console.log("ZyncIT: 🔑 OTP detected from notification:", otp, "app:", appName);
+              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            }
+          }).catch(() => {});
+
           // Send update to popup
           chrome.runtime
             .sendMessage({
@@ -380,6 +395,21 @@ function listenToDevice(deviceId, deviceName) {
             deviceName: deviceName || notification.deviceName,
           };
           showNotification(notificationWithDevice);
+
+          // OTP detection from email/app notifications
+          const uid = currentUser?.uid;
+          Promise.all([
+            decrypt(notification.title || notification.contactName || "", uid),
+            decrypt(notification.body || notification.text || notification.content || "", uid),
+          ]).then(([decTitle, decBody]) => {
+            const combined = `${decTitle} ${decBody}`;
+            const otp = extractOTP(combined);
+            if (otp) {
+              const appName = notification.appName || notification.packageName || "";
+              console.log("ZyncIT: 🔑 OTP detected from notification:", otp, "app:", appName);
+              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            }
+          }).catch(() => {});
 
           // Send update to popup
           chrome.runtime
