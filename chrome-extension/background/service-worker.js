@@ -18735,6 +18735,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadDeviceId();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
     startListening();
+    refreshPopupCache();
   } else {
     currentUser = null;
     currentDeviceId = null;
@@ -19257,6 +19258,7 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
 });
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 });
+chrome.alarms.create("refreshCache", { periodInMinutes: 5 });
 async function pollForNewNotifications() {
   if (!currentUser || !auth.currentUser) return;
   try {
@@ -19319,6 +19321,135 @@ async function pollForNewNotifications() {
     console.error("ZyncIT: Poll error:", error);
   }
 }
+async function refreshPopupCache() {
+  if (!currentUser || !auth.currentUser) return;
+  try {
+    let newestTs = function(byDevice, deviceId, field) {
+      const items = byDevice?.[deviceId] || [];
+      if (!items.length) return null;
+      return Math.max(...items.map((x2) => x2[field] || x2.timestamp || 0));
+    };
+    const devicesQuery = query(
+      collection(db, "devices"),
+      where("userId", "==", currentUser.uid)
+    );
+    const devicesSnapshot = await getDocs(devicesQuery);
+    const mobileDevices = [];
+    devicesSnapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
+        let friendlyName = d.nickname;
+        if (!friendlyName) {
+          const platform = (d.platform || "").toLowerCase();
+          friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+        }
+        mobileDevices.push({ id: d.id, name: friendlyName });
+      }
+    });
+    if (mobileDevices.length === 0) return;
+    const [existingSMS, existingCalls, existingNotifs] = await Promise.all([
+      chrome.storage.local.get(["cached_sms_data", "cache_timestamp"]),
+      chrome.storage.local.get(["cached_calls_data"]),
+      chrome.storage.local.get(["cached_notifications_data"])
+    ]);
+    const smsByDevice = existingSMS.cached_sms_data?.byDevice || {};
+    const callsByDevice = existingCalls.cached_calls_data?.byDevice || {};
+    const notifsByDevice = existingNotifs.cached_notifications_data?.byDevice || {};
+    const newSmsByDevice = { ...smsByDevice };
+    const newCallsByDevice = { ...callsByDevice };
+    const newNotifsByDevice = { ...notifsByDevice };
+    await Promise.all(mobileDevices.map(async (device) => {
+      const smsNewest = newestTs(smsByDevice, device.id, "timestamp");
+      const smsQ = smsNewest ? query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        where("type", "==", "sms"),
+        where("timestamp", ">", smsNewest),
+        orderBy("timestamp", "desc"),
+        limit(100)
+      ) : query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("timestamp", "desc"),
+        limit(500)
+      );
+      const callsNewest = newestTs(callsByDevice, device.id, "timestamp");
+      const callsQ = callsNewest ? query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
+        where("timestamp", ">", callsNewest),
+        orderBy("timestamp", "desc"),
+        limit(100)
+      ) : query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
+        orderBy("timestamp", "desc"),
+        limit(200)
+      );
+      const notifNewest = newestTs(notifsByDevice, device.id, "timestamp");
+      const notifQ = notifNewest ? query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        where("timestamp", ">", notifNewest),
+        orderBy("timestamp", "desc"),
+        limit(100)
+      ) : query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(200)
+      );
+      try {
+        const [smsSnap, callsSnap, notifSnap] = await Promise.all([
+          getDocs(smsQ),
+          getDocs(callsQ),
+          getDocs(notifQ)
+        ]);
+        if (smsSnap.size > 0) {
+          const newMsgs = smsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
+          const existing = smsByDevice[device.id] || [];
+          const existingIds = new Set(existing.map((m) => m.id));
+          const brandNew = newMsgs.filter((m) => !existingIds.has(m.id));
+          if (brandNew.length > 0) {
+            newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, 500);
+          }
+        }
+        if (callsSnap.size > 0) {
+          const newCalls = callsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
+          const existing = callsByDevice[device.id] || [];
+          const existingIds = new Set(existing.map((c) => c.id));
+          const brandNew = newCalls.filter((c) => !existingIds.has(c.id));
+          if (brandNew.length > 0) {
+            newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
+          }
+        }
+        if (notifSnap.size > 0) {
+          const newNotifs = notifSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
+          const existing = notifsByDevice[device.id] || [];
+          const existingIds = new Set(existing.map((n) => n.id));
+          const brandNew = newNotifs.filter((n) => !existingIds.has(n.id));
+          if (brandNew.length > 0) {
+            newNotifsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
+          }
+        }
+      } catch (err) {
+        if (err?.code !== "permission-denied") {
+          console.warn(`ZyncIT: Cache refresh error for device ${device.id}:`, err);
+        }
+      }
+    }));
+    const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
+    const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
+    await chrome.storage.local.set({
+      cached_sms_data: { byDevice: newSmsByDevice, allMessages },
+      cache_timestamp: Date.now(),
+      cached_calls_data: { byDevice: newCallsByDevice, allCalls },
+      cached_notifications_data: { byDevice: newNotifsByDevice, savedAt: Date.now() }
+    });
+    console.log(
+      `ZyncIT: \u2705 Cache refreshed \u2014 SMS: ${allMessages.length}, Calls: ${allCalls.length}`
+    );
+  } catch (error) {
+    if (error?.code !== "permission-denied") {
+      console.warn("ZyncIT: Cache refresh failed:", error);
+    }
+  }
+}
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "checkNotifications") {
     console.log("ZyncIT: \u{1F50D} Polling for new notifications...");
@@ -19330,6 +19461,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       console.log("ZyncIT: Listeners lost, restarting...");
       startListening();
     }
+  }
+  if (alarm.name === "refreshCache") {
+    console.log("ZyncIT: \u{1F504} Refreshing popup cache in background...");
+    refreshPopupCache();
   }
 });
 chrome.runtime.onInstalled.addListener((details) => {

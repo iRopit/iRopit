@@ -82,6 +82,8 @@ export async function loadNotifications() {
 
   // === STEP 1: Show cached notifications instantly ===
   let hasCachedData = false;
+  // Track newest cached timestamp per device for delta loading
+  const cachedNewestTimestamps = {};
   try {
     const cached = await getCachedNotifications();
     if (cached && cached.byDevice) {
@@ -101,6 +103,10 @@ export async function loadNotifications() {
           if (notifs.length > 0) {
             state.setNotificationsData(deviceId, notifs);
             hasData = true;
+            // Record newest timestamp per device for delta fetch
+            cachedNewestTimestamps[deviceId] = Math.max(
+              ...notifs.map((n) => n.timestamp || n.receivedAt || 0),
+            );
           }
         }
         if (hasData) {
@@ -158,13 +164,84 @@ export async function loadNotifications() {
     });
   });
 
-  // Now that we know the device count, set the total pending snapshots BEFORE
-  // registering any listeners so notifSnapshotReady() can't race to 0.
+  // === STEP 3: getDocs fast-path for device notifications (like SMS/Calls) ===
+  // Fetch fresh data with one-time queries before starting realtime listeners.
+  // Delta fetch: only load notifications newer than cached data.
+  isSyncingNotif = true;
+  updateNotifSyncIndicator();
+
+  const notifFetchPromises = devicesList.map(async (device) => {
+    const cachedNewestTs = cachedNewestTimestamps[device.id];
+    const isDelta = !!cachedNewestTs;
+
+    let q;
+    if (isDelta) {
+      q = query(
+        collection(db, "users", user.uid, "devices", device.id, "notifications"),
+        where("timestamp", ">", cachedNewestTs),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+    } else {
+      q = query(
+        collection(db, "users", user.uid, "devices", device.id, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+    }
+
+    try {
+      const snapshot = await getDocs(q);
+      console.log(
+        `[Notifications] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} from device ${device.id}`,
+      );
+
+      const notifications = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          let data = docSnap.data();
+          data = await decryptNotification(data, user.uid);
+          return {
+            ...data,
+            id: docSnap.id,
+            deviceId: device.id,
+            deviceName: device.name,
+            receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+          };
+        }),
+      );
+
+      if (isDelta && notifications.length > 0) {
+        // Merge new notifications with cached ones
+        const cached = state.allNotifications[device.id] || [];
+        const cachedIds = new Set(cached.map((n) => n.id));
+        const brandNew = notifications.filter((n) => !cachedIds.has(n.id));
+        if (brandNew.length > 0) {
+          console.log(`[Notifications] 🔄 Delta: ${brandNew.length} new for device ${device.id}`);
+          updateNotificationsList(device.id, [...brandNew, ...cached]);
+        }
+      } else if (!isDelta && notifications.length > 0) {
+        updateNotificationsList(device.id, notifications);
+      }
+    } catch (error) {
+      if (error?.code !== "permission-denied") {
+        console.error(`[Notifications] getDocs error for device ${device.id}:`, error);
+      }
+    }
+  });
+
+  // Run all device fetches in parallel, then persist cache
+  Promise.all(notifFetchPromises).then(() => {
+    cacheNotificationsData(state.allNotifications).catch(() => {});
+    isSyncingNotif = false;
+    updateNotifSyncIndicator();
+  });
+
+  // === STEP 4: Set total pending snapshots BEFORE registering any listeners ===
   pendingNotifSnapshots = 1 + devicesList.length; // 1 = user notifications
   isSyncingNotif = true;
   updateNotifSyncIndicator();
 
-  // === STEP 3: Subscribe to user-level notifications ===
+  // === STEP 5: Subscribe to user-level notifications ===
   const userNotificationsQuery = query(
     collection(db, "users", user.uid, "notifications"),
     orderBy("createdAt", "desc"),
@@ -193,38 +270,64 @@ export async function loadNotifications() {
   });
   state.addUnsubscriber(userNotifUnsub);
 
-  // === STEP 4: Subscribe to device notifications ===
+  // === STEP 6: Subscribe to device notifications (realtime updates only) ===
   devicesList.forEach((device) => {
+    // Only listen to the latest few messages for realtime updates
     const q = query(
       collection(db, "users", user.uid, "devices", device.id, "notifications"),
       orderBy("timestamp", "desc"),
-      limit(200),
+      limit(10),
     );
 
     let deviceFirstSnap = true;
     const unsub = onSnapshot(
       q,
       async (snapshot) => {
-        const notifications = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            let data = docSnap.data();
-            data = await decryptNotification(data, user.uid);
-            const firestoreId = docSnap.id;
-            console.log(
-              `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`,
+        if (!deviceFirstSnap) {
+          // Real-time update: merge new/changed notifications
+          const freshNotifs = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, user.uid);
+              return {
+                ...data,
+                id: docSnap.id,
+                deviceId: device.id,
+                deviceName: device.name,
+                receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+              };
+            }),
+          );
+          // Merge with existing data — only replace the top-10 window
+          const existing = state.allNotifications[device.id] || [];
+          const freshIds = new Set(freshNotifs.map((n) => n.id));
+          const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
+          updateNotificationsList(device.id, [...freshNotifs, ...olderNotifs]);
+          cacheNotificationsData(state.allNotifications).catch(() => {});
+        } else {
+          deviceFirstSnap = false;
+          notifSnapshotReady();
+          // First snapshot: if getDocs didn't already cover these, use them
+          if (!hasCachedData && (state.allNotifications[device.id] || []).length === 0) {
+            const notifications = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
+                let data = docSnap.data();
+                data = await decryptNotification(data, user.uid);
+                return {
+                  ...data,
+                  id: docSnap.id,
+                  deviceId: device.id,
+                  deviceName: device.name,
+                  receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+                };
+              }),
             );
-            return {
-              ...data,
-              id: firestoreId,
-              deviceId: device.id,
-              deviceName: device.name,
-            };
-          }),
-        );
-        updateNotificationsList(device.id, notifications);
-        if (deviceFirstSnap) { deviceFirstSnap = false; notifSnapshotReady(); }
-        // Persist to cache after each device update
-        cacheNotificationsData(state.allNotifications).catch(() => {});
+            if (notifications.length > 0) {
+              updateNotificationsList(device.id, notifications);
+              cacheNotificationsData(state.allNotifications).catch(() => {});
+            }
+          }
+        }
       },
     );
 

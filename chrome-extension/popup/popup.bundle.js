@@ -28594,6 +28594,7 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     if (!user) return;
     let hasCachedData = false;
+    const cachedNewestTimestamps = {};
     try {
       const cached = await getCachedNotifications();
       if (cached && cached.byDevice) {
@@ -28607,6 +28608,9 @@ ${this.customData.serverResponse}`;
             if (notifs.length > 0) {
               setNotificationsData(deviceId, notifs);
               hasData = true;
+              cachedNewestTimestamps[deviceId] = Math.max(
+                ...notifs.map((n) => n.timestamp || n.receivedAt || 0)
+              );
             }
           }
           if (hasData) {
@@ -28646,6 +28650,67 @@ ${this.customData.serverResponse}`;
         name: friendlyName
       });
     });
+    isSyncingNotif = true;
+    updateNotifSyncIndicator();
+    const notifFetchPromises = devicesList2.map(async (device) => {
+      const cachedNewestTs = cachedNewestTimestamps[device.id];
+      const isDelta = !!cachedNewestTs;
+      let q2;
+      if (isDelta) {
+        q2 = query(
+          collection(db, "users", user.uid, "devices", device.id, "notifications"),
+          where("timestamp", ">", cachedNewestTs),
+          orderBy("timestamp", "desc"),
+          limit(200)
+        );
+      } else {
+        q2 = query(
+          collection(db, "users", user.uid, "devices", device.id, "notifications"),
+          orderBy("timestamp", "desc"),
+          limit(200)
+        );
+      }
+      try {
+        const snapshot = await getDocs(q2);
+        console.log(
+          `[Notifications] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} from device ${device.id}`
+        );
+        const notifications = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptNotification(data, user.uid);
+            return {
+              ...data,
+              id: docSnap.id,
+              deviceId: device.id,
+              deviceName: device.name,
+              receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
+            };
+          })
+        );
+        if (isDelta && notifications.length > 0) {
+          const cached = allNotifications[device.id] || [];
+          const cachedIds = new Set(cached.map((n) => n.id));
+          const brandNew = notifications.filter((n) => !cachedIds.has(n.id));
+          if (brandNew.length > 0) {
+            console.log(`[Notifications] \u{1F504} Delta: ${brandNew.length} new for device ${device.id}`);
+            updateNotificationsList(device.id, [...brandNew, ...cached]);
+          }
+        } else if (!isDelta && notifications.length > 0) {
+          updateNotificationsList(device.id, notifications);
+        }
+      } catch (error) {
+        if (error?.code !== "permission-denied") {
+          console.error(`[Notifications] getDocs error for device ${device.id}:`, error);
+        }
+      }
+    });
+    Promise.all(notifFetchPromises).then(() => {
+      cacheNotificationsData(allNotifications).catch(() => {
+      });
+      isSyncingNotif = false;
+      updateNotifSyncIndicator();
+    });
     pendingNotifSnapshots = 1 + devicesList2.length;
     isSyncingNotif = true;
     updateNotifSyncIndicator();
@@ -28682,35 +28747,56 @@ ${this.customData.serverResponse}`;
       const q2 = query(
         collection(db, "users", user.uid, "devices", device.id, "notifications"),
         orderBy("timestamp", "desc"),
-        limit(200)
+        limit(10)
       );
       let deviceFirstSnap = true;
       const unsub = onSnapshot(
         q2,
         async (snapshot) => {
-          const notifications = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
-              let data = docSnap.data();
-              data = await decryptNotification(data, user.uid);
-              const firestoreId = docSnap.id;
-              console.log(
-                `[Notifications] Loaded: id=${firestoreId}, read=${data.read}, title=${data.title?.substring(0, 20)}`
-              );
-              return {
-                ...data,
-                id: firestoreId,
-                deviceId: device.id,
-                deviceName: device.name
-              };
-            })
-          );
-          updateNotificationsList(device.id, notifications);
-          if (deviceFirstSnap) {
+          if (!deviceFirstSnap) {
+            const freshNotifs = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
+                let data = docSnap.data();
+                data = await decryptNotification(data, user.uid);
+                return {
+                  ...data,
+                  id: docSnap.id,
+                  deviceId: device.id,
+                  deviceName: device.name,
+                  receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
+                };
+              })
+            );
+            const existing = allNotifications[device.id] || [];
+            const freshIds = new Set(freshNotifs.map((n) => n.id));
+            const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
+            updateNotificationsList(device.id, [...freshNotifs, ...olderNotifs]);
+            cacheNotificationsData(allNotifications).catch(() => {
+            });
+          } else {
             deviceFirstSnap = false;
             notifSnapshotReady();
+            if (!hasCachedData && (allNotifications[device.id] || []).length === 0) {
+              const notifications = await Promise.all(
+                snapshot.docs.map(async (docSnap) => {
+                  let data = docSnap.data();
+                  data = await decryptNotification(data, user.uid);
+                  return {
+                    ...data,
+                    id: docSnap.id,
+                    deviceId: device.id,
+                    deviceName: device.name,
+                    receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now()
+                  };
+                })
+              );
+              if (notifications.length > 0) {
+                updateNotificationsList(device.id, notifications);
+                cacheNotificationsData(allNotifications).catch(() => {
+                });
+              }
+            }
           }
-          cacheNotificationsData(allNotifications).catch(() => {
-          });
         }
       );
       addUnsubscriber(unsub);
@@ -30684,6 +30770,47 @@ ${this.customData.serverResponse}`;
     }
     await loadAllContacts();
   }
+  async function showCachedDataBeforeAuth() {
+    try {
+      const [smsCache, callsCache, notifCache] = await Promise.all([
+        getCachedSMS(),
+        getCachedCalls(),
+        getCachedNotifications()
+      ]);
+      const hasAnyCache = smsCache?.allMessages?.length > 0 || callsCache?.allCalls?.length > 0 || notifCache?.byDevice && Object.values(notifCache.byDevice).some((n) => n.length > 0);
+      if (!hasAnyCache) return;
+      hideLoading();
+      if (authContainer) authContainer.classList.add("hidden");
+      if (mainContainer) mainContainer.classList.remove("hidden");
+      if (smsCache?.allMessages?.length > 0) {
+        if (smsCache.byDevice) {
+          for (const [deviceId, msgs] of Object.entries(smsCache.byDevice)) {
+            setSMSData(deviceId, msgs);
+          }
+        }
+        setAllSMSMessages(smsCache.allMessages);
+        renderSMS(smsCache.allMessages);
+      }
+      if (callsCache?.allCalls?.length > 0) {
+        if (callsCache.byDevice) {
+          for (const [deviceId, calls] of Object.entries(callsCache.byDevice)) {
+            setCallsByDevice(deviceId, calls);
+          }
+        }
+        setAllCallsData(callsCache.allCalls);
+        renderCalls(callsCache.allCalls.slice(0, 100));
+      }
+      if (notifCache?.byDevice) {
+        for (const [deviceId, notifs] of Object.entries(notifCache.byDevice)) {
+          if (notifs.length > 0) setNotificationsData(deviceId, notifs);
+        }
+        reRenderNotifications();
+      }
+      console.log("[Popup] \u26A1 Pre-auth cache displayed");
+    } catch (e) {
+      console.warn("[Popup] Pre-auth cache display failed:", e);
+    }
+  }
   function loadData() {
     cleanupSubscriptions();
     loadSMS();
@@ -30735,6 +30862,7 @@ ${this.customData.serverResponse}`;
     initNavigation();
     initSMSNavigation();
     setupServiceWorkerListener();
+    showCachedDataBeforeAuth();
     initAuthObserver(
       // On login
       async (user) => {

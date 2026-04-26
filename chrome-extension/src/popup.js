@@ -19,8 +19,10 @@ import {
   notificationsList,
   markAllReadBtn,
   deleteAllSmsBtn,
+  authContainer,
+  mainContainer,
 } from "./ui/dom.js";
-import { showToast, showListLoading, showLoadingOverlay } from "./ui/toasts.js";
+import { showToast, showListLoading, showLoadingOverlay, hideLoading } from "./ui/toasts.js";
 import { initTabs } from "./ui/tabs.js";
 import { initSmsModal, initCallModal, initProfileFooter } from "./ui/modals.js";
 import { initNavigation } from "./ui/navigation.js";
@@ -41,8 +43,8 @@ import {
   stopSMSListener,
   initSMSNavigation,
 } from "./services/sms.js";
-import { loadCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
-import { loadNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
+import { loadCalls, renderCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
+import { loadNotifications, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
 import { subscribeToChat, initChatListeners } from "./services/chat.js";
 import {
   loadUserSettings,
@@ -50,7 +52,7 @@ import {
 } from "./services/settings.js";
 import { loadAllContacts } from "./services/contacts.js";
 import { initTheme } from "./services/theme.js";
-import { clearCache } from "./services/cache.js";
+import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications } from "./services/cache.js";
 
 // Import utilities
 import { applyTranslations } from "./utils/i18n.js";
@@ -67,6 +69,65 @@ async function loadDevicesAndContacts() {
     attempts++;
   }
   await loadAllContacts();
+}
+
+/**
+ * Show cached data before Firebase Auth fires, so the popup feels instant.
+ * Only activates when we detect the user was previously logged in (cache exists).
+ * Auth observer will either confirm the session or switch to login UI.
+ */
+async function showCachedDataBeforeAuth() {
+  try {
+    const [smsCache, callsCache, notifCache] = await Promise.all([
+      getCachedSMS(),
+      getCachedCalls(),
+      getCachedNotifications(),
+    ]);
+
+    const hasAnyCache =
+      (smsCache?.allMessages?.length > 0) ||
+      (callsCache?.allCalls?.length > 0) ||
+      (notifCache?.byDevice && Object.values(notifCache.byDevice).some((n) => n.length > 0));
+
+    if (!hasAnyCache) return; // No cache → keep loading overlay, wait for auth
+
+    // Show main UI immediately with stale cache data
+    hideLoading();
+    if (authContainer) authContainer.classList.add("hidden");
+    if (mainContainer) mainContainer.classList.remove("hidden");
+
+    if (smsCache?.allMessages?.length > 0) {
+      if (smsCache.byDevice) {
+        for (const [deviceId, msgs] of Object.entries(smsCache.byDevice)) {
+          state.setSMSData(deviceId, msgs);
+        }
+      }
+      state.setAllSMSMessages(smsCache.allMessages);
+      renderSMS(smsCache.allMessages);
+    }
+
+    if (callsCache?.allCalls?.length > 0) {
+      if (callsCache.byDevice) {
+        for (const [deviceId, calls] of Object.entries(callsCache.byDevice)) {
+          state.setCallsByDevice(deviceId, calls);
+        }
+      }
+      state.setAllCallsData(callsCache.allCalls);
+      renderCalls(callsCache.allCalls.slice(0, 100));
+    }
+
+    if (notifCache?.byDevice) {
+      for (const [deviceId, notifs] of Object.entries(notifCache.byDevice)) {
+        if (notifs.length > 0) state.setNotificationsData(deviceId, notifs);
+      }
+      reRenderNotifications();
+    }
+
+    console.log("[Popup] ⚡ Pre-auth cache displayed");
+  } catch (e) {
+    // Non-critical — auth will load data regardless
+    console.warn("[Popup] Pre-auth cache display failed:", e);
+  }
 }
 
 function loadData() {
@@ -148,6 +209,9 @@ function init() {
 
   // Setup service worker listener
   setupServiceWorkerListener();
+
+  // Show cached data immediately (before auth fires) for instant feel
+  showCachedDataBeforeAuth();
 
   // Initialize auth observer
   initAuthObserver(
