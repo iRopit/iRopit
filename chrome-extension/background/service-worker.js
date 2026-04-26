@@ -18857,8 +18857,20 @@ function listenToUserNotifications() {
             const combined = `${decTitle} ${decBody}`;
             const otp = extractOTP(combined);
             if (otp) {
-              const appName = notification.appName || notification.packageName || "";
-              console.log("ZyncIT: \u{1F511} OTP detected from notification:", otp, "app:", appName);
+              const pkg = notification.packageName || notification.appPackage || "";
+              const appName = notification.appName || notification.app || "";
+              console.log("ZyncIT: \u{1F511} OTP detected from user notification:", otp, "app:", appName || pkg);
+              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const notifId = `iropit_otp_user_${Date.now()}`;
+              chrome.notifications.create(notifId, {
+                type: "basic",
+                iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
+                message: `${otp} \u2014 Copied to clipboard`,
+                priority: 2
+              }, () => {
+                void chrome.runtime.lastError;
+              });
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
           }).catch(() => {
@@ -18979,8 +18991,20 @@ function listenToDevice(deviceId, deviceName) {
             const combined = `${decTitle} ${decBody}`;
             const otp = extractOTP(combined);
             if (otp) {
-              const appName = notification.appName || notification.packageName || "";
-              console.log("ZyncIT: \u{1F511} OTP detected from notification:", otp, "app:", appName);
+              const pkg = notification.packageName || notification.appPackage || "";
+              const appName = notification.appName || notification.app || "";
+              console.log("ZyncIT: \u{1F511} OTP detected from device notification:", otp, "app:", appName || pkg);
+              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const notifId = `iropit_otp_dev_${Date.now()}`;
+              chrome.notifications.create(notifId, {
+                type: "basic",
+                iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
+                message: `${otp} \u2014 Copied to clipboard`,
+                priority: 2
+              }, () => {
+                void chrome.runtime.lastError;
+              });
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
           }).catch(() => {
@@ -19006,6 +19030,7 @@ function listenToDevice(deviceId, deviceName) {
   unsubscribeNotifications.push(unsub);
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
+  listenForEmailOTPFromDevice(deviceId, deviceName);
 }
 function listenForCallsFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
@@ -19051,7 +19076,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 }
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
-  const hasOTPKeyword = /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|passcode|تحقق|secret|مفتاح)\b/i.test(text);
+  const hasOTPKeyword = /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i.test(text);
   if (!hasOTPKeyword) return null;
   const match = text.match(/\b(\d{4,8})\b/);
   return match ? match[1] : null;
@@ -19124,6 +19149,95 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     (error) => {
       if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
+    }
+  );
+  unsubscribeNotifications.push(unsub);
+}
+var EMAIL_PACKAGES = /* @__PURE__ */ new Set([
+  "com.google.android.gm",
+  // Gmail
+  "com.microsoft.office.outlook",
+  // Outlook
+  "com.yahoo.mobile.client.android.mail",
+  // Yahoo Mail
+  "com.samsung.android.email.provider",
+  // Samsung Email
+  "me.bluemail.mail",
+  // BlueMail
+  "org.kman.AquaMail",
+  // AquaMail
+  "com.fsck.k9",
+  // K-9 Mail
+  "com.helloworld.protonmail",
+  // ProtonMail (old)
+  "ch.protonmail.android",
+  // ProtonMail
+  "com.tutanota",
+  // Tutanota
+  "com.zoho.mail",
+  // Zoho Mail
+  "com.apple.mobilemail"
+  // iOS Mail
+]);
+function listenForEmailOTPFromDevice(deviceId, deviceName) {
+  if (!currentUser) return;
+  let isFirstSnapshot = true;
+  const seenEmailIds = /* @__PURE__ */ new Set();
+  const emailQuery = query(
+    collection(db, "users", currentUser.uid, "devices", deviceId, "notifications"),
+    where("type", "!=", "sms"),
+    orderBy("type"),
+    orderBy("timestamp", "desc"),
+    limit(20)
+  );
+  const unsub = onSnapshot(
+    emailQuery,
+    (snapshot) => {
+      if (isFirstSnapshot) {
+        isFirstSnapshot = false;
+        snapshot.docs.forEach((d) => seenEmailIds.add(d.id));
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== "added") return;
+        const docId = change.doc.id;
+        if (seenEmailIds.has(docId)) return;
+        seenEmailIds.add(docId);
+        const notif = change.doc.data();
+        const pkg = notif.packageName || notif.appPackage || "";
+        const appName = notif.appName || notif.app || "";
+        const isEmailApp = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook|yahoo.*mail/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+        if (!isEmailApp) return;
+        const uid = currentUser?.uid;
+        const rawTitle = notif.title || notif.contactName || notif.subject || "";
+        const rawBody = notif.body || notif.text || notif.content || notif.message || "";
+        Promise.all([
+          decrypt(rawTitle, uid),
+          decrypt(rawBody, uid)
+        ]).then(([decTitle, decBody]) => {
+          const combined = `${decTitle} ${decBody}`;
+          const otp = extractOTP(combined);
+          if (!otp) return;
+          const senderLabel = decTitle || appName || deviceName;
+          console.log("ZyncIT: \u{1F4E7} Email OTP detected from", deviceName, ":", otp, "app:", appName || pkg);
+          const notifId = `iropit_email_otp_${Date.now()}`;
+          chrome.notifications.create(notifId, {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+            title: `Email OTP from ${appName || "Email"}`,
+            message: `${otp} \u2014 Copied to clipboard`,
+            contextMessage: senderLabel,
+            priority: 2
+          }, () => {
+            void chrome.runtime.lastError;
+          });
+          sendOTPToActiveTab(otp, senderLabel, decBody);
+        }).catch((err) => console.warn("ZyncIT: Email OTP decrypt error:", err));
+      });
+    },
+    (error) => {
+      if (error?.code === "permission-denied") return;
+      console.error("ZyncIT: Email OTP listener error for device", deviceId, ":", error);
     }
   );
   unsubscribeNotifications.push(unsub);
