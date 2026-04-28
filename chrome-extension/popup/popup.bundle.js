@@ -27197,7 +27197,17 @@ ${this.customData.serverResponse}`;
         deviceId: msg.deviceId || deviceId
       };
     });
-    setSMSData(deviceId, normalizedMessages);
+    const existingById = new Map(
+      (getSMSData(deviceId) || []).map((m) => [m.id, m])
+    );
+    const readPreservedMessages = normalizedMessages.map((msg) => {
+      const existing = existingById.get(msg.id);
+      if (existing && existing.read === true && msg.read === false) {
+        return { ...msg, read: true };
+      }
+      return msg;
+    });
+    setSMSData(deviceId, readPreservedMessages);
     let merged = [];
     Object.values(allSMS).forEach((msgs) => {
       merged = merged.concat(msgs);

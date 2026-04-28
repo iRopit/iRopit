@@ -710,8 +710,22 @@ export function updateSMSList(deviceId, newMessages) {
     };
   });
 
-  // Store SMS by device
-  state.setSMSData(deviceId, normalizedMessages);
+  // Store SMS by device — but preserve any locally-optimistic read:true status.
+  // If the user opened a conversation and we wrote read:true to Firestore, there is
+  // a window where the Firestore snapshot can re-fire with the OLD read:false data
+  // (before the server acknowledges the write).  Overwriting state here would reset
+  // the badge back to 1.  We keep the local read:true until Firestore confirms it.
+  const existingById = new Map(
+    (state.getSMSData(deviceId) || []).map((m) => [m.id, m]),
+  );
+  const readPreservedMessages = normalizedMessages.map((msg) => {
+    const existing = existingById.get(msg.id);
+    if (existing && existing.read === true && msg.read === false) {
+      return { ...msg, read: true };
+    }
+    return msg;
+  });
+  state.setSMSData(deviceId, readPreservedMessages);
 
   // Merge all SMS from all devices
   let merged = [];
