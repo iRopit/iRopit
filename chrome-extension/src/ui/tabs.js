@@ -3,7 +3,6 @@
  */
 
 import { tabs, tabContents } from "./dom.js";
-import { markAllCallsAsViewed } from "../services/calls.js";
 import { scrollChatToBottom } from "../services/chat.js";
 
 /**
@@ -24,9 +23,7 @@ export function initTabs() {
       document.getElementById(`${tabName}Tab`)?.classList.add("active");
 
       // Mark all as viewed/read when entering respective tabs
-      if (tabName === "calls") {
-        markAllCallsAsViewed();
-      } else if (tabName === "chat") {
+      if (tabName === "chat") {
         scrollChatToBottom();
       }
     });

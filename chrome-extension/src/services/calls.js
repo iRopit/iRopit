@@ -121,7 +121,8 @@ export async function markAllCallsAsViewed() {
   // Firestore batch.commit() returns, the next open still shows viewed: true.
   cacheCallsData(state.allCallsByDevice, updatedCalls).catch(() => {});
 
-  // Re-render calls list to update UI
+  // Update badges and re-render
+  updateTabBadges();
   renderCalls(updatedCalls);
 
   try {

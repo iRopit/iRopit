@@ -24931,6 +24931,673 @@ ${this.customData.serverResponse}`;
     }
   });
 
+  // src/services/chat.js
+  var chat_exports = {};
+  __export(chat_exports, {
+    clearReply: () => clearReply,
+    initChatListeners: () => initChatListeners,
+    renderChatMessages: () => renderChatMessages,
+    scrollChatToBottom: () => scrollChatToBottom,
+    sendChatMessage: () => sendChatMessage,
+    setReplyTo: () => setReplyTo,
+    subscribeToChat: () => subscribeToChat
+  });
+  function linkifyText(text) {
+    const escaped = escapeHtml(text);
+    return escaped.replace(
+      /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/gi,
+      (url) => {
+        const href = url.startsWith("http") ? url : `https://${url}`;
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`;
+      }
+    );
+  }
+  function subscribeToChat() {
+    const user = currentUser;
+    if (!user) return;
+    const q2 = query(
+      collection(db, "chats"),
+      where("participants", "array-contains", user.uid),
+      orderBy("timestamp", "desc"),
+      limit(100)
+    );
+    const seenMessageIds = /* @__PURE__ */ new Set();
+    let initialLoadDone = false;
+    const unsub = onSnapshot(q2, async (snapshot) => {
+      const rawMessages = [];
+      snapshot.forEach((doc2) => {
+        const data = doc2.data();
+        rawMessages.push({ id: doc2.id, ...data });
+      });
+      rawMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      const messages = await Promise.all(
+        rawMessages.map((msg) => decryptChatMessage(msg, user.uid))
+      );
+      if (initialLoadDone) {
+        const newFromMobile = messages.filter(
+          (msg) => !seenMessageIds.has(msg.id) && msg.senderPlatform !== "chrome-extension" && !(msg.senderDeviceId || "").startsWith("ext_") && msg.type === "text" && msg.content
+        );
+        if (newFromMobile.length > 0) {
+          const newest = newFromMobile[newFromMobile.length - 1];
+          navigator.clipboard.writeText(newest.content).catch(() => {
+          });
+        }
+      }
+      messages.forEach((msg) => seenMessageIds.add(msg.id));
+      initialLoadDone = true;
+      setCachedChatMessages(messages);
+      renderChatMessages(messages);
+    });
+    addUnsubscriber(unsub);
+  }
+  function renderChatMessages(messages) {
+    const selectedTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const showDeviceName = true;
+    let filteredMessages = messages;
+    if (selectedTab !== "all") {
+      filteredMessages = messages.filter((msg) => {
+        return msg.senderDeviceId === selectedTab || msg.receiverDeviceId === selectedTab;
+      });
+    }
+    const seenMsgKeys = /* @__PURE__ */ new Set();
+    filteredMessages = filteredMessages.filter((msg) => {
+      const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ""}`;
+      if (seenMsgKeys.has(key)) return false;
+      seenMsgKeys.add(key);
+      return true;
+    });
+    if (filteredMessages.length === 0) {
+      chatMessages.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+        </svg>
+        <p>Start a conversation</p>
+        <span>Chat with your other devices</span>
+      </div>
+    `;
+      updateTabBadges();
+      return;
+    }
+    chatMessages.innerHTML = filteredMessages.map((msg) => {
+      let content = "";
+      if (msg.type === "image" && msg.fileUrl) {
+        const safeUrl = sanitizeUrl(msg.fileUrl);
+        content = safeUrl ? `
+          <div class="chat-image-container">
+            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
+              <img src="${safeUrl}" alt="Image" class="chat-image" />
+            </a>
+            <button class="chat-image-download-btn" data-url="${safeUrl}" title="Download image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="8 17 12 21 16 17"/>
+                <line x1="12" y1="21" x2="12" y2="9"/>
+                <path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/>
+              </svg>
+            </button>
+          </div>
+        ` : `<div class="chat-file-link"><span>Invalid image URL</span></div>`;
+      } else if (msg.type === "file" && msg.fileUrl) {
+        const safeUrl = sanitizeUrl(msg.fileUrl);
+        content = safeUrl ? `
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-file-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span>${escapeHtml(msg.fileName || "File")}</span>
+          </a>
+        ` : `<div class="chat-file-link"><span>Invalid file URL</span></div>`;
+      } else {
+        content = `<div>${linkifyText(msg.content)}</div>`;
+      }
+      const senderDevice = devices.find(
+        (d) => d.id === msg.senderDeviceId
+      );
+      const deviceName = escapeHtml(
+        senderDevice?.nickname || senderDevice?.name || senderDevice?.model || msg.senderPlatform || ""
+      );
+      const isSentFromExtension = msg.senderPlatform === "chrome-extension" || msg.senderDeviceId && msg.senderDeviceId.startsWith("ext_");
+      const direction = isSentFromExtension ? "sent" : "received";
+      return `
+        <div class="chat-message-wrapper ${direction}">
+          <div class="chat-message ${direction}" 
+               data-msg-id="${escapeHtml(msg.id)}" 
+               data-msg-content="${escapeHtml(msg.content || "")}" 
+               data-msg-sender="${escapeHtml(msg.senderId)}">
+            ${showDeviceName && deviceName ? `<div class="chat-message-device">${deviceName}</div>` : ""}
+            ${msg.replyTo ? `<div class="chat-reply-preview">\u21A9 ${escapeHtml(
+        msg.replyTo.content.substring(0, 50)
+      )}${msg.replyTo.content.length > 50 ? "..." : ""}</div>` : ""}
+            ${content}
+            <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
+          </div>
+          <div class="chat-message-actions">
+            <button class="chat-action-btn copy-msg-btn" title="Copy text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    chatMessages.querySelectorAll(".chat-message").forEach((el) => {
+      el.addEventListener("click", () => setReplyTo(el));
+    });
+    chatMessages.querySelectorAll(".chat-image-download-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = btn.dataset.url;
+        if (!url) return;
+        chrome.downloads.download({ url, conflictAction: "uniquify" }, () => {
+          if (chrome.runtime.lastError) {
+            showToast("Download failed", "error");
+          } else {
+            showToast("Downloading image...", "success");
+          }
+        });
+      });
+    });
+    chatMessages.querySelectorAll(".copy-msg-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msgEl = btn.closest(".chat-message-wrapper")?.querySelector(".chat-message");
+        const text = msgEl?.dataset.msgContent || "";
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("Copied!", "success");
+        }).catch(() => {
+          showToast("Copy failed", "error");
+        });
+      });
+    });
+    const lastMsg = chatMessages.lastElementChild;
+    const scrollToBottom = () => {
+      if (lastMsg) {
+        lastMsg.scrollIntoView({ block: "end", behavior: "instant" });
+      } else {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    };
+    requestAnimationFrame(scrollToBottom);
+    setTimeout(scrollToBottom, 150);
+    chatMessages.querySelectorAll("img.chat-image").forEach((img) => {
+      if (!img.complete) {
+        img.addEventListener("load", scrollToBottom, { once: true });
+      }
+    });
+    updateTabBadges();
+  }
+  function scrollChatToBottom() {
+    const el = document.getElementById("chatMessages");
+    if (!el) return;
+    const last = el.lastElementChild;
+    const doScroll = () => {
+      if (last) last.scrollIntoView({ block: "end", behavior: "instant" });
+      else el.scrollTop = el.scrollHeight;
+    };
+    requestAnimationFrame(doScroll);
+    setTimeout(doScroll, 150);
+  }
+  async function sendChatMessage() {
+    const content = chatInput.value.trim();
+    const user = currentUser;
+    if (!content || !user) return;
+    const deviceId = await getDeviceId();
+    const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
+    let messageData = {
+      senderId: user.uid,
+      senderDeviceId: deviceId,
+      senderName: user.displayName || "User",
+      senderPlatform: "chrome-extension",
+      receiverId: user.uid,
+      receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
+      content,
+      type: "text",
+      read: false,
+      timestamp: Date.now(),
+      participants: [user.uid]
+    };
+    if (currentReplyTo) {
+      messageData.replyTo = {
+        id: currentReplyTo.id,
+        content: currentReplyTo.content,
+        senderId: currentReplyTo.senderId
+      };
+    }
+    chatInput.value = "";
+    clearReply();
+    try {
+      messageData = await encryptChatMessage(messageData, user.uid);
+      if (selectedDeviceTab === "all" && devices.length > 0) {
+        const targetDevices = devices.filter(
+          (dev) => !dev.id.startsWith("ext_") && dev.id !== deviceId
+        );
+        if (targetDevices.length > 0) {
+          await Promise.all(
+            targetDevices.map(async (dev) => {
+              const perDevice = { ...messageData, receiverDeviceId: dev.id };
+              await addDoc(collection(db, "chats"), perDevice);
+            })
+          );
+        } else {
+          await addDoc(collection(db, "chats"), messageData);
+        }
+      } else {
+        await addDoc(collection(db, "chats"), messageData);
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      showToast("Failed to send message", "error");
+    }
+  }
+  function formatFileSize(bytes) {
+    if (bytes === 0) return "0 Bytes";
+    const k2 = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k2));
+    return parseFloat((bytes / Math.pow(k2, i)).toFixed(2)) + " " + sizes[i];
+  }
+  function getFileExtension(fileName) {
+    return fileName.split(".").pop()?.toLowerCase() || "";
+  }
+  function showFilePreview(file) {
+    pendingFile = file;
+    const modal = document.getElementById("filePreviewModal");
+    const previewBody = document.getElementById("filePreviewBody");
+    const progressContainer = document.getElementById("uploadProgressContainer");
+    const sendBtn = document.getElementById("sendFileBtn");
+    progressContainer.classList.add("hidden");
+    document.getElementById("uploadProgressFill").style.width = "0%";
+    document.getElementById("uploadProgressText").textContent = "0%";
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="22" y1="2" x2="11" y2="13"></line>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+    Send
+  `;
+    const isImage = file.type.startsWith("image/");
+    const ext = getFileExtension(file.name);
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewBody.innerHTML = `
+        <img src="${e.target.result}" alt="Preview" class="file-preview-image" />
+        <div class="file-preview-info">
+          <span class="file-preview-name">${escapeHtml(file.name)}</span>
+          <span class="file-preview-size">${formatFileSize(file.size)}</span>
+        </div>
+      `;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      previewBody.innerHTML = `
+      <div class="file-preview-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </div>
+      <div class="file-preview-info">
+        <span class="file-preview-name">${escapeHtml(file.name)}</span>
+        <span class="file-preview-size">${formatFileSize(file.size)}</span>
+        <span class="file-preview-type">${escapeHtml(ext || "FILE")}</span>
+      </div>
+    `;
+    }
+    modal.classList.remove("hidden");
+  }
+  function hideFilePreview() {
+    const modal = document.getElementById("filePreviewModal");
+    modal.classList.add("hidden");
+    pendingFile = null;
+  }
+  function updateUploadProgress(progress) {
+    const progressFill = document.getElementById("uploadProgressFill");
+    const progressText = document.getElementById("uploadProgressText");
+    const progressContainer = document.getElementById("uploadProgressContainer");
+    progressContainer.classList.remove("hidden");
+    progressFill.style.width = `${progress}%`;
+    progressText.textContent = `${Math.round(progress)}%`;
+  }
+  async function uploadFileToStorage(file) {
+    const user = currentUser;
+    const timestamp = Date.now();
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const storagePath = `chat_files/${user.uid}/${timestamp}_${sanitizedName}`;
+    const storageRef = ref(storage, storagePath);
+    const fileSize = file.size;
+    const isLargeFile = fileSize > 500 * 1024;
+    if (isLargeFile) {
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        updateUploadProgress(progress);
+      }, 200);
+      await uploadBytes(storageRef, file);
+      clearInterval(progressInterval);
+      updateUploadProgress(100);
+    } else {
+      updateUploadProgress(30);
+      await uploadBytes(storageRef, file);
+      updateUploadProgress(100);
+    }
+    const downloadUrl = await getDownloadURL(storageRef);
+    return {
+      url: downloadUrl,
+      fileName: file.name,
+      fileType: file.type.startsWith("image/") ? "image" : "file"
+    };
+  }
+  async function sendFileFromPreview() {
+    if (!pendingFile) return;
+    const user = currentUser;
+    const file = pendingFile;
+    const sendBtn = document.getElementById("sendFileBtn");
+    if (!file || !user) return;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = `
+    <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+      <path d="M12 2a10 10 0 0110 10" stroke-linecap="round"/>
+    </svg>
+    Uploading...
+  `;
+    try {
+      const result = await uploadFileToStorage(file);
+      const deviceId = await getDeviceId();
+      const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
+      const contentText = result.fileType === "image" ? "\u{1F4F7} Image" : `\u{1F4CE} ${result.fileName}`;
+      let fileMessageData = {
+        senderId: user.uid,
+        senderDeviceId: deviceId,
+        senderName: user.displayName || "User",
+        senderPlatform: "chrome-extension",
+        receiverId: user.uid,
+        receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
+        content: contentText,
+        type: result.fileType,
+        fileUrl: result.url,
+        fileName: result.fileName,
+        read: false,
+        timestamp: Date.now(),
+        participants: [user.uid]
+      };
+      fileMessageData = await encryptChatMessage(fileMessageData, user.uid);
+      await addDoc(collection(db, "chats"), fileMessageData);
+      hideFilePreview();
+      showToast(
+        `${result.fileType === "image" ? "Image" : "File"} sent!`,
+        "success"
+      );
+    } catch (error) {
+      showToast("Failed to send file", "error");
+      console.error(error);
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+      Retry
+    `;
+    }
+  }
+  function setReplyTo(element) {
+    const msgId = element.dataset.msgId;
+    const msgContent = element.dataset.msgContent;
+    const msgSender = element.dataset.msgSender;
+    setCurrentReplyTo({
+      id: msgId,
+      content: msgContent,
+      senderId: msgSender
+    });
+    let replyPreview = document.getElementById("chatReplyPreview");
+    if (!replyPreview) {
+      replyPreview = document.createElement("div");
+      replyPreview.id = "chatReplyPreview";
+      replyPreview.className = "chat-reply-input-preview";
+      const chatInputContainer = chatInput.parentElement;
+      chatInputContainer.insertBefore(
+        replyPreview,
+        chatInputContainer.firstChild
+      );
+    }
+    replyPreview.innerHTML = `
+    <span class="reply-text">\u21A9 ${escapeHtml(msgContent.substring(0, 40))}${msgContent.length > 40 ? "..." : ""}</span>
+    <button class="reply-close" onclick="window.clearReply()">\xD7</button>
+  `;
+    replyPreview.style.display = "flex";
+    chatInput.focus();
+  }
+  function clearReply() {
+    setCurrentReplyTo(null);
+    const replyPreview = document.getElementById("chatReplyPreview");
+    if (replyPreview) {
+      replyPreview.style.display = "none";
+    }
+  }
+  function initChatListeners() {
+    sendChatBtn?.addEventListener("click", sendChatMessage);
+    chatInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+    document.getElementById("attachFileBtn")?.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "*/*";
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) showFilePreview(file);
+      };
+      input.click();
+    });
+    document.getElementById("attachImageBtn")?.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) showFilePreview(file);
+      };
+      input.click();
+    });
+    document.getElementById("closePreviewBtn")?.addEventListener("click", hideFilePreview);
+    document.getElementById("cancelFileBtn")?.addEventListener("click", hideFilePreview);
+    document.getElementById("sendFileBtn")?.addEventListener("click", sendFileFromPreview);
+    document.addEventListener("paste", (e) => {
+      const chatTab = document.getElementById("chatTab");
+      if (!chatTab?.classList.contains("active")) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) showFilePreview(file);
+          return;
+        }
+      }
+    });
+    window.setReplyTo = setReplyTo;
+    window.clearReply = clearReply;
+  }
+  var pendingFile;
+  var init_chat = __esm({
+    "src/services/chat.js"() {
+      init_firebase();
+      init_dom();
+      init_toasts();
+      init_helpers();
+      init_state();
+      init_badges();
+      init_cryptoService();
+      pendingFile = null;
+    }
+  });
+
+  // src/config/constants.js
+  var COLLECTIONS;
+  var init_constants = __esm({
+    "src/config/constants.js"() {
+      COLLECTIONS = {
+        USERS: "users",
+        DEVICES: "devices",
+        SMS: "sms",
+        CALLS: "calls",
+        NOTIFICATIONS: "notifications",
+        SMS_REQUESTS: "sms_requests",
+        CHATS: "chats"
+      };
+    }
+  });
+
+  // src/utils/errors.js
+  function parseAuthError(error) {
+    const code = error?.code || error?.message || "";
+    if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password") || code.includes("auth/invalid-email")) {
+      return {
+        code: ErrorCode3.AUTH_INVALID_CREDENTIALS,
+        message: ErrorMessages[ErrorCode3.AUTH_INVALID_CREDENTIALS]
+      };
+    }
+    if (code.includes("auth/user-not-found")) {
+      return {
+        code: ErrorCode3.AUTH_USER_NOT_FOUND,
+        message: ErrorMessages[ErrorCode3.AUTH_USER_NOT_FOUND]
+      };
+    }
+    if (code.includes("auth/email-already-in-use")) {
+      return {
+        code: ErrorCode3.AUTH_EMAIL_IN_USE,
+        message: ErrorMessages[ErrorCode3.AUTH_EMAIL_IN_USE]
+      };
+    }
+    if (code.includes("auth/network")) {
+      return {
+        code: ErrorCode3.AUTH_NETWORK_ERROR,
+        message: ErrorMessages[ErrorCode3.AUTH_NETWORK_ERROR]
+      };
+    }
+    return {
+      code: ErrorCode3.UNKNOWN_ERROR,
+      message: error?.message || ErrorMessages[ErrorCode3.UNKNOWN_ERROR]
+    };
+  }
+  function logError(error, context = "Error") {
+    console.error(`\u274C [${context}]`, {
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
+  }
+  var ErrorCode3, ErrorMessages;
+  var init_errors = __esm({
+    "src/utils/errors.js"() {
+      ErrorCode3 = {
+        // Auth
+        AUTH_INVALID_CREDENTIALS: "AUTH_INVALID_CREDENTIALS",
+        AUTH_USER_NOT_FOUND: "AUTH_USER_NOT_FOUND",
+        AUTH_EMAIL_IN_USE: "AUTH_EMAIL_IN_USE",
+        AUTH_NETWORK_ERROR: "AUTH_NETWORK_ERROR",
+        AUTH_GOOGLE_CANCELLED: "AUTH_GOOGLE_CANCELLED",
+        // Firebase
+        FIREBASE_PERMISSION_DENIED: "FIREBASE_PERMISSION_DENIED",
+        FIREBASE_UNAVAILABLE: "FIREBASE_UNAVAILABLE",
+        // SMS
+        SMS_SEND_FAILED: "SMS_SEND_FAILED",
+        // General
+        UNKNOWN_ERROR: "UNKNOWN_ERROR",
+        NETWORK_OFFLINE: "NETWORK_OFFLINE"
+      };
+      ErrorMessages = {
+        [ErrorCode3.AUTH_INVALID_CREDENTIALS]: "Invalid email or password",
+        [ErrorCode3.AUTH_USER_NOT_FOUND]: "User not found",
+        [ErrorCode3.AUTH_EMAIL_IN_USE]: "Email is already in use",
+        [ErrorCode3.AUTH_NETWORK_ERROR]: "Network error. Please check your connection",
+        [ErrorCode3.AUTH_GOOGLE_CANCELLED]: "Google Sign-In was cancelled",
+        [ErrorCode3.FIREBASE_PERMISSION_DENIED]: "Permission denied",
+        [ErrorCode3.FIREBASE_UNAVAILABLE]: "Service unavailable. Please try later",
+        [ErrorCode3.SMS_SEND_FAILED]: "Failed to send message",
+        [ErrorCode3.UNKNOWN_ERROR]: "An unexpected error occurred",
+        [ErrorCode3.NETWORK_OFFLINE]: "No internet connection"
+      };
+    }
+  });
+
+  // src/utils/logger.js
+  var LOG_LEVELS, Logger2, logger2, authLogger, smsLogger, callsLogger, deviceLogger;
+  var init_logger = __esm({
+    "src/utils/logger.js"() {
+      LOG_LEVELS = {
+        debug: 0,
+        info: 1,
+        warn: 2,
+        error: 3
+      };
+      Logger2 = class {
+        constructor(prefix = "ZyncIT", minLevel = "debug") {
+          this.prefix = prefix;
+          this.minLevel = LOG_LEVELS[minLevel] ?? 0;
+        }
+        shouldLog(level) {
+          return LOG_LEVELS[level] >= this.minLevel;
+        }
+        formatMessage(message, context) {
+          const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
+          const ctx = context ? `[${context}]` : "";
+          return `${timestamp} [${this.prefix}]${ctx} ${message}`;
+        }
+        debug(message, context, ...args) {
+          if (this.shouldLog("debug")) {
+            console.log(`\u{1F50D} ${this.formatMessage(message, context)}`, ...args);
+          }
+        }
+        info(message, context, ...args) {
+          if (this.shouldLog("info")) {
+            console.log(`\u2139\uFE0F ${this.formatMessage(message, context)}`, ...args);
+          }
+        }
+        warn(message, context, ...args) {
+          if (this.shouldLog("warn")) {
+            console.warn(`\u26A0\uFE0F ${this.formatMessage(message, context)}`, ...args);
+          }
+        }
+        error(message, context, error) {
+          if (this.shouldLog("error")) {
+            console.error(`\u274C ${this.formatMessage(message, context)}`, error || "");
+          }
+        }
+        child(context) {
+          return {
+            debug: (msg, ...args) => this.debug(msg, context, ...args),
+            info: (msg, ...args) => this.info(msg, context, ...args),
+            warn: (msg, ...args) => this.warn(msg, context, ...args),
+            error: (msg, err) => this.error(msg, context, err)
+          };
+        }
+      };
+      logger2 = new Logger2();
+      authLogger = logger2.child("Auth");
+      smsLogger = logger2.child("SMS");
+      callsLogger = logger2.child("Calls");
+      deviceLogger = logger2.child("Device");
+    }
+  });
+
   // src/services/contacts.js
   function normalizePhoneNumber(phone) {
     if (!phone || !phone.trim()) return "";
@@ -25291,6 +25958,7 @@ ${this.customData.serverResponse}`;
     }
     cacheCallsData(allCallsByDevice, updatedCalls).catch(() => {
     });
+    updateTabBadges();
     renderCalls(updatedCalls);
     try {
       const batch = writeBatch(db);
@@ -26062,673 +26730,6 @@ ${this.customData.serverResponse}`;
       callDecryptionCache = /* @__PURE__ */ new Map();
       callListenerUnsubs = [];
       isSyncingCalls = false;
-    }
-  });
-
-  // src/services/chat.js
-  var chat_exports = {};
-  __export(chat_exports, {
-    clearReply: () => clearReply,
-    initChatListeners: () => initChatListeners,
-    renderChatMessages: () => renderChatMessages,
-    scrollChatToBottom: () => scrollChatToBottom,
-    sendChatMessage: () => sendChatMessage,
-    setReplyTo: () => setReplyTo,
-    subscribeToChat: () => subscribeToChat
-  });
-  function linkifyText(text) {
-    const escaped = escapeHtml(text);
-    return escaped.replace(
-      /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/gi,
-      (url) => {
-        const href = url.startsWith("http") ? url : `https://${url}`;
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`;
-      }
-    );
-  }
-  function subscribeToChat() {
-    const user = currentUser;
-    if (!user) return;
-    const q2 = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", user.uid),
-      orderBy("timestamp", "desc"),
-      limit(100)
-    );
-    const seenMessageIds = /* @__PURE__ */ new Set();
-    let initialLoadDone = false;
-    const unsub = onSnapshot(q2, async (snapshot) => {
-      const rawMessages = [];
-      snapshot.forEach((doc2) => {
-        const data = doc2.data();
-        rawMessages.push({ id: doc2.id, ...data });
-      });
-      rawMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      const messages = await Promise.all(
-        rawMessages.map((msg) => decryptChatMessage(msg, user.uid))
-      );
-      if (initialLoadDone) {
-        const newFromMobile = messages.filter(
-          (msg) => !seenMessageIds.has(msg.id) && msg.senderPlatform !== "chrome-extension" && !(msg.senderDeviceId || "").startsWith("ext_") && msg.type === "text" && msg.content
-        );
-        if (newFromMobile.length > 0) {
-          const newest = newFromMobile[newFromMobile.length - 1];
-          navigator.clipboard.writeText(newest.content).catch(() => {
-          });
-        }
-      }
-      messages.forEach((msg) => seenMessageIds.add(msg.id));
-      initialLoadDone = true;
-      setCachedChatMessages(messages);
-      renderChatMessages(messages);
-    });
-    addUnsubscriber(unsub);
-  }
-  function renderChatMessages(messages) {
-    const selectedTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const showDeviceName = true;
-    let filteredMessages = messages;
-    if (selectedTab !== "all") {
-      filteredMessages = messages.filter((msg) => {
-        return msg.senderDeviceId === selectedTab || msg.receiverDeviceId === selectedTab;
-      });
-    }
-    const seenMsgKeys = /* @__PURE__ */ new Set();
-    filteredMessages = filteredMessages.filter((msg) => {
-      const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ""}`;
-      if (seenMsgKeys.has(key)) return false;
-      seenMsgKeys.add(key);
-      return true;
-    });
-    if (filteredMessages.length === 0) {
-      chatMessages.innerHTML = `
-      <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-          <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
-        </svg>
-        <p>Start a conversation</p>
-        <span>Chat with your other devices</span>
-      </div>
-    `;
-      updateTabBadges();
-      return;
-    }
-    chatMessages.innerHTML = filteredMessages.map((msg) => {
-      let content = "";
-      if (msg.type === "image" && msg.fileUrl) {
-        const safeUrl = sanitizeUrl(msg.fileUrl);
-        content = safeUrl ? `
-          <div class="chat-image-container">
-            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
-              <img src="${safeUrl}" alt="Image" class="chat-image" />
-            </a>
-            <button class="chat-image-download-btn" data-url="${safeUrl}" title="Download image">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="8 17 12 21 16 17"/>
-                <line x1="12" y1="21" x2="12" y2="9"/>
-                <path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/>
-              </svg>
-            </button>
-          </div>
-        ` : `<div class="chat-file-link"><span>Invalid image URL</span></div>`;
-      } else if (msg.type === "file" && msg.fileUrl) {
-        const safeUrl = sanitizeUrl(msg.fileUrl);
-        content = safeUrl ? `
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-file-link">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
-            </svg>
-            <span>${escapeHtml(msg.fileName || "File")}</span>
-          </a>
-        ` : `<div class="chat-file-link"><span>Invalid file URL</span></div>`;
-      } else {
-        content = `<div>${linkifyText(msg.content)}</div>`;
-      }
-      const senderDevice = devices.find(
-        (d) => d.id === msg.senderDeviceId
-      );
-      const deviceName = escapeHtml(
-        senderDevice?.nickname || senderDevice?.name || senderDevice?.model || msg.senderPlatform || ""
-      );
-      const isSentFromExtension = msg.senderPlatform === "chrome-extension" || msg.senderDeviceId && msg.senderDeviceId.startsWith("ext_");
-      const direction = isSentFromExtension ? "sent" : "received";
-      return `
-        <div class="chat-message-wrapper ${direction}">
-          <div class="chat-message ${direction}" 
-               data-msg-id="${escapeHtml(msg.id)}" 
-               data-msg-content="${escapeHtml(msg.content || "")}" 
-               data-msg-sender="${escapeHtml(msg.senderId)}">
-            ${showDeviceName && deviceName ? `<div class="chat-message-device">${deviceName}</div>` : ""}
-            ${msg.replyTo ? `<div class="chat-reply-preview">\u21A9 ${escapeHtml(
-        msg.replyTo.content.substring(0, 50)
-      )}${msg.replyTo.content.length > 50 ? "..." : ""}</div>` : ""}
-            ${content}
-            <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
-          </div>
-          <div class="chat-message-actions">
-            <button class="chat-action-btn copy-msg-btn" title="Copy text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      `;
-    }).join("");
-    chatMessages.querySelectorAll(".chat-message").forEach((el) => {
-      el.addEventListener("click", () => setReplyTo(el));
-    });
-    chatMessages.querySelectorAll(".chat-image-download-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const url = btn.dataset.url;
-        if (!url) return;
-        chrome.downloads.download({ url, conflictAction: "uniquify" }, () => {
-          if (chrome.runtime.lastError) {
-            showToast("Download failed", "error");
-          } else {
-            showToast("Downloading image...", "success");
-          }
-        });
-      });
-    });
-    chatMessages.querySelectorAll(".copy-msg-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const msgEl = btn.closest(".chat-message-wrapper")?.querySelector(".chat-message");
-        const text = msgEl?.dataset.msgContent || "";
-        navigator.clipboard.writeText(text).then(() => {
-          showToast("Copied!", "success");
-        }).catch(() => {
-          showToast("Copy failed", "error");
-        });
-      });
-    });
-    const lastMsg = chatMessages.lastElementChild;
-    const scrollToBottom = () => {
-      if (lastMsg) {
-        lastMsg.scrollIntoView({ block: "end", behavior: "instant" });
-      } else {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-    };
-    requestAnimationFrame(scrollToBottom);
-    setTimeout(scrollToBottom, 150);
-    chatMessages.querySelectorAll("img.chat-image").forEach((img) => {
-      if (!img.complete) {
-        img.addEventListener("load", scrollToBottom, { once: true });
-      }
-    });
-    updateTabBadges();
-  }
-  function scrollChatToBottom() {
-    const el = document.getElementById("chatMessages");
-    if (!el) return;
-    const last = el.lastElementChild;
-    const doScroll = () => {
-      if (last) last.scrollIntoView({ block: "end", behavior: "instant" });
-      else el.scrollTop = el.scrollHeight;
-    };
-    requestAnimationFrame(doScroll);
-    setTimeout(doScroll, 150);
-  }
-  async function sendChatMessage() {
-    const content = chatInput.value.trim();
-    const user = currentUser;
-    if (!content || !user) return;
-    const deviceId = await getDeviceId();
-    const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
-    let messageData = {
-      senderId: user.uid,
-      senderDeviceId: deviceId,
-      senderName: user.displayName || "User",
-      senderPlatform: "chrome-extension",
-      receiverId: user.uid,
-      receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
-      content,
-      type: "text",
-      read: false,
-      timestamp: Date.now(),
-      participants: [user.uid]
-    };
-    if (currentReplyTo) {
-      messageData.replyTo = {
-        id: currentReplyTo.id,
-        content: currentReplyTo.content,
-        senderId: currentReplyTo.senderId
-      };
-    }
-    chatInput.value = "";
-    clearReply();
-    try {
-      messageData = await encryptChatMessage(messageData, user.uid);
-      if (selectedDeviceTab === "all" && devices.length > 0) {
-        const targetDevices = devices.filter(
-          (dev) => !dev.id.startsWith("ext_") && dev.id !== deviceId
-        );
-        if (targetDevices.length > 0) {
-          await Promise.all(
-            targetDevices.map(async (dev) => {
-              const perDevice = { ...messageData, receiverDeviceId: dev.id };
-              await addDoc(collection(db, "chats"), perDevice);
-            })
-          );
-        } else {
-          await addDoc(collection(db, "chats"), messageData);
-        }
-      } else {
-        await addDoc(collection(db, "chats"), messageData);
-      }
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      showToast("Failed to send message", "error");
-    }
-  }
-  function formatFileSize(bytes) {
-    if (bytes === 0) return "0 Bytes";
-    const k2 = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k2));
-    return parseFloat((bytes / Math.pow(k2, i)).toFixed(2)) + " " + sizes[i];
-  }
-  function getFileExtension(fileName) {
-    return fileName.split(".").pop()?.toLowerCase() || "";
-  }
-  function showFilePreview(file) {
-    pendingFile = file;
-    const modal = document.getElementById("filePreviewModal");
-    const previewBody = document.getElementById("filePreviewBody");
-    const progressContainer = document.getElementById("uploadProgressContainer");
-    const sendBtn = document.getElementById("sendFileBtn");
-    progressContainer.classList.add("hidden");
-    document.getElementById("uploadProgressFill").style.width = "0%";
-    document.getElementById("uploadProgressText").textContent = "0%";
-    sendBtn.disabled = false;
-    sendBtn.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="22" y1="2" x2="11" y2="13"></line>
-      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-    </svg>
-    Send
-  `;
-    const isImage = file.type.startsWith("image/");
-    const ext = getFileExtension(file.name);
-    if (isImage) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        previewBody.innerHTML = `
-        <img src="${e.target.result}" alt="Preview" class="file-preview-image" />
-        <div class="file-preview-info">
-          <span class="file-preview-name">${escapeHtml(file.name)}</span>
-          <span class="file-preview-size">${formatFileSize(file.size)}</span>
-        </div>
-      `;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      previewBody.innerHTML = `
-      <div class="file-preview-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-        </svg>
-      </div>
-      <div class="file-preview-info">
-        <span class="file-preview-name">${escapeHtml(file.name)}</span>
-        <span class="file-preview-size">${formatFileSize(file.size)}</span>
-        <span class="file-preview-type">${escapeHtml(ext || "FILE")}</span>
-      </div>
-    `;
-    }
-    modal.classList.remove("hidden");
-  }
-  function hideFilePreview() {
-    const modal = document.getElementById("filePreviewModal");
-    modal.classList.add("hidden");
-    pendingFile = null;
-  }
-  function updateUploadProgress(progress) {
-    const progressFill = document.getElementById("uploadProgressFill");
-    const progressText = document.getElementById("uploadProgressText");
-    const progressContainer = document.getElementById("uploadProgressContainer");
-    progressContainer.classList.remove("hidden");
-    progressFill.style.width = `${progress}%`;
-    progressText.textContent = `${Math.round(progress)}%`;
-  }
-  async function uploadFileToStorage(file) {
-    const user = currentUser;
-    const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const storagePath = `chat_files/${user.uid}/${timestamp}_${sanitizedName}`;
-    const storageRef = ref(storage, storagePath);
-    const fileSize = file.size;
-    const isLargeFile = fileSize > 500 * 1024;
-    if (isLargeFile) {
-      let progress = 0;
-      const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90;
-        updateUploadProgress(progress);
-      }, 200);
-      await uploadBytes(storageRef, file);
-      clearInterval(progressInterval);
-      updateUploadProgress(100);
-    } else {
-      updateUploadProgress(30);
-      await uploadBytes(storageRef, file);
-      updateUploadProgress(100);
-    }
-    const downloadUrl = await getDownloadURL(storageRef);
-    return {
-      url: downloadUrl,
-      fileName: file.name,
-      fileType: file.type.startsWith("image/") ? "image" : "file"
-    };
-  }
-  async function sendFileFromPreview() {
-    if (!pendingFile) return;
-    const user = currentUser;
-    const file = pendingFile;
-    const sendBtn = document.getElementById("sendFileBtn");
-    if (!file || !user) return;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = `
-    <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
-      <path d="M12 2a10 10 0 0110 10" stroke-linecap="round"/>
-    </svg>
-    Uploading...
-  `;
-    try {
-      const result = await uploadFileToStorage(file);
-      const deviceId = await getDeviceId();
-      const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
-      const contentText = result.fileType === "image" ? "\u{1F4F7} Image" : `\u{1F4CE} ${result.fileName}`;
-      let fileMessageData = {
-        senderId: user.uid,
-        senderDeviceId: deviceId,
-        senderName: user.displayName || "User",
-        senderPlatform: "chrome-extension",
-        receiverId: user.uid,
-        receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
-        content: contentText,
-        type: result.fileType,
-        fileUrl: result.url,
-        fileName: result.fileName,
-        read: false,
-        timestamp: Date.now(),
-        participants: [user.uid]
-      };
-      fileMessageData = await encryptChatMessage(fileMessageData, user.uid);
-      await addDoc(collection(db, "chats"), fileMessageData);
-      hideFilePreview();
-      showToast(
-        `${result.fileType === "image" ? "Image" : "File"} sent!`,
-        "success"
-      );
-    } catch (error) {
-      showToast("Failed to send file", "error");
-      console.error(error);
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="22" y1="2" x2="11" y2="13"></line>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-      </svg>
-      Retry
-    `;
-    }
-  }
-  function setReplyTo(element) {
-    const msgId = element.dataset.msgId;
-    const msgContent = element.dataset.msgContent;
-    const msgSender = element.dataset.msgSender;
-    setCurrentReplyTo({
-      id: msgId,
-      content: msgContent,
-      senderId: msgSender
-    });
-    let replyPreview = document.getElementById("chatReplyPreview");
-    if (!replyPreview) {
-      replyPreview = document.createElement("div");
-      replyPreview.id = "chatReplyPreview";
-      replyPreview.className = "chat-reply-input-preview";
-      const chatInputContainer = chatInput.parentElement;
-      chatInputContainer.insertBefore(
-        replyPreview,
-        chatInputContainer.firstChild
-      );
-    }
-    replyPreview.innerHTML = `
-    <span class="reply-text">\u21A9 ${escapeHtml(msgContent.substring(0, 40))}${msgContent.length > 40 ? "..." : ""}</span>
-    <button class="reply-close" onclick="window.clearReply()">\xD7</button>
-  `;
-    replyPreview.style.display = "flex";
-    chatInput.focus();
-  }
-  function clearReply() {
-    setCurrentReplyTo(null);
-    const replyPreview = document.getElementById("chatReplyPreview");
-    if (replyPreview) {
-      replyPreview.style.display = "none";
-    }
-  }
-  function initChatListeners() {
-    sendChatBtn?.addEventListener("click", sendChatMessage);
-    chatInput?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendChatMessage();
-      }
-    });
-    document.getElementById("attachFileBtn")?.addEventListener("click", () => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "*/*";
-      input.onchange = (e) => {
-        const file = e.target.files?.[0];
-        if (file) showFilePreview(file);
-      };
-      input.click();
-    });
-    document.getElementById("attachImageBtn")?.addEventListener("click", () => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = (e) => {
-        const file = e.target.files?.[0];
-        if (file) showFilePreview(file);
-      };
-      input.click();
-    });
-    document.getElementById("closePreviewBtn")?.addEventListener("click", hideFilePreview);
-    document.getElementById("cancelFileBtn")?.addEventListener("click", hideFilePreview);
-    document.getElementById("sendFileBtn")?.addEventListener("click", sendFileFromPreview);
-    document.addEventListener("paste", (e) => {
-      const chatTab = document.getElementById("chatTab");
-      if (!chatTab?.classList.contains("active")) return;
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file) showFilePreview(file);
-          return;
-        }
-      }
-    });
-    window.setReplyTo = setReplyTo;
-    window.clearReply = clearReply;
-  }
-  var pendingFile;
-  var init_chat = __esm({
-    "src/services/chat.js"() {
-      init_firebase();
-      init_dom();
-      init_toasts();
-      init_helpers();
-      init_state();
-      init_badges();
-      init_cryptoService();
-      pendingFile = null;
-    }
-  });
-
-  // src/config/constants.js
-  var COLLECTIONS;
-  var init_constants = __esm({
-    "src/config/constants.js"() {
-      COLLECTIONS = {
-        USERS: "users",
-        DEVICES: "devices",
-        SMS: "sms",
-        CALLS: "calls",
-        NOTIFICATIONS: "notifications",
-        SMS_REQUESTS: "sms_requests",
-        CHATS: "chats"
-      };
-    }
-  });
-
-  // src/utils/errors.js
-  function parseAuthError(error) {
-    const code = error?.code || error?.message || "";
-    if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password") || code.includes("auth/invalid-email")) {
-      return {
-        code: ErrorCode3.AUTH_INVALID_CREDENTIALS,
-        message: ErrorMessages[ErrorCode3.AUTH_INVALID_CREDENTIALS]
-      };
-    }
-    if (code.includes("auth/user-not-found")) {
-      return {
-        code: ErrorCode3.AUTH_USER_NOT_FOUND,
-        message: ErrorMessages[ErrorCode3.AUTH_USER_NOT_FOUND]
-      };
-    }
-    if (code.includes("auth/email-already-in-use")) {
-      return {
-        code: ErrorCode3.AUTH_EMAIL_IN_USE,
-        message: ErrorMessages[ErrorCode3.AUTH_EMAIL_IN_USE]
-      };
-    }
-    if (code.includes("auth/network")) {
-      return {
-        code: ErrorCode3.AUTH_NETWORK_ERROR,
-        message: ErrorMessages[ErrorCode3.AUTH_NETWORK_ERROR]
-      };
-    }
-    return {
-      code: ErrorCode3.UNKNOWN_ERROR,
-      message: error?.message || ErrorMessages[ErrorCode3.UNKNOWN_ERROR]
-    };
-  }
-  function logError(error, context = "Error") {
-    console.error(`\u274C [${context}]`, {
-      code: error?.code,
-      message: error?.message,
-      stack: error?.stack
-    });
-  }
-  var ErrorCode3, ErrorMessages;
-  var init_errors = __esm({
-    "src/utils/errors.js"() {
-      ErrorCode3 = {
-        // Auth
-        AUTH_INVALID_CREDENTIALS: "AUTH_INVALID_CREDENTIALS",
-        AUTH_USER_NOT_FOUND: "AUTH_USER_NOT_FOUND",
-        AUTH_EMAIL_IN_USE: "AUTH_EMAIL_IN_USE",
-        AUTH_NETWORK_ERROR: "AUTH_NETWORK_ERROR",
-        AUTH_GOOGLE_CANCELLED: "AUTH_GOOGLE_CANCELLED",
-        // Firebase
-        FIREBASE_PERMISSION_DENIED: "FIREBASE_PERMISSION_DENIED",
-        FIREBASE_UNAVAILABLE: "FIREBASE_UNAVAILABLE",
-        // SMS
-        SMS_SEND_FAILED: "SMS_SEND_FAILED",
-        // General
-        UNKNOWN_ERROR: "UNKNOWN_ERROR",
-        NETWORK_OFFLINE: "NETWORK_OFFLINE"
-      };
-      ErrorMessages = {
-        [ErrorCode3.AUTH_INVALID_CREDENTIALS]: "Invalid email or password",
-        [ErrorCode3.AUTH_USER_NOT_FOUND]: "User not found",
-        [ErrorCode3.AUTH_EMAIL_IN_USE]: "Email is already in use",
-        [ErrorCode3.AUTH_NETWORK_ERROR]: "Network error. Please check your connection",
-        [ErrorCode3.AUTH_GOOGLE_CANCELLED]: "Google Sign-In was cancelled",
-        [ErrorCode3.FIREBASE_PERMISSION_DENIED]: "Permission denied",
-        [ErrorCode3.FIREBASE_UNAVAILABLE]: "Service unavailable. Please try later",
-        [ErrorCode3.SMS_SEND_FAILED]: "Failed to send message",
-        [ErrorCode3.UNKNOWN_ERROR]: "An unexpected error occurred",
-        [ErrorCode3.NETWORK_OFFLINE]: "No internet connection"
-      };
-    }
-  });
-
-  // src/utils/logger.js
-  var LOG_LEVELS, Logger2, logger2, authLogger, smsLogger, callsLogger, deviceLogger;
-  var init_logger = __esm({
-    "src/utils/logger.js"() {
-      LOG_LEVELS = {
-        debug: 0,
-        info: 1,
-        warn: 2,
-        error: 3
-      };
-      Logger2 = class {
-        constructor(prefix = "ZyncIT", minLevel = "debug") {
-          this.prefix = prefix;
-          this.minLevel = LOG_LEVELS[minLevel] ?? 0;
-        }
-        shouldLog(level) {
-          return LOG_LEVELS[level] >= this.minLevel;
-        }
-        formatMessage(message, context) {
-          const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
-          const ctx = context ? `[${context}]` : "";
-          return `${timestamp} [${this.prefix}]${ctx} ${message}`;
-        }
-        debug(message, context, ...args) {
-          if (this.shouldLog("debug")) {
-            console.log(`\u{1F50D} ${this.formatMessage(message, context)}`, ...args);
-          }
-        }
-        info(message, context, ...args) {
-          if (this.shouldLog("info")) {
-            console.log(`\u2139\uFE0F ${this.formatMessage(message, context)}`, ...args);
-          }
-        }
-        warn(message, context, ...args) {
-          if (this.shouldLog("warn")) {
-            console.warn(`\u26A0\uFE0F ${this.formatMessage(message, context)}`, ...args);
-          }
-        }
-        error(message, context, error) {
-          if (this.shouldLog("error")) {
-            console.error(`\u274C ${this.formatMessage(message, context)}`, error || "");
-          }
-        }
-        child(context) {
-          return {
-            debug: (msg, ...args) => this.debug(msg, context, ...args),
-            info: (msg, ...args) => this.info(msg, context, ...args),
-            warn: (msg, ...args) => this.warn(msg, context, ...args),
-            error: (msg, err) => this.error(msg, context, err)
-          };
-        }
-      };
-      logger2 = new Logger2();
-      authLogger = logger2.child("Auth");
-      smsLogger = logger2.child("SMS");
-      callsLogger = logger2.child("Calls");
-      deviceLogger = logger2.child("Device");
     }
   });
 
@@ -29388,7 +29389,6 @@ ${this.customData.serverResponse}`;
 
   // src/ui/tabs.js
   init_dom();
-  init_calls();
   init_chat();
   function initTabs() {
     tabs.forEach((tab) => {
@@ -29400,9 +29400,7 @@ ${this.customData.serverResponse}`;
           content.classList.remove("active");
         });
         document.getElementById(`${tabName}Tab`)?.classList.add("active");
-        if (tabName === "calls") {
-          markAllCallsAsViewed();
-        } else if (tabName === "chat") {
+        if (tabName === "chat") {
           scrollChatToBottom();
         }
       });
