@@ -210,6 +210,10 @@ function init() {
   // Setup service worker listener
   setupServiceWorkerListener();
 
+  // Clear notification badge when popup is opened — do it directly, no SW round-trip needed
+  chrome.action.setBadgeText({ text: "" });
+  chrome.storage.local.set({ badgeCount: 0 });
+
   // Show cached data immediately (before auth fires) for instant feel
   showCachedDataBeforeAuth();
 

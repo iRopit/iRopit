@@ -1786,6 +1786,12 @@ export async function markAllSmsAsRead() {
         }));
         state.setSMSData(deviceId, updatedDeviceMsgs);
       });
+
+      // Update cache so reopening the popup shows correct unread count
+      cacheSMSData(state.allSMS, state.allSMSMessages.map(m =>
+        (activeDevice === "all" || m.deviceId === activeDevice) ? { ...m, read: true } : m
+      )).catch(() => {});
+
       updateTabBadges();
 
       if (state.currentConversation) {
@@ -1811,44 +1817,45 @@ async function markConversationAsRead(conversation) {
   const user = state.currentUser;
   if (!user) return;
 
+  const unreadMsgs = conversation.filter((msg) => !msg.read && msg.id && msg.deviceId);
+  if (unreadMsgs.length === 0) return;
+
+  const msgIds = unreadMsgs.map((m) => m.id);
+
+  // Optimistic update: update state and cache IMMEDIATELY before the Firestore write.
+  // This ensures the cache is correct even if the popup is closed before the write completes.
+  const updatedMessages = state.allSMSMessages.map((msg) =>
+    msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
+  );
+  state.setAllSMSMessages(updatedMessages);
+
+  Object.keys(state.allSMS).forEach((deviceId) => {
+    const updated = state.allSMS[deviceId].map((msg) =>
+      msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
+    );
+    state.setSMSData(deviceId, updated);
+  });
+
+  // Await cache write so it persists to storage before popup can close
+  await cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
+  updateTabBadges();
+
+  // Write to Firestore (non-blocking for UI — state/cache already updated)
   try {
     const batch = writeBatch(db);
-    let count = 0;
-
-    for (const msg of conversation) {
-      if (!msg.read && msg.id && msg.deviceId) {
-        const notifRef = doc(
-          db,
-          "users",
-          user.uid,
-          "devices",
-          msg.deviceId,
-          "notifications",
-          msg.id,
-        );
-        batch.set(notifRef, { read: true }, { merge: true });
-        count++;
-      }
-    }
-
-    if (count > 0) {
-      await batch.commit();
-      const msgIds = conversation.map((m) => m.id);
-      const updatedMessages = state.allSMSMessages.map((msg) =>
-        msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
+    for (const msg of unreadMsgs) {
+      const notifRef = doc(
+        db,
+        "users",
+        user.uid,
+        "devices",
+        msg.deviceId,
+        "notifications",
+        msg.id,
       );
-      state.setAllSMSMessages(updatedMessages);
-
-      // Update allSMS state
-      Object.keys(state.allSMS).forEach((deviceId) => {
-        const updated = state.allSMS[deviceId].map((msg) =>
-          msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
-        );
-        state.setSMSData(deviceId, updated);
-      });
-
-      updateTabBadges();
+      batch.set(notifRef, { read: true }, { merge: true });
     }
+    await batch.commit();
   } catch (error) {
     console.error("Mark conversation read error:", error);
   }

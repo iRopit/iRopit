@@ -18713,8 +18713,10 @@ var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
 var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
 var serviceWorkerStartTime = Date.now();
+var badgeCount = 0;
+var snoozeUntil = 0;
 chrome.storage.local.get(
-  ["lastNotificationTimestamp", "seenNotifications"],
+  ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil"],
   (result) => {
     console.log(
       "ZyncIT: Loading stored data - seenNotifications:",
@@ -18726,6 +18728,15 @@ chrome.storage.local.get(
     if (result.seenNotifications) {
       seenNotifications = new Set(result.seenNotifications);
     }
+    if (result.badgeCount) {
+      badgeCount = result.badgeCount;
+      updateBadge();
+    }
+    if (result.snoozeUntil) {
+      snoozeUntil = result.snoozeUntil;
+    }
+    updateSnoozeMenuTitle();
+    updateBadge();
   }
 );
 onAuthStateChanged(auth, async (user) => {
@@ -18862,14 +18873,12 @@ function listenToUserNotifications() {
               console.log("ZyncIT: \u{1F511} OTP detected from user notification:", otp, "app:", appName || pkg);
               const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_user_${Date.now()}`;
-              chrome.notifications.create(notifId, {
+              createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
                 iconUrl: chrome.runtime.getURL("assets/icon128.png"),
                 title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
                 message: `${otp} \u2014 Copied to clipboard`,
                 priority: 2
-              }, () => {
-                void chrome.runtime.lastError;
               });
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
@@ -18996,14 +19005,12 @@ function listenToDevice(deviceId, deviceName) {
               console.log("ZyncIT: \u{1F511} OTP detected from device notification:", otp, "app:", appName || pkg);
               const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_dev_${Date.now()}`;
-              chrome.notifications.create(notifId, {
+              createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
                 iconUrl: chrome.runtime.getURL("assets/icon128.png"),
                 title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
                 message: `${otp} \u2014 Copied to clipboard`,
                 priority: 2
-              }, () => {
-                void chrome.runtime.lastError;
               });
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
@@ -19076,7 +19083,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 }
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
-  const hasOTPKeyword = /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i.test(text);
+  const hasOTPKeyword = /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i.test(text);
   if (!hasOTPKeyword) return null;
   const match = text.match(/\b(\d{4,8})\b/);
   return match ? match[1] : null;
@@ -19133,14 +19140,12 @@ function listenForSMSFromDevice(deviceId, deviceName) {
           if (!otp) return;
           console.log("ZyncIT: \u{1F511} OTP detected from", deviceName, ":", otp, "sender:", sender);
           const notifId = `iropit_otp_${Date.now()}`;
-          chrome.notifications.create(notifId, {
+          createNotificationIfNotSnoozed(notifId, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("assets/icon128.png"),
             title: `OTP from ${sender || deviceName}`,
             message: `${otp} \u2014 Copied to clipboard`,
             priority: 2
-          }, () => {
-            void chrome.runtime.lastError;
           });
           sendOTPToActiveTab(otp, sender, body);
         }).catch((err) => console.warn("ZyncIT: OTP decrypt error:", err));
@@ -19221,15 +19226,13 @@ function listenForEmailOTPFromDevice(deviceId, deviceName) {
           const senderLabel = decTitle || appName || deviceName;
           console.log("ZyncIT: \u{1F4E7} Email OTP detected from", deviceName, ":", otp, "app:", appName || pkg);
           const notifId = `iropit_email_otp_${Date.now()}`;
-          chrome.notifications.create(notifId, {
+          createNotificationIfNotSnoozed(notifId, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("assets/icon128.png"),
             title: `Email OTP from ${appName || "Email"}`,
             message: `${otp} \u2014 Copied to clipboard`,
             contextMessage: senderLabel,
             priority: 2
-          }, () => {
-            void chrome.runtime.lastError;
           });
           sendOTPToActiveTab(otp, senderLabel, decBody);
         }).catch((err) => console.warn("ZyncIT: Email OTP decrypt error:", err));
@@ -19282,18 +19285,11 @@ async function showNotification(data) {
     notificationId,
     notificationOptions.title
   );
-  chrome.notifications.create(
+  createNotificationIfNotSnoozed(
     notificationId,
     notificationOptions,
     (createdId) => {
-      if (chrome.runtime.lastError) {
-        console.error(
-          "ZyncIT: Error creating notification:",
-          chrome.runtime.lastError
-        );
-      } else {
-        console.log("ZyncIT: \u2705 Chrome notification created:", createdId);
-      }
+      console.log("ZyncIT: \u2705 Chrome notification created:", createdId);
     }
   );
 }
@@ -19322,7 +19318,7 @@ async function showCallNotification(call) {
   }
   const message = `Duration: ${formatDuration(call.duration || 0)}${deviceInfo}`;
   const notificationId = `zyncit_call_${call.id || Date.now()}`;
-  chrome.notifications.create(
+  createNotificationIfNotSnoozed(
     notificationId,
     {
       type: "basic",
@@ -19331,16 +19327,6 @@ async function showCallNotification(call) {
       message,
       priority: 2,
       requireInteraction: callType === "missed"
-      // Keep missed calls until user clicks
-    },
-    (createdId) => {
-      if (chrome.runtime.lastError) {
-        console.error(
-          "ZyncIT: Error creating call notification:",
-          chrome.runtime.lastError
-        );
-      } else {
-      }
     }
   );
 }
@@ -19547,6 +19533,17 @@ async function refreshPopupCache() {
         }
       }
     }));
+    const latestSMSCache = await chrome.storage.local.get(["cached_sms_data"]);
+    const latestSmsByDevice = latestSMSCache.cached_sms_data?.byDevice || {};
+    for (const deviceId of Object.keys(newSmsByDevice)) {
+      const latestMsgs = latestSmsByDevice[deviceId];
+      if (!latestMsgs || latestMsgs.length === 0) continue;
+      const latestById = new Map(latestMsgs.map((m) => [m.id, m]));
+      newSmsByDevice[deviceId] = newSmsByDevice[deviceId].map((m) => {
+        const latest = latestById.get(m.id);
+        return latest && latest.read === true && !m.read ? { ...m, read: true } : m;
+      });
+    }
     const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
     const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
     await chrome.storage.local.set({
@@ -19582,121 +19579,221 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 chrome.runtime.onInstalled.addListener((details) => {
+  buildContextMenus();
+});
+chrome.runtime.onStartup.addListener(() => {
+  buildContextMenus();
 });
 var contextMenuDevices = [];
-var _buildMenuTimer = null;
+function isSnoozed() {
+  return Date.now() < snoozeUntil;
+}
+function setSnooze(minutes) {
+  snoozeUntil = minutes > 0 ? Date.now() + minutes * 60 * 1e3 : 0;
+  chrome.storage.local.set({ snoozeUntil });
+  updateSnoozeMenuTitle();
+  console.log("ZyncIT: \u{1F515} Snooze set for", minutes, "minutes");
+}
+function updateSnoozeMenuTitle() {
+  const title = isSnoozed() ? `\u{1F515} Snoozed until ${new Date(snoozeUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "\u{1F514} Snooze Notifications";
+  chrome.contextMenus.update("iropit_snooze_root", { title }, () => {
+    void chrome.runtime.lastError;
+  });
+}
+function incrementBadge() {
+  badgeCount++;
+  chrome.storage.local.set({ badgeCount });
+  updateBadge();
+}
+function clearBadge() {
+  badgeCount = 0;
+  chrome.storage.local.set({ badgeCount: 0 });
+  updateBadge();
+}
+function updateBadge() {
+  const text = badgeCount > 0 ? badgeCount > 99 ? "99+" : String(badgeCount) : "";
+  chrome.action.setBadgeText({ text });
+  if (badgeCount > 0) {
+    chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+  }
+}
+function createNotificationIfNotSnoozed(notifId, options, callback) {
+  if (isSnoozed()) {
+    console.log("ZyncIT: \u{1F515} Notification suppressed (snoozed):", options.title);
+    return;
+  }
+  chrome.notifications.create(notifId, options, (createdId) => {
+    if (!chrome.runtime.lastError) {
+      incrementBadge();
+    }
+    if (callback) callback(createdId);
+  });
+}
 function buildContextMenus() {
-  if (_buildMenuTimer) clearTimeout(_buildMenuTimer);
-  _buildMenuTimer = setTimeout(() => {
-    _buildMenuTimer = null;
-    chrome.contextMenus.removeAll(() => {
+  chrome.contextMenus.removeAll(() => {
+    void chrome.runtime.lastError;
+    chrome.contextMenus.create({
+      id: "iropit_root",
+      title: "iRopit: Send page to...",
+      contexts: ["page", "link"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_all",
+      parentId: "iropit_root",
+      title: "\u{1F4F1} All devices",
+      contexts: ["page", "link"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_root",
-        title: "iRopit: Send page to...",
-        contexts: ["page", "link"]
-      }, () => {
-        void chrome.runtime.lastError;
-      });
-      chrome.contextMenus.create({
-        id: "iropit_all",
+        id: "iropit_sep",
         parentId: "iropit_root",
-        title: "\u{1F4F1} All devices",
+        type: "separator",
         contexts: ["page", "link"]
       }, () => {
         void chrome.runtime.lastError;
       });
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_sep",
+          id: `iropit_dev_${device.id}`,
           parentId: "iropit_root",
-          type: "separator",
+          title: device.name,
           contexts: ["page", "link"]
         }, () => {
           void chrome.runtime.lastError;
         });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_dev_${device.id}`,
-            parentId: "iropit_root",
-            title: device.name,
-            contexts: ["page", "link"]
-          }, () => {
-            void chrome.runtime.lastError;
-          });
-        });
-      }
-      chrome.contextMenus.create({
-        id: "iropit_sel_root",
-        title: "iRopit: Send selection to...",
-        contexts: ["selection"]
-      }, () => {
-        void chrome.runtime.lastError;
       });
+    }
+    chrome.contextMenus.create({
+      id: "iropit_sel_root",
+      title: "iRopit: Send selection to...",
+      contexts: ["selection"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_sel_all",
+      parentId: "iropit_sel_root",
+      title: "\u{1F4F1} All devices",
+      contexts: ["selection"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_sel_all",
+        id: "iropit_sel_sep",
         parentId: "iropit_sel_root",
-        title: "\u{1F4F1} All devices",
+        type: "separator",
         contexts: ["selection"]
       }, () => {
         void chrome.runtime.lastError;
       });
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_sel_sep",
+          id: `iropit_sel_dev_${device.id}`,
           parentId: "iropit_sel_root",
-          type: "separator",
+          title: device.name,
           contexts: ["selection"]
         }, () => {
           void chrome.runtime.lastError;
         });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_sel_dev_${device.id}`,
-            parentId: "iropit_sel_root",
-            title: device.name,
-            contexts: ["selection"]
-          }, () => {
-            void chrome.runtime.lastError;
-          });
-        });
-      }
-      chrome.contextMenus.create({
-        id: "iropit_img_root",
-        title: "iRopit: Send image to...",
-        contexts: ["image"]
-      }, () => {
-        void chrome.runtime.lastError;
       });
+    }
+    chrome.contextMenus.create({
+      id: "iropit_img_root",
+      title: "iRopit: Send image to...",
+      contexts: ["image"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_img_all",
+      parentId: "iropit_img_root",
+      title: "\u{1F4F1} All devices",
+      contexts: ["image"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_img_all",
+        id: "iropit_img_sep",
         parentId: "iropit_img_root",
-        title: "\u{1F4F1} All devices",
+        type: "separator",
         contexts: ["image"]
       }, () => {
         void chrome.runtime.lastError;
       });
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_img_sep",
+          id: `iropit_img_dev_${device.id}`,
           parentId: "iropit_img_root",
-          type: "separator",
+          title: device.name,
           contexts: ["image"]
         }, () => {
           void chrome.runtime.lastError;
         });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_img_dev_${device.id}`,
-            parentId: "iropit_img_root",
-            title: device.name,
-            contexts: ["image"]
-          }, () => {
-            void chrome.runtime.lastError;
-          });
-        });
-      }
+      });
+    }
+    const snoozeTitle = isSnoozed() ? `\u{1F515} Snoozed until ${new Date(snoozeUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "\u{1F514} Snooze Notifications";
+    chrome.contextMenus.create({
+      id: "iropit_snooze_root",
+      title: snoozeTitle,
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
     });
-  }, 300);
+    chrome.contextMenus.create({
+      id: "iropit_snooze_30",
+      parentId: "iropit_snooze_root",
+      title: "\u23F1 30 minutes",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_60",
+      parentId: "iropit_snooze_root",
+      title: "\u23F1 1 hour",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_120",
+      parentId: "iropit_snooze_root",
+      title: "\u23F1 2 hours",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_480",
+      parentId: "iropit_snooze_root",
+      title: "\u23F1 8 hours",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_sep2",
+      parentId: "iropit_snooze_root",
+      type: "separator",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_off",
+      parentId: "iropit_snooze_root",
+      title: "\u{1F514} Turn off snooze",
+      contexts: ["action"]
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+  });
 }
 async function refreshContextMenuDevices() {
   if (!currentUser) return;
@@ -19724,6 +19821,7 @@ async function refreshContextMenuDevices() {
     buildContextMenus();
   } catch (e) {
     console.warn("ZyncIT: Could not refresh context menu devices:", e);
+    buildContextMenus();
   }
 }
 async function sendTextToDevice(content, targetDeviceId) {
@@ -19848,6 +19946,26 @@ async function sendImageToDevice(srcUrl, targetDeviceId) {
 }
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const menuId = String(info.menuItemId);
+  if (menuId === "iropit_snooze_30") {
+    setSnooze(30);
+    return;
+  }
+  if (menuId === "iropit_snooze_60") {
+    setSnooze(60);
+    return;
+  }
+  if (menuId === "iropit_snooze_120") {
+    setSnooze(120);
+    return;
+  }
+  if (menuId === "iropit_snooze_480") {
+    setSnooze(480);
+    return;
+  }
+  if (menuId === "iropit_snooze_off") {
+    setSnooze(0);
+    return;
+  }
   if (menuId === "iropit_sel_all") {
     if (info.selectionText) sendTextToDevice(info.selectionText, null);
     return;
@@ -19896,6 +20014,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       startListening();
       refreshContextMenuDevices();
     }
+    sendResponse({ success: true });
+  }
+  if (message.type === "clearBadge") {
+    clearBadge();
     sendResponse({ success: true });
   }
   if (message.type === "clearSeenNotifications") {

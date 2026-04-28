@@ -53,9 +53,14 @@ let seenNotifications = new Set(); // Track seen notifications
 let isInitialLoad = true; // Flag to skip initial snapshot
 let serviceWorkerStartTime = Date.now(); // Track when SW started
 
+// Badge count for unread notifications
+let badgeCount = 0;
+// Snooze: notifications suppressed until this timestamp (0 = not snoozed)
+let snoozeUntil = 0;
+
 // Load timestamp from storage
 chrome.storage.local.get(
-  ["lastNotificationTimestamp", "seenNotifications"],
+  ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil"],
   (result) => {
     console.log(
       "ZyncIT: Loading stored data - seenNotifications:",
@@ -67,6 +72,17 @@ chrome.storage.local.get(
     if (result.seenNotifications) {
       seenNotifications = new Set(result.seenNotifications);
     }
+    if (result.badgeCount) {
+      badgeCount = result.badgeCount;
+      updateBadge();
+    }
+    if (result.snoozeUntil) {
+      snoozeUntil = result.snoozeUntil;
+    }
+    // Update snooze title only — menus persist between SW restarts, no need to recreate
+    updateSnoozeMenuTitle();
+    // Also restore badge display
+    updateBadge();
   },
 );
 
@@ -260,13 +276,13 @@ function listenToUserNotifications() {
               // Show dedicated OTP Chrome notification
               const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_user_${Date.now()}`;
-              chrome.notifications.create(notifId, {
+              createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
                 iconUrl: chrome.runtime.getURL("assets/icon128.png"),
                 title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
                 message: `${otp} — Copied to clipboard`,
                 priority: 2,
-              }, () => { void chrome.runtime.lastError; });
+              });
 
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
@@ -427,13 +443,13 @@ function listenToDevice(deviceId, deviceName) {
               // Show dedicated OTP Chrome notification
               const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_dev_${Date.now()}`;
-              chrome.notifications.create(notifId, {
+              createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
                 iconUrl: chrome.runtime.getURL("assets/icon128.png"),
                 title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
                 message: `${otp} — Copied to clipboard`,
                 priority: 2,
-              }, () => { void chrome.runtime.lastError; });
+              });
 
               sendOTPToActiveTab(otp, appName || decTitle, decBody);
             }
@@ -535,7 +551,7 @@ function extractOTP(text) {
 
   // Must contain an OTP-related keyword (English or Arabic, including email patterns)
   const hasOTPKeyword =
-    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i
+    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i
       .test(text);
   if (!hasOTPKeyword) return null;
 
@@ -621,13 +637,13 @@ function listenForSMSFromDevice(deviceId, deviceName) {
 
           // Show Chrome notification
           const notifId = `iropit_otp_${Date.now()}`;
-          chrome.notifications.create(notifId, {
+          createNotificationIfNotSnoozed(notifId, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("assets/icon128.png"),
             title: `OTP from ${sender || deviceName}`,
             message: `${otp} — Copied to clipboard`,
             priority: 2,
-          }, () => { void chrome.runtime.lastError; });
+          });
 
           // Forward OTP to the active browser tab (content script handles clipboard + paste)
           sendOTPToActiveTab(otp, sender, body);
@@ -723,14 +739,14 @@ function listenForEmailOTPFromDevice(deviceId, deviceName) {
 
           // Show a dedicated Chrome notification
           const notifId = `iropit_email_otp_${Date.now()}`;
-          chrome.notifications.create(notifId, {
+          createNotificationIfNotSnoozed(notifId, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("assets/icon128.png"),
             title: `Email OTP from ${appName || "Email"}`,
             message: `${otp} — Copied to clipboard`,
             contextMessage: senderLabel,
             priority: 2,
-          }, () => { void chrome.runtime.lastError; });
+          });
 
           // Forward to active tab for clipboard + auto-paste
           sendOTPToActiveTab(otp, senderLabel, decBody);
@@ -802,18 +818,11 @@ async function showNotification(data) {
     notificationOptions.title,
   );
 
-  chrome.notifications.create(
+  createNotificationIfNotSnoozed(
     notificationId,
     notificationOptions,
     (createdId) => {
-      if (chrome.runtime.lastError) {
-        console.error(
-          "ZyncIT: Error creating notification:",
-          chrome.runtime.lastError,
-        );
-      } else {
-        console.log("ZyncIT: ✅ Chrome notification created:", createdId);
-      }
+      console.log("ZyncIT: ✅ Chrome notification created:", createdId);
     },
   );
 }
@@ -847,7 +856,7 @@ async function showCallNotification(call) {
   const message = `Duration: ${formatDuration(call.duration || 0)}${deviceInfo}`;
   const notificationId = `zyncit_call_${call.id || Date.now()}`;
 
-  chrome.notifications.create(
+  createNotificationIfNotSnoozed(
     notificationId,
     {
       type: "basic",
@@ -855,16 +864,7 @@ async function showCallNotification(call) {
       title: title,
       message: message,
       priority: 2,
-      requireInteraction: callType === "missed", // Keep missed calls until user clicks
-    },
-    (createdId) => {
-      if (chrome.runtime.lastError) {
-        console.error(
-          "ZyncIT: Error creating call notification:",
-          chrome.runtime.lastError,
-        );
-      } else {
-      }
+      requireInteraction: callType === "missed",
     },
   );
 }
@@ -1125,6 +1125,21 @@ async function refreshPopupCache() {
       }
     }));
 
+    // Re-read current SMS cache just before writing to preserve any read-status
+    // updates the popup may have written while we were fetching from Firestore.
+    const latestSMSCache = await chrome.storage.local.get(["cached_sms_data"]);
+    const latestSmsByDevice = latestSMSCache.cached_sms_data?.byDevice || {};
+    for (const deviceId of Object.keys(newSmsByDevice)) {
+      const latestMsgs = latestSmsByDevice[deviceId];
+      if (!latestMsgs || latestMsgs.length === 0) continue;
+      const latestById = new Map(latestMsgs.map((m) => [m.id, m]));
+      newSmsByDevice[deviceId] = newSmsByDevice[deviceId].map((m) => {
+        const latest = latestById.get(m.id);
+        // Prefer the popup's read=true over our stale read=false
+        return (latest && latest.read === true && !m.read) ? { ...m, read: true } : m;
+      });
+    }
+
     // Rebuild allMessages / allCalls arrays for the popup
     const allMessages = Object.values(newSmsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
@@ -1174,115 +1189,226 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Handle extension install/update
 chrome.runtime.onInstalled.addListener((details) => {
-  // Context menus will be built when auth fires startListening
+  // Full menu build on install/update — guaranteed to run synchronously in this event
+  buildContextMenus();
+});
+
+// Rebuild context menus on browser startup (menus should persist but this is a
+// safety net in case Chrome ever clears them between sessions)
+chrome.runtime.onStartup.addListener(() => {
+  buildContextMenus();
 });
 
 // ─── Context Menu: Send Page to Device ───────────────────────────────────────
 
 // Tracked mobile devices for context menu [ { id, name } ]
 let contextMenuDevices = [];
-let _buildMenuTimer = null;
 
-/** Build (or rebuild) the right-click context menu entries. Debounced to avoid duplicate-ID errors. */
+// ─── Badge & Snooze Helpers ──────────────────────────────────────────────────
+
+/** Returns true if notifications are currently snoozed. */
+function isSnoozed() {
+  return Date.now() < snoozeUntil;
+}
+
+/** Set snooze for the given number of minutes (0 = clear snooze). */
+function setSnooze(minutes) {
+  snoozeUntil = minutes > 0 ? Date.now() + minutes * 60 * 1000 : 0;
+  chrome.storage.local.set({ snoozeUntil });
+  updateSnoozeMenuTitle();
+  console.log("ZyncIT: 🔕 Snooze set for", minutes, "minutes");
+}
+
+/** Update just the snooze root menu title (menus persist between SW restarts). */
+function updateSnoozeMenuTitle() {
+  const title = isSnoozed()
+    ? `🔕 Snoozed until ${new Date(snoozeUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : "🔔 Snooze Notifications";
+  chrome.contextMenus.update("iropit_snooze_root", { title }, () => { void chrome.runtime.lastError; });
+}
+
+/** Increment badge count for unread notifications. */
+function incrementBadge() {
+  badgeCount++;
+  chrome.storage.local.set({ badgeCount });
+  updateBadge();
+}
+
+/** Reset badge count to zero. */
+function clearBadge() {
+  badgeCount = 0;
+  chrome.storage.local.set({ badgeCount: 0 });
+  updateBadge();
+}
+
+/** Update the extension action badge UI. */
+function updateBadge() {
+  const text = badgeCount > 0 ? (badgeCount > 99 ? "99+" : String(badgeCount)) : "";
+  chrome.action.setBadgeText({ text });
+  if (badgeCount > 0) {
+    chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+  }
+}
+
+/**
+ * Create a Chrome notification unless snoozed, and increment the badge count.
+ */
+function createNotificationIfNotSnoozed(notifId, options, callback) {
+  if (isSnoozed()) {
+    console.log("ZyncIT: 🔕 Notification suppressed (snoozed):", options.title);
+    return;
+  }
+  chrome.notifications.create(notifId, options, (createdId) => {
+    if (!chrome.runtime.lastError) {
+      incrementBadge();
+    }
+    if (callback) callback(createdId);
+  });
+}
+
+/** Build (or rebuild) the right-click context menu entries. */
 function buildContextMenus() {
-  if (_buildMenuTimer) clearTimeout(_buildMenuTimer);
-  _buildMenuTimer = setTimeout(() => {
-    _buildMenuTimer = null;
-    chrome.contextMenus.removeAll(() => {
-      // Root item — send page/link
-      chrome.contextMenus.create({
-        id: "iropit_root",
-        title: "iRopit: Send page to...",
-        contexts: ["page", "link"],
-      }, () => { void chrome.runtime.lastError; });
+  chrome.contextMenus.removeAll(() => {
+    void chrome.runtime.lastError;
+    // Root item — send page/link
+    chrome.contextMenus.create({
+      id: "iropit_root",
+      title: "iRopit: Send page to...",
+      contexts: ["page", "link"],
+    }, () => { void chrome.runtime.lastError; });
 
+    chrome.contextMenus.create({
+      id: "iropit_all",
+      parentId: "iropit_root",
+      title: "📱 All devices",
+      contexts: ["page", "link"],
+    }, () => { void chrome.runtime.lastError; });
+
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_all",
+        id: "iropit_sep",
         parentId: "iropit_root",
-        title: "📱 All devices",
+        type: "separator",
         contexts: ["page", "link"],
       }, () => { void chrome.runtime.lastError; });
-
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_sep",
+          id: `iropit_dev_${device.id}`,
           parentId: "iropit_root",
-          type: "separator",
+          title: device.name,
           contexts: ["page", "link"],
         }, () => { void chrome.runtime.lastError; });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_dev_${device.id}`,
-            parentId: "iropit_root",
-            title: device.name,
-            contexts: ["page", "link"],
-          }, () => { void chrome.runtime.lastError; });
-        });
-      }
+      });
+    }
 
-      // Root item — send selected text
-      chrome.contextMenus.create({
-        id: "iropit_sel_root",
-        title: "iRopit: Send selection to...",
-        contexts: ["selection"],
-      }, () => { void chrome.runtime.lastError; });
+    // Root item — send selected text
+    chrome.contextMenus.create({
+      id: "iropit_sel_root",
+      title: "iRopit: Send selection to...",
+      contexts: ["selection"],
+    }, () => { void chrome.runtime.lastError; });
 
+    chrome.contextMenus.create({
+      id: "iropit_sel_all",
+      parentId: "iropit_sel_root",
+      title: "📱 All devices",
+      contexts: ["selection"],
+    }, () => { void chrome.runtime.lastError; });
+
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_sel_all",
+        id: "iropit_sel_sep",
         parentId: "iropit_sel_root",
-        title: "📱 All devices",
+        type: "separator",
         contexts: ["selection"],
       }, () => { void chrome.runtime.lastError; });
-
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_sel_sep",
+          id: `iropit_sel_dev_${device.id}`,
           parentId: "iropit_sel_root",
-          type: "separator",
+          title: device.name,
           contexts: ["selection"],
         }, () => { void chrome.runtime.lastError; });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_sel_dev_${device.id}`,
-            parentId: "iropit_sel_root",
-            title: device.name,
-            contexts: ["selection"],
-          }, () => { void chrome.runtime.lastError; });
-        });
-      }
+      });
+    }
 
-      // Root item — send image
-      chrome.contextMenus.create({
-        id: "iropit_img_root",
-        title: "iRopit: Send image to...",
-        contexts: ["image"],
-      }, () => { void chrome.runtime.lastError; });
+    // Root item — send image
+    chrome.contextMenus.create({
+      id: "iropit_img_root",
+      title: "iRopit: Send image to...",
+      contexts: ["image"],
+    }, () => { void chrome.runtime.lastError; });
 
+    chrome.contextMenus.create({
+      id: "iropit_img_all",
+      parentId: "iropit_img_root",
+      title: "📱 All devices",
+      contexts: ["image"],
+    }, () => { void chrome.runtime.lastError; });
+
+    if (contextMenuDevices.length > 0) {
       chrome.contextMenus.create({
-        id: "iropit_img_all",
+        id: "iropit_img_sep",
         parentId: "iropit_img_root",
-        title: "📱 All devices",
+        type: "separator",
         contexts: ["image"],
       }, () => { void chrome.runtime.lastError; });
-
-      if (contextMenuDevices.length > 0) {
+      contextMenuDevices.forEach((device) => {
         chrome.contextMenus.create({
-          id: "iropit_img_sep",
+          id: `iropit_img_dev_${device.id}`,
           parentId: "iropit_img_root",
-          type: "separator",
+          title: device.name,
           contexts: ["image"],
         }, () => { void chrome.runtime.lastError; });
-        contextMenuDevices.forEach((device) => {
-          chrome.contextMenus.create({
-            id: `iropit_img_dev_${device.id}`,
-            parentId: "iropit_img_root",
-            title: device.name,
-            contexts: ["image"],
-          }, () => { void chrome.runtime.lastError; });
-        });
-      }
-    });
-  }, 300);
+      });
+    }
+
+    // ── Snooze menu (right-click extension toolbar icon) ──
+    const snoozeTitle = isSnoozed()
+      ? `🔕 Snoozed until ${new Date(snoozeUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      : "🔔 Snooze Notifications";
+    chrome.contextMenus.create({
+      id: "iropit_snooze_root",
+      title: snoozeTitle,
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_30",
+      parentId: "iropit_snooze_root",
+      title: "⏱ 30 minutes",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_60",
+      parentId: "iropit_snooze_root",
+      title: "⏱ 1 hour",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_120",
+      parentId: "iropit_snooze_root",
+      title: "⏱ 2 hours",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_480",
+      parentId: "iropit_snooze_root",
+      title: "⏱ 8 hours",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_sep2",
+      parentId: "iropit_snooze_root",
+      type: "separator",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: "iropit_snooze_off",
+      parentId: "iropit_snooze_root",
+      title: "🔔 Turn off snooze",
+      contexts: ["action"],
+    }, () => { void chrome.runtime.lastError; });
+  });
 }
 
 /** Refresh device list and rebuild menus whenever devices change. */
@@ -1316,6 +1442,8 @@ async function refreshContextMenuDevices() {
     buildContextMenus();
   } catch (e) {
     console.warn("ZyncIT: Could not refresh context menu devices:", e);
+    // Always ensure menus exist even if the device fetch fails
+    buildContextMenus();
   }
 }
 
@@ -1462,6 +1590,13 @@ async function sendImageToDevice(srcUrl, targetDeviceId) {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const menuId = String(info.menuItemId);
 
+  // Snooze menu
+  if (menuId === "iropit_snooze_30") { setSnooze(30); return; }
+  if (menuId === "iropit_snooze_60") { setSnooze(60); return; }
+  if (menuId === "iropit_snooze_120") { setSnooze(120); return; }
+  if (menuId === "iropit_snooze_480") { setSnooze(480); return; }
+  if (menuId === "iropit_snooze_off") { setSnooze(0); return; }
+
   // Selected text menu
   if (menuId === "iropit_sel_all") {
     if (info.selectionText) sendTextToDevice(info.selectionText, null);
@@ -1524,6 +1659,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       startListening();
       refreshContextMenuDevices();
     }
+    sendResponse({ success: true });
+  }
+
+  // Clear badge when popup opens
+  if (message.type === "clearBadge") {
+    clearBadge();
     sendResponse({ success: true });
   }
 

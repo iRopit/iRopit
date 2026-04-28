@@ -27972,6 +27972,10 @@ ${this.customData.serverResponse}`;
           }));
           setSMSData(deviceId, updatedDeviceMsgs);
         });
+        cacheSMSData(allSMS, allSMSMessages.map(
+          (m) => activeDevice === "all" || m.deviceId === activeDevice ? { ...m, read: true } : m
+        )).catch(() => {
+        });
         updateTabBadges();
         if (currentConversation) {
           showConversation(currentConversation);
@@ -27990,39 +27994,37 @@ ${this.customData.serverResponse}`;
   async function markConversationAsRead(conversation) {
     const user = currentUser;
     if (!user) return;
+    const unreadMsgs = conversation.filter((msg) => !msg.read && msg.id && msg.deviceId);
+    if (unreadMsgs.length === 0) return;
+    const msgIds = unreadMsgs.map((m) => m.id);
+    const updatedMessages = allSMSMessages.map(
+      (msg) => msgIds.includes(msg.id) ? { ...msg, read: true } : msg
+    );
+    setAllSMSMessages(updatedMessages);
+    Object.keys(allSMS).forEach((deviceId) => {
+      const updated = allSMS[deviceId].map(
+        (msg) => msgIds.includes(msg.id) ? { ...msg, read: true } : msg
+      );
+      setSMSData(deviceId, updated);
+    });
+    await cacheSMSData(allSMS, updatedMessages).catch(() => {
+    });
+    updateTabBadges();
     try {
       const batch = writeBatch(db);
-      let count = 0;
-      for (const msg of conversation) {
-        if (!msg.read && msg.id && msg.deviceId) {
-          const notifRef = doc(
-            db,
-            "users",
-            user.uid,
-            "devices",
-            msg.deviceId,
-            "notifications",
-            msg.id
-          );
-          batch.set(notifRef, { read: true }, { merge: true });
-          count++;
-        }
-      }
-      if (count > 0) {
-        await batch.commit();
-        const msgIds = conversation.map((m) => m.id);
-        const updatedMessages = allSMSMessages.map(
-          (msg) => msgIds.includes(msg.id) ? { ...msg, read: true } : msg
+      for (const msg of unreadMsgs) {
+        const notifRef = doc(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          msg.deviceId,
+          "notifications",
+          msg.id
         );
-        setAllSMSMessages(updatedMessages);
-        Object.keys(allSMS).forEach((deviceId) => {
-          const updated = allSMS[deviceId].map(
-            (msg) => msgIds.includes(msg.id) ? { ...msg, read: true } : msg
-          );
-          setSMSData(deviceId, updated);
-        });
-        updateTabBadges();
+        batch.set(notifRef, { read: true }, { merge: true });
       }
+      await batch.commit();
     } catch (error) {
       console.error("Mark conversation read error:", error);
     }
@@ -30862,6 +30864,8 @@ ${this.customData.serverResponse}`;
     initNavigation();
     initSMSNavigation();
     setupServiceWorkerListener();
+    chrome.action.setBadgeText({ text: "" });
+    chrome.storage.local.set({ badgeCount: 0 });
     showCachedDataBeforeAuth();
     initAuthObserver(
       // On login
