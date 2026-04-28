@@ -535,7 +535,15 @@ function startSMSRealtimeListeners(userId, devicesList) {
             const currentSMS = state.getSMSData(device.id) || [];
             const existingIdx = currentSMS.findIndex((m) => m.id === messageId);
             if (existingIdx >= 0) {
-              currentSMS[existingIdx] = message;
+              // Preserve locally-optimistic read:true. The popup may have marked
+              // this message as read and updated state, but the Firestore snapshot
+              // can re-fire with the OLD read:false data before the batch.commit()
+              // is acknowledged. Overwriting state here would reset the badge.
+              const existingMsg = currentSMS[existingIdx];
+              const preserved = (existingMsg.read === true && message.read === false)
+                ? { ...message, read: true }
+                : message;
+              currentSMS[existingIdx] = preserved;
             } else {
               currentSMS.unshift(message);
             }

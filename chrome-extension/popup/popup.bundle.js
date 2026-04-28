@@ -27071,7 +27071,9 @@ ${this.customData.serverResponse}`;
               const currentSMS = getSMSData(device.id) || [];
               const existingIdx = currentSMS.findIndex((m) => m.id === messageId);
               if (existingIdx >= 0) {
-                currentSMS[existingIdx] = message;
+                const existingMsg = currentSMS[existingIdx];
+                const preserved = existingMsg.read === true && message.read === false ? { ...message, read: true } : message;
+                currentSMS[existingIdx] = preserved;
               } else {
                 currentSMS.unshift(message);
               }
