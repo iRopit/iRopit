@@ -485,6 +485,7 @@ function updateCallsList(deviceId, newCalls) {
   merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   state.setAllCallsData(merged);
+  updateTabBadges(); // update badge immediately, before renderCalls (which may exit early)
   renderCalls(merged.slice(0, 100));
 
   // Save to cache in background

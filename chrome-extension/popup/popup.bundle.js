@@ -25531,6 +25531,7 @@ ${this.customData.serverResponse}`;
     });
     merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     setAllCallsData(merged);
+    updateTabBadges();
     renderCalls(merged.slice(0, 100));
     cacheCallsData(allCallsByDevice, merged).catch(() => {
     });
