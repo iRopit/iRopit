@@ -25486,7 +25486,9 @@ ${this.customData.serverResponse}`;
               const currentCalls = allCallsByDevice[device.id] || [];
               const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
               if (existingIdx >= 0) {
-                currentCalls[existingIdx] = call;
+                const existingCall = currentCalls[existingIdx];
+                const preserved = existingCall.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
+                currentCalls[existingIdx] = preserved;
               } else {
                 currentCalls.unshift(call);
               }
@@ -28780,8 +28782,13 @@ ${this.customData.serverResponse}`;
             );
             const existing = allNotifications[device.id] || [];
             const freshIds = new Set(freshNotifs.map((n) => n.id));
+            const existingById = new Map(existing.map((n) => [n.id, n]));
+            const mergedFresh = freshNotifs.map((n) => {
+              const ex = existingById.get(n.id);
+              return ex && ex.read === true && !n.read ? { ...n, read: true } : n;
+            });
             const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
-            updateNotificationsList(device.id, [...freshNotifs, ...olderNotifs]);
+            updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
             cacheNotificationsData(allNotifications).catch(() => {
             });
           } else {

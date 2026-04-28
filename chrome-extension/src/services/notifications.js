@@ -298,11 +298,18 @@ export async function loadNotifications() {
               };
             }),
           );
-          // Merge with existing data — only replace the top-10 window
+          // Merge with existing data — only replace the top-10 window.
+          // Preserve locally-optimistic read:true so the badge doesn't reset
+          // when Firestore re-fires with stale read:false before the write confirms.
           const existing = state.allNotifications[device.id] || [];
           const freshIds = new Set(freshNotifs.map((n) => n.id));
+          const existingById = new Map(existing.map((n) => [n.id, n]));
+          const mergedFresh = freshNotifs.map((n) => {
+            const ex = existingById.get(n.id);
+            return (ex && ex.read === true && !n.read) ? { ...n, read: true } : n;
+          });
           const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
-          updateNotificationsList(device.id, [...freshNotifs, ...olderNotifs]);
+          updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
           cacheNotificationsData(state.allNotifications).catch(() => {});
         } else {
           deviceFirstSnap = false;

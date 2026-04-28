@@ -417,7 +417,13 @@ export async function loadCalls() {
             const currentCalls = state.allCallsByDevice[device.id] || [];
             const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
             if (existingIdx >= 0) {
-              currentCalls[existingIdx] = call;
+              // Preserve locally-optimistic viewed:true before the Firestore write
+              // is acknowledged (snapshot can re-fire with stale viewed:false).
+              const existingCall = currentCalls[existingIdx];
+              const preserved = (existingCall.viewed === true && !call.viewed)
+                ? { ...call, viewed: true }
+                : call;
+              currentCalls[existingIdx] = preserved;
             } else {
               currentCalls.unshift(call);
             }
