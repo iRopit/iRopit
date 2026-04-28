@@ -28896,7 +28896,8 @@ ${this.customData.serverResponse}`;
     if (unreadInGroup.length > 0) {
       unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
     }
-    detailList.innerHTML = notifications.map((notif) => `
+    const displayNotifications = notifications.map((n) => ({ ...n, read: true }));
+    detailList.innerHTML = displayNotifications.map((notif) => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
          data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
       <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
@@ -28908,7 +28909,7 @@ ${this.customData.serverResponse}`;
     </div>
   `).join("");
     const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
-    detailList.querySelectorAll(".notif-detail-bubble").forEach((item) => {
+    detailList.querySelectorAll(".notif-detail-bubble[data-notif-id]").forEach((item) => {
       item.addEventListener("click", async () => {
         const notifId = item.dataset.notifId;
         const deviceId = item.dataset.deviceId;
@@ -28940,6 +28941,7 @@ ${this.customData.serverResponse}`;
     if (!mainView || !detailView) return;
     detailView.style.display = "none";
     mainView.style.display = "flex";
+    reRenderNotifications();
   }
   function updateNotificationsList(deviceId, newNotifications) {
     const existingById = new Map(
