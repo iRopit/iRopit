@@ -784,7 +784,21 @@ async function showCallHistory(phoneNumber) {
         : call,
     );
     state.setAllCallsData(updatedCalls);
+
+    // Also update allCallsByDevice so the snapshot handler's preservation check
+    // keeps viewed:true when Firestore re-fires with stale viewed:false data.
+    Object.keys(state.allCallsByDevice).forEach((deviceId) => {
+      const updated = state.allCallsByDevice[deviceId].map((call) =>
+        call.phoneNumber === phoneNumber && call.type === "missed" && !call.viewed
+          ? { ...call, viewed: true }
+          : call,
+      );
+      state.setCallsByDevice(deviceId, updated);
+    });
+
     updateTabBadges();
+
+    cacheCallsData(state.allCallsByDevice, updatedCalls).catch(() => {});
 
     try {
       const user = state.currentUser;

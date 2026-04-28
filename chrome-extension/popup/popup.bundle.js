@@ -25772,7 +25772,15 @@ ${this.customData.serverResponse}`;
         (call) => call.phoneNumber === phoneNumber && call.type === "missed" ? { ...call, viewed: true } : call
       );
       setAllCallsData(updatedCalls);
+      Object.keys(allCallsByDevice).forEach((deviceId) => {
+        const updated = allCallsByDevice[deviceId].map(
+          (call) => call.phoneNumber === phoneNumber && call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
+        );
+        setCallsByDevice(deviceId, updated);
+      });
       updateTabBadges();
+      cacheCallsData(allCallsByDevice, updatedCalls).catch(() => {
+      });
       try {
         const user = currentUser;
         if (user) {
@@ -29099,14 +29107,14 @@ ${this.customData.serverResponse}`;
   async function markNotificationAsRead(deviceId, notifId) {
     const user = currentUser;
     if (!user) return;
+    Object.keys(allNotifications).forEach((key) => {
+      const updated = allNotifications[key].map(
+        (n) => n.id === notifId ? { ...n, read: true } : n
+      );
+      setNotificationsData(key, updated);
+    });
+    updateTabBadges();
     if (!notifId || /^-?\d+$/.test(notifId)) {
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
       return;
     }
     try {
@@ -29125,21 +29133,8 @@ ${this.customData.serverResponse}`;
         const notifRef = doc(db, "users", user.uid, "notifications", notifId);
         await updateDoc(notifRef, { read: true });
       }
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
     } catch (error) {
-      Object.keys(allNotifications).forEach((key) => {
-        const updated = allNotifications[key].map(
-          (n) => n.id === notifId ? { ...n, read: true } : n
-        );
-        setNotificationsData(key, updated);
-      });
-      updateTabBadges();
+      console.error("markNotificationAsRead error:", error);
     }
   }
   async function markAllNotificationsAsRead() {

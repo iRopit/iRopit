@@ -661,14 +661,17 @@ async function markNotificationAsRead(deviceId, notifId) {
   const user = state.currentUser;
   if (!user) return;
 
+  // Optimistic update: mark as read in state immediately before the Firestore
+  // write so the badge drops right away (same pattern as SMS/calls).
+  Object.keys(state.allNotifications).forEach((key) => {
+    const updated = state.allNotifications[key].map((n) =>
+      n.id === notifId ? { ...n, read: true } : n,
+    );
+    state.setNotificationsData(key, updated);
+  });
+  updateTabBadges();
+
   if (!notifId || /^-?\d+$/.test(notifId)) {
-    Object.keys(state.allNotifications).forEach((key) => {
-      const updated = state.allNotifications[key].map((n) =>
-        n.id === notifId ? { ...n, read: true } : n,
-      );
-      state.setNotificationsData(key, updated);
-    });
-    updateTabBadges();
     return;
   }
 
@@ -688,22 +691,10 @@ async function markNotificationAsRead(deviceId, notifId) {
       const notifRef = doc(db, "users", user.uid, "notifications", notifId);
       await updateDoc(notifRef, { read: true });
     }
-
-    Object.keys(state.allNotifications).forEach((key) => {
-      const updated = state.allNotifications[key].map((n) =>
-        n.id === notifId ? { ...n, read: true } : n,
-      );
-      state.setNotificationsData(key, updated);
-    });
-    updateTabBadges();
   } catch (error) {
-    Object.keys(state.allNotifications).forEach((key) => {
-      const updated = state.allNotifications[key].map((n) =>
-        n.id === notifId ? { ...n, read: true } : n,
-      );
-      state.setNotificationsData(key, updated);
-    });
-    updateTabBadges();
+    // State already updated optimistically above; Firestore write failed but
+    // the UI is already correct. Log and continue.
+    console.error("markNotificationAsRead error:", error);
   }
 }
 
