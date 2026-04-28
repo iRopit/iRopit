@@ -28940,7 +28940,14 @@ ${this.customData.serverResponse}`;
     mainView.style.display = "flex";
   }
   function updateNotificationsList(deviceId, newNotifications) {
-    setNotificationsData(deviceId, newNotifications);
+    const existingById = new Map(
+      (allNotifications[deviceId] || []).map((n) => [n.id, n])
+    );
+    const preserved = newNotifications.map((n) => {
+      const existing = existingById.get(n.id);
+      return existing && existing.read === true && !n.read ? { ...n, read: true } : n;
+    });
+    setNotificationsData(deviceId, preserved);
     scheduleRender();
     updateTabBadges();
   }

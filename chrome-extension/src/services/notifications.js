@@ -476,7 +476,17 @@ function hideNotifDetail() {
 }
 
 function updateNotificationsList(deviceId, newNotifications) {
-  state.setNotificationsData(deviceId, newNotifications);
+  // Preserve locally-optimistic read:true. Any snapshot (device or user-level)
+  // can re-fire with stale read:false before the Firestore write is confirmed.
+  // Keep read:true for any notification already marked read in current state.
+  const existingById = new Map(
+    (state.allNotifications[deviceId] || []).map((n) => [n.id, n]),
+  );
+  const preserved = newNotifications.map((n) => {
+    const existing = existingById.get(n.id);
+    return (existing && existing.read === true && !n.read) ? { ...n, read: true } : n;
+  });
+  state.setNotificationsData(deviceId, preserved);
   scheduleRender();
   updateTabBadges();
 }
