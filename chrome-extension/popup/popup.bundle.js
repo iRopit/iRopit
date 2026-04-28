@@ -29125,6 +29125,8 @@ ${this.customData.serverResponse}`;
       setNotificationsData(key, updated);
     });
     updateTabBadges();
+    cacheNotificationsData(allNotifications).catch(() => {
+    });
     if (!notifId || /^-?\d+$/.test(notifId)) {
       return;
     }

@@ -684,6 +684,7 @@ async function markNotificationAsRead(deviceId, notifId) {
     state.setNotificationsData(key, updated);
   });
   updateTabBadges();
+  cacheNotificationsData(state.allNotifications).catch(() => {});
 
   if (!notifId || /^-?\d+$/.test(notifId)) {
     return;
