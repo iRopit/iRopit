@@ -24696,10 +24696,7 @@ ${this.customData.serverResponse}`;
       (msg) => !msg.read && msg.senderId !== user.uid
     ).length;
     updateBadge("chatBadge", chatUnread);
-    const smsUnread = devices.reduce(
-      (total, d) => total + (allSMS[d.id] || []).filter((m) => !m.read).length,
-      0
-    );
+    const smsUnread = allSMSMessages.filter((m) => !m.read).length;
     updateBadge("smsBadge", smsUnread);
     const missedCalls = getCallsCount("all");
     updateBadge("callsBadge", missedCalls);
@@ -24737,8 +24734,8 @@ ${this.customData.serverResponse}`;
     });
   }
   function getSmsCount(deviceId) {
-    if (deviceId === "all") return devices.reduce((t, d) => t + getSmsCount(d.id), 0);
-    return (allSMS[deviceId] || []).filter((m) => !m.read).length;
+    if (deviceId === "all") return allSMSMessages.filter((m) => !m.read).length;
+    return allSMSMessages.filter((m) => m.deviceId === deviceId && !m.read).length;
   }
   function getCallsCount(deviceId) {
     if (deviceId === "all") return devices.reduce((t, d) => t + getCallsCount(d.id), 0);
@@ -28007,9 +28004,9 @@ ${this.customData.serverResponse}`;
       );
       setSMSData(deviceId, updated);
     });
-    await cacheSMSData(allSMS, updatedMessages).catch(() => {
-    });
     updateTabBadges();
+    cacheSMSData(allSMS, updatedMessages).catch(() => {
+    });
     try {
       const batch = writeBatch(db);
       for (const msg of unreadMsgs) {

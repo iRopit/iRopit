@@ -1822,8 +1822,8 @@ async function markConversationAsRead(conversation) {
 
   const msgIds = unreadMsgs.map((m) => m.id);
 
-  // Optimistic update: update state and cache IMMEDIATELY before the Firestore write.
-  // This ensures the cache is correct even if the popup is closed before the write completes.
+  // Optimistic update: update state IMMEDIATELY (synchronous) so the badge
+  // reflects the change right away, regardless of any async work below.
   const updatedMessages = state.allSMSMessages.map((msg) =>
     msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
   );
@@ -1836,9 +1836,13 @@ async function markConversationAsRead(conversation) {
     state.setSMSData(deviceId, updated);
   });
 
-  // Await cache write so it persists to storage before popup can close
-  await cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
+  // Update badge IMMEDIATELY after state update — before any awaits — so the
+  // count drops to 0 right when the conversation is opened, regardless of which
+  // device tab is active ("All" or a specific device).
   updateTabBadges();
+
+  // Persist to cache in background (non-blocking for badge update)
+  cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
 
   // Write to Firestore (non-blocking for UI — state/cache already updated)
   try {
