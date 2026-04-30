@@ -42,7 +42,7 @@ import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptSMS } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedSMS, cacheSMSData } from "./cache.js";
+import { getCachedSMS, cacheSMSData, clearCache } from "./cache.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 
 // Store unsubscribe functions for real-time listeners
@@ -222,25 +222,46 @@ export async function loadSMS() {
   try {
     const cached = await getCachedSMS();
     if (cached && cached.allMessages && cached.allMessages.length > 0) {
-      console.log(
-        `[SMS] 📦 Showing ${cached.allMessages.length} cached messages instantly`,
+      // Detect if cached messages are still encrypted (ENC: prefix) — this can happen
+      // after a reinstall or if decryption previously failed before the cache was saved.
+      // If any key display fields are encrypted, the cache is stale: discard it and
+      // force a full fresh fetch so every message is properly decrypted.
+      const hasEncryptedCache = cached.allMessages.some(
+        (msg) =>
+          (msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:")) ||
+          (msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:")) ||
+          (msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:")) ||
+          (msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:")) ||
+          (msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:"))
       );
-      hasCachedData = true;
-      // Restore state from cache
-      if (cached.byDevice) {
-        for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
-          state.setSMSData(deviceId, msgs);
-          // Record newest timestamp per device for delta fetch
-          if (msgs && msgs.length > 0) {
-            cachedNewestTimestamps[deviceId] = Math.max(
-              ...msgs.map((m) => m.timestamp || 0),
-            );
+
+      if (hasEncryptedCache) {
+        console.warn(
+          `[SMS] ⚠️ Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`,
+        );
+        await clearCache().catch(() => {});
+        // hasCachedData stays false → full (non-delta) fetch will be used
+      } else {
+        console.log(
+          `[SMS] 📦 Showing ${cached.allMessages.length} cached messages instantly`,
+        );
+        hasCachedData = true;
+        // Restore state from cache
+        if (cached.byDevice) {
+          for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
+            state.setSMSData(deviceId, msgs);
+            // Record newest timestamp per device for delta fetch
+            if (msgs && msgs.length > 0) {
+              cachedNewestTimestamps[deviceId] = Math.max(
+                ...msgs.map((m) => m.timestamp || 0),
+              );
+            }
           }
         }
+        state.setAllSMSMessages(cached.allMessages);
+        renderSMS(cached.allMessages);
+        updateTabBadges();
       }
-      state.setAllSMSMessages(cached.allMessages);
-      renderSMS(cached.allMessages);
-      updateTabBadges();
     }
   } catch (e) {
     console.warn("[SMS] Cache load failed:", e);

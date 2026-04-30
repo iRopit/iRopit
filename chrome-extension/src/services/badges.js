@@ -18,10 +18,10 @@ export function updateTabBadges() {
   ).length
   updateBadge("chatBadge", chatUnread)
 
-  // Derive all counts from state.devices so header badges always match device tab "All" counts
-  const smsUnread = state.devices.reduce(
-    (total, d) => total + (state.allSMS[d.id] || []).filter(m => !m.read).length, 0
-  )
+  // Count unread from the deduplicated merged list so the badge matches what
+  // the "Show Unread" filter actually finds (avoids phantom counts from duplicates
+  // in the per-device allSMS maps that were deduped out of allSMSMessages).
+  const smsUnread = state.allSMSMessages.filter(m => !m.read).length;
   updateBadge("smsBadge", smsUnread)
 
   const missedCalls = getCallsCount("all")
@@ -69,8 +69,8 @@ function refreshDeviceTabCounts() {
 }
 
 function getSmsCount(deviceId) {
-  if (deviceId === "all") return state.devices.reduce((t, d) => t + getSmsCount(d.id), 0)
-  return (state.allSMS[deviceId] || []).filter(m => !m.read).length
+  if (deviceId === "all") return state.allSMSMessages.filter(m => !m.read).length
+  return state.allSMSMessages.filter(m => m.deviceId === deviceId && !m.read).length
 }
 
 function getCallsCount(deviceId) {

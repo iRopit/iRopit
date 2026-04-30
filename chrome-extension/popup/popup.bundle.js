@@ -26833,23 +26833,34 @@ ${this.customData.serverResponse}`;
     try {
       const cached = await getCachedSMS();
       if (cached && cached.allMessages && cached.allMessages.length > 0) {
-        console.log(
-          `[SMS] \u{1F4E6} Showing ${cached.allMessages.length} cached messages instantly`
+        const hasEncryptedCache = cached.allMessages.some(
+          (msg) => msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:") || msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:") || msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:") || msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:") || msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:")
         );
-        hasCachedData = true;
-        if (cached.byDevice) {
-          for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
-            setSMSData(deviceId, msgs);
-            if (msgs && msgs.length > 0) {
-              cachedNewestTimestamps[deviceId] = Math.max(
-                ...msgs.map((m) => m.timestamp || 0)
-              );
+        if (hasEncryptedCache) {
+          console.warn(
+            `[SMS] \u26A0\uFE0F Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`
+          );
+          await clearCache().catch(() => {
+          });
+        } else {
+          console.log(
+            `[SMS] \u{1F4E6} Showing ${cached.allMessages.length} cached messages instantly`
+          );
+          hasCachedData = true;
+          if (cached.byDevice) {
+            for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
+              setSMSData(deviceId, msgs);
+              if (msgs && msgs.length > 0) {
+                cachedNewestTimestamps[deviceId] = Math.max(
+                  ...msgs.map((m) => m.timestamp || 0)
+                );
+              }
             }
           }
+          setAllSMSMessages(cached.allMessages);
+          renderSMS(cached.allMessages);
+          updateTabBadges();
         }
-        setAllSMSMessages(cached.allMessages);
-        renderSMS(cached.allMessages);
-        updateTabBadges();
       }
     } catch (e) {
       console.warn("[SMS] Cache load failed:", e);
