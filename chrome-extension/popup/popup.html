@@ -12,10 +12,10 @@
         <div class="container">
             <!-- Header -->
             <header class="header">
-                <div class="logo">
+                <a href="https://www.iRopit.com" target="_blank" rel="noopener noreferrer" class="logo" style="text-decoration:none;color:inherit;">
                     <img src="../assets/icon48.png" alt="iRopit" class="logo-icon">
                     <span class="logo-text">iRopit</span>
-                </div>
+                </a>
                 <div class="header-actions">
                     <button id="themeToggleBtn" class="icon-btn" title="Toggle dark mode" data-i18n-title="tooltip_toggle_theme">
                         <svg id="themeIconLight" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -74,7 +74,7 @@
                         </svg>
                         Sign in with Google
                     </button>
-                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v1.1.32</p>
+                    <p class="auth-switch" style="margin-top:16px;opacity:0.5;">v1.1.33.7</p>
                 </div>
             </div>
 
@@ -117,6 +117,15 @@
                         <span data-i18n="nav_notifications">Notifications</span>
                         <span class="tab-badge" id="notificationsBadge" style="display: none;"></span>
                     </button>
+                    <button class="tab" data-tab="dashboard">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                        <span data-i18n="nav_dashboard">Dashboard</span>
+                    </button>
                     <button class="tab" data-tab="devices">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -129,6 +138,92 @@
 
                 <!-- Tab Contents -->
                 <div class="tab-contents">
+                    <!-- Dashboard Tab -->
+                    <div id="dashboardTab" class="tab-content">
+                        <div class="dashboard-header">
+                            <h3 data-i18n="dash_title">Dashboard</h3>
+                        </div>
+                        <!-- Date Filter -->
+                        <div class="dashboard-filter">
+                            <div class="dashboard-filter-row">
+                                <div class="dashboard-date-group">
+                                    <label for="dashFromDate" data-i18n="dash_from">From</label>
+                                    <input type="date" id="dashFromDate" class="dashboard-date-input">
+                                </div>
+                                <div class="dashboard-date-group">
+                                    <label for="dashToDate" data-i18n="dash_to">To</label>
+                                    <input type="date" id="dashToDate" class="dashboard-date-input">
+                                </div>
+                                <button id="dashFilterBtn" class="btn btn-primary dashboard-filter-btn" data-i18n="dash_apply">Apply</button>
+                                <button id="dashResetBtn" class="btn btn-secondary dashboard-filter-btn" data-i18n="dash_reset">Reset</button>
+                            </div>
+                        </div>
+                        <!-- Summary Stats -->
+                        <div class="dashboard-stats">
+                            <div class="dash-stat-card">
+                                <div class="dash-stat-icon dash-stat-sms">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                                    </svg>
+                                </div>
+                                <div class="dash-stat-info">
+                                    <span class="dash-stat-value" id="dashSmsCount">—</span>
+                                    <span class="dash-stat-label" data-i18n="dash_sms">SMS</span>
+                                </div>
+                            </div>
+                            <div class="dash-stat-card">
+                                <div class="dash-stat-icon dash-stat-calls">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+                                    </svg>
+                                </div>
+                                <div class="dash-stat-info">
+                                    <span class="dash-stat-value" id="dashCallsCount">—</span>
+                                    <span class="dash-stat-label" data-i18n="dash_calls">Calls</span>
+                                </div>
+                            </div>
+                            <div class="dash-stat-card">
+                                <div class="dash-stat-icon dash-stat-notif">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                                        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                                    </svg>
+                                </div>
+                                <div class="dash-stat-info">
+                                    <span class="dash-stat-value" id="dashNotifCount">—</span>
+                                    <span class="dash-stat-label" data-i18n="dash_notifications">Notifications</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- SMS Spending Insights -->
+                        <div class="dashboard-insights">
+                            <div class="dashboard-breakdown-title">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:5px;">
+                                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                                </svg>
+                                <span data-i18n="dash_insights_title">SMS Spending Insights</span>
+                            </div>
+                            <div id="dashInsightsBody" class="dash-insights-body">
+                                <div class="dash-insights-empty" data-i18n="dash_insights_empty_filter">Apply a date filter to see spending analysis</div>
+                            </div>
+                        </div>
+                        <!-- Per-date Notifications Breakdown -->
+                        <div class="dashboard-breakdown">
+                            <h4 class="dashboard-breakdown-title" data-i18n="dash_notif_by_date">Notifications by Date</h4>
+                            <div id="dashBreakdownList" class="dashboard-breakdown-list">
+                                <div class="empty-state">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                        <line x1="16" y1="2" x2="16" y2="6"/>
+                                        <line x1="8" y1="2" x2="8" y2="6"/>
+                                        <line x1="3" y1="10" x2="21" y2="10"/>
+                                    </svg>
+                                    <p>Select a date range and apply filter</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Chat Tab -->
                     <div id="chatTab" class="tab-content active">
                         <!-- Device Tabs -->
@@ -503,7 +598,7 @@
                         <span id="userNameChat" class="profile-name-footer">User</span>
                         <span id="userEmailChat" class="profile-email-footer">user@email.com</span>
                     </div>
-                    <span id="extensionVersion" class="profile-version-footer">v1.1.32</span>
+                    <span id="extensionVersion" class="profile-version-footer">v1.1.33.7</span>
                     <button id="logoutBtnChat" class="profile-logout-btn-footer" title="Logout">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -760,7 +855,7 @@
 
                             <!-- About Section -->
                             <div class="settings-footer">
-                                <p class="settings-version">iRopit v1.1.32</p>
+                                <p class="settings-version">iRopit v1.1.33.7</p>
                                 <p class="settings-tagline" data-i18n="settings_tagline">Sync your SMS and calls across
                                     all devices</p>
                             </div>

@@ -18,6 +18,13 @@
     if (!str) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+  function linkifyText(text) {
+    const escaped = escapeHtml(text);
+    return escaped.replace(
+      /(https?:\/\/[^\s<>"']+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
+    );
+  }
   chrome.storage.local.get(
     ["smsWindowPhone", "smsWindowContact", "smsWindowMessages"],
     (result) => {
@@ -41,7 +48,7 @@
         const isSent = msg.direction === "outgoing" || msg.type === "sent";
         const bubble = document.createElement("div");
         bubble.className = "message-bubble " + (isSent ? "sent" : "received");
-        bubble.innerHTML = `<div class="message-text">${escapeHtml(msg.body)}</div><div class="message-footer"><span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` + (msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : "") + `</div>`;
+        bubble.innerHTML = `<div class="message-text">${linkifyText(msg.body)}</div><div class="message-footer"><span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` + (msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : "") + `</div>`;
         area.appendChild(bubble);
       });
       area.scrollTop = area.scrollHeight;

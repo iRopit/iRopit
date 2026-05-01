@@ -24,6 +24,7 @@ import {
 } from "./ui/dom.js";
 import { showToast, showListLoading, showLoadingOverlay, hideLoading } from "./ui/toasts.js";
 import { initTabs } from "./ui/tabs.js";
+import { initDashboard } from "./ui/dashboard.js";
 import { initSmsModal, initCallModal, initProfileFooter } from "./ui/modals.js";
 import { initNavigation } from "./ui/navigation.js";
 
@@ -198,6 +199,7 @@ function init() {
 
   // Initialize UI
   initTabs();
+  initDashboard();
   initSmsModal();
   initCallModal();
   initProfileFooter();

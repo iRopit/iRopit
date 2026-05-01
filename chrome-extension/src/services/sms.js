@@ -45,6 +45,15 @@ import { getContactName } from "./contacts.js";
 import { getCachedSMS, cacheSMSData, clearCache } from "./cache.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 
+// Linkify plain-text URLs in a message body (escapes HTML first, then wraps URLs)
+function linkifyText(text) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /(https?:\/\/[^\s<>"'\u0022\u0027]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
+  );
+}
+
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
 // Track processed message IDs to avoid duplicates
@@ -1452,7 +1461,7 @@ export function showConversation(phoneNumber) {
               ? "sent"
               : "received"
           }" data-msg-id="${escapeHtml(msg.id)}">
-            <div class="message-text">${escapeHtml(msg.body || "")}</div>
+            <div class="message-text">${linkifyText(msg.body || "")}</div>
             <div class="message-footer">
               <span class="message-time">${formatTime(msg.timestamp)}</span>
               ${

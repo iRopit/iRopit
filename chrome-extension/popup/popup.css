@@ -121,6 +121,7 @@ body[dir="rtl"] {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
 
 .logo-icon {
@@ -445,6 +446,23 @@ body[dir="rtl"] {
   overflow: hidden;
   min-height: 0;
   max-height: 100%;
+}
+
+/* Dashboard tab scrolls as a single unit */
+#dashboardTab.active {
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: block;
+}
+
+#dashboardTab .dashboard-breakdown {
+  flex: none;
+  overflow: visible;
+}
+
+#dashboardTab .dashboard-breakdown-list {
+  overflow-y: visible;
+  max-height: none;
 }
 
 .tab-content.active {
@@ -2279,6 +2297,17 @@ body[dir="rtl"] .device-tag {
   word-break: break-word;
 }
 
+.sms-link {
+  color: #60a5fa;
+  text-decoration: underline;
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.message-bubble.sent .sms-link {
+  color: #bfdbfe;
+}
+
 /* Per-message selection mode */
 .msg-checkbox-wrap {
   display: flex;
@@ -3338,3 +3367,489 @@ html.dark .profile-logout-btn-footer {
 .confirm-cancel:hover{background:var(--surface);}
 .confirm-ok{background:var(--danger,#ef4444);color:#fff;border-color:transparent;}
 .confirm-ok:hover{opacity:.85;}
+
+/* ========== Dashboard Tab ========== */
+#dashboardTab {
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+
+#dashboardTab.active {
+  display: flex;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.dashboard-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Filter row */
+.dashboard-filter {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dashboard-filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-date-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-date-input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--input-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 150px;
+}
+
+.dashboard-date-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.dashboard-filter-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  height: 32px;
+}
+
+/* Stats cards */
+.dashboard-stats {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.dash-stat-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.dash-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.dash-stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-stat-sms {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary-text);
+}
+
+.dash-stat-calls {
+  background: color-mix(in srgb, var(--secondary) 15%, transparent);
+  color: var(--secondary);
+}
+
+.dash-stat-notif {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+}
+
+.dash-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+
+.dash-stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Per-date breakdown */
+.dashboard-breakdown {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.dashboard-breakdown-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 16px 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dashboard-breakdown-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface-secondary);
+  /* prevent children from shrinking */
+  align-items: stretch;
+}
+
+.dash-date-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dash-date-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 14px 18px;
+  background: var(--surface-secondary);
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.dash-date-group-header:hover {
+  background: var(--hover);
+  filter: brightness(0.95);
+}
+
+.dash-date-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.dash-date-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dash-count-pill.sms {
+  background: rgba(213,193,158,0.3);
+  color: #f0dcb8;
+}
+
+.dash-count-pill.calls {
+  background: rgba(16,185,129,0.25);
+  color: #4ade80;
+}
+
+.dash-count-pill.notif {
+  background: rgba(245,158,11,0.25);
+  color: #fcd34d;
+}
+
+.dash-date-group-body {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dash-notif-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+
+.dash-notif-app {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-text);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dash-notif-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-notif-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-notif-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+html.dark .dash-stat-sms {
+  background: rgba(213,193,158,0.2);
+}
+
+/* ── SMS Spending Insights ─────────────────────────────────────────── */
+.dashboard-insights {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-insights-body {
+  padding: 10px 14px 12px;
+  background: var(--background);
+}
+
+.dash-insights-empty {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 10px 0;
+}
+
+.dash-insights-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dash-insight-card {
+  flex: 1;
+  min-width: 110px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+
+.dash-insight-currency {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.dash-insight-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.dash-insight-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.dash-insight-value {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dash-insight-value.debit  { color: var(--error); }
+.dash-insight-value.credit { color: var(--success); }
+
+.dash-insight-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 5px 0;
+}
+
+.dash-insights-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 8px 0 5px;
+}
+
+/* Per-date spending */
+.dash-date-spend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.dash-date-spend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.dash-date-spend-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dash-date-spend-amounts {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dash-date-spend-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.dash-date-spend-pill.debit {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+.dash-date-spend-pill.credit {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+/* Recent transactions */
+.dash-txn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dash-txn-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.dash-txn-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-txn-sender {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.dash-txn-amount {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dash-txn-amount.debit  { color: var(--error); }
+.dash-txn-amount.credit { color: var(--success); }
+
+.dash-txn-snippet {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-txn-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}

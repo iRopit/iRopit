@@ -186,31 +186,6 @@ const UserSettingsScreen = ({ navigation }: UserSettingsScreenProps) => {
           </Text>
 
           <TouchableOpacity
-            style={[styles.settingItem, { borderColor: colors.border }]}
-            onPress={() => navigation.navigate('ChangePassword')}
-          >
-            <Icon name="lock-closed" size={20} color={colors.primary} />
-            <View style={styles.settingContent}>
-              <Text style={[styles.settingTitle, { color: colors.text }]}>
-                {t('changePassword')}
-              </Text>
-              <Text
-                style={[
-                  styles.settingSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {t('updatePassword')}
-              </Text>
-            </View>
-            <Icon
-              name={isRTL ? 'chevron-back' : 'chevron-forward'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[
               styles.settingItem,
               styles.lastSettingItem,

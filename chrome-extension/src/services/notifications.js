@@ -32,6 +32,15 @@ import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
 import { decryptNotification } from "./cryptoService.js";
 
+// Linkify URLs in notification body text
+function linkifyText(text) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /(https?:\/\/[^\s<>"']+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
+  );
+}
+
 // ── Sync state ───────────────────────────────────────────────────────────────
 let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
@@ -433,7 +442,7 @@ function showNotifDetail(appKey, appName, notifications) {
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
          data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
       <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">●</span>'}</div>
-      <div class="notif-bubble-body">${escapeHtml(notif.text || notif.body || "")}</div>
+      <div class="notif-bubble-body">${linkifyText(notif.text || notif.body || "")}</div>
       <div class="notif-bubble-footer">
         ${resolveDeviceName(notif) ? `<span class="notification-device">📱 ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
         <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>

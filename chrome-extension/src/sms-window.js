@@ -35,6 +35,14 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function linkifyText(text) {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /(https?:\/\/[^\s<>"']+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
+  );
+}
+
 chrome.storage.local.get(
   ["smsWindowPhone", "smsWindowContact", "smsWindowMessages"],
   (result) => {
@@ -68,7 +76,7 @@ chrome.storage.local.get(
       const bubble = document.createElement("div");
       bubble.className = "message-bubble " + (isSent ? "sent" : "received");
       bubble.innerHTML =
-        `<div class="message-text">${escapeHtml(msg.body)}</div>` +
+        `<div class="message-text">${linkifyText(msg.body)}</div>` +
         `<div class="message-footer">` +
         `<span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` +
         (msg.deviceName
