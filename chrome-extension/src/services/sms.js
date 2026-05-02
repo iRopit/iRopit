@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
   addDoc,
   deleteDoc,
   writeBatch,
@@ -228,8 +229,10 @@ export async function loadSMS() {
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading
   const cachedNewestTimestamps = {};
+  let cachedSMSData = null; // hoisted so lambda below can check per-device counts
   try {
     const cached = await getCachedSMS();
+    cachedSMSData = cached;
     if (cached && cached.allMessages && cached.allMessages.length > 0) {
       // Detect if cached messages are still encrypted (ENC: prefix) — this can happen
       // after a reinstall or if decryption previously failed before the cache was saved.
@@ -287,6 +290,11 @@ export async function loadSMS() {
   console.log(`[SMS] Loading fresh SMS for user: ${user.uid}`);
   logger.info(`Loading SMS for user: ${user.uid}`);
 
+  // When there's no custom cache (e.g. after logout+re-login, clearCache() was called),
+  // Firestore's own offline IndexedDB cache would otherwise return stale data via getDocs().
+  // Force a server fetch in that case so messages always reflect the latest state.
+  const fetchDocs = hasCachedData ? getDocs : getDocsFromServer;
+
   try {
     // First, get all user devices
     const devicesQuery = query(
@@ -295,7 +303,7 @@ export async function loadSMS() {
     );
 
     logger.debug("Fetching devices...");
-    const devicesSnapshot = await getDocs(devicesQuery);
+    const devicesSnapshot = await fetchDocs(devicesQuery);
     console.log(
       `[SMS] Found ${devicesSnapshot.size} devices for user ${user.uid}`,
     );
@@ -336,9 +344,14 @@ export async function loadSMS() {
       };
       paginationState[device.id] = devicePagState;
 
-      // Delta fetch: if we have cached data, only query messages newer than cache
+      // Delta fetch: only use when cache has a FULL page of messages for this device.
+      // If the cache has fewer than PAGE_SIZE entries it means the cache was built when
+      // Firestore was still being populated (e.g. mobile app re-signed in and uploaded
+      // SMS in batches). Using delta in that case would miss older messages that were
+      // uploaded after the cache was built. A full fetch is required instead.
       const cachedNewestTs = cachedNewestTimestamps[device.id];
-      const isDelta = !!cachedNewestTs;
+      const cachedDeviceCount = (cachedSMSData?.byDevice?.[device.id]?.length) || 0;
+      const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE;
 
       let q;
       if (isDelta) {
@@ -376,7 +389,8 @@ export async function loadSMS() {
 
       try {
         // One-time fetch - much faster than onSnapshot for bulk data
-        const snapshot = await getDocs(q);
+        // Use fetchDocs (getDocsFromServer when no custom cache) to bypass stale Firestore IndexedDB cache
+        const snapshot = await fetchDocs(q);
         console.log(
           `[SMS] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} messages from device ${device.id}`,
         );

@@ -79,3 +79,7 @@ export const notificationsList = document.getElementById("notificationsList");
 export const themeToggleBtn = document.getElementById("themeToggleBtn");
 export const themeIconLight = document.getElementById("themeIconLight");
 export const themeIconDark = document.getElementById("themeIconDark");
+
+// Language toggle
+export const langToggleBtn = document.getElementById("langToggleBtn");
+export const langToggleLabel = document.getElementById("langToggleLabel");

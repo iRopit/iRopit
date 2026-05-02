@@ -56,7 +56,7 @@ import { initTheme } from "./services/theme.js";
 import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications } from "./services/cache.js";
 
 // Import utilities
-import { applyTranslations } from "./utils/i18n.js";
+import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./utils/i18n.js";
 
 /**
  * Wait for devices to load, then load contacts
@@ -185,6 +185,31 @@ function setupServiceWorkerListener() {
 }
 
 /**
+ * Language toggle — switches between EN and AR
+ */
+function initLangToggle() {
+  const btn = document.getElementById("langToggleBtn");
+  const label = document.getElementById("langToggleLabel");
+  if (!btn || !label) return;
+
+  const updateLabel = (lang) => {
+    label.textContent = lang === "ar" ? "EN" : "AR";
+    btn.title = lang === "ar" ? "Switch to English" : "Switch to Arabic";
+    document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+  };
+
+  updateLabel(getCurrentLanguage());
+
+  btn.addEventListener("click", () => {
+    const current = getCurrentLanguage();
+    const next = current === "ar" ? "en" : "ar";
+    setCurrentLanguage(next);
+    updateLabel(next);
+    applyTranslations();
+  });
+}
+
+/**
  * Initialize the extension
  */
 function init() {
@@ -193,6 +218,9 @@ function init() {
 
   // Initialize theme (before any rendering)
   initTheme();
+
+  // Initialize language toggle
+  initLangToggle();
 
   // Apply translations
   applyTranslations();

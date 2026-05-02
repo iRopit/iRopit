@@ -37,12 +37,30 @@ const en = {
 
   // Dashboard tabs
   tabs: {
+    overview: "Dashboard",
     chat: "Chat",
     sms: "SMS",
     calls: "Calls",
     notifications: "Notifications",
     devices: "Devices",
     settings: "Settings",
+  },
+
+  // Dashboard Overview
+  overview: {
+    title: "Dashboard",
+    dateFrom: "From",
+    dateTo: "To",
+    apply: "Apply",
+    reset: "Reset",
+    sms: "SMS",
+    calls: "Calls",
+    notifications: "Notifications",
+    notifByDate: "Activity by Date",
+    noData: "No data in selected range",
+    selectRange: "Select a date range and apply filter",
+    spendingInsights: "SMS Spending Insights",
+    spendingEmpty: "Apply a date filter to see spending analysis",
   },
 
   // Chat
@@ -71,6 +89,8 @@ const en = {
     deleteAll: "Delete all",
     newSms: "New SMS",
     unread: "unread",
+    showUnread: "Show Unread",
+    exportCsv: "Export CSV",
     you: "You",
     searchConversations: "Search conversations...",
     back: "Back",

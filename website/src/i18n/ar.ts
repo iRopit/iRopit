@@ -37,12 +37,30 @@ const ar = {
 
   // Dashboard tabs
   tabs: {
+    overview: "لوحة التحكم",
     chat: "المحادثة",
     sms: "الرسائل",
     calls: "المكالمات",
     notifications: "الإشعارات",
     devices: "الأجهزة",
     settings: "الإعدادات",
+  },
+
+  // Dashboard Overview
+  overview: {
+    title: "لوحة التحكم",
+    dateFrom: "من",
+    dateTo: "إلى",
+    apply: "تطبيق",
+    reset: "إعادة",
+    sms: "رسائل",
+    calls: "مكالمات",
+    notifications: "إشعارات",
+    notifByDate: "النشاط حسب التاريخ",
+    noData: "لا توجد بيانات في النطاق المحدد",
+    selectRange: "اختر نطاقاً زمنياً وطبّق الفلتر",
+    spendingInsights: "تحليل إنفاق الرسائل",
+    spendingEmpty: "طبّق فلتراً زمنياً لرؤية تحليل الإنفاق",
   },
 
   // Chat
@@ -71,6 +89,8 @@ const ar = {
     deleteAll: "حذف الكل",
     newSms: "رسالة جديدة",
     unread: "غير مقروءة",
+    showUnread: "عرض غير المقروءة",
+    exportCsv: "تصدير CSV",
     you: "أنت",
     searchConversations: "بحث في المحادثات...",
     back: "رجوع",

@@ -18,6 +18,7 @@ import CallsTab from "@/components/dashboard/CallsTab";
 import NotificationsTab from "@/components/dashboard/NotificationsTab";
 import DevicesTab from "@/components/dashboard/DevicesTab";
 import SettingsTab from "@/components/dashboard/SettingsTab";
+import DashboardOverviewTab from "@/components/dashboard/DashboardOverviewTab";
 import {
   MessageCircle,
   MessageSquare,
@@ -25,15 +26,26 @@ import {
   Bell,
   Smartphone,
   Settings,
+  LayoutDashboard,
+  Layers,
+  Monitor,
+  Chrome,
 } from "lucide-react";
 
-export default function DashboardPage() {
-  const { user } = useAuth();
+function getPlatformIcon(platform: string) {
+  const p = (platform || "").toLowerCase();
+  if (p.includes("chrome") || p.includes("ext")) return <Chrome className="w-3.5 h-3.5 shrink-0" />;
+  if (p.includes("web")) return <Monitor className="w-3.5 h-3.5 shrink-0" />;
+  return <Smartphone className="w-3.5 h-3.5 shrink-0" />;
+}
+
+export default function DashboardPage() {  const { user } = useAuth();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("notifications");
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("all");
   const [badges, setBadges] = useState({
+    overview: 0,
     chat: 0,
     sms: 0,
     calls: 0,
@@ -87,12 +99,12 @@ export default function DashboardPage() {
   // Only mobile devices for SMS/Calls/Notifications
   const mobileDevices = devices.filter((d) => {
     const p = (d.platform || "").toLowerCase();
-    const t = (d.type || "").toLowerCase();
+    const tp = (d.type || "").toLowerCase();
     return (
       p !== "web" &&
       p !== "chrome-extension" &&
-      t !== "web" &&
-      t !== "chrome-extension"
+      tp !== "web" &&
+      tp !== "chrome-extension"
     );
   });
 
@@ -111,6 +123,8 @@ export default function DashboardPage() {
 
   const renderTab = () => {
     switch (activeTab) {
+      case "overview":
+        return <DashboardOverviewTab devices={filteredMobileDevices} />;
       case "chat":
         return <ChatTab deviceFilter={deviceFilter} />;
       case "sms":
@@ -127,6 +141,7 @@ export default function DashboardPage() {
   };
 
   const mobileTabIcons: Record<TabId, typeof MessageCircle> = {
+    overview: LayoutDashboard,
     chat: MessageCircle,
     sms: MessageSquare,
     calls: Phone,
@@ -136,33 +151,72 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-bg text-txt">
-      {/* Desktop sidebar */}
+    <div className="flex flex-col h-[100dvh] bg-bg text-txt">
+      {/* Gradient header */}
+      <DashboardHeader
+        devices={deviceList}
+        deviceFilter={deviceFilter}
+        onDeviceFilterChange={setDeviceFilter}
+      />
+
+      {/* Horizontal tab bar */}
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         badges={badges}
       />
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <DashboardHeader
-          devices={deviceList}
-          deviceFilter={deviceFilter}
-          onDeviceFilterChange={setDeviceFilter}
-        />
-
+      {/* Tab content with vertical device sidebar */}
+      <main className="flex-1 flex min-h-0 bg-bg pb-16 md:pb-0 overflow-hidden">
+        {/* Vertical device sidebar — shown for tabs that use device filtering */}
+        {(["chat", "sms", "calls", "notifications", "overview"] as const).includes(activeTab as never) && mobileDevices.length > 0 && (
+          <aside className="hidden md:flex flex-col w-44 shrink-0 border-e border-border bg-surface overflow-y-auto">
+            <div className="p-2 flex flex-col gap-0.5">
+              <button
+                onClick={() => setDeviceFilter("all")}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
+                  deviceFilter === "all"
+                    ? "bg-primary text-white"
+                    : "text-txt-secondary hover:bg-hover hover:text-txt"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{t("chat.allDevices")}</span>
+              </button>
+              {mobileDevices.map((dev) => (
+                <button
+                  key={dev.id}
+                  onClick={() => setDeviceFilter(dev.id)}
+                  className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
+                    deviceFilter === dev.id
+                      ? "bg-primary text-white"
+                      : "text-txt-secondary hover:bg-hover hover:text-txt"
+                  }`}
+                >
+                  {getPlatformIcon(dev.platform || "")}
+                  <span className="truncate">{dev.name || dev.platform || dev.id}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
         {/* Tab content */}
-        <main className="flex-1 flex flex-col min-h-0 bg-bg pb-16 md:pb-0">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {renderTab()}
-        </main>
-      </div>
+        </div>
+      </main>
 
       {/* Mobile bottom bar */}
       <div className="fixed bottom-0 inset-x-0 md:hidden bg-surface/80 backdrop-blur-lg border-t border-border z-40">
         <div className="flex items-center justify-around h-16">
           {(
-            ["notifications", "sms", "chat", "calls", "settings"] as TabId[]
+            [
+              "notifications",
+              "sms",
+              "chat",
+              "calls",
+              "overview",
+            ] as TabId[]
           ).map((tab) => {
             const active = activeTab === tab;
             const Icon = mobileTabIcons[tab];

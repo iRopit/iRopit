@@ -25,6 +25,46 @@ import { styles } from './styles';
 import { useChatScreen } from './useChatScreen';
 
 
+const URL_RE = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+
+const renderTextWithLinks = (
+  content: string,
+  textStyle: object,
+  linkColor: string,
+) => {
+  const parts: { text: string; isLink: boolean }[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((match = URL_RE.exec(content)) !== null) {
+    if (match.index > last) {
+      parts.push({ text: content.slice(last, match.index), isLink: false });
+    }
+    parts.push({ text: match[0], isLink: true });
+    last = match.index + match[0].length;
+  }
+  if (last < content.length) {
+    parts.push({ text: content.slice(last), isLink: false });
+  }
+  return (
+    <Text style={textStyle}>
+      {parts.map((part, i) =>
+        part.isLink ? (
+          <Text
+            key={i}
+            style={{ color: linkColor, textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL(part.text)}
+          >
+            {part.text}
+          </Text>
+        ) : (
+          <Text key={i}>{part.text}</Text>
+        ),
+      )}
+    </Text>
+  );
+};
+
 const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -218,15 +258,13 @@ const ChatScreen = () => {
               </TouchableOpacity>
             )}
 
-            {(!msgType || msgType === 'text') && (
-              <Text
-                style={[
-                  styles.messageText,
-                  { color: isMyMessage ? colors.textInverse : textColor, textAlign: isRTL ? 'right' : 'left' },
-                ]}
-              >
-                {item.content}
-              </Text>
+            {(!msgType || msgType === 'text') && renderTextWithLinks(
+              item.content || '',
+              [
+                styles.messageText,
+                { color: isMyMessage ? colors.textInverse : textColor, textAlign: isRTL ? 'right' : 'left' },
+              ],
+              isMyMessage ? 'rgba(255,255,255,0.85)' : colors.primary,
             )}
 
             <Text

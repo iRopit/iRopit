@@ -12739,6 +12739,13 @@
     const t2 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t2), r = new __PRIVATE_ExpUserDataWriter(t2);
     return __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query), __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query).then(((n2) => new QuerySnapshot(t2, r, e, n2)));
   }
+  function getDocsFromServer(e) {
+    e = __PRIVATE_cast(e, Query);
+    const t2 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t2), r = new __PRIVATE_ExpUserDataWriter(t2);
+    return __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query, {
+      source: "server"
+    }).then(((n2) => new QuerySnapshot(t2, r, e, n2)));
+  }
   function setDoc(e, t2, n) {
     e = __PRIVATE_cast(e, DocumentReference);
     const r = __PRIVATE_cast(e.firestore, Firestore), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t2, n);
@@ -24283,7 +24290,7 @@ ${this.customData.serverResponse}`;
   });
 
   // src/ui/dom.js
-  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, smsModal, newSmsBtn, closeSmsModal, cancelSmsBtn, sendSmsBtn, smsDevice, smsPhone, smsMessage, charCount, callModal, newCallBtn, closeCallModal, cancelCallBtn, sendCallBtn, callDevice, callPhone, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark;
+  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, smsModal, newSmsBtn, closeSmsModal, cancelSmsBtn, sendSmsBtn, smsDevice, smsPhone, smsMessage, charCount, callModal, newCallBtn, closeCallModal, cancelCallBtn, sendCallBtn, callDevice, callPhone, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark, langToggleBtn, langToggleLabel;
   var init_dom = __esm({
     "src/ui/dom.js"() {
       authContainer = document.getElementById("authContainer");
@@ -24341,6 +24348,8 @@ ${this.customData.serverResponse}`;
       themeToggleBtn = document.getElementById("themeToggleBtn");
       themeIconLight = document.getElementById("themeIconLight");
       themeIconDark = document.getElementById("themeIconDark");
+      langToggleBtn = document.getElementById("langToggleBtn");
+      langToggleLabel = document.getElementById("langToggleLabel");
     }
   });
 
@@ -24415,6 +24424,7 @@ ${this.customData.serverResponse}`;
           empty_notifications: "No notifications yet",
           empty_notifications_sub: "Notifications from your phone will appear here",
           tooltip_toggle_theme: "Toggle dark mode",
+          tooltip_toggle_language: "Switch to Arabic",
           tooltip_refresh: "Refresh",
           tooltip_settings: "Settings",
           tooltip_select_messages: "Select messages",
@@ -24499,6 +24509,7 @@ ${this.customData.serverResponse}`;
           empty_notifications: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0628\u0639\u062F",
           empty_notifications_sub: "\u0633\u062A\u0638\u0647\u0631 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
           tooltip_toggle_theme: "\u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064A\u0644\u064A",
+          tooltip_toggle_language: "\u0627\u0644\u062A\u0628\u062F\u064A\u0644 \u0625\u0644\u0649 \u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629",
           tooltip_refresh: "\u062A\u062D\u062F\u064A\u062B",
           tooltip_settings: "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
           tooltip_select_messages: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
@@ -26877,8 +26888,10 @@ ${this.customData.serverResponse}`;
     stopSMSListener();
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
+    let cachedSMSData = null;
     try {
       const cached = await getCachedSMS();
+      cachedSMSData = cached;
       if (cached && cached.allMessages && cached.allMessages.length > 0) {
         const hasEncryptedCache = cached.allMessages.some(
           (msg) => msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:") || msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:") || msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:") || msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:") || msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:")
@@ -26919,13 +26932,14 @@ ${this.customData.serverResponse}`;
     showSyncIndicator();
     console.log(`[SMS] Loading fresh SMS for user: ${user.uid}`);
     smsLogger.info(`Loading SMS for user: ${user.uid}`);
+    const fetchDocs = hasCachedData ? getDocs : getDocsFromServer;
     try {
       const devicesQuery = query(
         collection(db, COLLECTIONS.DEVICES),
         where("userId", "==", user.uid)
       );
       smsLogger.debug("Fetching devices...");
-      const devicesSnapshot = await getDocs(devicesQuery);
+      const devicesSnapshot = await fetchDocs(devicesQuery);
       console.log(
         `[SMS] Found ${devicesSnapshot.size} devices for user ${user.uid}`
       );
@@ -26955,7 +26969,8 @@ ${this.customData.serverResponse}`;
         };
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
-        const isDelta = !!cachedNewestTs;
+        const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
+        const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE;
         let q2;
         if (isDelta) {
           q2 = query(
@@ -26988,7 +27003,7 @@ ${this.customData.serverResponse}`;
           );
         }
         try {
-          const snapshot = await getDocs(q2);
+          const snapshot = await fetchDocs(q2);
           console.log(
             `[SMS] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} messages from device ${device.id}`
           );
@@ -29670,7 +29685,7 @@ ${this.customData.serverResponse}`;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
-  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
     const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b/i;
@@ -31285,9 +31300,28 @@ ${this.customData.serverResponse}`;
       return true;
     });
   }
+  function initLangToggle() {
+    const btn = document.getElementById("langToggleBtn");
+    const label = document.getElementById("langToggleLabel");
+    if (!btn || !label) return;
+    const updateLabel = (lang) => {
+      label.textContent = lang === "ar" ? "EN" : "AR";
+      btn.title = lang === "ar" ? "Switch to English" : "Switch to Arabic";
+      document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+    };
+    updateLabel(getCurrentLanguage());
+    btn.addEventListener("click", () => {
+      const current = getCurrentLanguage();
+      const next = current === "ar" ? "en" : "ar";
+      setCurrentLanguage(next);
+      updateLabel(next);
+      applyTranslations();
+    });
+  }
   function init() {
     showLoadingOverlay();
     initTheme();
+    initLangToggle();
     applyTranslations();
     initTabs();
     initDashboard();

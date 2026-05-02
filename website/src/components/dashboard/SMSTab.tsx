@@ -29,6 +29,8 @@ import {
   Check,
   AlertTriangle,
   Loader2,
+  Download,
+  CheckCheck,
 } from "lucide-react";
 
 interface SMSTabProps {
@@ -79,6 +81,9 @@ export default function SMSTab({ devices }: SMSTabProps) {
 
   const contactSearchRef = useRef<HTMLInputElement>(null);
 
+  // Unread filter
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+
   // Mobile devices only for sending
   const mobileDevices = devices.filter((d) => {
     const p = (d.platform || "").toLowerCase();
@@ -119,13 +124,20 @@ export default function SMSTab({ devices }: SMSTabProps) {
     }
   }, [showCompose, mobileDevices, composeDevice]);
 
-  const filtered = search
-    ? conversations.filter(
+  const filtered = (() => {
+    let result = conversations;
+    if (search) {
+      result = result.filter(
         (c) =>
           c.contactName.toLowerCase().includes(search.toLowerCase()) ||
           c.phoneNumber.includes(search),
-      )
-    : conversations;
+      );
+    }
+    if (showUnreadOnly) {
+      result = result.filter((c) => c.unreadCount > 0);
+    }
+    return result;
+  })();
 
   const filteredContacts = searchContacts(contacts, contactSearch);
 
@@ -270,6 +282,48 @@ export default function SMSTab({ devices }: SMSTabProps) {
       setReplySending(false);
     }
   }, [user, selectedConv, replyText, mobileDevices, t]);
+
+  // Mark all conversations as read
+  const handleMarkAllRead = useCallback(async () => {
+    if (!user) return;
+    for (const conv of conversations) {
+      if (conv.unreadCount > 0) {
+        const unreadIds = conv.messages.filter((m) => !m.read).map((m) => m.id);
+        if (unreadIds.length > 0) {
+          await markSMSAsRead(user.uid, conv.deviceId, unreadIds);
+        }
+      }
+    }
+  }, [user, conversations]);
+
+  // Export conversations to CSV
+  const handleExportCsv = useCallback(() => {
+    const rows: string[] = [
+      "Contact,Phone,Message,Time,Type,Device",
+    ];
+    for (const conv of conversations) {
+      for (const msg of conv.messages) {
+        const safe = (v: string) => `"${v.replace(/"/g, '""')}"`;
+        rows.push(
+          [
+            safe(msg.contactName),
+            safe(msg.phoneNumber),
+            safe(msg.body),
+            new Date(msg.timestamp).toISOString(),
+            msg.type,
+            safe(msg.deviceName),
+          ].join(","),
+        );
+      }
+    }
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `iropit-sms-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [conversations]);
 
   // ─── Compose Modal ───
   const composeModal = showCompose && (
@@ -639,6 +693,38 @@ export default function SMSTab({ devices }: SMSTabProps) {
             title={t("sms.newSms")}
           >
             <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Action toolbar */}
+        <div className="flex items-center gap-2 mt-2">
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showUnreadOnly}
+              onChange={(e) => setShowUnreadOnly(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary"
+            />
+            <span className="text-xs text-txt-secondary">
+              {t("sms.showUnread")}
+            </span>
+          </label>
+          <div className="flex-1" />
+          <button
+            onClick={handleMarkAllRead}
+            title={t("sms.markAllRead")}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-secondary hover:bg-surface-tertiary text-xs text-txt-secondary hover:text-txt transition"
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">{t("sms.markAllRead")}</span>
+          </button>
+          <button
+            onClick={handleExportCsv}
+            title={t("sms.exportCsv")}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-secondary hover:bg-surface-tertiary text-xs text-txt-secondary hover:text-txt transition"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">{t("sms.exportCsv")}</span>
           </button>
         </div>
       </div>
