@@ -15,11 +15,14 @@ import {
   type User,
 } from "firebase/auth";
 import {
+  initializeFirestore,
   getFirestore,
+  memoryLocalCache,
   collection,
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   addDoc,
   deleteDoc,
@@ -61,10 +64,15 @@ const firebaseConfig = {
     process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-CFH48HR9R2",
 };
 
-const app =
-  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Only initialize Firestore with memory cache when the app is brand-new.
+// Hot-reloads and subsequent imports reuse the existing instance.
+const isNewApp = getApps().length === 0;
+const app = isNewApp ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Memory-only cache — no IndexedDB persistence, so no stale data after sign-out/sign-in
+const db = isNewApp
+  ? initializeFirestore(app, { localCache: memoryLocalCache() })
+  : getFirestore(app);
 const storage = getStorage(app);
 
 let messaging: ReturnType<typeof getMessaging> | null = null;
@@ -99,6 +107,7 @@ export {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   addDoc,
   deleteDoc,

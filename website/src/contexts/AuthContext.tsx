@@ -100,6 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await firebaseSignOut(auth);
+    // Delete Firestore IndexedDB so next login always reads fresh from server
+    if (typeof indexedDB !== "undefined") {
+      const dbName = `firestore/[DEFAULT]/iropit-64ea0/main`;
+      try { indexedDB.deleteDatabase(dbName); } catch { /* ignore */ }
+    }
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {

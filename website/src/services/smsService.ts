@@ -4,7 +4,6 @@ import {
   query,
   where,
   orderBy,
-  limit,
   onSnapshot,
   writeBatch,
   doc,
@@ -38,7 +37,12 @@ export interface SMSConversation {
 
 function normalizePhoneNumber(phone: string): string {
   if (!phone) return "";
-  let cleaned = phone.replace(/[^\d+]/g, "");
+  const stripped = phone.replace(/[^\d+]/g, "");
+  if (!stripped) {
+    // Alphanumeric sender (e.g., "HSBC", "CIB", "Orange") — preserve as lowercase key
+    return phone.trim().toLowerCase();
+  }
+  let cleaned = stripped;
   if (cleaned.startsWith("+20")) cleaned = "0" + cleaned.slice(3);
   else if (cleaned.startsWith("20") && cleaned.length > 10)
     cleaned = "0" + cleaned.slice(2);
@@ -114,14 +118,16 @@ export function subscribeToSMS(
   });
 
   for (const device of mobileDevices) {
+    // No limit — Firestore now uses memory-only cache so all reads go to server
     const q = query(
       collection(db, "users", userId, "devices", device.id, "notifications"),
       where("type", "==", "sms"),
       orderBy("timestamp", "desc"),
-      limit(500),
     );
 
-    const unsub = onSnapshot(q, async (snapshot) => {
+    const unsub = onSnapshot(
+      q,
+      async (snapshot) => {
       const messages: SMSMessage[] = [];
 
       for (const d of snapshot.docs) {
@@ -134,7 +140,6 @@ export function subscribeToSMS(
           "") as string;
         let contactName = resolveContactName(data, phoneNumber);
 
-        // Decrypt fields
         phoneNumber = await decrypt(phoneNumber, userId);
         body = await decrypt(body, userId);
         contactName = await decrypt(contactName, userId);
@@ -160,6 +165,9 @@ export function subscribeToSMS(
 
       allMessages.set(device.id, messages);
       callback(buildConversations(allMessages));
+    },
+    (error) => {
+      console.error(`[SMS] onSnapshot error for device ${device.id}:`, error);
     });
 
     unsubscribes.push(unsub);
