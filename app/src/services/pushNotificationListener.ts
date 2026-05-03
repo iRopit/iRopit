@@ -5,6 +5,7 @@
  */
 
 import firestore from '@react-native-firebase/firestore';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import { useAuthStore } from '../store/authStore';
 import { useDeviceStore } from '../store/deviceStore';
 import { showGlobalNotification } from '../contexts/InAppNotificationContext';
@@ -54,6 +55,46 @@ export function startPushNotificationListener() {
                 duration: 5000,
                 skipIfOnChat: true,
               });
+            }
+
+            // Show native Android notification with action buttons
+            try {
+              const msgBody = notification.notification?.body || '';
+              const chatId  = notification.data?.chatId || notification.data?.messageId || '';
+
+              // Ensure channel exists before displaying — NotificationContext may not have
+              // run yet if this fires early in the app lifecycle or from a background wake
+              await notifee.createChannel({
+                id: 'iropit_chat',
+                name: 'Chat Messages',
+                importance: AndroidImportance.HIGH,
+                sound: 'default',
+                vibration: true,
+              });
+
+              await notifee.displayNotification({
+                id: change.doc.id,
+                title: notification.notification?.title || 'New Message',
+                body: msgBody,
+                data: {
+                  messageBody: msgBody,
+                  pushDocId: change.doc.id,
+                  chatId,
+                },
+                android: {
+                  channelId: 'iropit_chat',
+                  importance: AndroidImportance.HIGH,
+                  smallIcon: 'ic_notification',
+                  pressAction: { id: 'default' },
+                  actions: [
+                    { title: 'Copy',   pressAction: { id: 'copy_message' } },
+                    { title: 'Delete', pressAction: { id: 'delete_message' } },
+                    { title: 'Share',  pressAction: { id: 'share_message', launchActivity: 'default' } },
+                  ],
+                },
+              });
+            } catch (notifErr) {
+              console.error('[PushNotificationListener] Failed to show notification:', notifErr);
             }
 
             // Mark as delivered

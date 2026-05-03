@@ -24460,10 +24460,13 @@ ${this.customData.serverResponse}`;
           dash_sms: "SMS",
           dash_calls: "Calls",
           dash_notifications: "Notifications",
+          dash_devices: "Devices",
+          dash_devices_title: "Connected Devices",
           dash_insights_title: "SMS Spending Insights",
           dash_insights_empty_filter: "Apply a date filter to see spending analysis",
           dash_insights_no_sms: "No SMS data in selected range",
           dash_insights_no_financial: "No financial SMS detected in selected range",
+          dash_insights_all_devices: "All Devices",
           dash_spent: "Spent",
           dash_received: "Received",
           dash_net: "Net",
@@ -24545,10 +24548,13 @@ ${this.customData.serverResponse}`;
           dash_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           dash_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          dash_devices: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629",
+          dash_devices_title: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629 \u0627\u0644\u0645\u062A\u0635\u0644\u0629",
           dash_insights_title: "\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_insights_empty_filter: "\u0637\u0628\u0651\u0642 \u0641\u0644\u062A\u0631 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0644\u0639\u0631\u0636 \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642",
           dash_insights_no_sms: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F",
           dash_insights_no_financial: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 \u0631\u0633\u0627\u0626\u0644 \u0645\u0627\u0644\u064A\u0629 \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F",
+          dash_insights_all_devices: "\u0643\u0644 \u0627\u0644\u0623\u062C\u0647\u0632\u0629",
           dash_spent: "\u0627\u0644\u0645\u0635\u0631\u0648\u0641",
           dash_received: "\u0627\u0644\u0645\u0633\u062A\u0644\u0645",
           dash_net: "\u0627\u0644\u0635\u0627\u0641\u064A",
@@ -29493,6 +29499,8 @@ ${this.customData.serverResponse}`;
 
   // src/ui/dashboard.js
   init_i18n();
+  init_state();
+  init_helpers();
   function t(key) {
     const lang = getCurrentLanguage();
     return translations[lang] && translations[lang][key] || translations["en"][key] || key;
@@ -29562,6 +29570,9 @@ ${this.customData.serverResponse}`;
     const callsCountEl = document.getElementById("dashCallsCount");
     const notifCountEl = document.getElementById("dashNotifCount");
     const breakdownList = document.getElementById("dashBreakdownList");
+    const insightsTabsContainer = document.getElementById("dashInsightsDeviceTabs");
+    const _earlyActive = insightsTabsContainer ? insightsTabsContainer.querySelector(".device-tab.active") : null;
+    const selectedInsightsDevice = _earlyActive ? _earlyActive.dataset.device : "all";
     if (!fromInput || !toInput || !breakdownList) return;
     const fromVal = fromInput.value;
     const toVal = toInput.value;
@@ -29591,24 +29602,27 @@ ${this.customData.serverResponse}`;
       const ts = n.timestamp || n.receivedAt || 0;
       return ts >= fromTs && ts <= toTs;
     });
-    if (smsCountEl) smsCountEl.textContent = filteredSms.length;
-    if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
-    if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
+    const deviceSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+    const deviceCalls = selectedInsightsDevice === "all" ? filteredCalls : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
+    const deviceNotifs = selectedInsightsDevice === "all" ? filteredNotifs : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
+    if (smsCountEl) smsCountEl.textContent = deviceSms.length;
+    if (callsCountEl) callsCountEl.textContent = deviceCalls.length;
+    if (notifCountEl) notifCountEl.textContent = deviceNotifs.length;
     const byDate = {};
-    for (const n of filteredNotifs) {
+    for (const n of deviceNotifs) {
       const ts = n.timestamp || n.receivedAt || 0;
       const dateKey = toDateStr(ts);
       if (!byDate[dateKey]) byDate[dateKey] = [];
       byDate[dateKey].push({ ...n, _ts: ts });
     }
     const smsByDate = {};
-    for (const m of filteredSms) {
+    for (const m of deviceSms) {
       const ts = m.timestamp || m.receivedAt || 0;
       const dk = toDateStr(ts);
       smsByDate[dk] = (smsByDate[dk] || 0) + 1;
     }
     const callsByDate = {};
-    for (const c of filteredCalls) {
+    for (const c of deviceCalls) {
       const ts = c.timestamp || c.callDate || 0;
       const dk = toDateStr(ts);
       callsByDate[dk] = (callsByDate[dk] || 0) + 1;
@@ -29630,7 +29644,46 @@ ${this.customData.serverResponse}`;
     </div>`;
       return;
     }
-    renderSmsInsights(filteredSms);
+    if (insightsTabsContainer) {
+      const mobileDevices = (devices || []).filter(
+        (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
+      );
+      const smsByDevice = {};
+      for (const m of filteredSms) {
+        const did = m.deviceId || "unknown";
+        smsByDevice[did] = (smsByDevice[did] || 0) + 1;
+      }
+      const totalSms = filteredSms.length;
+      const fmtCount = (n) => n > 99 ? "99+" : String(n);
+      insightsTabsContainer.innerHTML = `<button class="device-tab" data-device="all">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+          <path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+        <span>${t("dash_insights_all_devices")}</span>
+        ${totalSms > 0 ? `<span class="dash-device-list-count">(${fmtCount(totalSms)})</span>` : ""}
+      </button>` + mobileDevices.map((d) => {
+        const platform = (d.platform || "").toLowerCase();
+        const cnt = smsByDevice[d.id] || 0;
+        return `<button class="device-tab" data-device="${escapeHtml2(d.id)}">
+          ${getPlatformIcon(platform)}
+          <span>${escapeHtml2(getFriendlyDeviceName(d))}</span>
+          ${cnt > 0 ? `<span class="dash-device-list-count">(${fmtCount(cnt)})</span>` : ""}
+        </button>`;
+      }).join("");
+      const toActivate = insightsTabsContainer.querySelector(`[data-device="${escapeHtml2(selectedInsightsDevice)}"]`) || insightsTabsContainer.querySelector('[data-device="all"]');
+      if (toActivate) toActivate.classList.add("active");
+      insightsTabsContainer.querySelectorAll(".device-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          insightsTabsContainer.querySelectorAll(".device-tab").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          renderDashboard();
+        });
+      });
+    }
+    renderSmsInsights(deviceSms);
     const html = sortedDates.map((dateKey) => {
       const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
       const smsCount = smsByDate[dateKey] || 0;
@@ -29681,8 +29734,11 @@ ${this.customData.serverResponse}`;
     "\u20B9": "INR",
     "\uFDFC": "SAR"
   };
-  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|pay|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
+  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
+  var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+  var PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
+  var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
   var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
@@ -29693,6 +29749,7 @@ ${this.customData.serverResponse}`;
   }
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
+    if (CARD_BILL_PAYMENT_RE.test(body)) return [];
     const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
@@ -29715,8 +29772,10 @@ ${this.customData.serverResponse}`;
       const ctx = masked.slice(start2, end);
       const isDebit = DEBIT_KEYWORDS.test(ctx);
       const isCredit = CREDIT_KEYWORDS.test(ctx);
-      if (!isDebit && !isCredit) continue;
-      const type = isCredit && !isDebit ? "credit" : "debit";
+      const isPaymentReceivedOnCard = PAYMENT_RECEIVED_ON_CARD_RE.test(ctx);
+      if (!isDebit && !isCredit && !isPaymentReceivedOnCard) continue;
+      if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
+      const type = isPaymentReceivedOnCard || isCredit && !isDebit ? "credit" : "debit";
       const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
       const key = `${currency}:${c.amount}:${type}`;
       if (seen.has(key)) continue;
@@ -29728,7 +29787,17 @@ ${this.customData.serverResponse}`;
   function analyzeSmsSpending(smsMessages) {
     const byCurrency = {};
     const byDate = {};
-    for (const msg of smsMessages) {
+    const seenBodies = /* @__PURE__ */ new Set();
+    const dedupedMessages = smsMessages.filter((msg) => {
+      const body = (msg.body || msg.text || msg.content || "").trim();
+      if (!body) return true;
+      const window5m = Math.floor((msg.timestamp || msg.receivedAt || 0) / 3e5);
+      const key = `${window5m}_${body}`;
+      if (seenBodies.has(key)) return false;
+      seenBodies.add(key);
+      return true;
+    });
+    for (const msg of dedupedMessages) {
       const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
       const sender = msg.sender || msg.address || "Unknown";

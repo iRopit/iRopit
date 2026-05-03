@@ -624,6 +624,14 @@ public class NotificationService extends NotificationListenerService {
             Log.i(TAG, "🟢 WHATSAPP NOTIFICATION ACCEPTED AND WILL BE SAVED!");
         }
 
+        // Skip media playback/status notifications (Spotify, YouTube Music, etc.)
+        // These notifications update very frequently while music is playing and are
+        // not meaningful events for notification sync.
+        if (isMediaPlaybackNotification(notification, packageName, title, text)) {
+            Log.d(TAG, "Skipping media playback notification: " + packageName + " - " + key);
+            return;
+        }
+
         // Always send to Firebase (works even when app is closed)
         sendToFirebase(sbn.getId(), key, packageName, title, text, bigText, subText,
                 type, postTime, appName, isMissedCall, appIcon, extractedPhoneNumber);
@@ -658,14 +666,6 @@ public class NotificationService extends NotificationListenerService {
      */
     private void sendToFirebase(int id, String key, String packageName, String title,
             String text, String bigText, String subText, String type,
-
-        // Skip media playback/status notifications (Spotify, YouTube Music, etc.)
-        // These notifications update very frequently while music is playing and are
-        // not meaningful events for notification sync.
-        if (isMediaPlaybackNotification(notification, packageName, title, text)) {
-            Log.d(TAG, "Skipping media playback notification: " + packageName + " - " + key);
-            return;
-        }
             long timestamp, String appName, boolean isMissedCall, String appIcon,
             String extractedPhoneNumber) {
         try {

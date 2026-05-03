@@ -21,6 +21,7 @@ import notifee, {
   Notification,
   Event,
 } from '@notifee/react-native';
+import { handleChatNotificationAction } from '../services/chatNotificationActions';
 
 // Types
 export type NotificationType = 'sms' | 'call' | 'chat' | 'system' | 'alert';
@@ -207,6 +208,15 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
               lastNotification: detail.notification!,
             }));
             onNotificationPress?.(detail.notification);
+          }
+          break;
+        case EventType.ACTION_PRESS:
+          if (detail.pressAction?.id && detail.notification) {
+            handleChatNotificationAction(
+              detail.pressAction.id,
+              (detail.notification.data || {}) as Record<string, string>,
+              detail.notification.id,
+            );
           }
           break;
         case EventType.DELIVERED:

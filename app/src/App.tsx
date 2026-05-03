@@ -14,6 +14,8 @@ import {
 } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import messaging from '@react-native-firebase/messaging';
+// @ts-ignore
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import RootNavigator from './navigation/RootNavigator';
 import { navigationRef } from './navigation/navigationRef';
 import { useAuthStore } from './store/authStore';
@@ -136,11 +138,40 @@ const AppContent = () => {
     // Handle foreground FCM messages (push notifications when app is open)
     const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
       console.log('[FCM] Foreground message received:', remoteMessage);
-      // Show professional in-app toast notification (skip if on Chat screen)
-      if (remoteMessage.notification) {
+
+      const msgType  = remoteMessage.data?.type;
+      const title    = remoteMessage.notification?.title || remoteMessage.data?.senderName || 'New Message';
+      const msgBody  = remoteMessage.notification?.body  || remoteMessage.data?.messagePreview || '';
+      const chatId   = remoteMessage.data?.chatId   || remoteMessage.data?.messageId || '';
+      const pushDocId = remoteMessage.data?.pushDocId || '';
+
+      if (msgType === 'chat') {
+        // Show notifee notification with action buttons for chat messages
+        try {
+          await notifee.displayNotification({
+            title,
+            body: msgBody,
+            data: { messageBody: msgBody, pushDocId, chatId },
+            android: {
+              channelId: 'iropit_chat',
+              importance: AndroidImportance.HIGH,
+              smallIcon: 'ic_notification',
+              pressAction: { id: 'default' },
+              actions: [
+                { title: 'Copy',   pressAction: { id: 'copy_message' } },
+                { title: 'Delete', pressAction: { id: 'delete_message' } },
+                { title: 'Share',  pressAction: { id: 'share_message', launchActivity: 'default' } },
+              ],
+            },
+          });
+        } catch (e) {
+          console.error('[FCM] Failed to show notifee notification:', e);
+        }
+      } else if (remoteMessage.notification) {
+        // Non-chat notifications: show in-app toast as before
         showGlobalNotification({
-          title: remoteMessage.notification.title || 'New Message',
-          message: remoteMessage.notification.body || '',
+          title,
+          message: msgBody,
           type: 'info',
           duration: 5000,
           skipIfOnChat: true,

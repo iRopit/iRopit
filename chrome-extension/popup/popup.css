@@ -455,12 +455,60 @@ body[dir="rtl"] {
   display: block;
 }
 
-#dashboardTab .dashboard-breakdown {
+#dashboardTab.active {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+  background: var(--background);
+}
+
+#dashInsightsDeviceTabs {
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border-bottom: none !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 8px !important;
+  width: 200px;
+  min-width: 200px;
+  flex-shrink: 0;
+  gap: 4px !important;
+  align-items: stretch;
+}
+
+#dashInsightsDeviceTabs::-webkit-scrollbar {
+  width: 4px;
+  height: 0;
+}
+
+#dashInsightsDeviceTabs .device-tab {
+  padding: 8px 6px;
+  border-radius: 8px;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.dash-main .dashboard-breakdown {
   flex: none;
   overflow: visible;
 }
 
-#dashboardTab .dashboard-breakdown-list {
+.dash-main .dashboard-breakdown-list {
   overflow-y: visible;
   max-height: none;
 }
@@ -3406,7 +3454,6 @@ html.dark .profile-logout-btn-footer {
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .dashboard-date-group {
@@ -3496,6 +3543,11 @@ html.dark .profile-logout-btn-footer {
 .dash-stat-notif {
   background: color-mix(in srgb, var(--warning) 15%, transparent);
   color: var(--warning);
+}
+
+.dash-stat-devices {
+  background: color-mix(in srgb, #6366f1 15%, transparent);
+  color: #818cf8;
 }
 
 .dash-stat-info {
@@ -3666,6 +3718,70 @@ html.dark .profile-logout-btn-footer {
   margin-top: 2px;
 }
 
+/* ── Dashboard Device List ─────────────────────────────────────────── */
+.dash-device-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.dash-device-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, #6366f1 15%, transparent);
+  color: #818cf8;
+}
+
+.dash-device-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-device-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-device-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-device-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.dash-device-status.online {
+  background: rgba(16, 185, 129, 0.2);
+  color: #4ade80;
+}
+
+.dash-device-status.offline {
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+  color: var(--text-secondary);
+}
+
 html.dark .dash-stat-sms {
   background: rgba(213,193,158,0.2);
 }
@@ -3674,6 +3790,13 @@ html.dark .dash-stat-sms {
 .dashboard-insights {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+}
+
+.dash-device-list-count {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.75;
+  flex-shrink: 0;
 }
 
 .dash-insights-body {

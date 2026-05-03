@@ -123,6 +123,7 @@ const ChatScreen = () => {
     takePhoto,
     pickDocument,
     sendMessage,
+    deleteMessage,
     deleteAllMessages,
   } = useChatScreen();
 
@@ -190,6 +191,12 @@ const ChatScreen = () => {
                     }
                   },
                 });
+                options.push({
+                  text: 'Share',
+                  onPress: () => {
+                    Share.share({ message: item.content });
+                  },
+                });
               }
               if (msgType === 'image' && fileUrl) {
                 options.push({
@@ -204,6 +211,20 @@ const ChatScreen = () => {
                 });
               }
               options.push({ text: 'Reply', onPress: () => setReplyMessage(item) });
+              options.push({
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => {
+                  Alert.alert(
+                    'Delete Message',
+                    'Delete this message?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => deleteMessage(item.id) },
+                    ],
+                  );
+                },
+              });
               options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
               Alert.alert('Message Options', undefined, options);
             }}

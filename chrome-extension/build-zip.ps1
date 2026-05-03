@@ -1,5 +1,6 @@
-$extDir = "D:\my work\Dev\ZyncIT\chrome-extension"
-$zipPath = Join-Path $extDir "IRopit-Extension-v1.0.0.zip"
+$extDir = $PSScriptRoot
+$version = (Get-Content (Join-Path $extDir "manifest.json") | ConvertFrom-Json).version
+$zipPath = Join-Path $extDir "IRopit-Extension-v$version.zip"
 
 # Remove old zip
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }

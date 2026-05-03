@@ -490,6 +490,21 @@ export const useChatScreen = () => {
     });
   }, [inputText, user?.uid, currentDevice, replyTo, isRTL, selectedDeviceId, devices]);
 
+  // Delete a single message
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await firestore().collection('chats').doc(messageId).delete();
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(isRTL ? 'تم حذف الرسالة' : 'Message deleted', ToastAndroid.SHORT);
+      }
+    } catch (_error) {
+      Alert.alert(
+        isRTL ? 'خطأ' : 'Error',
+        isRTL ? 'فشل حذف الرسالة' : 'Failed to delete message',
+      );
+    }
+  }, [isRTL]);
+
   // Delete all messages
   const deleteAllMessages = useCallback(async () => {
     if (messages.length === 0) {
@@ -596,6 +611,7 @@ export const useChatScreen = () => {
     takePhoto,
     pickDocument,
     sendMessage,
+    deleteMessage,
     deleteAllMessages,
     scrollToEnd,
   };
