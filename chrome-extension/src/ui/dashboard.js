@@ -312,16 +312,21 @@ const CURRENCY_MAP = {
   EGP: "EGP", JOD: "JOD", USD: "USD", GBP: "GBP", EUR: "EUR", INR: "INR",
   PKR: "PKR", MYR: "MYR", TRY: "TRY",
   "$": "USD", "£": "GBP", "€": "EUR", "₹": "INR", "﷼": "SAR",
+  "جم": "EGP", "ج.م": "EGP",
 };
 
 const CURRENCY_REGEX_STR =
-  "(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|\\$|£|€|₹|﷼)";
+  "(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|\\$|£|€|₹|﷼|جم|ج\\.م)";
 
 // Keywords that indicate a DEBIT (spending)
 // Proximity-based debit/credit keywords (checked within ±120 chars of each amount)
-const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
+// Includes English keywords with word boundaries AND Arabic keywords
+// NOTE: تحويل alone removed — it appears in both incoming and outgoing transfer SMS.
+// Instead use specific directional phrases: من حسابك (from your account) = debit, إلى حسابك = credit.
+const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
 // NOTE: "received" removed — banks say "we received your payment" which is a DEBIT for the customer
-const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
+// Arabic: إلى حسابك (to your account) indicates incoming/credit
+const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(تم\s+إيداع|إيداع|تم\s+رد|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك)/i;
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
@@ -331,14 +336,32 @@ const PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+recei
 // Pending/future-tense signals — if present alongside a credit keyword, the transaction hasn't happened yet
 const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
 
-// Mask balance figures — keyword BEFORE amount: "balance: AED 5,000" OR "limit is AED 5,000"
-const BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
-// Mask balance figures — amount BEFORE keyword: "AED 5,000 balance" / "AED 5,000 is your available balance"
-const BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
+const CURR = "SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼]";
+
+// Mask balance figures — English keyword BEFORE amount: "balance: AED 5,000" / "available limit 5,000"
+const BALANCE_MASK_RE_A = new RegExp(
+  "\\b(balance|bal\\.?|avail(?:able)?\\.?|remaining|rem\\.?|limit|outstanding|due|minimum|min\\.?|opening|closing|cr\\.?\\s*bal|dr\\.?\\s*bal)" +
+  "\\s*(?:is\\s+|are\\s+)?[:\\-]?\\s*" +
+  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?",
+  "gi"
+);
+// Mask balance figures — Arabic keyword BEFORE amount: "الرصيد المتاح 14072.37 EGP" / "الرصيد 5000"
+const BALANCE_MASK_RE_AR_A = /(الرصيد\s+المتاح|الرصيد|رصيد|الحد\s+الائتماني|الحد|المستحق|المحفوظ|رصيدك)\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼جم])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?/gi;
+// Mask balance figures — amount BEFORE English keyword: "AED 5,000 balance" / "5,000 is your available balance"
+const BALANCE_MASK_RE_B = new RegExp(
+  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?\\s*" +
+  "(?:is\\s+(?:your\\s+|the\\s+)?)?(?:(?:current|available|total|avail|new|updated)\\s+)?" +
+  "\\b(balance|bal\\b|available\\b|avail\\b|limit\\b|outstanding\\b)",
+  "gi"
+);
+// Mask balance figures — amount BEFORE Arabic keyword: "14072.37 EGP الرصيد المتاح"
+const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?\s*(الرصيد\s+المتاح|الرصيد|رصيد|الحد|المستحق|المحفوظ|رصيدك)/gi;
+
 // Unified regex to find all currency+amount candidates with their text position
 // The second alternative uses (?<!\w) to prevent matching digits embedded in card/account
 // numbers like "XXXX1311 USD" where 1311 is part of the card number, not an amount.
-const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+// Supports Arabic currency abbreviations: جم (Egyptian Pound)
+const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م))/gi;
 
 /**
  * Returns true if the SMS body looks like a bank/card transaction alert.
@@ -347,8 +370,8 @@ const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|M
 function isBankingSMS(body) {
   if (!body || typeof body !== "string") return false;
 
-  // Strong signals — any one of these is enough
-  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b/i;
+  // Strong signals — any one of these is enough (English and Arabic)
+  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(خصم|تحويل|سحب|رسوم|بطاقة|حساب|عميل|الراتب|استخدام|عملية|معاملة|تم\s+خصم|تم\s+تحويل)/i;
 
   return STRONG.test(body);
 }
@@ -364,8 +387,15 @@ function extractTransactions(body) {
   // Skip credit card bill payment confirmations — these are not purchases/spending
   if (CARD_BILL_PAYMENT_RE.test(body)) return [];
 
-  // Step 1: Mask balance/informational amounts in both directions
+  // Step 1: Mask balance/informational amounts in both directions (English + Arabic, keyword-before and amount-before)
+  // Reset lastIndex on all global regexes before use
+  BALANCE_MASK_RE_A.lastIndex = 0;
+  BALANCE_MASK_RE_AR_A.lastIndex = 0;
+  BALANCE_MASK_RE_B.lastIndex = 0;
+  BALANCE_MASK_RE_AR_B.lastIndex = 0;
   const masked = body
+    .replace(BALANCE_MASK_RE_AR_A, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_AR_B, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_A, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length));
 

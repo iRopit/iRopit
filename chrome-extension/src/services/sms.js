@@ -1470,23 +1470,37 @@ export function showConversation(phoneNumber) {
         ${conversation
           .map(
             (msg) => `
-          <div class="message-bubble ${
+          <div class="chat-message-wrapper ${
             msg.direction === "outgoing" || msg.type === "sent"
               ? "sent"
               : "received"
-          }" data-msg-id="${escapeHtml(msg.id)}">
-            <div class="message-text">${linkifyText(msg.body || "")}</div>
-            <div class="message-footer">
-              <span class="message-time">${formatTime(msg.timestamp)}</span>
-              ${
-                msg.deviceName
-                  ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
-                  : ""
-              }
-              ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
-              <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          }">
+            <div class="message-bubble ${
+              msg.direction === "outgoing" || msg.type === "sent"
+                ? "sent"
+                : "received"
+            }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
+              <div class="message-text">${linkifyText(msg.body || "")}</div>
+              <div class="message-footer">
+                <span class="message-time">${formatTime(msg.timestamp)}</span>
+                ${
+                  msg.deviceName
+                    ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
+                    : ""
+                }
+                ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-message-actions">
+              <button class="chat-action-btn copy-msg-btn" title="Copy text">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                 </svg>
               </button>
             </div>
@@ -1640,6 +1654,22 @@ export function showConversation(phoneNumber) {
       const msgId = btn.dataset.id;
       if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "حذف هذه الرسالة؟" : "Delete this message?")) {
         deleteSingleSms(msgId);
+      }
+    });
+  });
+
+  // Add copy message handlers
+  document.querySelectorAll(".copy-msg-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msgBubble = btn.closest(".chat-message-wrapper")?.querySelector(".message-bubble");
+      const text = msgBubble?.dataset.msgContent || "";
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
+        }).catch(() => {
+          showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+        });
       }
     });
   });

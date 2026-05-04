@@ -27794,15 +27794,25 @@ ${this.customData.serverResponse}`;
       <div class="conversation-messages">
         ${conversation.map(
       (msg) => `
-          <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}">
-            <div class="message-text">${linkifyText2(msg.body || "")}</div>
-            <div class="message-footer">
-              <span class="message-time">${formatTime(msg.timestamp)}</span>
-              ${msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : ""}
-              ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
-              <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
+            <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
+              <div class="message-text">${linkifyText2(msg.body || "")}</div>
+              <div class="message-footer">
+                <span class="message-time">${formatTime(msg.timestamp)}</span>
+                ${msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : ""}
+                ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-message-actions">
+              <button class="chat-action-btn copy-msg-btn" title="Copy text">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                 </svg>
               </button>
             </div>
@@ -27925,6 +27935,20 @@ ${this.customData.serverResponse}`;
         const msgId = btn.dataset.id;
         if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0631\u0633\u0627\u0644\u0629\u061F" : "Delete this message?")) {
           deleteSingleSms(msgId);
+        }
+      });
+    });
+    document.querySelectorAll(".copy-msg-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msgBubble = btn.closest(".chat-message-wrapper")?.querySelector(".message-bubble");
+        const text = msgBubble?.dataset.msgContent || "";
+        if (text) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
+          }).catch(() => {
+            showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+          });
         }
       });
     });
@@ -29732,25 +29756,40 @@ ${this.customData.serverResponse}`;
     "\xA3": "GBP",
     "\u20AC": "EUR",
     "\u20B9": "INR",
-    "\uFDFC": "SAR"
+    "\uFDFC": "SAR",
+    "\u062C\u0645": "EGP",
+    "\u062C.\u0645": "EGP"
   };
-  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
-  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
+  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
+  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(تم\s+إيداع|إيداع|تم\s+رد|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
   var PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
-  var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
-  var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
-  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+  var CURR = "SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$\xA3\u20AC\u20B9\uFDFC]";
+  var BALANCE_MASK_RE_A = new RegExp(
+    "\\b(balance|bal\\.?|avail(?:able)?\\.?|remaining|rem\\.?|limit|outstanding|due|minimum|min\\.?|opening|closing|cr\\.?\\s*bal|dr\\.?\\s*bal)\\s*(?:is\\s+|are\\s+)?[:\\-]?\\s*(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?",
+    "gi"
+  );
+  var BALANCE_MASK_RE_AR_A = /(الرصيد\s+المتاح|الرصيد|رصيد|الحد\s+الائتماني|الحد|المستحق|المحفوظ|رصيدك)\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼جم])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?/gi;
+  var BALANCE_MASK_RE_B = new RegExp(
+    "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?\\s*(?:is\\s+(?:your\\s+|the\\s+)?)?(?:(?:current|available|total|avail|new|updated)\\s+)?\\b(balance|bal\\b|available\\b|avail\\b|limit\\b|outstanding\\b)",
+    "gi"
+  );
+  var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?\s*(الرصيد\s+المتاح|الرصيد|رصيد|الحد|المستحق|المحفوظ|رصيدك)/gi;
+  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
-    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b/i;
+    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(خصم|تحويل|سحب|رسوم|بطاقة|حساب|عميل|الراتب|استخدام|عملية|معاملة|تم\s+خصم|تم\s+تحويل)/i;
     return STRONG.test(body);
   }
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
-    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
+    BALANCE_MASK_RE_A.lastIndex = 0;
+    BALANCE_MASK_RE_AR_A.lastIndex = 0;
+    BALANCE_MASK_RE_B.lastIndex = 0;
+    BALANCE_MASK_RE_AR_B.lastIndex = 0;
+    const masked = body.replace(BALANCE_MASK_RE_AR_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
     AMOUNT_POS_RE.lastIndex = 0;
