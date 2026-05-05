@@ -115,6 +115,15 @@ exports.sendPushNotification = onDocumentCreated(
       return null;
     }
 
+    // Chat notifications are handled exclusively by onNewChatMessage (data-only FCM).
+    // If this document is for a chat message, mark it delivered and bail out to
+    // prevent a duplicate system notification without action buttons.
+    if (notification.data?.type === "chat") {
+      console.log(`Notification ${notificationId} is chat type — handled by onNewChatMessage, skipping`);
+      await snap.ref.update({ status: "delivered", deliveredAt: new Date() });
+      return null;
+    }
+
     const fcmToken = notification.fcmToken;
 
     if (!fcmToken) {
@@ -320,24 +329,31 @@ exports.onNewChatMessage = onDocumentCreated(
 
         const fcmMessage = {
           token: device.fcmToken,
-          notification: {
-            title: `💬 ${senderName}`,
-            body: truncatedContent || "New message",
-          },
+          // Truly data-only — no top-level notification, no android.notification:
+          // - Android FCM SDK will NOT auto-show a system notification → setBackgroundMessageHandler
+          //   is the only path → notifee shows exactly 1 notification with Copy/Delete/Share actions.
+          // - iOS: apns content-available (priority 5) wakes the background handler → notifee shows
+          //   1 notification with the registered chat_actions category (Copy/Delete/Share).
           data: {
             type: "chat",
             messageId: messageId,
             senderId: userId,
+            senderName: senderName,
+            messagePreview: truncatedContent || "New message",
             click_action: "FLUTTER_NOTIFICATION_CLICK",
           },
           android: {
             priority: "high",
-            notification: {
-              channelId: "iropit_chat",
-              priority: "high",
-              defaultSound: true,
-              defaultVibrateTimings: true,
-              icon: "ic_notification",
+          },
+          apns: {
+            headers: {
+              "apns-push-type": "background",
+              "apns-priority": "5",
+            },
+            payload: {
+              aps: {
+                contentAvailable: true,
+              },
             },
           },
         };
