@@ -551,3 +551,11 @@ export default function DashboardOverviewTab({
         <div className="bg-surface border border-border rounded-xl p-8 text-center">
           <BarChart2 className="w-10 h-10 text-txt-tertiary mx-auto mb-3" />
           <p className="text-sm font-medium text-txt mb-1">
+            {t("overview.noData")}
+          </p>
+          <p className="text-xs text-txt-secondary">{t("overview.selectRange")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
