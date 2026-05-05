@@ -28,7 +28,7 @@ const en = {
     services: "Services",
     privacyPolicy: "Privacy Policy",
     contact: "Contact",
-    dashboard: "Dashboard",
+    dashboard: "Insights",
     downloadApp: "Download App",
     login: "Login",
     signup: "Sign Up",
@@ -37,7 +37,7 @@ const en = {
 
   // Dashboard tabs
   tabs: {
-    overview: "Dashboard",
+    overview: "Insights",
     chat: "Chat",
     sms: "SMS",
     calls: "Calls",
@@ -48,7 +48,7 @@ const en = {
 
   // Dashboard Overview
   overview: {
-    title: "Dashboard",
+    title: "Insights",
     dateFrom: "From",
     dateTo: "To",
     apply: "Apply",

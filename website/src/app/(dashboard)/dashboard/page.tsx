@@ -41,7 +41,7 @@ function getPlatformIcon(platform: string) {
 
 export default function DashboardPage() {  const { user } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<TabId>("notifications");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("all");
   const [badges, setBadges] = useState({

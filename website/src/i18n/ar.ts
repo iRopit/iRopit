@@ -28,7 +28,7 @@ const ar = {
     services: "الخدمات",
     privacyPolicy: "سياسة الخصوصية",
     contact: "اتصل بنا",
-    dashboard: "لوحة التحكم",
+    dashboard: "الإحصائيات",
     downloadApp: "تحميل التطبيق",
     login: "تسجيل الدخول",
     signup: "إنشاء حساب",
@@ -37,7 +37,7 @@ const ar = {
 
   // Dashboard tabs
   tabs: {
-    overview: "لوحة التحكم",
+    overview: "الإحصائيات",
     chat: "المحادثة",
     sms: "الرسائل",
     calls: "المكالمات",
@@ -48,7 +48,7 @@ const ar = {
 
   // Dashboard Overview
   overview: {
-    title: "لوحة التحكم",
+    title: "الإحصائيات",
     dateFrom: "من",
     dateTo: "إلى",
     apply: "تطبيق",
