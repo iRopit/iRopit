@@ -210,30 +210,29 @@ function buildConversations(
   }
 
   for (const msg of deduped) {
-      const key = msg.phoneNumber;
-      if (!key) continue;
+    const key = msg.phoneNumber;
+    if (!key) continue;
 
-      const existing = conversationMap.get(key);
-      if (existing) {
-        existing.messages.push(msg);
-        if (msg.timestamp > existing.lastTimestamp) {
-          existing.lastMessage = msg.body;
-          existing.lastTimestamp = msg.timestamp;
-          existing.contactName = msg.contactName || existing.contactName;
-        }
-        if (!msg.read) existing.unreadCount++;
-      } else {
-        conversationMap.set(key, {
-          phoneNumber: key,
-          contactName: msg.contactName,
-          lastMessage: msg.body,
-          lastTimestamp: msg.timestamp,
-          unreadCount: msg.read ? 0 : 1,
-          messages: [msg],
-          deviceId: msg.deviceId,
-          deviceName: msg.deviceName,
-        });
+    const existing = conversationMap.get(key);
+    if (existing) {
+      existing.messages.push(msg);
+      if (msg.timestamp > existing.lastTimestamp) {
+        existing.lastMessage = msg.body;
+        existing.lastTimestamp = msg.timestamp;
+        existing.contactName = msg.contactName || existing.contactName;
       }
+      if (!msg.read) existing.unreadCount++;
+    } else {
+      conversationMap.set(key, {
+        phoneNumber: key,
+        contactName: msg.contactName,
+        lastMessage: msg.body,
+        lastTimestamp: msg.timestamp,
+        unreadCount: msg.read ? 0 : 1,
+        messages: [msg],
+        deviceId: msg.deviceId,
+        deviceName: msg.deviceName,
+      });
     }
   }
 
