@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   subscribeToNotifications,
+  markAllNotificationsAsRead,
   type NotificationItem,
 } from "@/services/notificationService";
 import type { DeviceInfo } from "@/services/deviceService";
@@ -58,7 +59,10 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeToNotifications(user.uid, devices, setNotifications);
+    const unsub = subscribeToNotifications(user.uid, devices, (notifs) => {
+      setNotifications(notifs);
+      markAllNotificationsAsRead(user.uid, notifs).catch(() => {});
+    });
     return unsub;
   }, [user, devices]);
 

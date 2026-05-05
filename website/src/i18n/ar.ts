@@ -61,6 +61,11 @@ const ar = {
     selectRange: "اختر نطاقاً زمنياً وطبّق الفلتر",
     spendingInsights: "تحليل إنفاق الرسائل",
     spendingEmpty: "طبّق فلتراً زمنياً لرؤية تحليل الإنفاق",
+    noFinancialSms: "لم يتم اكتشاف رسائل مالية في النطاق المحدد",
+    spendingByDate: "الإنفاق حسب التاريخ",
+    spent: "المصروف",
+    received: "المستلم",
+    net: "الصافي",
   },
 
   // Chat

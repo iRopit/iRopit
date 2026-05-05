@@ -24,9 +24,10 @@ function toDateStr(ts: number): string {
   return `${y}-${m}-${day}`;
 }
 
-function formatDateLabel(dateStr: string): string {
+function formatDateLabel(dateStr: string, lang?: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString(undefined, {
+  const locale = lang === "ar" ? "ar-EG" : undefined;
+  return d.toLocaleDateString(locale, {
     weekday: "short",
     year: "numeric",
     month: "short",
@@ -44,66 +45,164 @@ function getDefaultDates() {
   };
 }
 
-// Simple spending keywords found in banking SMS
-const DEBIT_KEYWORDS = [
-  "debited",
-  "deducted",
-  "withdrawn",
-  "purchase",
-  "payment",
-  "spent",
-  "charged",
-  "خصم",
-  "سحب",
-  "دفع",
-];
-const CREDIT_KEYWORDS = [
-  "credited",
-  "deposit",
-  "refund",
-  "cashback",
-  "إيداع",
-  "استرداد",
-];
+// ── SMS Spending Analysis (mirrors chrome extension dashboard.js) ─────────────
 
-// (?<!\w) lookbehind prevents matching digits embedded in card/account numbers
-// like "XXXX1311 USD" where 1311 is part of the card number, not an amount
+const CURRENCY_MAP: Record<string, string> = {
+  SAR: "SAR", AED: "AED", KWD: "KWD", BHD: "BHD", QAR: "QAR", OMR: "OMR",
+  EGP: "EGP", JOD: "JOD", USD: "USD", GBP: "GBP", EUR: "EUR", INR: "INR",
+  PKR: "PKR", MYR: "MYR", TRY: "TRY",
+  "$": "USD", "£": "GBP", "€": "EUR", "₹": "INR", "﷼": "SAR",
+  "جم": "EGP", "ج.م": "EGP",
+};
+
+const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
+const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(تم\s+إيداع|إيداع|تم\s+رد|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك)/i;
+const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+const PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
+const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
+
+const CURR = "SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼]";
+
+const BALANCE_MASK_RE_A = new RegExp(
+  "\\b(balance|bal\\.?|avail(?:able)?\\.?|remaining|rem\\.?|limit|outstanding|due|minimum|min\\.?|opening|closing|cr\\.?\\s*bal|dr\\.?\\s*bal)" +
+  "\\s*(?:is\\s+|are\\s+)?[:\\-]?\\s*" +
+  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?",
+  "gi"
+);
+const BALANCE_MASK_RE_AR_A = /(الرصيد\s+المتاح|الرصيد|رصيد|الحد\s+الائتماني|الحد|المستحق|المحفوظ|رصيدك)\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼جم])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?/gi;
+const BALANCE_MASK_RE_B = new RegExp(
+  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?\\s*" +
+  "(?:is\\s+(?:your\\s+|the\\s+)?)?(?:(?:current|available|total|avail|new|updated)\\s+)?" +
+  "\\b(balance|bal\\b|available\\b|avail\\b|limit\\b|outstanding\\b)",
+  "gi"
+);
+const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?\s*(الرصيد\s+المتاح|الرصيد|رصيد|الحد|المستحق|المحفوظ|رصيدك)/gi;
+
 const AMOUNT_POS_RE =
-  /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+  /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م))/gi;
 
-// Mask ranges like "XXXX 1234" or "****1234" before extracting amounts
-const BALANCE_MASK_RE_A = /(?:X{2,}|[*]{2,})\s*\d{4,}/gi;
-const BALANCE_MASK_RE_B = /\b\d{4,}\s*(?:X{2,}|[*]{2,})/gi;
-
-function extractAmount(body: string): number | null {
-  const masked = body
-    .replace(BALANCE_MASK_RE_A, "MASKED")
-    .replace(BALANCE_MASK_RE_B, "MASKED");
-  AMOUNT_POS_RE.lastIndex = 0;
-  let best: number | null = null;
-  let m: RegExpExecArray | null;
-  while ((m = AMOUNT_POS_RE.exec(masked)) !== null) {
-    const raw = (m[2] || m[3] || "").replace(/,/g, "");
-    const val = parseFloat(raw);
-    if (!isNaN(val) && val > 0 && (best === null || val > best)) best = val;
-  }
-  return best;
+function isBankingSMS(body: string): boolean {
+  if (!body) return false;
+  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(خصم|تحويل|سحب|رسوم|بطاقة|حساب|عميل|الراتب|استخدام|عملية|معاملة|تم\s+خصم|تم\s+تحويل)/i;
+  return STRONG.test(body);
 }
 
-function categorizeTransaction(
-  body: string,
-): "debit" | "credit" | "unknown" {
-  const lower = body.toLowerCase();
-  if (DEBIT_KEYWORDS.some((k) => lower.includes(k))) return "debit";
-  if (CREDIT_KEYWORDS.some((k) => lower.includes(k))) return "credit";
-  return "unknown";
+interface TxnResult {
+  amount: number;
+  currency: string;
+  type: "debit" | "credit";
+}
+
+function extractTransactions(body: string): TxnResult[] {
+  if (!body) return [];
+  if (CARD_BILL_PAYMENT_RE.test(body)) return [];
+
+  BALANCE_MASK_RE_A.lastIndex = 0;
+  BALANCE_MASK_RE_AR_A.lastIndex = 0;
+  BALANCE_MASK_RE_B.lastIndex = 0;
+  BALANCE_MASK_RE_AR_B.lastIndex = 0;
+  const masked = body
+    .replace(BALANCE_MASK_RE_AR_A, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_AR_B, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_A, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length));
+
+  const candidates: { amount: number; currRaw: string; pos: number }[] = [];
+  let m: RegExpExecArray | null;
+  AMOUNT_POS_RE.lastIndex = 0;
+  while ((m = AMOUNT_POS_RE.exec(masked)) !== null) {
+    const currRaw = (m[1] || m[4] || "").trim().toUpperCase();
+    const amtRaw = (m[2] || m[3] || "").replace(/,/g, "");
+    const amount = parseFloat(amtRaw);
+    if (!isNaN(amount) && amount > 0 && currRaw) {
+      candidates.push({ amount, currRaw, pos: m.index });
+    }
+  }
+  if (candidates.length === 0) return [];
+
+  const WINDOW = 120;
+  const results: TxnResult[] = [];
+  const seen = new Set<string>();
+
+  for (const c of candidates) {
+    const start = Math.max(0, c.pos - WINDOW);
+    const end = Math.min(masked.length, c.pos + WINDOW);
+    const ctx = masked.slice(start, end);
+
+    const isDebit = DEBIT_KEYWORDS.test(ctx);
+    const isCredit = CREDIT_KEYWORDS.test(ctx);
+    const isPaymentReceivedOnCard = PAYMENT_RECEIVED_ON_CARD_RE.test(ctx);
+
+    if (!isDebit && !isCredit && !isPaymentReceivedOnCard) continue;
+    if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
+
+    const type: "debit" | "credit" =
+      isPaymentReceivedOnCard || (isCredit && !isDebit) ? "credit" : "debit";
+    const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
+    const key = `${currency}:${c.amount}:${type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({ amount: c.amount, currency, type });
+  }
+  return results;
+}
+
+interface CurrencyInsight {
+  debit: number;
+  credit: number;
+}
+
+interface SpendingInsights {
+  byCurrency: Record<string, CurrencyInsight>;
+  byDate: Record<string, Record<string, CurrencyInsight>>;
+}
+
+function analyzeSmsSpending(smsMessages: { body?: string; text?: string; content?: string; timestamp?: number; receivedAt?: number }[]): SpendingInsights {
+  const byCurrency: Record<string, CurrencyInsight> = {};
+  const byDate: Record<string, Record<string, CurrencyInsight>> = {};
+
+  const seenBodies = new Set<string>();
+  const dedupedMessages = smsMessages.filter((msg) => {
+    const body = (msg.body || msg.text || msg.content || "").trim();
+    if (!body) return true;
+    const window5m = Math.floor((msg.timestamp || msg.receivedAt || 0) / 300000);
+    const key = `${window5m}_${body}`;
+    if (seenBodies.has(key)) return false;
+    seenBodies.add(key);
+    return true;
+  });
+
+  for (const msg of dedupedMessages) {
+    const body = msg.body || msg.text || msg.content || "";
+    if (!isBankingSMS(body)) continue;
+    const ts = msg.timestamp || msg.receivedAt || 0;
+    const txns = extractTransactions(body);
+    for (const txn of txns) {
+      const cur = txn.currency;
+      if (!byCurrency[cur]) byCurrency[cur] = { debit: 0, credit: 0 };
+      if (txn.type === "debit") byCurrency[cur].debit += txn.amount;
+      if (txn.type === "credit") byCurrency[cur].credit += txn.amount;
+      if (ts) {
+        const dk = toDateStr(ts);
+        if (!byDate[dk]) byDate[dk] = {};
+        if (!byDate[dk][cur]) byDate[dk][cur] = { debit: 0, credit: 0 };
+        if (txn.type === "debit") byDate[dk][cur].debit += txn.amount;
+        if (txn.type === "credit") byDate[dk][cur].credit += txn.amount;
+      }
+    }
+  }
+  return { byCurrency, byDate };
+}
+
+function fmtAmt(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function DashboardOverviewTab({
   devices,
 }: DashboardOverviewTabProps) {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [conversations, setConversations] = useState<SMSConversation[]>([]);
   const [calls, setCalls] = useState<CallRecord[]>([]);
@@ -145,19 +244,9 @@ export default function DashboardOverviewTab({
       (n) => n.timestamp >= from && n.timestamp <= to,
     );
 
-    // SMS spending insights
-    const debits: { amount: number; body: string; ts: number }[] = [];
-    const credits: { amount: number; body: string; ts: number }[] = [];
-    for (const msg of filteredSms) {
-      const cat = categorizeTransaction(msg.body);
-      const amount = extractAmount(msg.body);
-      if (amount && amount > 0) {
-        if (cat === "debit") debits.push({ amount, body: msg.body, ts: msg.timestamp });
-        else if (cat === "credit") credits.push({ amount, body: msg.body, ts: msg.timestamp });
-      }
-    }
-    const totalDebit = debits.reduce((s, d) => s + d.amount, 0);
-    const totalCredit = credits.reduce((s, c) => s + c.amount, 0);
+    // Advanced SMS spending insights (per-currency, balance-masked, proximity-based)
+    const { byCurrency, byDate: spendByDate } = analyzeSmsSpending(filteredSms);
+    const hasCurrencies = Object.keys(byCurrency).length > 0;
 
     // Per-date breakdown
     const smsByDate: Record<string, number> = {};
@@ -187,13 +276,19 @@ export default function DashboardOverviewTab({
       .sort((a, b) => b.localeCompare(a))
       .map((dateKey) => ({
         dateKey,
-        label: formatDateLabel(dateKey),
+        label: formatDateLabel(dateKey, language),
         smsCount: smsByDate[dateKey] || 0,
         callsCount: callsByDate[dateKey] || 0,
         notifsCount: (notifsByDate[dateKey] || []).length,
         topNotifs: (notifsByDate[dateKey] || [])
           .sort((a, b) => b.timestamp - a.timestamp)
           .slice(0, 3),
+        spendPills: Object.entries(spendByDate[dateKey] || {}).flatMap(([cur, { debit, credit }]) => {
+          const pills: { label: string; type: "debit" | "credit" }[] = [];
+          if (debit > 0) pills.push({ label: `-${cur} ${fmtAmt(debit)}`, type: "debit" });
+          if (credit > 0) pills.push({ label: `+${cur} ${fmtAmt(credit)}`, type: "credit" });
+          return pills;
+        }),
       }));
 
     return {
@@ -203,12 +298,9 @@ export default function DashboardOverviewTab({
         notifsCount: filteredNotifs.length,
       },
       dateBreakdown: breakdown,
-      spendingInsights:
-        debits.length > 0 || credits.length > 0
-          ? { totalDebit, totalCredit, debitCount: debits.length, creditCount: credits.length }
-          : null,
+      spendingInsights: hasCurrencies ? byCurrency : null,
     };
-  }, [conversations, calls, notifications, appliedFrom, appliedTo]);
+  }, [conversations, calls, notifications, appliedFrom, appliedTo, language]);
 
   const handleApply = () => {
     setAppliedFrom(fromDate);
@@ -308,7 +400,7 @@ export default function DashboardOverviewTab({
         </div>
       </div>
 
-      {/* SMS Spending Insights */}
+      {/* SMS Spending Insights — per-currency cards */}
       {spendingInsights && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
@@ -328,27 +420,35 @@ export default function DashboardOverviewTab({
               {t("overview.spendingInsights")}
             </h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-4">
-            <div className="bg-error/5 border border-error/20 rounded-xl p-3">
-              <p className="text-xs text-txt-secondary mb-1">
-                Total Debits ({spendingInsights.debitCount} txn)
-              </p>
-              <p className="text-lg font-bold text-error">
-                {spendingInsights.totalDebit.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-            </div>
-            <div className="bg-success/5 border border-success/20 rounded-xl p-3">
-              <p className="text-xs text-txt-secondary mb-1">
-                Total Credits ({spendingInsights.creditCount} txn)
-              </p>
-              <p className="text-lg font-bold text-success">
-                {spendingInsights.totalCredit.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-            </div>
+          <div className="p-4 flex flex-wrap gap-3">
+            {Object.entries(spendingInsights).map(([cur, { debit, credit }]) => {
+              const net = credit - debit;
+              const netPositive = net >= 0;
+              return (
+                <div
+                  key={cur}
+                  className="flex-1 min-w-[140px] bg-surface-secondary border border-border rounded-xl p-3"
+                >
+                  <p className="text-xs font-bold text-primary mb-2">{cur}</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-txt-secondary">{t("overview.spent")}</span>
+                      <span className="text-sm font-semibold text-error">{fmtAmt(debit)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-txt-secondary">{t("overview.received")}</span>
+                      <span className="text-sm font-semibold text-success">{fmtAmt(credit)}</span>
+                    </div>
+                    <div className="border-t border-border mt-1 pt-1 flex justify-between items-center">
+                      <span className="text-[11px] text-txt-secondary">{t("overview.net")}</span>
+                      <span className={`text-sm font-bold ${netPositive ? "text-success" : "text-error"}`}>
+                        {netPositive ? "+" : ""}{fmtAmt(net)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -364,7 +464,7 @@ export default function DashboardOverviewTab({
           </div>
           <div className="divide-y divide-border">
             {dateBreakdown.map(
-              ({ dateKey, label, smsCount, callsCount, notifsCount, topNotifs }) => (
+              ({ dateKey, label, smsCount, callsCount, notifsCount, topNotifs, spendPills }) => (
                 <div key={dateKey} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <p className="text-xs font-semibold text-txt">{label}</p>
@@ -386,6 +486,22 @@ export default function DashboardOverviewTab({
                       )}
                     </div>
                   </div>
+                  {spendPills.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {spendPills.map((pill, i) => (
+                        <span
+                          key={i}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            pill.type === "debit"
+                              ? "bg-error/10 text-error"
+                              : "bg-success/10 text-success"
+                          }`}
+                        >
+                          {pill.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {topNotifs.length > 0 && (
                     <div className="space-y-1">
                       {topNotifs.map((n) => (
@@ -418,11 +534,3 @@ export default function DashboardOverviewTab({
         <div className="bg-surface border border-border rounded-xl p-8 text-center">
           <BarChart2 className="w-10 h-10 text-txt-tertiary mx-auto mb-3" />
           <p className="text-sm font-medium text-txt mb-1">
-            {t("overview.noData")}
-          </p>
-          <p className="text-xs text-txt-secondary">{t("overview.selectRange")}</p>
-        </div>
-      )}
-    </div>
-  );
-}

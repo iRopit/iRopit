@@ -6,6 +6,8 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  writeBatch,
+  doc,
 } from "@/lib/firebase";
 import type { DeviceInfo } from "./deviceService";
 
@@ -18,6 +20,26 @@ export interface NotificationItem {
   body: string;
   timestamp: number;
   icon?: string;
+  read?: boolean;
+}
+
+export async function markAllNotificationsAsRead(
+  userId: string,
+  notifications: NotificationItem[],
+): Promise<void> {
+  const unread = notifications.filter(
+    (n) => n.deviceId !== "user" && n.read === false,
+  );
+  if (unread.length === 0) return;
+
+  const batch = writeBatch(db);
+  for (const n of unread) {
+    batch.update(
+      doc(db, "users", userId, "devices", n.deviceId, "notifications", n.id),
+      { read: true },
+    );
+  }
+  await batch.commit();
 }
 
 export function subscribeToNotifications(
@@ -52,6 +74,7 @@ export function subscribeToNotifications(
           data.timestamp ||
           Date.now(),
         icon: data.icon || data.appIcon,
+        read: data.read !== false,
       };
     });
     allNotifications.set("user", notifs);
@@ -96,6 +119,7 @@ export function subscribeToNotifications(
             timestamp:
               data.timestamp?.toMillis?.() || data.timestamp || Date.now(),
             icon: data.icon || data.appIcon,
+            read: data.read !== false,
           };
         });
       allNotifications.set(device.id, notifs);

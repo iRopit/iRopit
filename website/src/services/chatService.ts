@@ -68,7 +68,18 @@ export function subscribeToChat(
     }
 
     messages.sort((a, b) => a.timestamp - b.timestamp);
-    callback(messages);
+
+    // Deduplicate: fan-out sends one Firestore doc per device, so the same
+    // logical message may appear multiple times. Collapse by sender + timestamp + content.
+    const seenKeys = new Set<string>();
+    const deduped = messages.filter((msg) => {
+      const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ""}`;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
+
+    callback(deduped);
   });
 }
 

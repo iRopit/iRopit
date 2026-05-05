@@ -181,8 +181,35 @@ function buildConversations(
 ): SMSConversation[] {
   const conversationMap = new Map<string, SMSConversation>();
 
-  for (const messages of allMessages.values()) {
-    for (const msg of messages) {
+  // Merge all per-device message arrays and apply two-pass dedup:
+  // Pass 1 — by document ID (catches simple duplicates)
+  // Pass 2 — by phone+body+5-min time window (catches Android dual-writer duplicates
+  //           where NotificationService and BackgroundSmsService produce separate docs)
+  const merged: SMSMessage[] = [];
+  for (const msgs of allMessages.values()) merged.push(...msgs);
+
+  const seenIds = new Set<string>();
+  const seenContent = new Set<string>();
+  const deduped: SMSMessage[] = [];
+
+  for (const msg of merged) {
+    if (seenIds.has(msg.id)) continue;
+    seenIds.add(msg.id);
+
+    const body = msg.body.trim().substring(0, 100);
+    const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
+    const contentKey = `${msg.phoneNumber}_${timeWindow}_${body}`;
+    const bodyKey = body.length > 20 ? `body_${timeWindow}_${body}` : null;
+
+    if (seenContent.has(contentKey)) continue;
+    if (bodyKey && seenContent.has(bodyKey)) continue;
+    seenContent.add(contentKey);
+    if (bodyKey) seenContent.add(bodyKey);
+
+    deduped.push(msg);
+  }
+
+  for (const msg of deduped) {
       const key = msg.phoneNumber;
       if (!key) continue;
 

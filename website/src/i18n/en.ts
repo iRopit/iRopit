@@ -61,6 +61,11 @@ const en = {
     selectRange: "Select a date range and apply filter",
     spendingInsights: "SMS Spending Insights",
     spendingEmpty: "Apply a date filter to see spending analysis",
+    noFinancialSms: "No financial SMS detected in selected range",
+    spendingByDate: "Spending by Date",
+    spent: "Spent",
+    received: "Received",
+    net: "Net",
   },
 
   // Chat
