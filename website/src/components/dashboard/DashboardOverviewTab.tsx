@@ -400,7 +400,7 @@ export default function DashboardOverviewTab({
         </div>
       </div>
 
-      {/* SMS Spending Insights — per-currency cards */}
+      {/* SMS Spending Insights — per-currency cards + spending by date */}
       {spendingInsights && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
@@ -416,7 +416,7 @@ export default function DashboardOverviewTab({
               <line x1="12" y1="1" x2="12" y2="23" />
               <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
             </svg>
-            <h3 className="text-sm font-semibold text-txt">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-txt">
               {t("overview.spendingInsights")}
             </h3>
           </div>
@@ -450,21 +450,54 @@ export default function DashboardOverviewTab({
               );
             })}
           </div>
+          {/* Spending by Date — sub-section matching extension layout */}
+          {dateBreakdown.some((d) => d.spendPills.length > 0) && (
+            <>
+              <div className="px-4 py-2 border-t border-border bg-surface-secondary">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-txt-secondary">
+                  {t("overview.spendingByDate")}
+                </p>
+              </div>
+              <div className="divide-y divide-border">
+                {dateBreakdown
+                  .filter((d) => d.spendPills.length > 0)
+                  .map(({ dateKey, label, spendPills }) => (
+                    <div key={dateKey} className="px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <p className="text-[11px] font-semibold text-txt-secondary shrink-0">{label}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {spendPills.map((pill, i) => (
+                          <span
+                            key={i}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              pill.type === "debit"
+                                ? "bg-error/10 text-error"
+                                : "bg-success/10 text-success"
+                            }`}
+                          >
+                            {pill.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Per-date Breakdown */}
+      {/* Per-date Activity Breakdown */}
       {dateBreakdown.length > 0 ? (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-txt">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-txt">
               {t("overview.notifByDate")}
             </h3>
           </div>
           <div className="divide-y divide-border">
             {dateBreakdown.map(
-              ({ dateKey, label, smsCount, callsCount, notifsCount, topNotifs, spendPills }) => (
+              ({ dateKey, label, smsCount, callsCount, notifsCount, topNotifs }) => (
                 <div key={dateKey} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <p className="text-xs font-semibold text-txt">{label}</p>
@@ -486,22 +519,6 @@ export default function DashboardOverviewTab({
                       )}
                     </div>
                   </div>
-                  {spendPills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {spendPills.map((pill, i) => (
-                        <span
-                          key={i}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            pill.type === "debit"
-                              ? "bg-error/10 text-error"
-                              : "bg-success/10 text-success"
-                          }`}
-                        >
-                          {pill.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                   {topNotifs.length > 0 && (
                     <div className="space-y-1">
                       {topNotifs.map((n) => (
