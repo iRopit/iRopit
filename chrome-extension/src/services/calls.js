@@ -30,6 +30,7 @@ import {
 } from "../utils/helpers.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
+import { setCallsDataConfirmed } from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
@@ -270,8 +271,10 @@ export async function loadCalls() {
         }
       }
       state.setAllCallsData(cached.allCalls);
+      // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
+      setCallsDataConfirmed(false);
       renderCalls(cached.allCalls.slice(0, 100));
-      updateTabBadges();
+      // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
     }
   } catch (e) {
     console.warn("[Calls] Cache load failed:", e);
@@ -486,6 +489,8 @@ function updateCallsList(deviceId, newCalls) {
   merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   state.setAllCallsData(merged);
+  // Mark data as confirmed by Firestore so badge now reflects real viewed state
+  setCallsDataConfirmed(true);
   updateTabBadges(); // update badge immediately, before renderCalls (which may exit early)
   renderCalls(merged.slice(0, 100));
 
@@ -840,10 +845,14 @@ async function showCallHistory(phoneNumber) {
           ${getInitials(contactName)}</div>
         <div class="conversation-info">
           <div class="conversation-name">${contactName}</div>
-          <div class="conversation-phone">${
-            phoneNumber !== contactName ? phoneNumber : ""
-          }</div>
+          ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
+        <button class="chat-action-btn copy-phone-btn" title="Copy number">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+        </button>
         <div class="call-action-buttons">
           <button class="call-action-btn" id="dialPhoneBtn" title="Call on phone">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -885,6 +894,15 @@ async function showCallHistory(phoneNumber) {
   document.getElementById("backToCalls")?.addEventListener("click", () => {
     state.setCurrentCallConversation(null);
     renderCalls(state.allCallsData);
+  });
+
+  // Copy phone number handler
+  document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
+    navigator.clipboard.writeText(phoneNumber).then(() => {
+      showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
+    }).catch(() => {
+      showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+    });
   });
 
   // Dial button handler

@@ -24231,6 +24231,9 @@ ${this.customData.serverResponse}`;
   function setCallsByDevice(deviceId, calls) {
     allCallsByDevice[deviceId] = calls;
   }
+  function setCallsDataConfirmed(confirmed) {
+    callsDataConfirmed = confirmed;
+  }
   function setCurrentCallConversation(conversation) {
     currentCallConversation = conversation;
   }
@@ -24268,7 +24271,7 @@ ${this.customData.serverResponse}`;
     allContacts = {};
     phoneToContactMap = {};
   }
-  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, allNotifications, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap;
+  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap;
   var init_state = __esm({
     "src/state/index.js"() {
       currentUser = null;
@@ -24281,6 +24284,7 @@ ${this.customData.serverResponse}`;
       allCallsData = [];
       allCallsByDevice = {};
       currentCallConversation = null;
+      callsDataConfirmed = false;
       allNotifications = {};
       cachedChatMessages = [];
       currentReplyTo = null;
@@ -24795,6 +24799,7 @@ ${this.customData.serverResponse}`;
     return allSMSMessages.filter((m) => m.deviceId === deviceId && !m.read).length;
   }
   function getCallsCount(deviceId) {
+    if (!callsDataConfirmed) return 0;
     if (deviceId === "all") return devices.reduce((t2, d) => t2 + getCallsCount(d.id), 0);
     return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
   }
@@ -26095,8 +26100,8 @@ ${this.customData.serverResponse}`;
           }
         }
         setAllCallsData(cached.allCalls);
+        setCallsDataConfirmed(false);
         renderCalls(cached.allCalls.slice(0, 100));
-        updateTabBadges();
       }
     } catch (e) {
       console.warn("[Calls] Cache load failed:", e);
@@ -26256,6 +26261,7 @@ ${this.customData.serverResponse}`;
     });
     merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     setAllCallsData(merged);
+    setCallsDataConfirmed(true);
     updateTabBadges();
     renderCalls(merged.slice(0, 100));
     cacheCallsData(allCallsByDevice, merged).catch(() => {
@@ -26543,8 +26549,14 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}</div>
         <div class="conversation-info">
           <div class="conversation-name">${contactName}</div>
-          <div class="conversation-phone">${phoneNumber !== contactName ? phoneNumber : ""}</div>
+          ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
+        <button class="chat-action-btn copy-phone-btn" title="Copy number">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+        </button>
         <div class="call-action-buttons">
           <button class="call-action-btn" id="dialPhoneBtn" title="Call on phone">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -26582,6 +26594,13 @@ ${this.customData.serverResponse}`;
     document.getElementById("backToCalls")?.addEventListener("click", () => {
       setCurrentCallConversation(null);
       renderCalls(allCallsData);
+    });
+    document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
+      navigator.clipboard.writeText(phoneNumber).then(() => {
+        showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
+      }).catch(() => {
+        showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+      });
     });
     document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
       initiateDialRequest(phoneNumber, null);
@@ -26777,6 +26796,7 @@ ${this.customData.serverResponse}`;
       init_toasts();
       init_helpers();
       init_i18n();
+      init_state();
       init_state();
       init_badges();
       init_cryptoService();

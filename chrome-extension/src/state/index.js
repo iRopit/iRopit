@@ -24,6 +24,8 @@ export let currentConversation = null;
 export let allCallsData = [];
 export let allCallsByDevice = {};
 export let currentCallConversation = null;
+// True once first Firestore calls update arrives; prevents stale-cache badge flash
+export let callsDataConfirmed = false;
 
 // Notifications Data
 export let allNotifications = {};
@@ -106,6 +108,10 @@ export function setAllCallsData(calls) {
 
 export function setCallsByDevice(deviceId, calls) {
   allCallsByDevice[deviceId] = calls;
+}
+
+export function setCallsDataConfirmed(confirmed) {
+  callsDataConfirmed = confirmed;
 }
 
 export function setCurrentCallConversation(conversation) {

@@ -19544,6 +19544,17 @@ async function refreshPopupCache() {
         return latest && latest.read === true && !m.read ? { ...m, read: true } : m;
       });
     }
+    const latestCallsCache = await chrome.storage.local.get(["cached_calls_data"]);
+    const latestCallsByDevice = latestCallsCache.cached_calls_data?.byDevice || {};
+    for (const deviceId of Object.keys(newCallsByDevice)) {
+      const latestCalls = latestCallsByDevice[deviceId];
+      if (!latestCalls || latestCalls.length === 0) continue;
+      const latestById = new Map(latestCalls.map((c) => [c.id, c]));
+      newCallsByDevice[deviceId] = newCallsByDevice[deviceId].map((c) => {
+        const latest = latestById.get(c.id);
+        return latest && latest.viewed === true && !c.viewed ? { ...c, viewed: true } : c;
+      });
+    }
     const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
     const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
     await chrome.storage.local.set({

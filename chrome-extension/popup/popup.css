@@ -2179,8 +2179,8 @@ body[dir="rtl"] .device-tag {
 .conversation-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
@@ -2244,8 +2244,8 @@ body[dir="rtl"] .device-tag {
 }
 
 .conversation-avatar {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--primary);
   color: white;
@@ -2253,7 +2253,7 @@ body[dir="rtl"] .device-tag {
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
@@ -2264,7 +2264,7 @@ body[dir="rtl"] .device-tag {
 
 .conversation-name {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -2274,6 +2274,45 @@ body[dir="rtl"] .device-tag {
 .conversation-phone {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.conversation-phone-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.conversation-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-phone-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: var(--surface);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-md);
+}
+
+.conversation-header:hover .copy-phone-btn {
+  opacity: 1;
+}
+
+.copy-phone-btn:hover {
+  background: var(--primary);
+  color: white;
 }
 
 /* Conversation View Container */

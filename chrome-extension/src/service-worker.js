@@ -1140,6 +1140,21 @@ async function refreshPopupCache() {
       });
     }
 
+    // Re-read current calls cache just before writing to preserve any viewed-status
+    // updates the popup may have written while we were fetching from Firestore.
+    const latestCallsCache = await chrome.storage.local.get(["cached_calls_data"]);
+    const latestCallsByDevice = latestCallsCache.cached_calls_data?.byDevice || {};
+    for (const deviceId of Object.keys(newCallsByDevice)) {
+      const latestCalls = latestCallsByDevice[deviceId];
+      if (!latestCalls || latestCalls.length === 0) continue;
+      const latestById = new Map(latestCalls.map((c) => [c.id, c]));
+      newCallsByDevice[deviceId] = newCallsByDevice[deviceId].map((c) => {
+        const latest = latestById.get(c.id);
+        // Prefer the popup's viewed=true over our stale viewed=false
+        return (latest && latest.viewed === true && !c.viewed) ? { ...c, viewed: true } : c;
+      });
+    }
+
     // Rebuild allMessages / allCalls arrays for the popup
     const allMessages = Object.values(newSmsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))

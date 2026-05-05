@@ -74,6 +74,8 @@ function getSmsCount(deviceId) {
 }
 
 function getCallsCount(deviceId) {
+  // Don't show badge until Firestore has confirmed the data (prevents stale-cache flash)
+  if (!state.callsDataConfirmed) return 0
   if (deviceId === "all") return state.devices.reduce((t, d) => t + getCallsCount(d.id), 0)
   // Use allCallsData (render source) to stay in sync with what's actually displayed
   return (state.allCallsData || []).filter(c => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length
