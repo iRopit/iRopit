@@ -181,6 +181,7 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                     .emit(EVENT_SHARE, map);
             Log.d(TAG, "tryEmitPending: emit call succeeded");
+            clearPending();
         } catch (Exception e) {
             Log.e(TAG, "tryEmitPending: emit FAILED", e);
         }

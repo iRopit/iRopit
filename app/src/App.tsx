@@ -163,6 +163,10 @@ const AppContent = () => {
                 { title: 'Share',  pressAction: { id: 'share_message', launchActivity: 'default' } },
               ],
             },
+            ios: {
+              categoryId: 'chat_actions',
+              sound: 'default',
+            },
           });
         } catch (e) {
           console.error('[FCM] Failed to show notifee notification:', e);

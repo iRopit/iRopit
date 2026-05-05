@@ -91,8 +91,10 @@ const RootNavigator = () => {
 
   const handleShareClose = useCallback(() => {
     setShareData(null);
-    // Return to the app that initiated the share
-    BackHandler.exitApp();
+    // Only exit if the app was launched specifically for this share (no prior back stack).
+    // If the user was already in the app and shared a 2nd image, exitApp() would kill
+    // the app entirely, making the share sheet open the app again as a cold launch.
+    // Instead, do nothing — the user stays in the app.
   }, []);
 
   if (isLoading || checkingOnboarding) {

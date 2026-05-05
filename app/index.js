@@ -5,6 +5,19 @@ import App from './src/App';
 import { name as appName } from './app.json';
 import { handleChatNotificationAction } from './src/services/chatNotificationActions';
 
+// Register iOS notification category so Copy/Delete/Share action buttons appear on iOS.
+// Must be called before setBackgroundMessageHandler and before AppRegistry.registerComponent.
+notifee.setNotificationCategories([
+  {
+    id: 'chat_actions',
+    actions: [
+      { id: 'copy_message',   title: 'Copy' },
+      { id: 'delete_message', title: 'Delete',         destructive: true },
+      { id: 'share_message',  title: 'Share' },
+    ],
+  },
+]);
+
 // Handle FCM messages when app is in background or quit state.
 // Always create the channel here — NotificationContext hasn't mounted yet in this state.
 messaging().setBackgroundMessageHandler(async remoteMessage => {
@@ -40,6 +53,10 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
         { title: 'Delete', pressAction: { id: 'delete_message' } },
         { title: 'Share',  pressAction: { id: 'share_message', launchActivity: 'default' } },
       ],
+    },
+    ios: {
+      categoryId: 'chat_actions',
+      sound: 'default',
     },
   });
 });
