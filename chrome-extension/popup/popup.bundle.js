@@ -29027,11 +29027,20 @@ ${this.customData.serverResponse}`;
     detailTitle.textContent = appName;
     mainView.style.display = "none";
     detailView.style.display = "flex";
-    const unreadInGroup = notifications.filter((n) => !n.read);
+    const dedupMap = /* @__PURE__ */ new Map();
+    notifications.forEach((n) => {
+      const ts = n.receivedAt || n.timestamp || 0;
+      const dedupeKey = `${n.title || ""}|${n.text || n.body || ""}|${Math.round(ts / 1e3)}`;
+      if (!dedupMap.has(dedupeKey) || !dedupMap.get(dedupeKey).deviceId) {
+        dedupMap.set(dedupeKey, n);
+      }
+    });
+    const dedupedNotifications = Array.from(dedupMap.values());
+    const unreadInGroup = dedupedNotifications.filter((n) => !n.read);
     if (unreadInGroup.length > 0) {
       unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
     }
-    const displayNotifications = notifications.map((n) => ({ ...n, read: true }));
+    const displayNotifications = dedupedNotifications.map((n) => ({ ...n, read: true }));
     detailList.innerHTML = displayNotifications.map((notif) => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
          data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
@@ -29648,24 +29657,37 @@ ${this.customData.serverResponse}`;
       const ts = n.timestamp || n.receivedAt || 0;
       return ts >= fromTs && ts <= toTs;
     });
-    if (smsCountEl) smsCountEl.textContent = filteredSms.length;
-    if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
-    if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
+    updateInsightsDeviceTabs();
+    const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+    const selectedInsightsDevice = insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+    const mobileDeviceIds = new Set(
+      (devices || []).filter((d) => {
+        const platform = (d.platform || "").toLowerCase();
+        const type = (d.type || "").toLowerCase();
+        return type === "mobile" || type === "phone" || type === "tablet" || platform === "android" || platform === "ios";
+      }).map((d) => d.id)
+    );
+    const deviceFilteredSms = selectedInsightsDevice === "all" ? filteredSms.filter((m) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(m.deviceId)) : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+    const deviceFilteredCalls = selectedInsightsDevice === "all" ? filteredCalls.filter((c) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(c.deviceId)) : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
+    const deviceFilteredNotifs = selectedInsightsDevice === "all" ? filteredNotifs.filter((n) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(n.deviceId)) : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
+    if (smsCountEl) smsCountEl.textContent = deviceFilteredSms.length;
+    if (callsCountEl) callsCountEl.textContent = deviceFilteredCalls.length;
+    if (notifCountEl) notifCountEl.textContent = deviceFilteredNotifs.length;
     const byDate = {};
-    for (const n of filteredNotifs) {
+    for (const n of deviceFilteredNotifs) {
       const ts = n.timestamp || n.receivedAt || 0;
       const dateKey = toDateStr(ts);
       if (!byDate[dateKey]) byDate[dateKey] = [];
       byDate[dateKey].push({ ...n, _ts: ts });
     }
     const smsByDate = {};
-    for (const m of filteredSms) {
+    for (const m of deviceFilteredSms) {
       const ts = m.timestamp || m.receivedAt || 0;
       const dk = toDateStr(ts);
       smsByDate[dk] = (smsByDate[dk] || 0) + 1;
     }
     const callsByDate = {};
-    for (const c of filteredCalls) {
+    for (const c of deviceFilteredCalls) {
       const ts = c.timestamp || c.callDate || 0;
       const dk = toDateStr(ts);
       callsByDate[dk] = (callsByDate[dk] || 0) + 1;
@@ -29687,24 +29709,7 @@ ${this.customData.serverResponse}`;
     </div>`;
       return;
     }
-    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-    if (insightsDeviceSelect) {
-      const mobileDevices = (devices || []).filter((d) => {
-        const platform = (d.platform || "").toLowerCase();
-        const type = (d.type || "").toLowerCase();
-        return !platform.includes("chrome") && type !== "extension";
-      });
-      const prevVal = insightsDeviceSelect.value;
-      insightsDeviceSelect.innerHTML = `<option value="all">${t("dash_insights_all_devices")}</option>` + mobileDevices.map(
-        (d) => `<option value="${escapeHtml2(d.id)}">${escapeHtml2(getFriendlyDeviceName(d))}</option>`
-      ).join("");
-      if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
-        insightsDeviceSelect.value = prevVal;
-      }
-    }
-    const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
-    const insightsSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-    renderSmsInsights(insightsSms);
+    renderSmsInsights(deviceFilteredSms);
     const html = sortedDates.map((dateKey) => {
       const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
       const smsCount = smsByDate[dateKey] || 0;
@@ -29894,6 +29899,46 @@ ${this.customData.serverResponse}`;
     <div class="dash-date-spend-list">${dateRows}</div>` : ""}
   `;
   }
+  function updateInsightsDeviceTabs() {
+    const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+    if (!insightsDeviceTabs) return;
+    const mobileDevices = (devices || []).filter((d) => {
+      const platform = (d.platform || "").toLowerCase();
+      const type = (d.type || "").toLowerCase();
+      return type === "mobile" || type === "phone" || type === "tablet" || platform === "android" || platform === "ios";
+    });
+    const currentSelected = insightsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
+    const deviceTabsHTML = mobileDevices.map((d) => {
+      const isActive = currentSelected === d.id ? " active" : "";
+      return `<button class="device-tab${isActive}" data-device="${escapeHtml2(d.id)}">
+      ${getPlatformIcon(d.platform)}
+      <span>${escapeHtml2(getFriendlyDeviceName(d))}</span>
+    </button>`;
+    }).join("");
+    const allActive = !mobileDevices.some((d) => d.id === currentSelected) ? " active" : "";
+    insightsDeviceTabs.innerHTML = `
+    <button class="device-tab${allActive}" data-device="all">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>${t("dash_insights_all_devices")}</span>
+    </button>
+    ${deviceTabsHTML}
+  `;
+    if (!insightsDeviceTabs.dataset.wired) {
+      insightsDeviceTabs.dataset.wired = "1";
+      insightsDeviceTabs.addEventListener("click", (e) => {
+        const btn = e.target.closest(".device-tab");
+        if (!btn) return;
+        insightsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => tab.classList.remove("active"));
+        btn.classList.add("active");
+        renderDashboard();
+      });
+    }
+  }
   function initDashboard() {
     setDefaultDates();
     const filterBtn = document.getElementById("dashFilterBtn");
@@ -29910,10 +29955,6 @@ ${this.customData.serverResponse}`;
         setDefaultDates();
         renderDashboard();
       });
-    }
-    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-    if (insightsDeviceSelect) {
-      insightsDeviceSelect.addEventListener("change", () => renderDashboard());
     }
     document.querySelectorAll(".tab").forEach((tab) => {
       if (tab.dataset.tab === "dashboard") {
@@ -30787,6 +30828,7 @@ ${this.customData.serverResponse}`;
     updateSmsDeviceTabs();
     updateCallsDeviceTabs();
     updateNotificationsDeviceTabs();
+    updateInsightsDeviceTabs();
     Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => m.reRenderNotifications()).catch(() => {
     });
   }

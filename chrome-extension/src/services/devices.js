@@ -30,6 +30,7 @@ import {
 } from "../utils/helpers.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
+import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
 
 /**
  * Register this extension as a device
@@ -327,6 +328,7 @@ export function updateDeviceSelects() {
   updateSmsDeviceTabs();
   updateCallsDeviceTabs();
   updateNotificationsDeviceTabs();
+  updateInsightsDeviceTabs();
   // Re-render notifications so device tags resolve with fresh state.devices
   import("./notifications.js").then(m => m.reRenderNotifications()).catch(() => {});
 }

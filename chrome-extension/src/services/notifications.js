@@ -429,14 +429,25 @@ function showNotifDetail(appKey, appName, notifications) {
   mainView.style.display = "none";
   detailView.style.display = "flex";
 
+  // Deduplicate by title+body+timestamp — keep the entry with a deviceId if possible
+  const dedupMap = new Map();
+  notifications.forEach(n => {
+    const ts = n.receivedAt || n.timestamp || 0;
+    const dedupeKey = `${n.title || ""}|${n.text || n.body || ""}|${Math.round(ts / 1000)}`;
+    if (!dedupMap.has(dedupeKey) || !dedupMap.get(dedupeKey).deviceId) {
+      dedupMap.set(dedupeKey, n);
+    }
+  });
+  const dedupedNotifications = Array.from(dedupMap.values());
+
   // Auto-mark all unread notifications in this group as read
-  const unreadInGroup = notifications.filter(n => !n.read);
+  const unreadInGroup = dedupedNotifications.filter(n => !n.read);
   if (unreadInGroup.length > 0) {
     unreadInGroup.forEach(n => markNotificationAsRead(n.deviceId, n.id));
   }
 
   // Treat everything as read for rendering — state was already updated above
-  const displayNotifications = notifications.map(n => ({ ...n, read: true }));
+  const displayNotifications = dedupedNotifications.map(n => ({ ...n, read: true }));
 
   detailList.innerHTML = displayNotifications.map(notif => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"

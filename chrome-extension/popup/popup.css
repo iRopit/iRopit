@@ -448,12 +448,7 @@ body[dir="rtl"] {
   max-height: 100%;
 }
 
-/* Dashboard tab scrolls as a single unit */
-#dashboardTab.active {
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: block;
-}
+/* Dashboard tab scrolls as a single unit — layout handled by #dashboardTab.active below */
 
 #dashboardTab .dashboard-breakdown {
   flex: none;
@@ -3393,6 +3388,50 @@ html.dark .profile-logout-btn-footer {
 
 #dashboardTab.active {
   display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+  background: var(--background);
+}
+
+#dashInsightsDeviceTabs {
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border-bottom: none !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 8px !important;
+  width: 200px;
+  min-width: 200px;
+  flex-shrink: 0;
+  gap: 4px !important;
+  align-items: stretch;
+}
+
+#dashInsightsDeviceTabs::-webkit-scrollbar {
+  width: 4px;
+  height: 0;
+}
+
+#dashInsightsDeviceTabs .device-tab {
+  padding: 8px 6px;
+  border-radius: 8px;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .dashboard-header {

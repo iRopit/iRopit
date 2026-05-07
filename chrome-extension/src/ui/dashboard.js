@@ -6,7 +6,7 @@
 
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
-import { getFriendlyDeviceName } from "../utils/helpers.js";
+import { getFriendlyDeviceName, getPlatformIcon } from "../utils/helpers.js";
 
 /** Shorthand translator */
 function t(key) {
@@ -139,14 +139,49 @@ async function renderDashboard() {
     return ts >= fromTs && ts <= toTs;
   });
 
-  // Update stat counters
-  if (smsCountEl) smsCountEl.textContent = filteredSms.length;
-  if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
-  if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
+  // Populate the insights device tabs (only mobile devices) — always render first
+  updateInsightsDeviceTabs();
+
+  // Get selected device and apply to ALL data sources
+  const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+  const selectedInsightsDevice =
+    insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  // Build set of mobile device IDs shown in the sidebar (excludes extension)
+  const mobileDeviceIds = new Set(
+    (state.devices || [])
+      .filter((d) => {
+        const platform = (d.platform || "").toLowerCase();
+        const type = (d.type || "").toLowerCase();
+        return (
+          type === "mobile" ||
+          type === "phone" ||
+          type === "tablet" ||
+          platform === "android" ||
+          platform === "ios"
+        );
+      })
+      .map((d) => d.id)
+  );
+
+  const deviceFilteredSms = selectedInsightsDevice === "all"
+    ? filteredSms.filter((m) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(m.deviceId))
+    : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+  const deviceFilteredCalls = selectedInsightsDevice === "all"
+    ? filteredCalls.filter((c) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(c.deviceId))
+    : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
+  const deviceFilteredNotifs = selectedInsightsDevice === "all"
+    ? filteredNotifs.filter((n) => mobileDeviceIds.size === 0 || mobileDeviceIds.has(n.deviceId))
+    : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
+
+  // Update stat counters (device-filtered)
+  if (smsCountEl) smsCountEl.textContent = deviceFilteredSms.length;
+  if (callsCountEl) callsCountEl.textContent = deviceFilteredCalls.length;
+  if (notifCountEl) notifCountEl.textContent = deviceFilteredNotifs.length;
 
   // Group notifications by date (descending)
   const byDate = {};
-  for (const n of filteredNotifs) {
+  for (const n of deviceFilteredNotifs) {
     const ts = n.timestamp || n.receivedAt || 0;
     const dateKey = toDateStr(ts);
     if (!byDate[dateKey]) byDate[dateKey] = [];
@@ -155,14 +190,14 @@ async function renderDashboard() {
 
   // Also add SMS and Calls counts per date (for the pill summary)
   const smsByDate = {};
-  for (const m of filteredSms) {
+  for (const m of deviceFilteredSms) {
     const ts = m.timestamp || m.receivedAt || 0;
     const dk = toDateStr(ts);
     smsByDate[dk] = (smsByDate[dk] || 0) + 1;
   }
 
   const callsByDate = {};
-  for (const c of filteredCalls) {
+  for (const c of deviceFilteredCalls) {
     const ts = c.timestamp || c.callDate || 0;
     const dk = toDateStr(ts);
     callsByDate[dk] = (callsByDate[dk] || 0) + 1;
@@ -189,34 +224,8 @@ async function renderDashboard() {
     return;
   }
 
-  // Populate the insights device dropdown (only mobile devices)
-  const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-  if (insightsDeviceSelect) {
-    const mobileDevices = (state.devices || []).filter((d) => {
-      const platform = (d.platform || "").toLowerCase();
-      const type = (d.type || "").toLowerCase();
-      return !platform.includes("chrome") && type !== "extension";
-    });
-    const prevVal = insightsDeviceSelect.value;
-    insightsDeviceSelect.innerHTML =
-      `<option value="all">${t("dash_insights_all_devices")}</option>` +
-      mobileDevices.map((d) =>
-        `<option value="${escapeHtml(d.id)}">${escapeHtml(getFriendlyDeviceName(d))}</option>`
-      ).join("");
-    // Restore previous selection if still valid
-    if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
-      insightsDeviceSelect.value = prevVal;
-    }
-  }
-
-  // Filter SMS by selected device for insights
-  const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
-  const insightsSms = selectedInsightsDevice === "all"
-    ? filteredSms
-    : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-
-  // Render SMS spending insights
-  renderSmsInsights(insightsSms);
+  // Render SMS spending insights (device-filtered)
+  renderSmsInsights(deviceFilteredSms);
 
   const html = sortedDates.map((dateKey) => {
     const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
@@ -481,6 +490,59 @@ function renderSmsInsights(smsMessages) {
 }
 
 /** Initialize the Dashboard tab */
+export function updateInsightsDeviceTabs() {
+  const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+  if (!insightsDeviceTabs) return;
+
+  const mobileDevices = (state.devices || []).filter((d) => {
+    const platform = (d.platform || "").toLowerCase();
+    const type = (d.type || "").toLowerCase();
+    return (
+      type === "mobile" ||
+      type === "phone" ||
+      type === "tablet" ||
+      platform === "android" ||
+      platform === "ios"
+    );
+  });
+
+  const currentSelected =
+    insightsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  const deviceTabsHTML = mobileDevices.map((d) => {
+    const isActive = currentSelected === d.id ? " active" : "";
+    return `<button class="device-tab${isActive}" data-device="${escapeHtml(d.id)}">
+      ${getPlatformIcon(d.platform)}
+      <span>${escapeHtml(getFriendlyDeviceName(d))}</span>
+    </button>`;
+  }).join("");
+
+  const allActive = !mobileDevices.some((d) => d.id === currentSelected) ? " active" : "";
+  insightsDeviceTabs.innerHTML = `
+    <button class="device-tab${allActive}" data-device="all">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>${t("dash_insights_all_devices")}</span>
+    </button>
+    ${deviceTabsHTML}
+  `;
+
+  if (!insightsDeviceTabs.dataset.wired) {
+    insightsDeviceTabs.dataset.wired = "1";
+    insightsDeviceTabs.addEventListener("click", (e) => {
+      const btn = e.target.closest(".device-tab");
+      if (!btn) return;
+      insightsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => tab.classList.remove("active"));
+      btn.classList.add("active");
+      renderDashboard();
+    });
+  }
+}
+
 export function initDashboard() {
   setDefaultDates();
 
@@ -502,11 +564,8 @@ export function initDashboard() {
     });
   }
 
-  // Re-render insights when device filter changes
-  const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-  if (insightsDeviceSelect) {
-    insightsDeviceSelect.addEventListener("change", () => renderDashboard());
-  }
+  // Re-render insights when device filter tab changes (handled via event delegation in renderDashboard)
+  // No separate listener needed — click handler is wired inside renderDashboard.
 
   // Auto-render when tab is clicked
   document.querySelectorAll(".tab").forEach((tab) => {
