@@ -24464,8 +24464,6 @@ ${this.customData.serverResponse}`;
           dash_sms: "SMS",
           dash_calls: "Calls",
           dash_notifications: "Notifications",
-          dash_devices: "Devices",
-          dash_devices_title: "Connected Devices",
           dash_insights_title: "SMS Spending Insights",
           dash_insights_empty_filter: "Apply a date filter to see spending analysis",
           dash_insights_no_sms: "No SMS data in selected range",
@@ -24543,8 +24541,8 @@ ${this.customData.serverResponse}`;
           sms_placeholder_message: "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u062A\u0643",
           sms_btn_cancel: "\u0625\u0644\u063A\u0627\u0621",
           sms_btn_send: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
-          nav_dashboard: "\u062A\u0642\u0627\u0631\u064A\u0631",
-          dash_title: "\u062A\u0642\u0627\u0631\u064A\u0631",
+          nav_dashboard: "\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A",
+          dash_title: "\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A",
           dash_from: "\u0645\u0646",
           dash_to: "\u0625\u0644\u0649",
           dash_apply: "\u062A\u0637\u0628\u064A\u0642",
@@ -24552,8 +24550,6 @@ ${this.customData.serverResponse}`;
           dash_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           dash_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
-          dash_devices: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629",
-          dash_devices_title: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629 \u0627\u0644\u0645\u062A\u0635\u0644\u0629",
           dash_insights_title: "\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_insights_empty_filter: "\u0637\u0628\u0651\u0642 \u0641\u0644\u062A\u0631 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0644\u0639\u0631\u0636 \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642",
           dash_insights_no_sms: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F",
@@ -29623,9 +29619,6 @@ ${this.customData.serverResponse}`;
     const callsCountEl = document.getElementById("dashCallsCount");
     const notifCountEl = document.getElementById("dashNotifCount");
     const breakdownList = document.getElementById("dashBreakdownList");
-    const insightsTabsContainer = document.getElementById("dashInsightsDeviceTabs");
-    const _earlyActive = insightsTabsContainer ? insightsTabsContainer.querySelector(".device-tab.active") : null;
-    const selectedInsightsDevice = _earlyActive ? _earlyActive.dataset.device : "all";
     if (!fromInput || !toInput || !breakdownList) return;
     const fromVal = fromInput.value;
     const toVal = toInput.value;
@@ -29655,27 +29648,24 @@ ${this.customData.serverResponse}`;
       const ts = n.timestamp || n.receivedAt || 0;
       return ts >= fromTs && ts <= toTs;
     });
-    const deviceSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-    const deviceCalls = selectedInsightsDevice === "all" ? filteredCalls : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
-    const deviceNotifs = selectedInsightsDevice === "all" ? filteredNotifs : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
-    if (smsCountEl) smsCountEl.textContent = deviceSms.length;
-    if (callsCountEl) callsCountEl.textContent = deviceCalls.length;
-    if (notifCountEl) notifCountEl.textContent = deviceNotifs.length;
+    if (smsCountEl) smsCountEl.textContent = filteredSms.length;
+    if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
+    if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
     const byDate = {};
-    for (const n of deviceNotifs) {
+    for (const n of filteredNotifs) {
       const ts = n.timestamp || n.receivedAt || 0;
       const dateKey = toDateStr(ts);
       if (!byDate[dateKey]) byDate[dateKey] = [];
       byDate[dateKey].push({ ...n, _ts: ts });
     }
     const smsByDate = {};
-    for (const m of deviceSms) {
+    for (const m of filteredSms) {
       const ts = m.timestamp || m.receivedAt || 0;
       const dk = toDateStr(ts);
       smsByDate[dk] = (smsByDate[dk] || 0) + 1;
     }
     const callsByDate = {};
-    for (const c of deviceCalls) {
+    for (const c of filteredCalls) {
       const ts = c.timestamp || c.callDate || 0;
       const dk = toDateStr(ts);
       callsByDate[dk] = (callsByDate[dk] || 0) + 1;
@@ -29697,46 +29687,24 @@ ${this.customData.serverResponse}`;
     </div>`;
       return;
     }
-    if (insightsTabsContainer) {
-      const mobileDevices = (devices || []).filter(
-        (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
-      );
-      const smsByDevice = {};
-      for (const m of filteredSms) {
-        const did = m.deviceId || "unknown";
-        smsByDevice[did] = (smsByDevice[did] || 0) + 1;
-      }
-      const totalSms = filteredSms.length;
-      const fmtCount = (n) => n > 99 ? "99+" : String(n);
-      insightsTabsContainer.innerHTML = `<button class="device-tab" data-device="all">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-          <path d="M16 3.13a4 4 0 010 7.75"/>
-        </svg>
-        <span>${t("dash_insights_all_devices")}</span>
-        ${totalSms > 0 ? `<span class="dash-device-list-count">(${fmtCount(totalSms)})</span>` : ""}
-      </button>` + mobileDevices.map((d) => {
+    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+    if (insightsDeviceSelect) {
+      const mobileDevices = (devices || []).filter((d) => {
         const platform = (d.platform || "").toLowerCase();
-        const cnt = smsByDevice[d.id] || 0;
-        return `<button class="device-tab" data-device="${escapeHtml2(d.id)}">
-          ${getPlatformIcon(platform)}
-          <span>${escapeHtml2(getFriendlyDeviceName(d))}</span>
-          ${cnt > 0 ? `<span class="dash-device-list-count">(${fmtCount(cnt)})</span>` : ""}
-        </button>`;
-      }).join("");
-      const toActivate = insightsTabsContainer.querySelector(`[data-device="${escapeHtml2(selectedInsightsDevice)}"]`) || insightsTabsContainer.querySelector('[data-device="all"]');
-      if (toActivate) toActivate.classList.add("active");
-      insightsTabsContainer.querySelectorAll(".device-tab").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          insightsTabsContainer.querySelectorAll(".device-tab").forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          renderDashboard();
-        });
+        const type = (d.type || "").toLowerCase();
+        return !platform.includes("chrome") && type !== "extension";
       });
+      const prevVal = insightsDeviceSelect.value;
+      insightsDeviceSelect.innerHTML = `<option value="all">${t("dash_insights_all_devices")}</option>` + mobileDevices.map(
+        (d) => `<option value="${escapeHtml2(d.id)}">${escapeHtml2(getFriendlyDeviceName(d))}</option>`
+      ).join("");
+      if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
+        insightsDeviceSelect.value = prevVal;
+      }
     }
-    renderSmsInsights(deviceSms);
+    const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
+    const insightsSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+    renderSmsInsights(insightsSms);
     const html = sortedDates.map((dateKey) => {
       const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
       const smsCount = smsByDate[dateKey] || 0;
@@ -29785,40 +29753,24 @@ ${this.customData.serverResponse}`;
     "\xA3": "GBP",
     "\u20AC": "EUR",
     "\u20B9": "INR",
-    "\uFDFC": "SAR",
-    "\u062C\u0645": "EGP",
-    "\u062C.\u0645": "EGP"
+    "\uFDFC": "SAR"
   };
-  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
-  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your|reversed\s+to\s+your|has\s+been\s+reversed|reversal)\b|(تم\s+إيداع|إيداع|تم\s+رد|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك|تم\s+إعادة|إعادة\s+مبلغ)/i;
+  var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
+  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
-  var PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
-  var CURR = "SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$\xA3\u20AC\u20B9\uFDFC]";
-  var BALANCE_MASK_RE_A = new RegExp(
-    "\\b(balance|bal\\.?|avail(?:able)?\\.?|remaining|rem\\.?|limit|outstanding|due|minimum|min\\.?|opening|closing|cr\\.?\\s*bal|dr\\.?\\s*bal)\\s*(?:is\\s+|are\\s+)?[:\\-]?\\s*(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?",
-    "gi"
-  );
-  var BALANCE_MASK_RE_AR_A = /(الرصيد\s+المتاح|الرصيد|رصيد|الحد\s+الائتماني|الحد|المستحق|المحفوظ|رصيدك)\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼جم])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?/gi;
-  var BALANCE_MASK_RE_B = new RegExp(
-    "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?\\s*(?:is\\s+(?:your\\s+|the\\s+)?)?(?:(?:current|available|total|avail|new|updated)\\s+)?\\b(balance|bal\\b|available\\b|avail\\b|limit\\b|outstanding\\b)",
-    "gi"
-  );
-  var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?\s*(الرصيد\s+المتاح|الرصيد|رصيد|الحد|المستحق|المحفوظ|رصيدك)/gi;
-  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م))/gi;
+  var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+  var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
+  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
-    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(خصم|تحويل|سحب|رسوم|بطاقة|حساب|عميل|الراتب|استخدام|عملية|معاملة|تم\s+خصم|تم\s+تحويل)/i;
+    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
     return STRONG.test(body);
   }
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
-    BALANCE_MASK_RE_A.lastIndex = 0;
-    BALANCE_MASK_RE_AR_A.lastIndex = 0;
-    BALANCE_MASK_RE_B.lastIndex = 0;
-    BALANCE_MASK_RE_AR_B.lastIndex = 0;
-    const masked = body.replace(BALANCE_MASK_RE_AR_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
+    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
     AMOUNT_POS_RE.lastIndex = 0;
@@ -29840,10 +29792,9 @@ ${this.customData.serverResponse}`;
       const ctx = masked.slice(start2, end);
       const isDebit = DEBIT_KEYWORDS.test(ctx);
       const isCredit = CREDIT_KEYWORDS.test(ctx);
-      const isPaymentReceivedOnCard = PAYMENT_RECEIVED_ON_CARD_RE.test(ctx);
-      if (!isDebit && !isCredit && !isPaymentReceivedOnCard) continue;
+      if (!isDebit && !isCredit) continue;
       if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
-      const type = isPaymentReceivedOnCard || isCredit && !isDebit ? "credit" : "debit";
+      const type = isCredit && !isDebit ? "credit" : "debit";
       const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
       const key = `${currency}:${c.amount}:${type}`;
       if (seen.has(key)) continue;
@@ -29855,17 +29806,7 @@ ${this.customData.serverResponse}`;
   function analyzeSmsSpending(smsMessages) {
     const byCurrency = {};
     const byDate = {};
-    const seenBodies = /* @__PURE__ */ new Set();
-    const dedupedMessages = smsMessages.filter((msg) => {
-      const body = (msg.body || msg.text || msg.content || "").trim();
-      if (!body) return true;
-      const window5m = Math.floor((msg.timestamp || msg.receivedAt || 0) / 3e5);
-      const key = `${window5m}_${body}`;
-      if (seenBodies.has(key)) return false;
-      seenBodies.add(key);
-      return true;
-    });
-    for (const msg of dedupedMessages) {
+    for (const msg of smsMessages) {
       const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
       const sender = msg.sender || msg.address || "Unknown";
@@ -29969,6 +29910,10 @@ ${this.customData.serverResponse}`;
         setDefaultDates();
         renderDashboard();
       });
+    }
+    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+    if (insightsDeviceSelect) {
+      insightsDeviceSelect.addEventListener("change", () => renderDashboard());
     }
     document.querySelectorAll(".tab").forEach((tab) => {
       if (tab.dataset.tab === "dashboard") {
@@ -30744,8 +30689,17 @@ ${this.customData.serverResponse}`;
     `;
       return;
     }
-    devicesList.innerHTML = devices2.map(
-      (device) => `
+    devicesList.innerHTML = devices2.map((device) => {
+      const isMobileDevice = device.type === "mobile" || device.type === "phone" || device.type === "tablet" || device.platform === "android" || device.platform === "Android" || device.platform === "ios";
+      const batteryValue = Number(device.batteryLevel);
+      const hasBattery = Number.isFinite(batteryValue);
+      const batteryPct = hasBattery ? Math.max(0, Math.min(100, Math.round(batteryValue))) : null;
+      if (hasBattery) {
+        const lastUpdated = device.batteryLastUpdatedAt ? new Date(device.batteryLastUpdatedAt).toLocaleTimeString() : "unknown";
+        console.log(`[Device] ${getFriendlyDeviceName(device)} - Battery: ${batteryPct}% (last updated: ${lastUpdated})`);
+      }
+      const batteryMarkup = isMobileDevice && batteryPct !== null ? `<div class="device-battery ${device.isCharging ? "charging" : ""}"><span class="device-battery-icon">\u{1F50B}</span> ${batteryPct}%${device.isCharging ? " \u26A1" : ""}</div>` : "";
+      return `
     <div class="list-item device-item ${device.isOnline ? "device-online" : ""}" data-device-id="${device.id}" data-device-doc-id="${device.docId}">
       <div class="list-item-icon">
         ${device.type === "mobile" || device.platform === "android" || device.platform === "Android" || device.platform === "ios" || device.type === "phone" ? `<!-- phone-portrait-outline (Ionicons) -->
@@ -30774,6 +30728,7 @@ ${this.customData.serverResponse}`;
         device.platform || ""
       )} \u2022 ${device.isOnline ? "Online" : "Offline"}
         </div>
+        ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
       </div>
       <div class="device-actions">
@@ -30787,8 +30742,8 @@ ${this.customData.serverResponse}`;
         </button>
       </div>
     </div>
-  `
-    ).join("");
+  `;
+    }).join("");
     document.querySelectorAll(".delete-device-btn").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();

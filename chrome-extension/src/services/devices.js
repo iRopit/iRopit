@@ -176,8 +176,35 @@ export function renderDevices() {
   }
 
   devicesList.innerHTML = devices
-    .map(
-      (device) => `
+    .map((device) => {
+      const isMobileDevice =
+        device.type === "mobile" ||
+        device.type === "phone" ||
+        device.type === "tablet" ||
+        device.platform === "android" ||
+        device.platform === "Android" ||
+        device.platform === "ios";
+
+      const batteryValue = Number(device.batteryLevel);
+      const hasBattery = Number.isFinite(batteryValue);
+      const batteryPct = hasBattery
+        ? Math.max(0, Math.min(100, Math.round(batteryValue)))
+        : null;
+      
+      // Debug: log battery value and update timestamp
+      if (hasBattery) {
+        const lastUpdated = device.batteryLastUpdatedAt 
+          ? new Date(device.batteryLastUpdatedAt).toLocaleTimeString()
+          : 'unknown';
+        console.log(`[Device] ${getFriendlyDeviceName(device)} - Battery: ${batteryPct}% (last updated: ${lastUpdated})`);
+      }
+
+      const batteryMarkup =
+        isMobileDevice && batteryPct !== null
+          ? `<div class="device-battery ${device.isCharging ? "charging" : ""}"><span class="device-battery-icon">🔋</span> ${batteryPct}%${device.isCharging ? " ⚡" : ""}</div>`
+          : "";
+
+      return `
     <div class="list-item device-item ${
       device.isOnline ? "device-online" : ""
     }" data-device-id="${device.id}" data-device-doc-id="${device.docId}">
@@ -212,6 +239,7 @@ export function renderDevices() {
             device.platform || "",
           )} • ${device.isOnline ? "Online" : "Offline"}
         </div>
+        ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
       </div>
       <div class="device-actions">
@@ -227,8 +255,8 @@ export function renderDevices() {
         </button>
       </div>
     </div>
-  `,
-    )
+  `;
+    })
     .join("");
 
   // Add delete handlers

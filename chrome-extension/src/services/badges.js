@@ -45,7 +45,6 @@ export function updateTabBadges() {
   const badgeText = notifUnread > 0 ? (notifUnread > 99 ? "99+" : String(notifUnread)) : "";
   chrome.action.setBadgeText({ text: badgeText });
   if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
-  // Persist so SW reads the correct value when it next wakes up.
   chrome.storage.local.set({ badgeCount: notifUnread });
   // Also update the SW's in-memory counter (best-effort; SW may be sleeping).
   chrome.runtime.sendMessage({ type: "syncBadge", count: notifUnread }, () => {

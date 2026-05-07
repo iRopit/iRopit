@@ -273,9 +273,9 @@ const CURRENCY_REGEX_STR =
 
 // Keywords that indicate a DEBIT (spending)
 // Proximity-based debit/credit keywords (checked within ±120 chars of each amount)
-const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
+const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
 // NOTE: "received" removed — banks say "we received your payment" which is a DEBIT for the customer
-const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
+const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
@@ -299,7 +299,7 @@ function isBankingSMS(body) {
   if (!body || typeof body !== "string") return false;
 
   // Strong signals — any one of these is enough
-  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b/i;
+  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
 
   return STRONG.test(body);
 }
