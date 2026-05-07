@@ -33,21 +33,26 @@ export const useNotificationStore = create<NotificationState>()(
 
       addNotification: (notification: AppNotification) => {
         set(state => {
-          // Sanitize the key to remove invalid characters
-          const sanitizedKey = notification.key
-            .replace(/[/|\\=\n\r\t]/g, '_')
-            .replace(/[^a-zA-Z0-9_.-]/g, '_')
-            .substring(0, 200);
-          const uniqueId = `${sanitizedKey}_${notification.timestamp}`;
+          // Use the Firestore docId (notification.id) as the primary dedup key.
+          // The previous key+timestamp computation created a different id than
+          // what was passed in, causing the same document (with a modified
+          // timestamp field) to appear as a new entry.
+          const dedupId = notification.id || (() => {
+            const sanitizedKey = notification.key
+              .replace(/[/|\\=\n\r\t]/g, '_')
+              .replace(/[^a-zA-Z0-9_.-]/g, '_')
+              .substring(0, 200);
+            return `${sanitizedKey}_${notification.timestamp}`;
+          })();
 
-          const exists = state.notifications.find(n => n.id === uniqueId);
+          const exists = state.notifications.find(n => n.id === dedupId);
           if (exists) {
             return state;
           }
 
           const notificationWithId = {
             ...notification,
-            id: uniqueId,
+            id: dedupId,
             read: false,
           };
 

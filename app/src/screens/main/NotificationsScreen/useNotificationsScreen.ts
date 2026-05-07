@@ -443,7 +443,13 @@ export const useNotificationsScreen = (
       .limit(200)
       .onSnapshot(
         snapshot => {
-          snapshot.forEach(doc => {
+          // Only process 'added' events — 'modified' events are Android re-fires
+          // of the same notification with a slightly different timestamp, not new
+          // notifications. Processing all docs on every snapshot change causes
+          // duplicates because addNotification dedups by key+timestamp (not docId).
+          snapshot.docChanges().forEach(change => {
+            if (change.type !== 'added') return;
+            const doc = change.doc;
             const data = doc.data();
             const type = data.type || 'other';
 

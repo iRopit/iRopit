@@ -6,7 +6,7 @@
 
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
-import { getFriendlyDeviceName, getPlatformIcon } from "../utils/helpers.js";
+import { getFriendlyDeviceName } from "../utils/helpers.js";
 
 /** Shorthand translator */
 function t(key) {
@@ -101,11 +101,6 @@ async function renderDashboard() {
   const notifCountEl = document.getElementById("dashNotifCount");
   const breakdownList = document.getElementById("dashBreakdownList");
 
-  // Read selected device early — before any re-render so the selection drives all filtering
-  const insightsTabsContainer = document.getElementById("dashInsightsDeviceTabs");
-  const _earlyActive = insightsTabsContainer ? insightsTabsContainer.querySelector(".device-tab.active") : null;
-  const selectedInsightsDevice = _earlyActive ? _earlyActive.dataset.device : "all";
-
   if (!fromInput || !toInput || !breakdownList) return;
 
   const fromVal = fromInput.value;
@@ -144,26 +139,14 @@ async function renderDashboard() {
     return ts >= fromTs && ts <= toTs;
   });
 
-  // Apply device filter on top of date filter
-  const deviceSms = selectedInsightsDevice === "all"
-    ? filteredSms
-    : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-  const deviceCalls = selectedInsightsDevice === "all"
-    ? filteredCalls
-    : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
-  const deviceNotifs = selectedInsightsDevice === "all"
-    ? filteredNotifs
-    : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
-
-  // Update stat counters (date + device filtered)
-  if (smsCountEl) smsCountEl.textContent = deviceSms.length;
-  if (callsCountEl) callsCountEl.textContent = deviceCalls.length;
-  if (notifCountEl) notifCountEl.textContent = deviceNotifs.length;
-
+  // Update stat counters
+  if (smsCountEl) smsCountEl.textContent = filteredSms.length;
+  if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
+  if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
 
   // Group notifications by date (descending)
   const byDate = {};
-  for (const n of deviceNotifs) {
+  for (const n of filteredNotifs) {
     const ts = n.timestamp || n.receivedAt || 0;
     const dateKey = toDateStr(ts);
     if (!byDate[dateKey]) byDate[dateKey] = [];
@@ -172,14 +155,14 @@ async function renderDashboard() {
 
   // Also add SMS and Calls counts per date (for the pill summary)
   const smsByDate = {};
-  for (const m of deviceSms) {
+  for (const m of filteredSms) {
     const ts = m.timestamp || m.receivedAt || 0;
     const dk = toDateStr(ts);
     smsByDate[dk] = (smsByDate[dk] || 0) + 1;
   }
 
   const callsByDate = {};
-  for (const c of deviceCalls) {
+  for (const c of filteredCalls) {
     const ts = c.timestamp || c.callDate || 0;
     const dk = toDateStr(ts);
     callsByDate[dk] = (callsByDate[dk] || 0) + 1;
@@ -206,62 +189,34 @@ async function renderDashboard() {
     return;
   }
 
-  // Populate the insights device tab strip (only mobile devices)
-  if (insightsTabsContainer) {
-    const mobileDevices = (state.devices || []).filter((d) =>
-      d.type === "mobile" || d.type === "phone" ||
-      d.platform === "android" || d.platform === "ios" || d.platform === "Android"
-    );
-
-    // Count SMS per device for the badge
-    const smsByDevice = {};
-    for (const m of filteredSms) {
-      const did = m.deviceId || "unknown";
-      smsByDevice[did] = (smsByDevice[did] || 0) + 1;
-    }
-    const totalSms = filteredSms.length;
-
-    const fmtCount = (n) => n > 99 ? "99+" : String(n);
-
-    // Rebuild buttons
-    insightsTabsContainer.innerHTML =
-      `<button class="device-tab" data-device="all">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-          <path d="M16 3.13a4 4 0 010 7.75"/>
-        </svg>
-        <span>${t("dash_insights_all_devices")}</span>
-        ${totalSms > 0 ? `<span class="dash-device-list-count">(${fmtCount(totalSms)})</span>` : ""}
-      </button>` +
-      mobileDevices.map((d) => {
-        const platform = (d.platform || "").toLowerCase();
-        const cnt = smsByDevice[d.id] || 0;
-        return `<button class="device-tab" data-device="${escapeHtml(d.id)}">
-          ${getPlatformIcon(platform)}
-          <span>${escapeHtml(getFriendlyDeviceName(d))}</span>
-          ${cnt > 0 ? `<span class="dash-device-list-count">(${fmtCount(cnt)})</span>` : ""}
-        </button>`;
-      }).join("");
-
-    // Restore or default to 'all'
-    const toActivate = insightsTabsContainer.querySelector(`[data-device="${escapeHtml(selectedInsightsDevice)}"]`)
-      || insightsTabsContainer.querySelector('[data-device="all"]');
-    if (toActivate) toActivate.classList.add("active");
-
-    // Attach click handlers
-    insightsTabsContainer.querySelectorAll(".device-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        insightsTabsContainer.querySelectorAll(".device-tab").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        renderDashboard();
-      });
+  // Populate the insights device dropdown (only mobile devices)
+  const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+  if (insightsDeviceSelect) {
+    const mobileDevices = (state.devices || []).filter((d) => {
+      const platform = (d.platform || "").toLowerCase();
+      const type = (d.type || "").toLowerCase();
+      return !platform.includes("chrome") && type !== "extension";
     });
+    const prevVal = insightsDeviceSelect.value;
+    insightsDeviceSelect.innerHTML =
+      `<option value="all">${t("dash_insights_all_devices")}</option>` +
+      mobileDevices.map((d) =>
+        `<option value="${escapeHtml(d.id)}">${escapeHtml(getFriendlyDeviceName(d))}</option>`
+      ).join("");
+    // Restore previous selection if still valid
+    if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
+      insightsDeviceSelect.value = prevVal;
+    }
   }
 
-  // Render SMS spending insights (device-filtered)
-  renderSmsInsights(deviceSms);
+  // Filter SMS by selected device for insights
+  const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
+  const insightsSms = selectedInsightsDevice === "all"
+    ? filteredSms
+    : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+
+  // Render SMS spending insights
+  renderSmsInsights(insightsSms);
 
   const html = sortedDates.map((dateKey) => {
     const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
@@ -292,7 +247,6 @@ async function renderDashboard() {
   breakdownList.innerHTML = html;
 }
 
-
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -312,56 +266,30 @@ const CURRENCY_MAP = {
   EGP: "EGP", JOD: "JOD", USD: "USD", GBP: "GBP", EUR: "EUR", INR: "INR",
   PKR: "PKR", MYR: "MYR", TRY: "TRY",
   "$": "USD", "£": "GBP", "€": "EUR", "₹": "INR", "﷼": "SAR",
-  "جم": "EGP", "ج.م": "EGP",
 };
 
 const CURRENCY_REGEX_STR =
-  "(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|\\$|£|€|₹|﷼|جم|ج\\.م)";
+  "(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|\\$|£|€|₹|﷼)";
 
 // Keywords that indicate a DEBIT (spending)
 // Proximity-based debit/credit keywords (checked within ±120 chars of each amount)
-// Includes English keywords with word boundaries AND Arabic keywords
-// NOTE: تحويل alone removed — it appears in both incoming and outgoing transfer SMS.
-// Instead use specific directional phrases: من حسابك (from your account) = debit, إلى حسابك = credit.
-const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
+const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b/i;
 // NOTE: "received" removed — banks say "we received your payment" which is a DEBIT for the customer
-// Arabic: إلى حسابك (to your account) indicates incoming/credit
-const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(تم\s+إيداع|إيداع|تم\s+رد|تم\s+إعادة|إعادة|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك)/i;
+const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b/i;
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
-// Incoming payment received on card — "a payment of AED X has been received on your Card"
-// This is a credit: someone paid into the card account.
-const PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
 // Pending/future-tense signals — if present alongside a credit keyword, the transaction hasn't happened yet
 const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
 
-const CURR = "SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼]";
-
-// Mask balance figures — English keyword BEFORE amount: "balance: AED 5,000" / "available limit 5,000"
-const BALANCE_MASK_RE_A = new RegExp(
-  "\\b(balance|bal\\.?|avail(?:able)?\\.?|remaining|rem\\.?|limit|outstanding|due|minimum|min\\.?|opening|closing|cr\\.?\\s*bal|dr\\.?\\s*bal)" +
-  "\\s*(?:is\\s+|are\\s+)?[:\\-]?\\s*" +
-  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?",
-  "gi"
-);
-// Mask balance figures — Arabic keyword BEFORE amount: "الرصيد المتاح 14072.37 EGP" / "الرصيد 5000"
-const BALANCE_MASK_RE_AR_A = /(الرصيد\s+المتاح|الرصيد|رصيد|الحد\s+الائتماني|الحد|المستحق|المحفوظ|رصيدك)\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼جم])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?/gi;
-// Mask balance figures — amount BEFORE English keyword: "AED 5,000 balance" / "5,000 is your available balance"
-const BALANCE_MASK_RE_B = new RegExp(
-  "(?:(?:" + CURR + ")\\s*)?([0-9,]+(?:\\.[0-9]{1,3})?)(?:\\s*(?:" + CURR + "))?\\s*" +
-  "(?:is\\s+(?:your\\s+|the\\s+)?)?(?:(?:current|available|total|avail|new|updated)\\s+)?" +
-  "\\b(balance|bal\\b|available\\b|avail\\b|limit\\b|outstanding\\b)",
-  "gi"
-);
-// Mask balance figures — amount BEFORE Arabic keyword: "14072.37 EGP الرصيد المتاح"
-const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))?\s*(الرصيد\s+المتاح|الرصيد|رصيد|الحد|المستحق|المحفوظ|رصيدك)/gi;
-
+// Mask balance figures — keyword BEFORE amount: "balance: AED 5,000" OR "limit is AED 5,000"
+const BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+// Mask balance figures — amount BEFORE keyword: "AED 5,000 balance" / "AED 5,000 is your available balance"
+const BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
 // Unified regex to find all currency+amount candidates with their text position
 // The second alternative uses (?<!\w) to prevent matching digits embedded in card/account
 // numbers like "XXXX1311 USD" where 1311 is part of the card number, not an amount.
-// Supports Arabic currency abbreviations: جم (Egyptian Pound)
-const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم|ج\.م))/gi;
+const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
 
 /**
  * Returns true if the SMS body looks like a bank/card transaction alert.
@@ -370,8 +298,8 @@ const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|M
 function isBankingSMS(body) {
   if (!body || typeof body !== "string") return false;
 
-  // Strong signals — any one of these is enough (English and Arabic)
-  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(خصم|تحويل|سحب|رسوم|بطاقة|حساب|عميل|الراتب|استخدام|عملية|معاملة|تم\s+خصم|تم\s+تحويل)/i;
+  // Strong signals — any one of these is enough
+  const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b/i;
 
   return STRONG.test(body);
 }
@@ -387,15 +315,8 @@ function extractTransactions(body) {
   // Skip credit card bill payment confirmations — these are not purchases/spending
   if (CARD_BILL_PAYMENT_RE.test(body)) return [];
 
-  // Step 1: Mask balance/informational amounts in both directions (English + Arabic, keyword-before and amount-before)
-  // Reset lastIndex on all global regexes before use
-  BALANCE_MASK_RE_A.lastIndex = 0;
-  BALANCE_MASK_RE_AR_A.lastIndex = 0;
-  BALANCE_MASK_RE_B.lastIndex = 0;
-  BALANCE_MASK_RE_AR_B.lastIndex = 0;
+  // Step 1: Mask balance/informational amounts in both directions
   const masked = body
-    .replace(BALANCE_MASK_RE_AR_A, (m) => " ".repeat(m.length))
-    .replace(BALANCE_MASK_RE_AR_B, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_A, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length));
 
@@ -426,16 +347,14 @@ function extractTransactions(body) {
 
     const isDebit  = DEBIT_KEYWORDS.test(ctx);
     const isCredit = CREDIT_KEYWORDS.test(ctx);
-    const isPaymentReceivedOnCard = PAYMENT_RECEIVED_ON_CARD_RE.test(ctx);
 
     // Skip amounts with no nearby transaction keyword (likely a balance or ref number)
-    if (!isDebit && !isCredit && !isPaymentReceivedOnCard) continue;
+    if (!isDebit && !isCredit) continue;
 
     // Skip future-tense credit notifications (e.g. "refund will be credited in 14 days")
     if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
 
-    // "a payment has been received on your card" is always a credit (incoming payment)
-    const type     = isPaymentReceivedOnCard || (isCredit && !isDebit) ? "credit" : "debit";
+    const type     = isCredit && !isDebit ? "credit" : "debit";
     const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
     const key      = `${currency}:${c.amount}:${type}`;
     if (seen.has(key)) continue;
@@ -455,20 +374,7 @@ function analyzeSmsSpending(smsMessages) {
   const byCurrency = {};
   const byDate = {}; // dateStr -> { currency -> debit total }
 
-  // Deduplicate by body+5-min window to avoid double-counting the same bank SMS
-  // received across multiple devices
-  const seenBodies = new Set();
-  const dedupedMessages = smsMessages.filter((msg) => {
-    const body = (msg.body || msg.text || msg.content || "").trim();
-    if (!body) return true;
-    const window5m = Math.floor((msg.timestamp || msg.receivedAt || 0) / 300000);
-    const key = `${window5m}_${body}`;
-    if (seenBodies.has(key)) return false;
-    seenBodies.add(key);
-    return true;
-  });
-
-  for (const msg of dedupedMessages) {
+  for (const msg of smsMessages) {
     const body   = msg.body || msg.text || msg.content || "";
 
     // Skip SMS that are not bank/card related
@@ -594,6 +500,12 @@ export function initDashboard() {
       setDefaultDates();
       renderDashboard();
     });
+  }
+
+  // Re-render insights when device filter changes
+  const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+  if (insightsDeviceSelect) {
+    insightsDeviceSelect.addEventListener("change", () => renderDashboard());
   }
 
   // Auto-render when tab is clicked

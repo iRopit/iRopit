@@ -24543,8 +24543,8 @@ ${this.customData.serverResponse}`;
           sms_placeholder_message: "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u062A\u0643",
           sms_btn_cancel: "\u0625\u0644\u063A\u0627\u0621",
           sms_btn_send: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
-          nav_dashboard: "\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A",
-          dash_title: "\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A",
+          nav_dashboard: "\u062A\u0642\u0627\u0631\u064A\u0631",
+          dash_title: "\u062A\u0642\u0627\u0631\u064A\u0631",
           dash_from: "\u0645\u0646",
           dash_to: "\u0625\u0644\u0649",
           dash_apply: "\u062A\u0637\u0628\u064A\u0642",
@@ -24761,11 +24761,20 @@ ${this.customData.serverResponse}`;
     updateBadge("smsBadge", smsUnread);
     const missedCalls = getCallsCount("all");
     updateBadge("callsBadge", missedCalls);
-    const notifUnread = devices.reduce(
-      (total, d) => total + (allNotifications[d.id] || []).filter((n) => !n.read).length,
-      0
-    );
+    const seenIds = /* @__PURE__ */ new Set();
+    const notifUnread = Object.values(allNotifications).flat().filter((n) => {
+      if (seenIds.has(n.id)) return false;
+      seenIds.add(n.id);
+      return !n.read;
+    }).length;
     updateBadge("notificationsBadge", notifUnread);
+    const badgeText = notifUnread > 0 ? notifUnread > 99 ? "99+" : String(notifUnread) : "";
+    chrome.action.setBadgeText({ text: badgeText });
+    if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+    chrome.storage.local.set({ badgeCount: notifUnread });
+    chrome.runtime.sendMessage({ type: "syncBadge", count: notifUnread }, () => {
+      void chrome.runtime.lastError;
+    });
     refreshDeviceTabCounts();
   }
   function refreshDeviceTabCounts() {
@@ -24804,7 +24813,7 @@ ${this.customData.serverResponse}`;
     return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
   }
   function getNotifsCount(deviceId) {
-    if (deviceId === "all") return devices.reduce((t2, d) => t2 + getNotifsCount(d.id), 0);
+    if (deviceId === "all") return Object.values(allNotifications).flat().filter((n) => !n.read).length;
     return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
   }
   function updateBadge(badgeId, count) {
@@ -29781,7 +29790,7 @@ ${this.customData.serverResponse}`;
     "\u062C.\u0645": "EGP"
   };
   var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(تم\s+خصم|خصم|دفع|سحب|رسوم|استخدام|من\s+حسابك)/i;
-  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(تم\s+إيداع|إيداع|تم\s+رد|تم\s+إعادة|إعادة|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك)/i;
+  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your|reversed\s+to\s+your|has\s+been\s+reversed|reversal)\b|(تم\s+إيداع|إيداع|تم\s+رد|استرجاع|راتب|تحويل\s+إلى|إلى\s+حسابك|تم\s+إعادة|إعادة\s+مبلغ)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
   var PAYMENT_RECEIVED_ON_CARD_RE = /\ba\s+payment\b.{0,120}\bhas\s+been\s+received\s+on\s+your\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
@@ -31462,8 +31471,6 @@ ${this.customData.serverResponse}`;
     initNavigation();
     initSMSNavigation();
     setupServiceWorkerListener();
-    chrome.action.setBadgeText({ text: "" });
-    chrome.storage.local.set({ badgeCount: 0 });
     showCachedDataBeforeAuth();
     initAuthObserver(
       // On login

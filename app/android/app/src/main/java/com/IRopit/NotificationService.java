@@ -59,6 +59,8 @@ public class NotificationService extends NotificationListenerService {
     
     // Track last SMS text per notification key to detect new messages vs duplicates
     private Map<String, String> lastSmsContent = new ConcurrentHashMap<>();
+    // Track last email snapshot per notification key to allow same-key updates when content changes
+    private Map<String, String> lastEmailContent = new ConcurrentHashMap<>();
 
     // Minimum time between same-key notifications (ms)
     private static final long DUPLICATE_THRESHOLD_MS = 2000;
@@ -68,6 +70,11 @@ public class NotificationService extends NotificationListenerService {
 
     // Track service start time to ignore old notifications
     private long serviceStartTime;
+
+    // Periodic polling of active email notifications (catches silently-delivered emails)
+    private Runnable emailPollingRunnable;
+    // Tracks "key_postTime" fingerprints already processed via polling to avoid re-sending
+    private final Set<String> polledEmailKeys = new HashSet<>();
 
     // Package names for SMS apps
     private static final String[] SMS_PACKAGES = {
@@ -177,6 +184,12 @@ public class NotificationService extends NotificationListenerService {
         instance = null;
         processedKeys.clear();
         lastNotificationTime.clear();
+        lastEmailContent.clear();
+        // Stop email polling
+        if (mainHandler != null && emailPollingRunnable != null) {
+            mainHandler.removeCallbacks(emailPollingRunnable);
+        }
+        polledEmailKeys.clear();
         Log.i(TAG, "=== NotificationService DESTROYED ===");
         
         // Request rebind when destroyed
@@ -198,6 +211,69 @@ public class NotificationService extends NotificationListenerService {
         }
     }
 
+    /**
+     * Schedule periodic scanning of active notifications for email apps.
+     * Some email clients (Outlook, Gmail) deliver emails silently — the notification
+     * panel gets updated but onNotificationPosted is never fired (e.g. when the app
+     * is in the foreground, or during a background batch-sync). Polling every 5 minutes
+     * catches these missed entries.
+     */
+    private void scheduleEmailPolling() {
+        if (mainHandler == null) return;
+        if (emailPollingRunnable != null) {
+            mainHandler.removeCallbacks(emailPollingRunnable);
+        }
+        emailPollingRunnable = new Runnable() {
+            @Override
+            public void run() {
+                pollActiveEmailNotifications();
+                mainHandler.postDelayed(this, 5 * 60 * 1000); // repeat every 5 minutes
+            }
+        };
+        // First poll 15 seconds after connect (let the service stabilise)
+        mainHandler.postDelayed(emailPollingRunnable, 15000);
+    }
+
+    /**
+     * Scan all currently-active notifications and process any email notification
+     * that hasn't already been forwarded to Firestore.
+     */
+    private void pollActiveEmailNotifications() {
+        try {
+            StatusBarNotification[] active = getActiveNotifications();
+            if (active == null || active.length == 0) return;
+
+            long now = System.currentTimeMillis();
+            int processed = 0;
+            for (StatusBarNotification sbn : active) {
+                if (!isEmailPackage(sbn.getPackageName())) continue;
+
+                // Unique fingerprint: notification key + original postTime
+                String pollKey = sbn.getKey() + "_" + sbn.getPostTime();
+                if (polledEmailKeys.contains(pollKey)) continue;
+
+                // If onNotificationPosted already handled this recently, just mark it
+                Long lastTime = lastNotificationTime.get(sbn.getKey());
+                if (lastTime != null && (now - lastTime) < 10 * 60 * 1000) {
+                    polledEmailKeys.add(pollKey);
+                    continue;
+                }
+
+                Log.i(TAG, "📧 POLL: Found unprocessed email notification: "
+                        + sbn.getPackageName() + " key=" + sbn.getKey()
+                        + " postTime=" + sbn.getPostTime());
+                polledEmailKeys.add(pollKey);
+                processNotification(sbn);
+                processed++;
+            }
+            if (processed > 0) {
+                Log.i(TAG, "📧 POLL: Forwarded " + processed + " previously-missed email(s)");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error during email notification poll: " + e.getMessage());
+        }
+    }
+
     @Override
     public void onListenerConnected() {
         super.onListenerConnected();
@@ -206,13 +282,18 @@ public class NotificationService extends NotificationListenerService {
         
         // Ensure foreground service is running
         startForegroundServiceWithNotification();
+        
+        // Start periodic polling to catch email notifications that are silently
+        // delivered (e.g. Outlook when the app is in the foreground,
+        // or emails that arrive in a batch-sync window).
+        scheduleEmailPolling();
     }
 
     @Override
     public void onListenerDisconnected() {
         super.onListenerDisconnected();
         Log.w(TAG, "=== NotificationService DISCONNECTED === Attempting aggressive rebind...");
-        
+
         // Try to reconnect immediately
         requestRebind();
         
@@ -276,8 +357,14 @@ public class NotificationService extends NotificationListenerService {
             return;
         }
 
-        // Skip notifications older than service start (already existing)
-        if (postTime < serviceStartTime) {
+        // Compute isEmailPkg early — used by both the staleness filter and group-summary filter below
+        boolean isEmailPkg = isEmailPackage(packageName);
+
+        // Skip notifications older than service start (already existing).
+        // Exception: email apps — their postTime is the email's server-received timestamp,
+        // which may predate service start if the service restarted while the phone had
+        // unread mail. Polling (scheduleEmailPolling) handles those separately.
+        if (postTime < serviceStartTime && !isEmailPkg) {
             if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
                 Log.d(TAG, "🔴 WHATSAPP: Skipping old notification (posted before service started)");
             }
@@ -285,22 +372,20 @@ public class NotificationService extends NotificationListenerService {
             return;
         }
 
-        // For Google apps and repetitive notification apps, apply stricter time filter
-        // Only allow notifications from the last 10 seconds to ensure they're truly new
-        if (isRepetitiveNotificationApp(packageName)) {
-            if (now - postTime > 10000) {
-                Log.d(TAG, "Skipping old notification from repetitive app " + packageName + " (older than 10s)");
+        // Skip if notification is older than 5 minutes.
+        // Exception: email apps set postTime to the email's server-received timestamp,
+        // not the notification delivery time. An email synced hours later would have a
+        // postTime far in the past but is still a fresh notification we must capture.
+        if (now - postTime > 5 * 60 * 1000) {
+            if (isEmailPkg) {
+                Log.d(TAG, "📧 Email with old postTime, allowing through: " + key + " (age=" + (now - postTime) / 1000 + "s)");
+            } else {
+                if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
+                    Log.d(TAG, "🔴 WHATSAPP: Skipping stale notification (older than 5min)");
+                }
+                Log.d(TAG, "Skipping stale notification: " + key + " (older than 5min)");
                 return;
             }
-        }
-
-        // Skip if notification is older than 30 seconds
-        if (now - postTime > 30000) {
-            if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
-                Log.d(TAG, "🔴 WHATSAPP: Skipping stale notification (older than 30s)");
-            }
-            Log.d(TAG, "Skipping stale notification: " + key + " (older than 30s)");
-            return;
         }
 
         Notification notification = sbn.getNotification();
@@ -310,12 +395,19 @@ public class NotificationService extends NotificationListenerService {
         }
 
         // Skip group summary notifications
+        // Exception: email apps (Gmail, Outlook, etc.) use FLAG_GROUP_SUMMARY even for
+        // a single new email when the inbox already has unread messages. Filtering them
+        // out means any email after the first unread one is silently dropped.
+        // (isEmailPkg is computed earlier, before the staleness filter)
         if ((notification.flags & Notification.FLAG_GROUP_SUMMARY) != 0) {
-            if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
-                Log.d(TAG, "🔴 WHATSAPP: Skipping group summary");
+            if (!isEmailPkg) {
+                if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
+                    Log.d(TAG, "🔴 WHATSAPP: Skipping group summary");
+                }
+                Log.d(TAG, "Skipping group summary: " + key);
+                return;
             }
-            Log.d(TAG, "Skipping group summary: " + key);
-            return;
+            Log.d(TAG, "Email group summary - allowing through: " + packageName + " - " + key);
         }
 
         // Skip ongoing/persistent notifications (e.g., "running in background", music players, etc.)
@@ -349,6 +441,29 @@ public class NotificationService extends NotificationListenerService {
                 }
                 // Different text = new message, allow through
                 Log.i(TAG, "📱 SMS notification updated with new content, processing: " + key);
+            } else if (isEmailPkg) {
+                Bundle dupExtras = notification.extras;
+                String dupTitle = "";
+                String dupText = "";
+                String dupBigText = "";
+                String dupSubText = "";
+                if (dupExtras != null) {
+                    CharSequence dupTitleCs = dupExtras.getCharSequence(Notification.EXTRA_TITLE);
+                    CharSequence dupTextCs = dupExtras.getCharSequence(Notification.EXTRA_TEXT);
+                    CharSequence dupBigCs = dupExtras.getCharSequence(Notification.EXTRA_BIG_TEXT);
+                    CharSequence dupSubCs = dupExtras.getCharSequence(Notification.EXTRA_SUB_TEXT);
+                    dupTitle = dupTitleCs != null ? dupTitleCs.toString() : "";
+                    dupText = dupTextCs != null ? dupTextCs.toString() : "";
+                    dupBigText = dupBigCs != null ? dupBigCs.toString() : "";
+                    dupSubText = dupSubCs != null ? dupSubCs.toString() : "";
+                }
+                String currentEmailSnapshot = dupTitle + "|" + dupText + "|" + dupBigText + "|" + dupSubText;
+                String previousEmailSnapshot = lastEmailContent.get(key);
+                if (previousEmailSnapshot != null && previousEmailSnapshot.equals(currentEmailSnapshot)) {
+                    Log.d(TAG, "Skipping duplicate email (same content): " + key);
+                    return;
+                }
+                Log.i(TAG, "📧 Email notification updated with new content, processing: " + key);
             } else {
                 if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
                     Log.d(TAG, "🔴 WHATSAPP: Skipping duplicate notification");
@@ -522,7 +637,9 @@ public class NotificationService extends NotificationListenerService {
         }
 
         // Skip summary-style notifications (e.g., "X messages from Y chats")
-        if (isSummaryText(text)) {
+        // Exception: email apps - "2 new messages" is the only indication that a 2nd email
+        // arrived when Gmail bundles them. We still want to capture the latest content.
+        if (isSummaryText(text) && !isEmailPkg) {
             if (packageName.equals("com.whatsapp") || packageName.equals("com.whatsapp.w4b")) {
                 Log.d(TAG, "🔴 WHATSAPP: Skipping summary notification: " + text);
             }
@@ -607,6 +724,10 @@ public class NotificationService extends NotificationListenerService {
         // Track SMS content for duplicate detection
         if (isSmsPackage(packageName)) {
             lastSmsContent.put(key, text);
+        }
+        // Track email content for same-key update detection
+        if (isEmailPkg) {
+            lastEmailContent.put(key, title + "|" + text + "|" + bigText + "|" + subText);
         }
 
         Log.i(TAG, ">>> NEW NOTIFICATION <<<");
@@ -1169,11 +1290,38 @@ public class NotificationService extends NotificationListenerService {
             return false;
         }
         
-        // Filter email and Google apps that repeatedly show unread/status notifications
-        return packageName.equals("com.google.android.gm") ||           // Gmail
-               packageName.equals("com.google.android.apps.inbox") ||    // Inbox
-               packageName.equals("com.microsoft.office.outlook") ||     // Outlook
-               packageName.equals("com.yahoo.mobile.client.android.mail"); // Yahoo Mail
+        // NOTE: Gmail and other email apps are intentionally NOT listed here.
+        // Each new email is a distinct event and must not be deduplicated by content.
+        // Only filter pure status/persistent apps that repeat the same notification
+        // constantly without user-triggered events.
+        return false;
+    }
+
+    /**
+     * Check if this package is an email/mail app.
+     * Email apps use FLAG_GROUP_SUMMARY and "N new messages" text even for
+     * single new emails when the inbox already has unread messages, so we
+     * must NOT apply those filters for them.
+     */
+    private boolean isEmailPackage(String packageName) {
+        if (packageName == null) return false;
+        // Explicit known email package names first (avoids false positives from string matching)
+        if (packageName.equals("com.google.android.gm") ||           // Gmail
+            packageName.equals("com.microsoft.office.outlook") ||    // Outlook
+            packageName.equals("com.yahoo.mobile.client.android.mail") || // Yahoo Mail
+            packageName.equals("com.samsung.android.email.provider") || // Samsung Email
+            packageName.equals("me.proton.android.mail") ||          // Proton Mail
+            packageName.equals("com.fastmail.app") ||                // Fastmail
+            packageName.equals("com.basecamp.trix") ||               // HEY Email
+            packageName.equals("com.twofortyfouram.locale")) {        // Spark
+            return true;
+        }
+        // Fallback: package name string hints
+        return packageName.contains("mail") ||
+               packageName.contains("email") ||
+               packageName.contains("outlook") ||
+               packageName.contains("yahoo") ||
+               packageName.contains("proton");
     }
 
     /**
@@ -1207,6 +1355,7 @@ public class NotificationService extends NotificationListenerService {
         // Clean up tracking
         processedKeys.remove(key);
         lastNotificationTime.remove(key);
+        lastEmailContent.remove(key);
 
         Log.d(TAG, "Notification removed: " + key);
 
@@ -1321,8 +1470,10 @@ public class NotificationService extends NotificationListenerService {
         }
 
         if (packageName.contains("mail") ||
-            packageName.contains("gmail") ||
-            packageName.contains("email")) {
+            packageName.contains("email") ||
+            packageName.equals("com.google.android.gm") ||
+            packageName.equals("com.microsoft.office.outlook") ||
+            packageName.contains("outlook")) {
             return "email";
         }
 

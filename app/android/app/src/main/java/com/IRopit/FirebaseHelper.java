@@ -138,9 +138,28 @@ public class FirebaseHelper {
         notification.put("bigText", bigText);
         notification.put("subText", subText);
         notification.put("type", type);
-        // For SMS: use current system time since Google Messages reuses postTime
+        // For SMS and email: use current capture time, not the original postTime.
+        // SMS: Google Messages reuses postTime across messages in a thread.
+        // Email: Gmail/Outlook set postTime to the ORIGINAL thread creation time —
+        // every reply in the same thread shares the same postTime, which would make
+        // all replies produce the same docId and the same dedup key in the Chrome
+        // extension, causing all replies after the first to be silently dropped.
+        //
+        // IMPORTANT — email timestamp must be minute-aligned (not raw ms):
+        // Android fires onNotificationPosted multiple times rapidly for the same
+        // Gmail notification (e.g. 4 quick fires for the same email).  All fires
+        // within the same minute share the same docId (minuteBucket).  If the
+        // stored timestamp differs by even 1 ms, each Firestore "modified" event
+        // gets a different dedup key in the Chrome extension → 4 notifications shown.
+        // Using minuteBucket * 60000 as the timestamp makes it stable within the
+        // minute, so every "modified" event in that minute has the SAME dedup key
+        // and only the first "added" event triggers a Chrome notification.
         if (type.equals("sms")) {
             notification.put("timestamp", System.currentTimeMillis());
+        } else if (type.equals("email")) {
+            long captureMs = System.currentTimeMillis();
+            long emailMinuteBucket = captureMs / (60 * 1000);
+            notification.put("timestamp", emailMinuteBucket * (60 * 1000)); // minute-aligned, stable
         } else {
             notification.put("timestamp", timestamp);
         }
@@ -180,7 +199,42 @@ public class FirebaseHelper {
             long dayBucket = timestamp / (24 * 60 * 60 * 1000);
             docId = "sms_" + deviceId + "_" + dayBucket + "_" + bodyHash;
         } else {
-            docId = key.replaceAll("[^a-zA-Z0-9]", "_");
+            if (type.equals("other")) {
+                // For "other" type apps (e.g. Samsung capture, system apps) some apps fire
+                // multiple Android notifications with DIFFERENT keys for the same logical
+                // event (e.g. a capture notification + a share panel notification) that have
+                // identical title/text and the same postTime.  Using the Android key in the
+                // docId gives each a separate Firestore document → duplicates shown in app.
+                // Using package+title+text+minuteBucket as a content-based key deduplicates
+                // them: all notifications from the same app with the same content in the
+                // same minute map to a single Firestore document.
+                long bucketTime = timestamp;
+                long minuteBucket = bucketTime / (60 * 1000);
+                String contentForHash = packageName
+                        + "|" + (title != null ? title : "")
+                        + "|" + (text != null ? text : "");
+                int contentHash = Math.abs(contentForHash.hashCode());
+                String sanitizedPkg = packageName.replaceAll("[^a-zA-Z0-9]", "_");
+                docId = sanitizedPkg + "_" + minuteBucket + "_" + contentHash;
+            } else {
+                String sanitizedKey = key.replaceAll("[^a-zA-Z0-9]", "_");
+                if (type.equals("email")) {
+                    // Email apps (especially Gmail) often update the same notification key
+                    // as unread counts change. Using only key+minute can overwrite a second
+                    // email received in the same minute. Include postTime + content hash so
+                    // distinct emails get distinct docs while repeated identical updates merge.
+                    String emailSignature = (title != null ? title : "")
+                            + "|" + (text != null ? text : "")
+                            + "|" + (bigText != null ? bigText : "")
+                            + "|" + (subText != null ? subText : "");
+                    int emailHash = Math.abs(emailSignature.hashCode());
+                    docId = sanitizedKey + "_" + timestamp + "_" + emailHash;
+                } else {
+                    long bucketTime = timestamp;
+                    long minuteBucket = bucketTime / (60 * 1000);
+                    docId = sanitizedKey + "_" + minuteBucket;
+                }
+            }
         }
 
         db.collection("users")

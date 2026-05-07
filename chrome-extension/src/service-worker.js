@@ -55,6 +55,11 @@ let serviceWorkerStartTime = Date.now(); // Track when SW started
 
 // Badge count for unread notifications
 let badgeCount = 0;
+// Per-source unread ID sets maintained from Firestore snapshots
+// (keys: deviceId and "_user_notifications").
+let unreadIdsBySource = new Map();
+// Locally-marked read IDs from popup cache (optimistic read state).
+let locallyReadNotificationIds = new Set();
 // Snooze: notifications suppressed until this timestamp (0 = not snoozed)
 let snoozeUntil = 0;
 
@@ -72,10 +77,9 @@ chrome.storage.local.get(
     if (result.seenNotifications) {
       seenNotifications = new Set(result.seenNotifications);
     }
-    if (result.badgeCount) {
-      badgeCount = result.badgeCount;
-      updateBadge();
-    }
+    // Prefer recalculating from cached notifications (same source popup uses)
+    // to avoid stale badge values when SW restarts while listeners are idle.
+    refreshBadgeFromCachedNotifications(result.badgeCount);
     if (result.snoozeUntil) {
       snoozeUntil = result.snoozeUntil;
     }
@@ -86,12 +90,21 @@ chrome.storage.local.get(
   },
 );
 
+// Keep badge aligned with popup whenever cached notification data changes.
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (changes.cached_notifications_data) {
+    refreshBadgeFromCachedNotifications();
+  }
+});
+
 // Listen for auth state changes
 onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
     await loadDeviceId();
+    await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
     startListening();
     // Warm the popup cache immediately so next popup open shows fresh data
@@ -103,8 +116,27 @@ onAuthStateChanged(auth, async (user) => {
     // Cleanup all listeners
     unsubscribeNotifications.forEach((unsub) => unsub());
     unsubscribeNotifications = [];
+    unreadIdsBySource.clear();
+    locallyReadNotificationIds.clear();
+    setBadgeCount(0);
   }
 });
+
+async function loadLocallyReadNotificationIds() {
+  try {
+    const result = await chrome.storage.local.get(["cached_notifications_data"]);
+    const byDevice = result.cached_notifications_data?.byDevice || {};
+    const ids = new Set();
+    Object.values(byDevice).forEach((items) => {
+      (items || []).forEach((n) => {
+        if (n?.read === true && n?.id) ids.add(n.id);
+      });
+    });
+    locallyReadNotificationIds = ids;
+  } catch {
+    locallyReadNotificationIds = new Set();
+  }
+}
 
 // Load device ID from storage
 async function loadDeviceId() {
@@ -129,6 +161,10 @@ async function startListening() {
   // Stop previous listeners
   unsubscribeNotifications.forEach((unsub) => unsub());
   unsubscribeNotifications = [];
+  unreadIdsBySource.clear();
+  // Reset stale badge immediately; snapshot callbacks below will repopulate
+  // with current unread counts from Firestore.
+  setBadgeCount(0);
 
   // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
   listenToUserNotifications();
@@ -199,6 +235,13 @@ function listenToUserNotifications() {
   const unsub = onSnapshot(
     userNotificationsQuery,
     (snapshot) => {
+      const unreadIds = new Set(
+        snapshot.docs
+          .filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id))
+          .map((docSnap) => docSnap.id),
+      );
+      setUnreadIdsForSource("_user_notifications", unreadIds);
+
       console.log(
         "ZyncIT: User notifications snapshot - changes:",
         snapshot.docChanges().length,
@@ -208,20 +251,62 @@ function listenToUserNotifications() {
         isFirstSnapshot,
       );
 
-      // Skip the initial snapshot (all existing docs come as 'added')
+      // Process the initial snapshot: show any recent notifications that
+      // arrived while the service worker was inactive (Chrome MV3 service
+      // workers are terminated after ~30 s of inactivity, so notifications
+      // written to Firestore during that gap would otherwise be swallowed by
+      // the "mark all as seen" logic and never displayed).
       if (isFirstSnapshot) {
         isFirstSnapshot = false;
-        // Mark all existing docs as seen
-        snapshot.docs.forEach((doc) => seenNotifications.add(doc.id));
+        snapshot.docs.forEach((doc) => {
+          const docId = doc.id;
+          const notification = doc.data();
+          const notificationTime =
+            notification.timestamp ||
+            notification.createdAt?.toMillis?.() ||
+            Date.now();
+          const timeDiff = Date.now() - notificationTime;
+
+          // Skip only if we've already shown this exact doc AND the doc
+          // timestamp is NOT newer than the last notification we processed.
+          // Android apps (e.g. Gmail) reuse notification IDs, so the same
+          // docId can appear in seenNotifications but refer to a different
+          // (newer) email — we must show it in that case.
+          if (seenNotifications.has(docId) && notificationTime <= lastNotificationTimestamp) {
+            return;
+          }
+
+          seenNotifications.add(docId); // always mark as seen
+          seenNotifications.add(`${docId}_${notificationTime}`); // pre-mark modified dedup key
+          if (timeDiff < 5 * 60 * 1000) {
+            // Missed while SW was inactive — show as catch-up notification.
+            console.log(
+              "ZyncIT: 🔔 Catch-up user notification:",
+              notification.title,
+              "age:",
+              Math.round(timeDiff / 1000),
+              "s",
+            );
+            if (notificationTime > lastNotificationTimestamp) {
+              lastNotificationTimestamp = notificationTime;
+            }
+            showNotification(notification);
+          }
+        });
         console.log(
           "ZyncIT: Initial load - marked",
           snapshot.size,
           "notifications as seen",
         );
+        const seenArray = Array.from(seenNotifications).slice(-1000);
+        chrome.storage.local.set({ seenNotifications: seenArray, lastNotificationTimestamp });
         return;
       }
 
       snapshot.docChanges().forEach((change) => {
+        // Only process "added" events — "modified" events are Android re-fires of
+        // the same notification with a different postTime, not new notifications.
+        // All docIds are minute-bucketed so new messages always produce new added events.
         if (change.type === "added") {
           const notification = change.doc.data();
           const docId = change.doc.id;
@@ -230,21 +315,23 @@ function listenToUserNotifications() {
             notification.createdAt?.toMillis?.() ||
             Date.now();
 
+          const seenKey = docId;
+
           console.log(
-            "ZyncIT: 🆕 NEW notification received - time:",
+            `ZyncIT: 🆕 ${change.type.toUpperCase()} notification - time:`,
             new Date(notificationTime).toLocaleString(),
             "docId:",
             docId,
           );
 
           // Skip if already seen
-          if (seenNotifications.has(docId)) {
-            console.log("ZyncIT: Skipping already seen notification:", docId);
+          if (seenNotifications.has(seenKey)) {
+            console.log("ZyncIT: Skipping already seen notification:", seenKey);
             return;
           }
 
           // Add to seen list
-          seenNotifications.add(docId);
+          seenNotifications.add(seenKey);
 
           // Save to storage (keep last 200)
           const seenArray = Array.from(seenNotifications).slice(-1000);
@@ -274,7 +361,7 @@ function listenToUserNotifications() {
               console.log("ZyncIT: 🔑 OTP detected from user notification:", otp, "app:", appName || pkg);
 
               // Show dedicated OTP Chrome notification
-              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_user_${Date.now()}`;
               createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
@@ -328,6 +415,13 @@ function listenToDevice(deviceId, deviceName) {
   const unsub = onSnapshot(
     notificationsQuery,
     (snapshot) => {
+      const unreadIds = new Set(
+        snapshot.docs
+          .filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id))
+          .map((docSnap) => docSnap.id),
+      );
+      setUnreadIdsForSource(deviceId, unreadIds);
+
       console.log(
         "ZyncIT: Device snapshot [",
         deviceName,
@@ -339,11 +433,45 @@ function listenToDevice(deviceId, deviceName) {
         isFirstSnapshot,
       );
 
-      // Skip the initial snapshot (all existing docs come as 'added')
+      // Process the initial snapshot: show any recent notifications that
+      // arrived while the service worker was inactive (Chrome MV3 SW lifecycle).
       if (isFirstSnapshot) {
         isFirstSnapshot = false;
-        // Mark all existing docs as seen
-        snapshot.docs.forEach((doc) => seenNotifications.add(doc.id));
+        snapshot.docs.forEach((doc) => {
+          const docId = doc.id;
+          const notification = doc.data();
+          const docTimestamp =
+            notification.timestamp || notification.receivedAt || Date.now();
+          const timeDiff = Date.now() - docTimestamp;
+
+          // Skip only if we've already shown this exact doc AND the doc
+          // timestamp is NOT newer than the last notification we processed.
+          // Android apps (e.g. Gmail) reuse notification IDs, so the same
+          // docId can appear in seenNotifications but refer to a different
+          // (newer) email — we must show it in that case.
+          if (seenNotifications.has(docId) && docTimestamp <= lastNotificationTimestamp) {
+            return;
+          }
+
+          seenNotifications.add(docId); // always mark as seen
+          seenNotifications.add(`${docId}_${docTimestamp}`); // pre-mark modified dedup key
+          if (timeDiff < 5 * 60 * 1000) {
+            // Missed while SW was inactive — show as catch-up notification.
+            console.log(
+              "ZyncIT: 🔔 Catch-up from",
+              deviceName,
+              ":",
+              notification.title,
+              "age:",
+              Math.round(timeDiff / 1000),
+              "s",
+            );
+            if (docTimestamp > lastNotificationTimestamp) {
+              lastNotificationTimestamp = docTimestamp;
+            }
+            showNotification({ ...notification, deviceName });
+          }
+        });
         console.log(
           "ZyncIT: Initial load for",
           deviceName,
@@ -351,6 +479,8 @@ function listenToDevice(deviceId, deviceName) {
           snapshot.size,
           "notifications as seen",
         );
+        const seenArray = Array.from(seenNotifications).slice(-500);
+        chrome.storage.local.set({ seenNotifications: seenArray, lastNotificationTimestamp });
         return;
       }
 
@@ -362,14 +492,18 @@ function listenToDevice(deviceId, deviceName) {
           change.doc.id,
         );
 
-        // Only show Chrome notifications for NEW documents
-        // 'modified' = existing doc was updated (e.g. Google apps refreshing notifications)
-        // We should NOT re-show notifications that were just updated
+        // Only process "added" events — "modified" events are Android re-fires of
+        // the same notification with a different postTime, not new notifications.
+        // All docIds are minute-bucketed so new messages always produce new added events.
         if (change.type === "added") {
           const notification = change.doc.data();
           const docId = change.doc.id;
-          const notificationTime =
+          const docTimestamp =
             notification.timestamp || notification.receivedAt || Date.now();
+
+          const notificationTime = docTimestamp;
+
+          const seenKey = docId;
 
           const timeDiff = Date.now() - notificationTime;
           const isRecent = timeDiff < 5 * 60 * 1000; // 5 minutes
@@ -388,10 +522,9 @@ function listenToDevice(deviceId, deviceName) {
             isRecent,
           );
 
-          // Skip if already seen (use docId only - not timestamp - to prevent
-          // re-showing when the same doc is updated with a new timestamp)
-          if (seenNotifications.has(docId)) {
-            console.log("ZyncIT: ⏭️ Skipping already seen:", docId);
+          // Skip if already seen
+          if (seenNotifications.has(seenKey)) {
+            console.log("ZyncIT: ⏭️ Skipping already seen:", seenKey);
             return;
           }
 
@@ -405,8 +538,8 @@ function listenToDevice(deviceId, deviceName) {
             return;
           }
 
-          // Mark as seen by docId
-          seenNotifications.add(docId);
+          // Mark as seen
+          seenNotifications.add(seenKey);
           console.log("ZyncIT: ✅ Marked as seen, showing notification...");
 
           // Keep only last 500 seen
@@ -441,7 +574,7 @@ function listenToDevice(deviceId, deviceName) {
               console.log("ZyncIT: 🔑 OTP detected from device notification:", otp, "app:", appName || pkg);
 
               // Show dedicated OTP Chrome notification
-              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_dev_${Date.now()}`;
               createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
@@ -480,10 +613,9 @@ function listenToDevice(deviceId, deviceName) {
 
   unsubscribeNotifications.push(unsub);
 
-  // Also listen for calls, SMS, and email OTPs from this device
+  // Also listen for calls and SMS from this device
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
-  listenForEmailOTPFromDevice(deviceId, deviceName);
 }
 
 // Listen for calls from a specific device
@@ -653,109 +785,6 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     (error) => {
       if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
-    },
-  );
-
-  unsubscribeNotifications.push(unsub);
-}
-
-// Known email app package names
-const EMAIL_PACKAGES = new Set([
-  "com.google.android.gm",           // Gmail
-  "com.microsoft.office.outlook",    // Outlook
-  "com.yahoo.mobile.client.android.mail", // Yahoo Mail
-  "com.samsung.android.email.provider",   // Samsung Email
-  "me.bluemail.mail",                // BlueMail
-  "org.kman.AquaMail",               // AquaMail
-  "com.fsck.k9",                     // K-9 Mail
-  "com.helloworld.protonmail",       // ProtonMail (old)
-  "ch.protonmail.android",           // ProtonMail
-  "com.tutanota",                    // Tutanota
-  "com.zoho.mail",                   // Zoho Mail
-  "com.apple.mobilemail",            // iOS Mail
-]);
-
-/**
- * Listen for email notifications from a device and extract OTPs.
- * Email OTPs arrive as app notifications (type != 'sms') from email packages.
- */
-function listenForEmailOTPFromDevice(deviceId, deviceName) {
-  if (!currentUser) return;
-
-  let isFirstSnapshot = true;
-  const seenEmailIds = new Set();
-
-  // Listen to all non-SMS notifications from this device
-  const emailQuery = query(
-    collection(db, "users", currentUser.uid, "devices", deviceId, "notifications"),
-    where("type", "!=", "sms"),
-    orderBy("type"),
-    orderBy("timestamp", "desc"),
-    limit(20),
-  );
-
-  const unsub = onSnapshot(
-    emailQuery,
-    (snapshot) => {
-      if (isFirstSnapshot) {
-        isFirstSnapshot = false;
-        snapshot.docs.forEach((d) => seenEmailIds.add(d.id));
-        return;
-      }
-
-      snapshot.docChanges().forEach((change) => {
-        if (change.type !== "added") return;
-
-        const docId = change.doc.id;
-        if (seenEmailIds.has(docId)) return;
-        seenEmailIds.add(docId);
-
-        const notif = change.doc.data();
-
-        // Only process email app notifications
-        const pkg = notif.packageName || notif.appPackage || "";
-        const appName = notif.appName || notif.app || "";
-        const isEmailApp =
-          EMAIL_PACKAGES.has(pkg) ||
-          /mail|email|gmail|outlook|yahoo.*mail/i.test(pkg) ||
-          /mail|email|gmail|outlook/i.test(appName);
-
-        if (!isEmailApp) return;
-
-        const uid = currentUser?.uid;
-        const rawTitle = notif.title || notif.contactName || notif.subject || "";
-        const rawBody = notif.body || notif.text || notif.content || notif.message || "";
-
-        Promise.all([
-          decrypt(rawTitle, uid),
-          decrypt(rawBody, uid),
-        ]).then(([decTitle, decBody]) => {
-          const combined = `${decTitle} ${decBody}`;
-          const otp = extractOTP(combined);
-          if (!otp) return;
-
-          const senderLabel = decTitle || appName || deviceName;
-          console.log("ZyncIT: 📧 Email OTP detected from", deviceName, ":", otp, "app:", appName || pkg);
-
-          // Show a dedicated Chrome notification
-          const notifId = `iropit_email_otp_${Date.now()}`;
-          createNotificationIfNotSnoozed(notifId, {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-            title: `Email OTP from ${appName || "Email"}`,
-            message: `${otp} — Copied to clipboard`,
-            contextMessage: senderLabel,
-            priority: 2,
-          });
-
-          // Forward to active tab for clipboard + auto-paste
-          sendOTPToActiveTab(otp, senderLabel, decBody);
-        }).catch((err) => console.warn("ZyncIT: Email OTP decrypt error:", err));
-      });
-    },
-    (error) => {
-      if (error?.code === "permission-denied") return;
-      console.error("ZyncIT: Email OTP listener error for device", deviceId, ":", error);
     },
   );
 
@@ -1155,6 +1184,29 @@ async function refreshPopupCache() {
       });
     }
 
+    // Re-read current notifications cache just before writing to preserve any
+    // read=true updates the popup may have written while we fetched Firestore.
+    const latestNotifCache = await chrome.storage.local.get(["cached_notifications_data"]);
+    const latestNotifsByDevice = latestNotifCache.cached_notifications_data?.byDevice || {};
+    for (const deviceId of Object.keys(newNotifsByDevice)) {
+      const latestNotifs = latestNotifsByDevice[deviceId];
+      if (!latestNotifs || latestNotifs.length === 0) continue;
+      const latestById = new Map(latestNotifs.map((n) => [n.id, n]));
+      newNotifsByDevice[deviceId] = newNotifsByDevice[deviceId].map((n) => {
+        const latest = latestById.get(n.id);
+        return (latest && latest.read === true && !n.read) ? { ...n, read: true } : n;
+      });
+    }
+
+    // Refresh the locally-read index so background badge counting matches popup.
+    const readIds = new Set();
+    Object.values(newNotifsByDevice).forEach((items) => {
+      (items || []).forEach((n) => {
+        if (n?.read === true && n?.id) readIds.add(n.id);
+      });
+    });
+    locallyReadNotificationIds = readIds;
+
     // Rebuild allMessages / allCalls arrays for the popup
     const allMessages = Object.values(newSmsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
@@ -1170,6 +1222,9 @@ async function refreshPopupCache() {
       cached_calls_data: { byDevice: newCallsByDevice, allCalls },
       cached_notifications_data: { byDevice: newNotifsByDevice, savedAt: Date.now() },
     });
+
+    // Keep action badge synced in background even if popup is closed.
+    setBadgeCount(computeUnreadCountFromByDevice(newNotifsByDevice));
 
     console.log(
       `ZyncIT: ✅ Cache refreshed — SMS: ${allMessages.length}, Calls: ${allCalls.length}`,
@@ -1244,16 +1299,64 @@ function updateSnoozeMenuTitle() {
 
 /** Increment badge count for unread notifications. */
 function incrementBadge() {
-  badgeCount++;
-  chrome.storage.local.set({ badgeCount });
-  updateBadge();
+  setBadgeCount(badgeCount + 1);
 }
 
 /** Reset badge count to zero. */
 function clearBadge() {
-  badgeCount = 0;
-  chrome.storage.local.set({ badgeCount: 0 });
+  unreadIdsBySource.clear();
+  setBadgeCount(0);
+}
+
+function computeUnreadCountFromByDevice(byDevice) {
+  if (!byDevice) return 0;
+  const unreadIds = new Set();
+  Object.values(byDevice).forEach((items) => {
+    (items || []).forEach((n) => {
+      if (!n?.id) return;
+      if (n.read === true) return;
+      unreadIds.add(n.id);
+    });
+  });
+  return unreadIds.size;
+}
+
+function refreshBadgeFromCachedNotifications(fallbackCount) {
+  chrome.storage.local.get(["cached_notifications_data"], (result) => {
+    const byDevice = result.cached_notifications_data?.byDevice;
+    if (byDevice) {
+      // Also refresh locally-read index from cache so realtime counting stays aligned.
+      const readIds = new Set();
+      Object.values(byDevice).forEach((items) => {
+        (items || []).forEach((n) => {
+          if (n?.id && n.read === true) readIds.add(n.id);
+        });
+      });
+      locallyReadNotificationIds = readIds;
+
+      setBadgeCount(computeUnreadCountFromByDevice(byDevice));
+      return;
+    }
+
+    if (fallbackCount !== undefined) {
+      setBadgeCount(fallbackCount);
+    }
+  });
+}
+
+function setBadgeCount(count) {
+  badgeCount = Math.max(0, Number(count) || 0);
+  chrome.storage.local.set({ badgeCount });
   updateBadge();
+}
+
+function setUnreadIdsForSource(sourceKey, unreadIds) {
+  unreadIdsBySource.set(sourceKey, unreadIds || new Set());
+  const allUnreadIds = new Set();
+  unreadIdsBySource.forEach((ids) => {
+    ids.forEach((id) => allUnreadIds.add(id));
+  });
+  setBadgeCount(allUnreadIds.size);
 }
 
 /** Update the extension action badge UI. */
@@ -1274,9 +1377,9 @@ function createNotificationIfNotSnoozed(notifId, options, callback) {
     return;
   }
   chrome.notifications.create(notifId, options, (createdId) => {
-    if (!chrome.runtime.lastError) {
-      incrementBadge();
-    }
+    // Do not increment badge here. This function is used for many toast types
+    // (notifications, calls, OTP, etc.), and incrementing per toast causes the
+    // action badge to drift far above the true unread notifications count.
     if (callback) callback(createdId);
   });
 }
@@ -1680,6 +1783,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Clear badge when popup opens
   if (message.type === "clearBadge") {
     clearBadge();
+    sendResponse({ success: true });
+  }
+
+  // Sync badge to the real unread count (sent by popup's updateTabBadges)
+  if (message.type === "syncBadge") {
+    setBadgeCount(message.count);
     sendResponse({ success: true });
   }
 

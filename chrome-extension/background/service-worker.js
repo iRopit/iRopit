@@ -18714,6 +18714,8 @@ var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
 var serviceWorkerStartTime = Date.now();
 var badgeCount = 0;
+var unreadIdsBySource = /* @__PURE__ */ new Map();
+var locallyReadNotificationIds = /* @__PURE__ */ new Set();
 var snoozeUntil = 0;
 chrome.storage.local.get(
   ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil"],
@@ -18728,10 +18730,7 @@ chrome.storage.local.get(
     if (result.seenNotifications) {
       seenNotifications = new Set(result.seenNotifications);
     }
-    if (result.badgeCount) {
-      badgeCount = result.badgeCount;
-      updateBadge();
-    }
+    refreshBadgeFromCachedNotifications(result.badgeCount);
     if (result.snoozeUntil) {
       snoozeUntil = result.snoozeUntil;
     }
@@ -18739,11 +18738,18 @@ chrome.storage.local.get(
     updateBadge();
   }
 );
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (changes.cached_notifications_data) {
+    refreshBadgeFromCachedNotifications();
+  }
+});
 onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
     await loadDeviceId();
+    await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
     startListening();
     refreshPopupCache();
@@ -18753,8 +18759,26 @@ onAuthStateChanged(auth, async (user) => {
     console.log("ZyncIT: User logged out, stopping listeners");
     unsubscribeNotifications.forEach((unsub) => unsub());
     unsubscribeNotifications = [];
+    unreadIdsBySource.clear();
+    locallyReadNotificationIds.clear();
+    setBadgeCount(0);
   }
 });
+async function loadLocallyReadNotificationIds() {
+  try {
+    const result = await chrome.storage.local.get(["cached_notifications_data"]);
+    const byDevice = result.cached_notifications_data?.byDevice || {};
+    const ids = /* @__PURE__ */ new Set();
+    Object.values(byDevice).forEach((items) => {
+      (items || []).forEach((n) => {
+        if (n?.read === true && n?.id) ids.add(n.id);
+      });
+    });
+    locallyReadNotificationIds = ids;
+  } catch {
+    locallyReadNotificationIds = /* @__PURE__ */ new Set();
+  }
+}
 async function loadDeviceId() {
   return new Promise((resolve) => {
     chrome.storage.local.get(["deviceId"], (result) => {
@@ -18772,6 +18796,8 @@ async function startListening() {
   console.log("ZyncIT: Starting real-time listeners...");
   unsubscribeNotifications.forEach((unsub) => unsub());
   unsubscribeNotifications = [];
+  unreadIdsBySource.clear();
+  setBadgeCount(0);
   listenToUserNotifications();
   const devicesQuery = query(
     collection(db, "devices"),
@@ -18816,6 +18842,10 @@ function listenToUserNotifications() {
   const unsub = onSnapshot(
     userNotificationsQuery,
     (snapshot) => {
+      const unreadIds = new Set(
+        snapshot.docs.filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id)).map((docSnap) => docSnap.id)
+      );
+      setUnreadIdsForSource("_user_notifications", unreadIds);
       console.log(
         "ZyncIT: User notifications snapshot - changes:",
         snapshot.docChanges().length,
@@ -18826,12 +18856,37 @@ function listenToUserNotifications() {
       );
       if (isFirstSnapshot) {
         isFirstSnapshot = false;
-        snapshot.docs.forEach((doc2) => seenNotifications.add(doc2.id));
+        snapshot.docs.forEach((doc2) => {
+          const docId = doc2.id;
+          const notification = doc2.data();
+          const notificationTime = notification.timestamp || notification.createdAt?.toMillis?.() || Date.now();
+          const timeDiff = Date.now() - notificationTime;
+          if (seenNotifications.has(docId) && notificationTime <= lastNotificationTimestamp) {
+            return;
+          }
+          seenNotifications.add(docId);
+          seenNotifications.add(`${docId}_${notificationTime}`);
+          if (timeDiff < 5 * 60 * 1e3) {
+            console.log(
+              "ZyncIT: \u{1F514} Catch-up user notification:",
+              notification.title,
+              "age:",
+              Math.round(timeDiff / 1e3),
+              "s"
+            );
+            if (notificationTime > lastNotificationTimestamp) {
+              lastNotificationTimestamp = notificationTime;
+            }
+            showNotification(notification);
+          }
+        });
         console.log(
           "ZyncIT: Initial load - marked",
           snapshot.size,
           "notifications as seen"
         );
+        const seenArray = Array.from(seenNotifications).slice(-1e3);
+        chrome.storage.local.set({ seenNotifications: seenArray, lastNotificationTimestamp });
         return;
       }
       snapshot.docChanges().forEach((change) => {
@@ -18839,17 +18894,18 @@ function listenToUserNotifications() {
           const notification = change.doc.data();
           const docId = change.doc.id;
           const notificationTime = notification.timestamp || notification.createdAt?.toMillis?.() || Date.now();
+          const seenKey = docId;
           console.log(
-            "ZyncIT: \u{1F195} NEW notification received - time:",
+            `ZyncIT: \u{1F195} ${change.type.toUpperCase()} notification - time:`,
             new Date(notificationTime).toLocaleString(),
             "docId:",
             docId
           );
-          if (seenNotifications.has(docId)) {
-            console.log("ZyncIT: Skipping already seen notification:", docId);
+          if (seenNotifications.has(seenKey)) {
+            console.log("ZyncIT: Skipping already seen notification:", seenKey);
             return;
           }
-          seenNotifications.add(docId);
+          seenNotifications.add(seenKey);
           const seenArray = Array.from(seenNotifications).slice(-1e3);
           chrome.storage.local.set({
             seenNotifications: seenArray,
@@ -18871,7 +18927,7 @@ function listenToUserNotifications() {
               const pkg = notification.packageName || notification.appPackage || "";
               const appName = notification.appName || notification.app || "";
               console.log("ZyncIT: \u{1F511} OTP detected from user notification:", otp, "app:", appName || pkg);
-              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_user_${Date.now()}`;
               createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
@@ -18916,6 +18972,10 @@ function listenToDevice(deviceId, deviceName) {
   const unsub = onSnapshot(
     notificationsQuery,
     (snapshot) => {
+      const unreadIds = new Set(
+        snapshot.docs.filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id)).map((docSnap) => docSnap.id)
+      );
+      setUnreadIdsForSource(deviceId, unreadIds);
       console.log(
         "ZyncIT: Device snapshot [",
         deviceName,
@@ -18928,7 +18988,32 @@ function listenToDevice(deviceId, deviceName) {
       );
       if (isFirstSnapshot) {
         isFirstSnapshot = false;
-        snapshot.docs.forEach((doc2) => seenNotifications.add(doc2.id));
+        snapshot.docs.forEach((doc2) => {
+          const docId = doc2.id;
+          const notification = doc2.data();
+          const docTimestamp = notification.timestamp || notification.receivedAt || Date.now();
+          const timeDiff = Date.now() - docTimestamp;
+          if (seenNotifications.has(docId) && docTimestamp <= lastNotificationTimestamp) {
+            return;
+          }
+          seenNotifications.add(docId);
+          seenNotifications.add(`${docId}_${docTimestamp}`);
+          if (timeDiff < 5 * 60 * 1e3) {
+            console.log(
+              "ZyncIT: \u{1F514} Catch-up from",
+              deviceName,
+              ":",
+              notification.title,
+              "age:",
+              Math.round(timeDiff / 1e3),
+              "s"
+            );
+            if (docTimestamp > lastNotificationTimestamp) {
+              lastNotificationTimestamp = docTimestamp;
+            }
+            showNotification({ ...notification, deviceName });
+          }
+        });
         console.log(
           "ZyncIT: Initial load for",
           deviceName,
@@ -18936,6 +19021,8 @@ function listenToDevice(deviceId, deviceName) {
           snapshot.size,
           "notifications as seen"
         );
+        const seenArray = Array.from(seenNotifications).slice(-500);
+        chrome.storage.local.set({ seenNotifications: seenArray, lastNotificationTimestamp });
         return;
       }
       snapshot.docChanges().forEach((change) => {
@@ -18948,7 +19035,9 @@ function listenToDevice(deviceId, deviceName) {
         if (change.type === "added") {
           const notification = change.doc.data();
           const docId = change.doc.id;
-          const notificationTime = notification.timestamp || notification.receivedAt || Date.now();
+          const docTimestamp = notification.timestamp || notification.receivedAt || Date.now();
+          const notificationTime = docTimestamp;
+          const seenKey = docId;
           const timeDiff = Date.now() - notificationTime;
           const isRecent = timeDiff < 5 * 60 * 1e3;
           console.log(
@@ -18964,8 +19053,8 @@ function listenToDevice(deviceId, deviceName) {
             "- isRecent:",
             isRecent
           );
-          if (seenNotifications.has(docId)) {
-            console.log("ZyncIT: \u23ED\uFE0F Skipping already seen:", docId);
+          if (seenNotifications.has(seenKey)) {
+            console.log("ZyncIT: \u23ED\uFE0F Skipping already seen:", seenKey);
             return;
           }
           if (!isRecent) {
@@ -18976,7 +19065,7 @@ function listenToDevice(deviceId, deviceName) {
             );
             return;
           }
-          seenNotifications.add(docId);
+          seenNotifications.add(seenKey);
           console.log("ZyncIT: \u2705 Marked as seen, showing notification...");
           const seenArray = Array.from(seenNotifications).slice(-500);
           chrome.storage.local.set({
@@ -19003,7 +19092,7 @@ function listenToDevice(deviceId, deviceName) {
               const pkg = notification.packageName || notification.appPackage || "";
               const appName = notification.appName || notification.app || "";
               console.log("ZyncIT: \u{1F511} OTP detected from device notification:", otp, "app:", appName || pkg);
-              const isEmail = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
               const notifId = `iropit_otp_dev_${Date.now()}`;
               createNotificationIfNotSnoozed(notifId, {
                 type: "basic",
@@ -19037,7 +19126,6 @@ function listenToDevice(deviceId, deviceName) {
   unsubscribeNotifications.push(unsub);
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
-  listenForEmailOTPFromDevice(deviceId, deviceName);
 }
 function listenForCallsFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
@@ -19154,93 +19242,6 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     (error) => {
       if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
-    }
-  );
-  unsubscribeNotifications.push(unsub);
-}
-var EMAIL_PACKAGES = /* @__PURE__ */ new Set([
-  "com.google.android.gm",
-  // Gmail
-  "com.microsoft.office.outlook",
-  // Outlook
-  "com.yahoo.mobile.client.android.mail",
-  // Yahoo Mail
-  "com.samsung.android.email.provider",
-  // Samsung Email
-  "me.bluemail.mail",
-  // BlueMail
-  "org.kman.AquaMail",
-  // AquaMail
-  "com.fsck.k9",
-  // K-9 Mail
-  "com.helloworld.protonmail",
-  // ProtonMail (old)
-  "ch.protonmail.android",
-  // ProtonMail
-  "com.tutanota",
-  // Tutanota
-  "com.zoho.mail",
-  // Zoho Mail
-  "com.apple.mobilemail"
-  // iOS Mail
-]);
-function listenForEmailOTPFromDevice(deviceId, deviceName) {
-  if (!currentUser) return;
-  let isFirstSnapshot = true;
-  const seenEmailIds = /* @__PURE__ */ new Set();
-  const emailQuery = query(
-    collection(db, "users", currentUser.uid, "devices", deviceId, "notifications"),
-    where("type", "!=", "sms"),
-    orderBy("type"),
-    orderBy("timestamp", "desc"),
-    limit(20)
-  );
-  const unsub = onSnapshot(
-    emailQuery,
-    (snapshot) => {
-      if (isFirstSnapshot) {
-        isFirstSnapshot = false;
-        snapshot.docs.forEach((d) => seenEmailIds.add(d.id));
-        return;
-      }
-      snapshot.docChanges().forEach((change) => {
-        if (change.type !== "added") return;
-        const docId = change.doc.id;
-        if (seenEmailIds.has(docId)) return;
-        seenEmailIds.add(docId);
-        const notif = change.doc.data();
-        const pkg = notif.packageName || notif.appPackage || "";
-        const appName = notif.appName || notif.app || "";
-        const isEmailApp = EMAIL_PACKAGES.has(pkg) || /mail|email|gmail|outlook|yahoo.*mail/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
-        if (!isEmailApp) return;
-        const uid = currentUser?.uid;
-        const rawTitle = notif.title || notif.contactName || notif.subject || "";
-        const rawBody = notif.body || notif.text || notif.content || notif.message || "";
-        Promise.all([
-          decrypt(rawTitle, uid),
-          decrypt(rawBody, uid)
-        ]).then(([decTitle, decBody]) => {
-          const combined = `${decTitle} ${decBody}`;
-          const otp = extractOTP(combined);
-          if (!otp) return;
-          const senderLabel = decTitle || appName || deviceName;
-          console.log("ZyncIT: \u{1F4E7} Email OTP detected from", deviceName, ":", otp, "app:", appName || pkg);
-          const notifId = `iropit_email_otp_${Date.now()}`;
-          createNotificationIfNotSnoozed(notifId, {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-            title: `Email OTP from ${appName || "Email"}`,
-            message: `${otp} \u2014 Copied to clipboard`,
-            contextMessage: senderLabel,
-            priority: 2
-          });
-          sendOTPToActiveTab(otp, senderLabel, decBody);
-        }).catch((err) => console.warn("ZyncIT: Email OTP decrypt error:", err));
-      });
-    },
-    (error) => {
-      if (error?.code === "permission-denied") return;
-      console.error("ZyncIT: Email OTP listener error for device", deviceId, ":", error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19555,6 +19556,24 @@ async function refreshPopupCache() {
         return latest && latest.viewed === true && !c.viewed ? { ...c, viewed: true } : c;
       });
     }
+    const latestNotifCache = await chrome.storage.local.get(["cached_notifications_data"]);
+    const latestNotifsByDevice = latestNotifCache.cached_notifications_data?.byDevice || {};
+    for (const deviceId of Object.keys(newNotifsByDevice)) {
+      const latestNotifs = latestNotifsByDevice[deviceId];
+      if (!latestNotifs || latestNotifs.length === 0) continue;
+      const latestById = new Map(latestNotifs.map((n) => [n.id, n]));
+      newNotifsByDevice[deviceId] = newNotifsByDevice[deviceId].map((n) => {
+        const latest = latestById.get(n.id);
+        return latest && latest.read === true && !n.read ? { ...n, read: true } : n;
+      });
+    }
+    const readIds = /* @__PURE__ */ new Set();
+    Object.values(newNotifsByDevice).forEach((items) => {
+      (items || []).forEach((n) => {
+        if (n?.read === true && n?.id) readIds.add(n.id);
+      });
+    });
+    locallyReadNotificationIds = readIds;
     const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
     const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
     await chrome.storage.local.set({
@@ -19563,6 +19582,7 @@ async function refreshPopupCache() {
       cached_calls_data: { byDevice: newCallsByDevice, allCalls },
       cached_notifications_data: { byDevice: newNotifsByDevice, savedAt: Date.now() }
     });
+    setBadgeCount(computeUnreadCountFromByDevice(newNotifsByDevice));
     console.log(
       `ZyncIT: \u2705 Cache refreshed \u2014 SMS: ${allMessages.length}, Calls: ${allCalls.length}`
     );
@@ -19611,15 +19631,53 @@ function updateSnoozeMenuTitle() {
     void chrome.runtime.lastError;
   });
 }
-function incrementBadge() {
-  badgeCount++;
+function clearBadge() {
+  unreadIdsBySource.clear();
+  setBadgeCount(0);
+}
+function computeUnreadCountFromByDevice(byDevice) {
+  if (!byDevice) return 0;
+  const unreadIds = /* @__PURE__ */ new Set();
+  Object.values(byDevice).forEach((items) => {
+    (items || []).forEach((n) => {
+      if (!n?.id) return;
+      if (n.read === true) return;
+      unreadIds.add(n.id);
+    });
+  });
+  return unreadIds.size;
+}
+function refreshBadgeFromCachedNotifications(fallbackCount) {
+  chrome.storage.local.get(["cached_notifications_data"], (result) => {
+    const byDevice = result.cached_notifications_data?.byDevice;
+    if (byDevice) {
+      const readIds = /* @__PURE__ */ new Set();
+      Object.values(byDevice).forEach((items) => {
+        (items || []).forEach((n) => {
+          if (n?.id && n.read === true) readIds.add(n.id);
+        });
+      });
+      locallyReadNotificationIds = readIds;
+      setBadgeCount(computeUnreadCountFromByDevice(byDevice));
+      return;
+    }
+    if (fallbackCount !== void 0) {
+      setBadgeCount(fallbackCount);
+    }
+  });
+}
+function setBadgeCount(count) {
+  badgeCount = Math.max(0, Number(count) || 0);
   chrome.storage.local.set({ badgeCount });
   updateBadge();
 }
-function clearBadge() {
-  badgeCount = 0;
-  chrome.storage.local.set({ badgeCount: 0 });
-  updateBadge();
+function setUnreadIdsForSource(sourceKey, unreadIds) {
+  unreadIdsBySource.set(sourceKey, unreadIds || /* @__PURE__ */ new Set());
+  const allUnreadIds = /* @__PURE__ */ new Set();
+  unreadIdsBySource.forEach((ids) => {
+    ids.forEach((id) => allUnreadIds.add(id));
+  });
+  setBadgeCount(allUnreadIds.size);
 }
 function updateBadge() {
   const text = badgeCount > 0 ? badgeCount > 99 ? "99+" : String(badgeCount) : "";
@@ -19634,9 +19692,6 @@ function createNotificationIfNotSnoozed(notifId, options, callback) {
     return;
   }
   chrome.notifications.create(notifId, options, (createdId) => {
-    if (!chrome.runtime.lastError) {
-      incrementBadge();
-    }
     if (callback) callback(createdId);
   });
 }
@@ -20029,6 +20084,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "clearBadge") {
     clearBadge();
+    sendResponse({ success: true });
+  }
+  if (message.type === "syncBadge") {
+    setBadgeCount(message.count);
     sendResponse({ success: true });
   }
   if (message.type === "clearSeenNotifications") {

@@ -27,10 +27,30 @@ export function updateTabBadges() {
   const missedCalls = getCallsCount("all")
   updateBadge("callsBadge", missedCalls)
 
-  const notifUnread = state.devices.reduce(
-    (total, d) => total + (state.allNotifications[d.id] || []).filter(n => !n.read).length, 0
-  )
+  // Deduplicate by ID before counting — same notification can appear in both
+  // "_user_notifications" and a device-specific collection, matching what
+  // getMergedNotifications() shows in the UI.
+  const seenIds = new Set();
+  const notifUnread = Object.values(state.allNotifications)
+    .flat()
+    .filter(n => {
+      if (seenIds.has(n.id)) return false;
+      seenIds.add(n.id);
+      return !n.read;
+    }).length;
   updateBadge("notificationsBadge", notifUnread)
+
+  // Update the extension icon badge directly from the popup context — this is
+  // always reliable regardless of SW sleep state.
+  const badgeText = notifUnread > 0 ? (notifUnread > 99 ? "99+" : String(notifUnread)) : "";
+  chrome.action.setBadgeText({ text: badgeText });
+  if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+  // Persist so SW reads the correct value when it next wakes up.
+  chrome.storage.local.set({ badgeCount: notifUnread });
+  // Also update the SW's in-memory counter (best-effort; SW may be sleeping).
+  chrome.runtime.sendMessage({ type: "syncBadge", count: notifUnread }, () => {
+    void chrome.runtime.lastError;
+  });
 
   // Refresh device tab counts in the left panel
   refreshDeviceTabCounts()
@@ -82,7 +102,7 @@ function getCallsCount(deviceId) {
 }
 
 function getNotifsCount(deviceId) {
-  if (deviceId === "all") return state.devices.reduce((t, d) => t + getNotifsCount(d.id), 0)
+  if (deviceId === "all") return Object.values(state.allNotifications).flat().filter(n => !n.read).length
   return (state.allNotifications[deviceId] || []).filter(n => !n.read).length
 }
 

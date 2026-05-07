@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Simple bold "iR" monogram for Android notification icon -->
+  <!-- Must be white on transparent for Android 5+ notification system -->
+  <text x="1" y="19"
+    font-family="Arial, Helvetica, sans-serif"
+    font-weight="900"
+    font-size="18"
+    fill="white"
+    letter-spacing="-0.5">iR</text>
+</svg>
