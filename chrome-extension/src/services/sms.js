@@ -57,6 +57,19 @@ function linkifyText(text) {
 
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
+
+/**
+ * Resolve the best device name for an SMS message at render time.
+ * Looks up state.devices so user-set nicknames and raw model names are used
+ * instead of the generic "Android" baked in at load time.
+ */
+function resolveSMSDeviceName(msg) {
+  if (msg.deviceId) {
+    const device = state.devices.find((d) => d.id === msg.deviceId);
+    if (device) return device.nickname || device.name || msg.deviceName || null;
+  }
+  return msg.deviceName || null;
+}
 // Track processed message IDs to avoid duplicates
 let processedMessageIds = new Set();
 // Decryption cache - avoid re-decrypting same messages
@@ -258,11 +271,16 @@ export async function loadSMS() {
           `[SMS] 📦 Showing ${cached.allMessages.length} cached messages instantly`,
         );
         hasCachedData = true;
-        // Restore state from cache
+        // Restore state from cache.
+        // NOTE: We compute cachedNewestTimestamps per device for delta fetch, but
+        // do NOT seed state.allSMS (per-device map) from cache. The realtime
+        // Firestore listeners use Object.values(state.allSMS) to merge across
+        // devices; if dev2 is pre-populated from cache and only dev1's listener
+        // fires, the merge mixes fresh dev1 + stale-cached dev2 → corrupted
+        // state.allSMSMessages and a polluted cache write that persists the bad
+        // data into the next session.
         if (cached.byDevice) {
           for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
-            state.setSMSData(deviceId, msgs);
-            // Record newest timestamp per device for delta fetch
             if (msgs && msgs.length > 0) {
               cachedNewestTimestamps[deviceId] = Math.max(
                 ...msgs.map((m) => m.timestamp || 0),
@@ -667,7 +685,7 @@ export async function loadMoreSMS() {
         const deviceInfo = Object.values(state.allSMS)
           .flat()
           .find((m) => m.deviceId === deviceId);
-        const cachedDeviceName = deviceInfo?.deviceName || "Android";
+        const cachedDeviceName = deviceInfo?.deviceName || "";
 
         // Decrypt all messages in parallel
         const newMessages = await Promise.all(
@@ -1064,7 +1082,7 @@ export function renderSMS(messages) {
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
         <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
-        ${conv.lastMessage.deviceName ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(conv.lastMessage.deviceName)}</span></div>` : ""}
+        ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="Call">
@@ -1483,11 +1501,9 @@ export function showConversation(phoneNumber) {
               <div class="message-text">${linkifyText(msg.body || "")}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
-                ${
-                  msg.deviceName
-                    ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
-                    : ""
-                }
+                ${resolveSMSDeviceName(msg)
+                    ? `<span class="message-device">📱 ${escapeHtml(resolveSMSDeviceName(msg))}</span>`
+                    : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
                 <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1623,7 +1639,7 @@ export function showConversation(phoneNumber) {
         timestamp: m.timestamp || 0,
         direction: m.direction || "",
         type: m.type || "",
-        deviceName: m.deviceName || "",
+        deviceName: resolveSMSDeviceName(m) || "",
       })),
     };
     chrome.storage.local.set(payload, () => {
@@ -2375,8 +2391,15 @@ export function stopPolling() {
  * When a conversation is open, exports only that conversation's messages.
  */
 export function exportSMSToCSV() {
-  let messages = state.allSMSMessages || [];
-  let filename = `iRopit-SMS-${new Date().toISOString().slice(0, 10)}.csv`;
+  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
+  let messages = (state.allSMSMessages || []).filter((m) => !m.deviceId || knownDeviceIds.has(m.deviceId));
+  const now = new Date();
+  const localStamp = now.getFullYear() + "-" +
+    String(now.getMonth() + 1).padStart(2, "0") + "-" +
+    String(now.getDate()).padStart(2, "0") + "_" +
+    String(now.getHours()).padStart(2, "0") + "-" +
+    String(now.getMinutes()).padStart(2, "0");
+  let filename = `iRopit-SMS-${localStamp}.csv`;
 
   if (state.currentConversation) {
     const phoneKey = state.currentConversation;
@@ -2400,7 +2423,7 @@ export function exportSMSToCSV() {
       messages[0]?.contactName ||
       messages[0]?.title ||
       phoneKey.replace(/^(contact_|sender_)/, "");
-    filename = `iRopit-SMS-${contactName}-${new Date().toISOString().slice(0, 10)}.csv`;
+    filename = `iRopit-SMS-${contactName}-${localStamp}.csv`;
   }
 
   if (messages.length === 0) {
@@ -2418,7 +2441,7 @@ export function exportSMSToCSV() {
     const phone = m.phoneNumber || m.sender || "";
     const body = m.body || m.text || m.content || "";
     const sim = m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "";
-    const device = m.deviceName || "";
+    const device = resolveSMSDeviceName(m) || "";
     return [date, time, direction, contact, phone, body, sim, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
 

@@ -2,6 +2,7 @@ package com.IRopit;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.util.Log;
 
 import com.google.firebase.FirebaseApp;
@@ -72,8 +73,8 @@ public class FirebaseHelper {
         if (savedName != null && !savedName.isEmpty()) {
             return savedName;
         }
-        // Fallback to "Android" if no name saved
-        return "Android";
+        // Fallback to device model name instead of generic "Android"
+        return Build.MODEL;
     }
 
     public void clearUserCredentials() {
@@ -301,6 +302,37 @@ public class FirebaseHelper {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error sending call to Firestore: " + e.getMessage());
                 });
+    }
+
+    public void updateBatteryLevel(int batteryPercent, boolean isCharging) {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+
+        if (userId == null || deviceId == null) {
+            Log.w(TAG, "Cannot update battery: user not logged in");
+            return;
+        }
+
+        if (db == null) {
+            initFirebase();
+            if (db == null) {
+                Log.e(TAG, "Firestore not initialized");
+                return;
+            }
+        }
+
+        Map<String, Object> update = new HashMap<>();
+        update.put("batteryLevel", batteryPercent);
+        update.put("batteryLastUpdatedAt", System.currentTimeMillis());
+        update.put("isCharging", isCharging);
+
+        db.collection("devices")
+                .document(deviceId)
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(aVoid ->
+                    Log.i(TAG, "Battery updated: " + batteryPercent + "% charging=" + isCharging))
+                .addOnFailureListener(e ->
+                    Log.e(TAG, "Error updating battery: " + e.getMessage()));
     }
 }
 

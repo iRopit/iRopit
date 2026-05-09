@@ -31,6 +31,9 @@ import {
 import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
+import { reRenderNotifications } from "./notifications.js";
+import { renderCalls } from "./calls.js";
+import { renderSMS } from "./sms.js";
 
 /**
  * Register this extension as a device
@@ -845,6 +848,10 @@ export async function updateDeviceName(docId, newName) {
 
     renderDevices();
     updateDeviceSelects();
+    reRenderNotifications();
+    renderCalls(state.allCallsData);
+    renderSMS(state.allSMSMessages);
+    updateInsightsDeviceTabs();
     showToast("Device name updated in all records", "success");
   } catch (error) {
     console.error("Update device name error:", error);

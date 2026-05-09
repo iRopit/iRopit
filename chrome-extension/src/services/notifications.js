@@ -32,6 +32,23 @@ import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
 import { decryptNotification } from "./cryptoService.js";
 
+// Convert any timestamp shape (number, Firestore Timestamp, plain
+// {seconds,nanoseconds} after JSON serialization) to milliseconds.
+// Returns 0 if not a valid timestamp.
+function tsMs(raw) {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return raw < 1e12 ? raw * 1000 : raw;
+  if (typeof raw.toMillis === "function") return raw.toMillis();
+  if (typeof raw === "object" && typeof raw.seconds === "number") {
+    return raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1e6);
+  }
+  if (typeof raw === "string") {
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  return 0;
+}
+
 // Linkify URLs in notification body text
 function linkifyText(text) {
   const escaped = escapeHtml(text);
@@ -66,6 +83,12 @@ function notifSnapshotReady() {
     pendingNotifSnapshots = 0;
     isSyncingNotif = false;
     updateNotifSyncIndicator();
+    // Atomically publish the fully-loaded flat list for the dashboard.
+    // This is equivalent to state.allSMSMessages for SMS — only set once all
+    // devices have reported, so loadRawData never sees a partial set.
+    state.setAllNotificationsMessages(getMergedNotifications());
+    // Notify the Insights dashboard so it re-renders with the final count.
+    document.dispatchEvent(new CustomEvent("notificationsDataUpdated"));
   }
 }
 
@@ -110,9 +133,12 @@ export async function loadNotifications() {
         let hasData = false;
         for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
           if (notifs.length > 0) {
-            state.setNotificationsData(deviceId, notifs);
             hasData = true;
-            // Record newest timestamp per device for delta fetch
+            // Record newest timestamp per device for delta fetch.
+            // NOTE: Do NOT permanently seed state.allNotifications[deviceId] from cache.
+            // updateNotificationsList merges Object.values(state.allNotifications) when
+            // each device's listener fires; pre-populating causes fresh dev1 + stale-cached
+            // dev2 to be mixed before dev2's listener has a chance to run.
             cachedNewestTimestamps[deviceId] = Math.max(
               ...notifs.map((n) => n.timestamp || n.receivedAt || 0),
             );
@@ -120,6 +146,16 @@ export async function loadNotifications() {
         }
         if (hasData) {
           hasCachedData = true;
+          // Seed state from cache and render immediately (instant load).
+          // Do NOT clear state afterwards — the delta-merge in Step 3 reads
+          // state.allNotifications[deviceId] to combine cached items with newly
+          // arrived ones. Clearing it causes the merge to see an empty slice,
+          // so all pre-cache notifications disappear after the refresh completes.
+          // Each device slot will be overwritten by getDocs (Step 3) once fresh
+          // data arrives; until then cached data remains visible and correct.
+          for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
+            if (notifs.length > 0) state.setNotificationsData(deviceId, notifs);
+          }
           const merged = getMergedNotifications();
           renderNotifications(merged.slice(0, 200));
           updateTabBadges();
@@ -168,7 +204,7 @@ export async function loadNotifications() {
       }
     }
     devicesList.push({
-      id: data.id,
+      id: data.id || doc.id,  // Fall back to Firestore document ID if data.id field is absent
       name: friendlyName,
     });
   });
@@ -189,13 +225,13 @@ export async function loadNotifications() {
         collection(db, "users", user.uid, "devices", device.id, "notifications"),
         where("timestamp", ">", cachedNewestTs),
         orderBy("timestamp", "desc"),
-        limit(200),
+        limit(500),
       );
     } else {
       q = query(
         collection(db, "users", user.uid, "devices", device.id, "notifications"),
         orderBy("timestamp", "desc"),
-        limit(200),
+        limit(500),
       );
     }
 
@@ -214,7 +250,7 @@ export async function loadNotifications() {
             id: docSnap.id,
             deviceId: device.id,
             deviceName: device.name,
-            receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+            receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
           };
         }),
       );
@@ -254,7 +290,7 @@ export async function loadNotifications() {
   const userNotificationsQuery = query(
     collection(db, "users", user.uid, "notifications"),
     orderBy("createdAt", "desc"),
-    limit(200),
+    limit(500),
   );
 
   let userNotifFirstSnap = true;
@@ -268,7 +304,7 @@ export async function loadNotifications() {
           ...data,
           id: firestoreId,
           deviceId: data.deviceId || "user",
-          receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+          receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
         };
       }),
     );
@@ -303,7 +339,7 @@ export async function loadNotifications() {
                 id: docSnap.id,
                 deviceId: device.id,
                 deviceName: device.name,
-                receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
               };
             }),
           );
@@ -334,7 +370,7 @@ export async function loadNotifications() {
                   id: docSnap.id,
                   deviceId: device.id,
                   deviceName: device.name,
-                  receivedAt: data.timestamp || data.createdAt?.toMillis?.() || Date.now(),
+                  receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
                 };
               }),
             );
@@ -352,11 +388,14 @@ export async function loadNotifications() {
 }
 
 function resolveDeviceName(notif) {
-  if (notif.deviceName) return notif.deviceName;
-  if (!notif.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications") return null;
-  const device = state.devices.find((d) => d.id === notif.deviceId);
-  if (!device) return null;
-  return device.nickname || device.name || null;
+  // Always prefer the live device name from state.devices so that renames
+  // are reflected immediately — even on old notifications with a stale deviceName.
+  if (notif.deviceId && notif.deviceId !== "user" && notif.deviceId !== "_user_notifications") {
+    const device = state.devices.find((d) => d.id === notif.deviceId);
+    if (device) return device.nickname || device.name || notif.deviceName || null;
+  }
+  // Device not in state (deleted or user-level) — fall back to stored name.
+  return notif.deviceName || null;
 }
 
 function getMergedNotifications() {
@@ -511,6 +550,12 @@ function updateNotificationsList(deviceId, newNotifications) {
     return (existing && existing.read === true && !n.read) ? { ...n, read: true } : n;
   });
   state.setNotificationsData(deviceId, preserved);
+  // Keep flat array in sync for dashboard — but only after initial load is done
+  // (pendingNotifSnapshots === 0). During initial loading the flat array is empty
+  // so loadRawData falls back to cache, giving a stable number.
+  if (pendingNotifSnapshots === 0) {
+    state.setAllNotificationsMessages(getMergedNotifications());
+  }
   scheduleRender();
   updateTabBadges();
 }
@@ -983,7 +1028,8 @@ export async function deleteSelectedNotifications() {
  * Export notifications to CSV
  */
 export function exportNotificationsToCSV() {
-  let notifications = getMergedNotifications();
+  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
+  let notifications = getMergedNotifications().filter((n) => !n.deviceId || n.deviceId === "user" || n.deviceId === "_user_notifications" || knownDeviceIds.has(n.deviceId));
   if (notifications.length === 0) {
     alert("No notifications to export.");
     return;
@@ -996,15 +1042,21 @@ export function exportNotificationsToCSV() {
     const app = n.appName || n.packageName || "";
     const title = n.title || "";
     const body = n.text || n.body || "";
-    const device = n.deviceName || "";
+    const device = resolveDeviceName(n) || "";
     return [date, time, app, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
+  const now = new Date();
+  const localStamp = now.getFullYear() + "-" +
+    String(now.getMonth() + 1).padStart(2, "0") + "-" +
+    String(now.getDate()).padStart(2, "0") + "_" +
+    String(now.getHours()).padStart(2, "0") + "-" +
+    String(now.getMinutes()).padStart(2, "0");
   const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `iRopit-Notifications-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `iRopit-Notifications-${localStamp}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

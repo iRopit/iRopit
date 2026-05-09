@@ -294,22 +294,40 @@ export const useNotificationsScreen = (
       if (!user) return;
       const sanitizedKey = sanitizeFirestoreKey(notification.key);
       const uniqueId = `${sanitizedKey}_${notification.timestamp}`;
+      const deviceId = currentDevice?.id ?? null;
+      const notifData = {
+        ...notification,
+        id: uniqueId,
+        deviceId: deviceId ?? 'user',
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      };
       try {
+        // Write to user-level path (with real deviceId so the extension can
+        // attribute it to the correct device instead of showing "Android")
         await firestore()
           .collection('users')
           .doc(user.uid)
           .collection('notifications')
           .doc(uniqueId)
-          .set({
-            ...notification,
-            id: uniqueId,
-            createdAt: firestore.FieldValue.serverTimestamp(),
-          });
+          .set(notifData, { merge: true });
+
+        // Also write to per-device path so the extension per-device tab counts
+        // this notification correctly
+        if (deviceId) {
+          await firestore()
+            .collection('users')
+            .doc(user.uid)
+            .collection('devices')
+            .doc(deviceId)
+            .collection('notifications')
+            .doc(uniqueId)
+            .set(notifData, { merge: true });
+        }
       } catch (_error: any) {
         // Silently handle Firebase errors
       }
     },
-    [user],
+    [user, currentDevice],
   );
 
   // Handlers

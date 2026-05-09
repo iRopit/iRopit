@@ -25,6 +25,7 @@ interface Device {
   isOnline?: boolean;
   fcmToken?: string;
   batteryLevel?: number;
+  batteryLastUpdatedAt?: number;
   isCharging?: boolean;
 }
 
@@ -112,6 +113,13 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       // Check if already registered in state
       const { currentDevice } = get();
       if (currentDevice && currentDevice.id === deviceId) {
+        // Still refresh the device name in native storage so Java background
+        // services pick up any nickname that was set via the extension.
+        try {
+          await NativeCredentialsService.saveDeviceName(
+            currentDevice.nickname || currentDevice.name || 'Android',
+          );
+        } catch (_) {}
         set({ isLoading: false });
         return;
       }
@@ -192,6 +200,7 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
 
       // Add battery info if available
       if (batteryLevel !== undefined) device.batteryLevel = batteryLevel;
+      if (batteryLevel !== undefined) device.batteryLastUpdatedAt = Date.now();
       if (isCharging !== undefined) device.isCharging = isCharging;
 
       // Save to Firestore - always use set with merge to avoid not-found errors
@@ -318,7 +327,10 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       if (isOnline) {
         try {
           const rawLevel = await DeviceInfo.getBatteryLevel();
-          if (rawLevel >= 0) updateData.batteryLevel = Math.round(rawLevel * 100);
+          if (rawLevel >= 0) {
+            updateData.batteryLevel = Math.round(rawLevel * 100);
+            updateData.batteryLastUpdatedAt = Date.now();
+          }
           updateData.isCharging = await DeviceInfo.isBatteryCharging();
         } catch (_) {}
       }
@@ -351,6 +363,9 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
 
     // Set online immediately
     updateOnlineStatus(true);
+
+    // Start periodic battery polling every 10 minutes
+    startBatteryPolling();
   },
 
   updateFcmToken: async (token: string) => {
@@ -443,3 +458,51 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     return unsubscribe;
   },
 }));
+
+/**
+ * Periodic battery polling - updates every 10 minutes
+ */
+let batteryPollingInterval: NodeJS.Timeout | null = null;
+
+function startBatteryPolling() {
+  // Clear any existing interval
+  if (batteryPollingInterval) {
+    clearInterval(batteryPollingInterval);
+  }
+
+  // Poll every 10 minutes (600000ms)
+  batteryPollingInterval = setInterval(async () => {
+    const { currentDevice } = useDeviceStore.getState();
+    if (!currentDevice) return;
+
+    try {
+      const rawLevel = await DeviceInfo.getBatteryLevel();
+      if (rawLevel >= 0) {
+        const updateData = {
+          batteryLevel: Math.round(rawLevel * 100),
+          batteryLastUpdatedAt: Date.now(),
+        };
+
+        // Add isCharging if available
+        try {
+          updateData.isCharging = await DeviceInfo.isBatteryCharging();
+        } catch (_) {}
+
+        // Update Firestore
+        await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .doc(currentDevice.id)
+          .set(updateData, { merge: true });
+
+        // Update local state
+        useDeviceStore.setState({
+          currentDevice: { ...currentDevice, ...updateData },
+        });
+
+        console.log('[DeviceStore] Battery polling update:', updateData.batteryLevel + '%');
+      }
+    } catch (error) {
+      console.warn('[DeviceStore] Battery polling error:', error?.message);
+    }
+  }, 600000); // 10 minutes
+}

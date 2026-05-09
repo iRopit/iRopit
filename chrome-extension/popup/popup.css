@@ -3461,13 +3461,22 @@ html.dark .profile-logout-btn-footer {
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.dashboard-filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .dashboard-date-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .dashboard-date-group label {
@@ -3487,7 +3496,8 @@ html.dark .profile-logout-btn-footer {
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
-  width: 150px;
+  width: 100%;
+  min-width: 0;
 }
 
 .dashboard-date-input:focus {
@@ -3500,6 +3510,7 @@ html.dark .profile-logout-btn-footer {
   padding: 7px 16px;
   font-size: 13px;
   height: 32px;
+  white-space: nowrap;
 }
 
 /* Stats cards */

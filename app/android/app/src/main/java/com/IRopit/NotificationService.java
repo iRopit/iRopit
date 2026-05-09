@@ -6,9 +6,13 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.os.BatteryManager;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.database.Cursor;
@@ -71,6 +75,11 @@ public class NotificationService extends NotificationListenerService {
     // Track service start time to ignore old notifications
     private long serviceStartTime;
 
+    // Battery receiver (dynamically registered — ACTION_BATTERY_CHANGED can't use manifest)
+    private BroadcastReceiver batteryReceiver;
+    private int lastBatteryLevel = -1;
+    private boolean lastBatteryCharging = false;
+
     // Periodic polling of active email notifications (catches silently-delivered emails)
     private Runnable emailPollingRunnable;
     // Tracks "key_postTime" fingerprints already processed via polling to avoid re-sending
@@ -110,7 +119,10 @@ public class NotificationService extends NotificationListenerService {
         serviceStartTime = System.currentTimeMillis();
         firebaseHelper = FirebaseHelper.getInstance(this);
         Log.i(TAG, "=== NotificationService CREATED ===");
-        
+
+        // Register battery change receiver dynamically (sticky broadcast, must be dynamic)
+        registerBatteryReceiver();
+
         // Start as foreground service to prevent MIUI from killing it
         startForegroundServiceWithNotification();
     }
@@ -190,6 +202,11 @@ public class NotificationService extends NotificationListenerService {
             mainHandler.removeCallbacks(emailPollingRunnable);
         }
         polledEmailKeys.clear();
+        // Unregister battery receiver
+        if (batteryReceiver != null) {
+            try { unregisterReceiver(batteryReceiver); } catch (Exception ignored) {}
+            batteryReceiver = null;
+        }
         Log.i(TAG, "=== NotificationService DESTROYED ===");
         
         // Request rebind when destroyed
@@ -209,6 +226,35 @@ public class NotificationService extends NotificationListenerService {
         } catch (Exception e) {
             Log.e(TAG, "Error requesting rebind: " + e.getMessage());
         }
+    }
+
+    private void registerBatteryReceiver() {
+        batteryReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                if (level < 0 || scale <= 0) return;
+
+                int percent = (int) Math.round((level * 100.0) / scale);
+                boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
+                        || status == BatteryManager.BATTERY_STATUS_FULL;
+
+                // Throttle: skip if nothing changed
+                if (percent == lastBatteryLevel && isCharging == lastBatteryCharging) return;
+
+                lastBatteryLevel = percent;
+                lastBatteryCharging = isCharging;
+                Log.d(TAG, "Battery update: " + percent + "% charging=" + isCharging);
+                firebaseHelper.updateBatteryLevel(percent, isCharging);
+            }
+        };
+
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        registerReceiver(batteryReceiver, filter);
+        Log.i(TAG, "Battery receiver registered");
     }
 
     /**

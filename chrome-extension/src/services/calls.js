@@ -242,6 +242,19 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
 }
 
 /**
+ * Resolve the best available device name for a call at render time.
+ * Prefers state.devices lookup (respects user-set nicknames and raw model names)
+ * over the potentially-generic name baked in at load time (e.g. "Android").
+ */
+function resolveCallDeviceName(call) {
+  if (call.deviceId) {
+    const device = state.devices.find((d) => d.id === call.deviceId);
+    if (device) return device.nickname || device.name || call.deviceName || null;
+  }
+  return call.deviceName || null;
+}
+
+/**
  * Load calls from Firebase
  */
 export async function loadCalls() {
@@ -311,7 +324,7 @@ export async function loadCalls() {
       return;
     }
     devicesList.push({
-      id: data.id,
+      id: data.id || doc.id,  // Fall back to Firestore document ID if data.id field is absent
       name: getFriendlyDeviceName(data),
     });
   });
@@ -494,6 +507,11 @@ function updateCallsList(deviceId, newCalls) {
   updateTabBadges(); // update badge immediately, before renderCalls (which may exit early)
   renderCalls(merged.slice(0, 100));
 
+  // Notify the Insights dashboard so it re-renders with fresh call counts
+  // (calls use getDocs which is slower than SMS real-time snapshots; without
+  // this the dashboard may read stale cached count if user clicked Apply early)
+  document.dispatchEvent(new CustomEvent("callsDataUpdated"));
+
   // Save to cache in background
   cacheCallsData(state.allCallsByDevice, merged).catch(() => {});
 
@@ -661,7 +679,7 @@ export function renderCalls(calls) {
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
         <div class="list-item-subtitle">${group.lastCall.type}</div>
-        ${group.lastCall.deviceName ? `<div class="call-device-row"><span class="device-tag">${group.lastCall.deviceName}</span></div>` : ""}
+        ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="Call">
@@ -879,7 +897,7 @@ async function showCallHistory(phoneNumber) {
             <div class="call-info">
               <div class="call-type">${call.type}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
-              ${(call.deviceName || (call.simSlot != null && call.simSlot >= 0)) ? `<div class="call-detail-meta">${call.deviceName ? `<span class="device-tag">${call.deviceName}</span>` : ''}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ''}</div>` : ''}
+              ${(resolveCallDeviceName(call) || (call.simSlot != null && call.simSlot >= 0)) ? `<div class="call-detail-meta">${resolveCallDeviceName(call) ? `<span class="device-tag">${resolveCallDeviceName(call)}</span>` : ''}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ''}</div>` : ''}
             </div>
             <div class="call-time">${formatTime(call.timestamp)}</div>
           </div>
@@ -1111,7 +1129,8 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
  * Export all calls to a CSV file download
  */
 export function exportCallsToCSV() {
-  const calls = state.allCallsData || [];
+  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
+  const calls = (state.allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
   if (calls.length === 0) {
     alert("No calls to export.");
     return;
@@ -1126,16 +1145,23 @@ export function exportCallsToCSV() {
     const contact = c.contactName || c.title || "";
     const phone = c.phoneNumber || c.number || c.sender || "";
     const duration = c.duration || 0;
-    const device = c.deviceName || "";
+    const device = resolveCallDeviceName(c) || "";
     return [date, time, type, contact, phone, duration, device].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
+
+  const now = new Date();
+  const localStamp = now.getFullYear() + "-" +
+    String(now.getMonth() + 1).padStart(2, "0") + "-" +
+    String(now.getDate()).padStart(2, "0") + "_" +
+    String(now.getHours()).padStart(2, "0") + "-" +
+    String(now.getMinutes()).padStart(2, "0");
 
   const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `iRopit-Calls-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `iRopit-Calls-${localStamp}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

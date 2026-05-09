@@ -98,11 +98,13 @@ async function showCachedDataBeforeAuth() {
     if (mainContainer) mainContainer.classList.remove("hidden");
 
     if (smsCache?.allMessages?.length > 0) {
-      if (smsCache.byDevice) {
-        for (const [deviceId, msgs] of Object.entries(smsCache.byDevice)) {
-          state.setSMSData(deviceId, msgs);
-        }
-      }
+      // NOTE: Do NOT seed state.allSMS (per-device map) from cache here.
+      // The realtime Firestore listeners merge Object.values(state.allSMS) when
+      // each device fires. If we pre-populate the per-device map from cache and
+      // then dev1's listener fires with fresh data, the merge mixes fresh dev1
+      // + stale-cached dev2 → polluted state.allSMSMessages and a polluted
+      // cache write that persists the bad data into the next session.
+      // Only populate the flat list for instant rendering.
       state.setAllSMSMessages(smsCache.allMessages);
       renderSMS(smsCache.allMessages);
     }
@@ -118,10 +120,14 @@ async function showCachedDataBeforeAuth() {
     }
 
     if (notifCache?.byDevice) {
+      // Temporarily seed state for rendering, then clear so listener merges start clean.
       for (const [deviceId, notifs] of Object.entries(notifCache.byDevice)) {
         if (notifs.length > 0) state.setNotificationsData(deviceId, notifs);
       }
       reRenderNotifications();
+      for (const deviceId of Object.keys(notifCache.byDevice)) {
+        state.setNotificationsData(deviceId, []);
+      }
     }
 
     console.log("[Popup] ⚡ Pre-auth cache displayed");

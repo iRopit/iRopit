@@ -25,29 +25,45 @@ function stripNonSerializable(items) {
 }
 
 /**
- * Save SMS data to local cache
+ * Save SMS data to local cache.
+ *
+ * Debounced: per-device Firestore listeners fire one after another, each calling this
+ * with an incomplete merge (fresh device-N + stale data for not-yet-synced devices).
+ * If we wrote on every call, the cache would be polluted by partial snapshots that
+ * persist across sessions. Holding the write for 3 seconds lets all device listeners
+ * settle so we cache the complete merged result.
+ *
  * @param {Object} smsByDevice - SMS data keyed by deviceId
  * @param {Array} allMessages - All merged/deduped messages
  */
+let smsCacheWriteTimer = null;
+let smsCachePending = null;
 export async function cacheSMSData(smsByDevice, allMessages) {
-  try {
-    const cacheData = {
-      byDevice: {},
-      allMessages: stripNonSerializable(allMessages).slice(0, 500),
-    };
-
-    for (const [deviceId, msgs] of Object.entries(smsByDevice)) {
-      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+  // Capture latest call's payload; the timer flushes the most recent one.
+  smsCachePending = { smsByDevice, allMessages };
+  if (smsCacheWriteTimer) clearTimeout(smsCacheWriteTimer);
+  smsCacheWriteTimer = setTimeout(async () => {
+    smsCacheWriteTimer = null;
+    const payload = smsCachePending;
+    smsCachePending = null;
+    if (!payload) return;
+    try {
+      const cacheData = {
+        byDevice: {},
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 500),
+      };
+      for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+      }
+      await chrome.storage.local.set({
+        [CACHE_KEYS.SMS]: cacheData,
+        [CACHE_KEYS.TIMESTAMP]: Date.now(),
+      });
+      console.log(`[Cache] ✅ Saved ${payload.allMessages.length} SMS messages to cache (debounced)`);
+    } catch (error) {
+      console.warn("[Cache] Failed to save SMS cache:", error);
     }
-
-    await chrome.storage.local.set({
-      [CACHE_KEYS.SMS]: cacheData,
-      [CACHE_KEYS.TIMESTAMP]: Date.now(),
-    });
-    console.log(`[Cache] ✅ Saved ${allMessages.length} SMS messages to cache`);
-  } catch (error) {
-    console.warn("[Cache] Failed to save SMS cache:", error);
-  }
+  }, 3000);
 }
 
 /**
@@ -76,21 +92,32 @@ export async function cacheCallsData(callsByDevice, allCalls) {
 }
 
 /**
- * Save notifications data to local cache
+ * Save notifications data to local cache. Debounced 3 s so partial per-device
+ * updates don't pollute the cache before all listeners have settled.
  * @param {Object} notifsByDevice - Notifications keyed by deviceId
  */
+let notifCacheWriteTimer = null;
+let notifCachePending = null;
 export async function cacheNotificationsData(notifsByDevice) {
-  try {
-    const serializable = {};
-    for (const [key, notifs] of Object.entries(notifsByDevice)) {
-      serializable[key] = notifs.slice(0, 200);
+  notifCachePending = notifsByDevice;
+  if (notifCacheWriteTimer) clearTimeout(notifCacheWriteTimer);
+  notifCacheWriteTimer = setTimeout(async () => {
+    notifCacheWriteTimer = null;
+    const payload = notifCachePending;
+    notifCachePending = null;
+    if (!payload) return;
+    try {
+      const serializable = {};
+      for (const [key, notifs] of Object.entries(payload)) {
+        serializable[key] = notifs.slice(0, 500);
+      }
+      await chrome.storage.local.set({
+        [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() },
+      });
+    } catch (error) {
+      console.warn("[Cache] Failed to save notifications cache:", error);
     }
-    await chrome.storage.local.set({
-      [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() },
-    });
-  } catch (error) {
-    console.warn("[Cache] Failed to save notifications cache:", error);
-  }
+  }, 3000);
 }
 
 /**

@@ -1,5 +1,5 @@
 export const APP_NAME = 'iRopit';
-export const APP_VERSION = '1.0.5.5';
+export const APP_VERSION = '1.0.5.10';
 
 // Sync intervals
 export const SYNC_INTERVAL = 30000; // 30 seconds

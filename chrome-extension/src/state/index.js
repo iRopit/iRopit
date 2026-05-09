@@ -29,6 +29,7 @@ export let callsDataConfirmed = false;
 
 // Notifications Data
 export let allNotifications = {};
+export let allNotificationsMessages = []; // flat merged array, set atomically once all snapshots complete
 
 // Chat Data
 export let cachedChatMessages = [];
@@ -122,6 +123,10 @@ export function setNotificationsData(deviceId, notifications) {
   allNotifications[deviceId] = notifications;
 }
 
+export function setAllNotificationsMessages(messages) {
+  allNotificationsMessages = messages;
+}
+
 export function clearAllNotifications() {
   allNotifications = {};
 }
@@ -156,6 +161,7 @@ export function resetState() {
   allCallsData = [];
   currentCallConversation = null;
   allNotifications = {};
+  allNotificationsMessages = [];
   cachedChatMessages = [];
   currentReplyTo = null;
   allContacts = {};

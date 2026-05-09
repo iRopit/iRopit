@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
 import { View, Text, StyleSheet, I18nManager, BackHandler } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { useCallStore } from '../store/callStore';
 import { useSMSStore } from '../store/smsStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { LIGHT_COLORS, DARK_COLORS } from '../theme/colors';
+import { navigationRef } from './navigationRef';
 // ServiceStatusBanner removed - permissions are handled in onboarding
 
 import NotificationsScreen from '../screens/main/NotificationsScreen';
@@ -31,25 +31,23 @@ const MainNavigator = () => {
   const user = useAuthStore(s => s.user);
   const currentDevice = useDeviceStore(s => s.currentDevice);
   const prefetched = useRef(false);
-  const navigation = useNavigation();
 
-  // Back button: minimize the app when on a main tab.
-  // Sub-screen navigation (Conversation, CallDetail, Menu→Settings) is
-  // handled automatically by React Navigation's built-in back handler
-  // (NavigationContainer). We only need to intercept when there's nothing
-  // to go back to — i.e. the user is on a top-level tab.
+  // Back button: only exit the app when on a top-level tab (nothing to go back to).
+  // We check navigationRef (the root NavigationContainer ref) instead of the
+  // local navigation object, because useNavigation() here is scoped to the
+  // 'Main' screen in the root stack — its canGoBack() is always false even
+  // when CallDetail / Conversation / sub-menu screens are pushed on top.
+  // navigationRef.canGoBack() inspects the entire navigation tree correctly.
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // Let React Navigation handle sub-screen back navigation.
-      // navigation.canGoBack() checks the entire focused navigator tree.
-      if (navigation.canGoBack()) {
-        return false; // Pass to React Navigation's handler
+      if (navigationRef.isReady() && navigationRef.canGoBack()) {
+        return false; // Let React Navigation pop the top screen
       }
       BackHandler.exitApp();
       return true;
     });
     return () => handler.remove();
-  }, [navigation]);
+  }, []);
 
   // Pre-fetch all store data so tabs load instantly
   useEffect(() => {
