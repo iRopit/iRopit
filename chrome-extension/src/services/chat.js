@@ -344,10 +344,17 @@ export async function sendChatMessage() {
     document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset
       .device || "all";
 
+  const senderDevice = state.devices.find(
+    (d) => d.id === deviceId ||
+           d.platform === "chrome-extension" ||
+           d.platform === "chrome"
+  );
+  const senderDeviceName = senderDevice?.nickname || senderDevice?.name || "Chrome Extension";
+
   let messageData = {
     senderId: user.uid,
     senderDeviceId: deviceId,
-    senderName: user.displayName || "User",
+    senderName: senderDeviceName,
     senderPlatform: "chrome-extension",
     receiverId: user.uid,
     receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
@@ -590,10 +597,17 @@ async function sendFileFromPreview() {
       result.fileType === "image" ? "📷 Image" : `📎 ${result.fileName}`;
 
     // Prepare file message data
+    const senderDevice = state.devices.find(
+      (d) => d.id === deviceId ||
+             d.platform === "chrome-extension" ||
+             d.platform === "chrome"
+    );
+    const senderDeviceName = senderDevice?.nickname || senderDevice?.name || "Chrome Extension";
+
     let fileMessageData = {
       senderId: user.uid,
       senderDeviceId: deviceId,
-      senderName: user.displayName || "User",
+      senderName: senderDeviceName,
       senderPlatform: "chrome-extension",
       receiverId: user.uid,
       receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,

@@ -38,7 +38,12 @@ const RootNavigator = () => {
 
   const handleShare = useCallback((data: SharedData) => {
     if (isFileShare(data)) {
-      // File/image share — check if auth is ready to show popup immediately
+      // File/image share — show modal as soon as user is authenticated.
+      // currentDevice may still be null (registerDevice is async); the modal
+      // itself shows a "Preparing devices…" state and enables Send only once
+      // currentDevice is set.  Gating modal visibility on currentDevice caused
+      // cold-start shares to silently disappear when device registration was
+      // slow or failed.
       const { user } = useAuthStore.getState();
       if (user?.uid) {
         setShareData(data);
@@ -47,7 +52,9 @@ const RootNavigator = () => {
         useShareStore.getState().setPendingShare(data);
       }
     } else {
-      // Text share — navigate to chat and paste into input
+      // Text share — store and let useChatScreen consume it on the Chat tab.
+      // Also attempt immediate navigation in case nav stack is already ready
+      // (warm path).  The effect below will retry navigation after auth.
       useShareStore.getState().setPendingShare(data);
       navigateToChat();
     }
@@ -55,22 +62,24 @@ const RootNavigator = () => {
 
   useShareReceive(handleShare);
 
-  // After auth + onboarding finish, handle any pending share (cold launch).
-  // pendingShare is in the dep array so this effect re-runs when the store
-  // value changes — critical for cold-start when all other conditions are
-  // already stable before pollNative() delivers the data.
+  // After auth + onboarding finish, handle any pending share from a cold launch.
+  // For file shares we DO NOT wait for currentDevice — the modal handles that
+  // internally.  For text shares we navigate to the Chat tab; useChatScreen
+  // consumes pendingShare and pre-fills the input.
   useEffect(() => {
     if (isLoading || checkingOnboarding || !isAuthenticated || !hasCompletedOnboarding) return;
     if (!pendingShare) return;
 
     if (isFileShare(pendingShare)) {
-      // File/image share — show standalone popup (no navigation needed)
+      // File/image share — show modal immediately; ShareModal waits for device.
       useShareStore.getState().clearPendingShare();
       setShareData(pendingShare);
     } else {
-      // Text share — navigate to chat
-      const timer = setTimeout(() => navigateToChat(), 300);
-      return () => clearTimeout(timer);
+      // Text share — Chat is the default tab, but make sure we land there.
+      // Retry navigation a few times in case the nav stack isn't ready yet.
+      const t1 = setTimeout(() => navigateToChat(), 200);
+      const t2 = setTimeout(() => navigateToChat(), 800);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [isLoading, checkingOnboarding, isAuthenticated, hasCompletedOnboarding, pendingShare]);
 

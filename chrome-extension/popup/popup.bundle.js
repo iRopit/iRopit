@@ -24175,7 +24175,8 @@ ${this.customData.serverResponse}`;
       db = initializeFirestore(app, {
         localCache: persistentLocalCache({
           tabManager: persistentSingleTabManager({ forceOwnership: true })
-        })
+        }),
+        experimentalForceLongPolling: true
       });
       storage = getStorage(app);
     }
@@ -25222,10 +25223,14 @@ ${this.customData.serverResponse}`;
     if (!content || !user) return;
     const deviceId = await getDeviceId();
     const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const senderDevice = devices.find(
+      (d) => d.id === deviceId || d.platform === "chrome-extension" || d.platform === "chrome"
+    );
+    const senderDeviceName = senderDevice?.nickname || senderDevice?.name || "Chrome Extension";
     let messageData = {
       senderId: user.uid,
       senderDeviceId: deviceId,
-      senderName: user.displayName || "User",
+      senderName: senderDeviceName,
       senderPlatform: "chrome-extension",
       receiverId: user.uid,
       receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,
@@ -25390,10 +25395,14 @@ ${this.customData.serverResponse}`;
       const deviceId = await getDeviceId();
       const selectedDeviceTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
       const contentText = result.fileType === "image" ? "\u{1F4F7} Image" : `\u{1F4CE} ${result.fileName}`;
+      const senderDevice = devices.find(
+        (d) => d.id === deviceId || d.platform === "chrome-extension" || d.platform === "chrome"
+      );
+      const senderDeviceName = senderDevice?.nickname || senderDevice?.name || "Chrome Extension";
       let fileMessageData = {
         senderId: user.uid,
         senderDeviceId: deviceId,
-        senderName: user.displayName || "User",
+        senderName: senderDeviceName,
         senderPlatform: "chrome-extension",
         receiverId: user.uid,
         receiverDeviceId: selectedDeviceTab === "all" ? null : selectedDeviceTab,

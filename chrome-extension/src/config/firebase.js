@@ -43,6 +43,7 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentSingleTabManager({ forceOwnership: true }),
   }),
+  experimentalForceLongPolling: true,
 });
 const storage = getStorage(app);
 

@@ -17,6 +17,20 @@ class MainActivity : ReactActivity() {
   private val callReceiver = CallReceiver()
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // IMPORTANT: process the share intent BEFORE super.onCreate(...) so the
+    // static pending fields (and SharedPreferences backup) are populated
+    // before React Native bootstraps.  Some RN setups recycle / clear the
+    // activity intent during super.onCreate, which previously caused the
+    // SEND intent to be lost on cold launch.
+    val launchIntent = intent
+    if (launchIntent != null) {
+      val act = launchIntent.action
+      Log.d("MainActivity", "onCreate: action=$act, type=${launchIntent.type}")
+      if (Intent.ACTION_SEND == act || Intent.ACTION_SEND_MULTIPLE == act) {
+        ShareModule.processIntent(this, launchIntent)
+      }
+    }
+
     super.onCreate(savedInstanceState)
     
     // Register SMS receiver dynamically
@@ -40,8 +54,7 @@ class MainActivity : ReactActivity() {
     }
     Log.d("MainActivity", "Call Receiver registered dynamically")
 
-    // Handle share intent if app was launched via the share sheet
-    ShareModule.processIntent(this, intent)
+    // Note: cold-start share intent is now handled BEFORE super.onCreate above.
   }
 
   override fun onDestroy() {
@@ -59,7 +72,11 @@ class MainActivity : ReactActivity() {
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
-    ShareModule.processIntent(this, intent)
+    val act = intent.action
+    Log.d("MainActivity", "onNewIntent: action=$act, type=${intent.type}")
+    if (Intent.ACTION_SEND == act || Intent.ACTION_SEND_MULTIPLE == act) {
+      ShareModule.processIntent(this, intent)
+    }
   }
 
   /**

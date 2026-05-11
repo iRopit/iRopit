@@ -302,22 +302,31 @@ export const useChatScreen = () => {
     [user?.uid, currentDevice, isRTL, selectedDeviceId, devices],
   );
 
-  // Consume pending text share — paste into input when ready
+  // Consume pending text share — paste into input when ready.
+  // currentDevice is intentionally NOT required here: we only need the user
+  // to be authenticated to pre-fill the input.  The device is only needed when
+  // the user actually hits Send, by which time registerDevice() will have
+  // completed.  Waiting for currentDevice on cold launch caused the text to
+  // never appear because device registration is async (Firestore round-trip).
   useEffect(() => {
-    if (!pendingShare || !user?.uid || !currentDevice) {
+    if (!pendingShare || !user?.uid) {
       return;
     }
 
-    // Snapshot and clear immediately to prevent double-send on re-render
+    // Only handle plain-text shares here; file/image shares are handled by
+    // RootNavigator → ShareModal.
+    if (!pendingShare.text || pendingShare.uri || pendingShare.uris?.length) {
+      return;
+    }
+
+    // Snapshot and clear immediately to prevent double-processing on re-render
     const share = pendingShare;
     clearPendingShare();
 
-    if (share.text && !share.uri && !share.uris?.length) {
-      // Plain text share — paste into input
-      setInputText(share.text);
-    }
+    // Plain text share — paste into input
+    setInputText(share.text);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingShare, user?.uid, currentDevice?.id]);
+  }, [pendingShare, user?.uid]);
 
   // Subscribe to messages
   const isFirstSnapshotRef = useRef(true);

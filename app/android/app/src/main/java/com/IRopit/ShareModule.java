@@ -2,8 +2,11 @@ package com.IRopit;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
@@ -27,9 +30,16 @@ import java.util.List;
 @ReactModule(name = ShareModule.NAME)
 public class ShareModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
-    public static final String NAME = "ShareModule";
-    private static final String TAG = "ShareModule";
+    public static final String NAME = "IropitShareModule";
+    private static final String TAG = "IropitShareModule";
     private static final String EVENT_SHARE = "SharedDataReceived";
+    private static final String PREFS = "iropit_share_prefs";
+    private static final String KEY_HAS = "has_pending";
+    private static final String KEY_MIME = "mime";
+    private static final String KEY_TEXT = "text";
+    private static final String KEY_SUBJECT = "subject";
+    private static final String KEY_URI = "uri";
+    private static final String KEY_URIS = "uris"; // JSON-ish: joined by '\n'
 
     private static String pendingMimeType = null;
     private static String pendingText = null;
@@ -50,13 +60,29 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
         // React activity resumes — this covers cold-start where processIntent
         // was called in onCreate() before the bridge was ready.
         reactContext.addLifecycleEventListener(this);
+        // If processIntent ran before us (or in a prior process), pick up any
+        // persisted share now so the static fields are populated by the time
+        // JS polls getSharedData().
+        hydrateFromPrefsIfNeeded(reactContext);
+
     }
 
     @Override
     public void onHostResume() {
-        // Activity came to foreground — React instance should be active now.
-        // Attempt to emit any pending share data that arrived during cold start.
-        tryEmitPending();
+        if (!hasPending) return;
+        // Delay the emit so JS has time to mount and register its
+        // DeviceEventEmitter listener before we fire the event.
+        // We use multiple retries to handle slow bridge init on cold start.
+        scheduleEmit(300);
+        scheduleEmit(800);
+        scheduleEmit(1500);
+        scheduleEmit(2500);
+    }
+
+    private void scheduleEmit(long delayMs) {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (hasPending) tryEmitPending();
+        }, delayMs);
     }
 
     @Override
@@ -162,9 +188,76 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
         if (instance != null) {
             instance.tryEmitPending();
         }
+
+        // Persist as backup so cold-start race never loses the share data.
+        try {
+            SharedPreferences prefs = context.getApplicationContext()
+                    .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            SharedPreferences.Editor e = prefs.edit();
+            e.putBoolean(KEY_HAS, true);
+            e.putString(KEY_MIME, pendingMimeType);
+            e.putString(KEY_TEXT, pendingText);
+            e.putString(KEY_SUBJECT, pendingSubject);
+            e.putString(KEY_URI, pendingUri);
+            if (pendingUris != null) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < pendingUris.size(); i++) {
+                    if (i > 0) sb.append('\n');
+                    sb.append(pendingUris.get(i));
+                }
+                e.putString(KEY_URIS, sb.toString());
+            } else {
+                e.remove(KEY_URIS);
+            }
+            e.apply();
+            Log.d(TAG, "processIntent: persisted pending share to SharedPreferences");
+        } catch (Exception ex) {
+            Log.e(TAG, "processIntent: failed to persist", ex);
+        }
+    }
+
+    private static void hydrateFromPrefsIfNeeded(Context context) {
+        if (hasPending) return;
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getApplicationContext()
+                    .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            if (!prefs.getBoolean(KEY_HAS, false)) return;
+            pendingMimeType = prefs.getString(KEY_MIME, null);
+            pendingText = prefs.getString(KEY_TEXT, null);
+            pendingSubject = prefs.getString(KEY_SUBJECT, null);
+            pendingUri = prefs.getString(KEY_URI, null);
+            String urisStr = prefs.getString(KEY_URIS, null);
+            if (urisStr != null && !urisStr.isEmpty()) {
+                String[] parts = urisStr.split("\\n");
+                List<String> list = new ArrayList<>();
+                for (String p : parts) if (p != null && !p.isEmpty()) list.add(p);
+                pendingUris = list;
+            }
+            hasPending = (pendingMimeType != null)
+                    && (pendingText != null || pendingUri != null
+                        || (pendingUris != null && !pendingUris.isEmpty()));
+            Log.d(TAG, "hydrateFromPrefs: restored hasPending=" + hasPending +
+                    " mime=" + pendingMimeType + " uri=" + pendingUri);
+        } catch (Exception ex) {
+            Log.e(TAG, "hydrateFromPrefs failed", ex);
+        }
+    }
+
+    private static void clearPersisted(Context context) {
+        if (context == null) return;
+        try {
+            context.getApplicationContext()
+                    .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+        } catch (Exception ex) {
+            Log.e(TAG, "clearPersisted failed", ex);
+        }
     }
 
     private void tryEmitPending() {
+        // Restore from SharedPreferences if static state was wiped (e.g. process death).
+        hydrateFromPrefsIfNeeded(reactContext);
         if (!hasPending) return;
         if (!reactContext.hasActiveReactInstance()) {
             Log.d(TAG, "tryEmitPending: no active React instance, keeping pending");
@@ -181,7 +274,9 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                     .emit(EVENT_SHARE, map);
             Log.d(TAG, "tryEmitPending: emit call succeeded");
-            clearPending();
+            // DO NOT clearPending() here — the data must survive in case the JS
+            // DeviceEventEmitter listener wasn't registered yet (cold-start race).
+            // getSharedData() is the single authoritative drain that clears it.
         } catch (Exception e) {
             Log.e(TAG, "tryEmitPending: emit FAILED", e);
         }
@@ -215,6 +310,9 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
 
     @ReactMethod
     public void getSharedData(Promise promise) {
+        // Recover from SharedPreferences when static state was lost between
+        // process death and JS bridge ready.
+        hydrateFromPrefsIfNeeded(reactContext);
         Log.d(TAG, "getSharedData called, hasPending=" + hasPending);
         if (!hasPending) {
             promise.resolve(null);
@@ -222,6 +320,7 @@ public class ShareModule extends ReactContextBaseJavaModule implements Lifecycle
         }
         WritableMap map = buildWritableMap();
         clearPending();
+        clearPersisted(reactContext);
         promise.resolve(map);
     }
 

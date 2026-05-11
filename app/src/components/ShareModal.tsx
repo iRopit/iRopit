@@ -46,8 +46,12 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
 
   const handleSend = useCallback(() => {
-    if (!user?.uid || !currentDevice) {
+    if (!user?.uid) {
       setError('Not authenticated');
+      return;
+    }
+    if (!currentDevice) {
+      setError('Preparing device… please try again in a moment');
       return;
     }
 

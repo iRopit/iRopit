@@ -283,17 +283,16 @@ exports.onNewChatMessage = onDocumentCreated(
     const message = snap.data();
     const messageId = event.params.messageId;
 
-    // Only send notification for messages from chrome-extension
-    if (message.senderPlatform !== "chrome-extension") {
-      return null;
-    }
-
     const userId = message.senderId;
-    const senderName = message.senderName || "Chrome Extension";
+    const senderName = message.senderName || "Device";
     const rawContent = message.content || "";
     const content = decryptString(rawContent, userId) || "";
 
-    // Get all mobile devices for this user
+    // Truncate message preview
+    const truncatedContent =
+      content.length > 100 ? content.substring(0, 100) + "..." : content;
+
+    // Get all devices for this user
     try {
       const devicesSnapshot = await db
         .collection("devices")
@@ -305,13 +304,8 @@ exports.onNewChatMessage = onDocumentCreated(
       devicesSnapshot.forEach((doc) => {
         const device = doc.data();
 
-        // Skip the sender device and devices without FCM token
-        if (
-          device.id === message.senderDeviceId ||
-          !device.fcmToken ||
-          device.platform === "chrome" ||
-          device.platform === "chrome-extension"
-        ) {
+        // Skip the sender device
+        if (device.id === message.senderDeviceId) {
           return;
         }
 
@@ -323,9 +317,40 @@ exports.onNewChatMessage = onDocumentCreated(
           return;
         }
 
-        // Truncate message
-        const truncatedContent =
-          content.length > 100 ? content.substring(0, 100) + "..." : content;
+        const isExtension =
+          device.platform === "chrome" ||
+          device.platform === "chrome-extension";
+
+        if (isExtension) {
+          // Chrome extension has no FCM token — write to push_notifications
+          // so the extension's Firestore listener picks it up
+          sendPromises.push(
+            db.collection("push_notifications").add({
+              userId: userId,
+              deviceId: device.id,
+              fcmToken: device.fcmToken || null,
+              notification: {
+                title: `💬 ${senderName}`,
+                body: truncatedContent || "New message",
+              },
+              data: {
+                type: "chat",
+                messageId: messageId,
+                senderId: userId,
+                senderName: senderName,
+                chatId: messageId,
+              },
+              status: "pending",
+              createdAt: Date.now(),
+            }).catch((err) => {
+              console.error(`Failed to write push_notification for extension device ${device.id}:`, err.message);
+            })
+          );
+          return;
+        }
+
+        // Mobile device — send data-only FCM
+        if (!device.fcmToken) return;
 
         const fcmMessage = {
           token: device.fcmToken,
