@@ -31697,9 +31697,10 @@ ${this.customData.serverResponse}`;
             "\u{1F4F1} SMS notification - real-time listener will handle UI update"
           );
         }
+        sendResponse({ received: true });
+        return true;
       }
-      sendResponse({ received: true });
-      return true;
+      return false;
     });
   }
   function initLangToggle() {

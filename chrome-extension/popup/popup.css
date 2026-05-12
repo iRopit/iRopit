@@ -1160,7 +1160,7 @@ body[dir="rtl"] .device-tag {
 }
 
 .chat-message.sent .chat-link {
-  color: rgba(255, 255, 255, 0.92);
+  color: #1a1a1a;
 }
 
 .chat-message.received .chat-link {
@@ -2861,9 +2861,9 @@ body[dir="rtl"] .device-tag {
 
 .toggle-info-icon .toggle-tooltip {
   position: absolute;
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);

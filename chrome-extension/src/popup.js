@@ -183,10 +183,12 @@ function setupServiceWorkerListener() {
           "📱 SMS notification - real-time listener will handle UI update",
         );
       }
+      sendResponse({ received: true });
+      return true;
     }
-
-    sendResponse({ received: true });
-    return true;
+    // For all other messages (e.g. offscreen-copy), don't respond —
+    // let the intended recipient (offscreen document) handle them.
+    return false;
   });
 }
 

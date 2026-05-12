@@ -326,7 +326,7 @@ function processChatMessageSmartActions(msg, freshSettings) {
       const safeUrl = url && url.startsWith("http") ? url : null;
       if (safeUrl && shouldOpen(safeUrl)) {
         console.log("ZyncIT: 🖼️ Opening received image:", safeUrl);
-        chrome.tabs.create({ url: safeUrl, active: false });
+        chrome.tabs.create({ url: safeUrl, active: false }).catch(() => {});
       }
     }).catch(() => {});
     return; // image handled
@@ -344,7 +344,7 @@ function processChatMessageSmartActions(msg, freshSettings) {
           const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
           if (shouldOpen(href)) {
             console.log("ZyncIT: 🔗 Opening received URL from chat:", href);
-            chrome.tabs.create({ url: href, active: false });
+            chrome.tabs.create({ url: href, active: false }).catch(() => {});
           }
         }
       }
@@ -509,15 +509,6 @@ function listenToUserNotifications() {
                   priority: 2,
                 });
                 sendOTPToActiveTab(otp, appName || decTitle, decBody);
-              }
-            }
-
-            // Open URLs automatically
-            if (smartActions.openUrls) {
-              const urlMatch = combined.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
-              if (urlMatch) {
-                const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-                chrome.tabs.create({ url: href, active: false });
               }
             }
           }).catch(() => {});
@@ -734,15 +725,6 @@ function listenToDevice(deviceId, deviceName) {
                 sendOTPToActiveTab(otp, appName || decTitle, decBody);
               }
             }
-
-            // Open URLs automatically
-            if (smartActions.openUrls) {
-              const urlMatch = combined.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
-              if (urlMatch) {
-                const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-                chrome.tabs.create({ url: href, active: false });
-              }
-            }
           }).catch(() => {});
 
           // Send update to popup
@@ -840,7 +822,7 @@ function extractOTP(text) {
 
   // Must contain an OTP-related keyword (English or Arabic, including email patterns)
   const hasOTPKeyword =
-    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة)\b/i
+    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|one.time.password|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة|verification.code|تحقق)\b/i
       .test(text);
   if (!hasOTPKeyword) return null;
 
@@ -853,41 +835,98 @@ function extractOTP(text) {
  * Send the detected OTP to the content script running in the active focused tab.
  */
 async function sendOTPToActiveTab(otp, sender, body) {
+  // Copy OTP to clipboard via offscreen (works even when browser is not focused).
+  // Fire-and-forget — must not block delivery to content script.
+  try { sendTextToClipboard(otp); } catch (e) { /* ignore */ }
+
   try {
-    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (!activeTab || !activeTab.id) return;
+    // Try multiple queries — browser may be unfocused (user on phone) so
+    // lastFocusedWindow can return empty. Fall back progressively.
+    let activeTab = null;
+    let tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tabs && tabs.length) activeTab = tabs[0];
+    if (!activeTab) {
+      tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs && tabs.length) activeTab = tabs[0];
+    }
+    if (!activeTab) {
+      tabs = await chrome.tabs.query({ active: true });
+      if (tabs && tabs.length) activeTab = tabs[0];
+    }
+    if (!activeTab || !activeTab.id) {
+      console.warn("ZyncIT: No active tab found for OTP delivery");
+      return;
+    }
 
-    // content scripts cannot run on chrome:// or other restricted URLs
-    if (!activeTab.url || activeTab.url.startsWith("chrome")) return;
+    // content scripts cannot run on chrome:// / edge:// / about: / extension pages
+    const url = activeTab.url || "";
+    if (!url || /^(chrome|edge|about|chrome-extension|moz-extension|file|devtools|view-source):/i.test(url)) {
+      console.warn("ZyncIT: Active tab URL not scriptable:", url);
+      return;
+    }
 
-    chrome.tabs.sendMessage(
-      activeTab.id,
-      { type: "otpDetected", otp, sender, body },
-      () => {
-        if (chrome.runtime.lastError) {
-          // Content script not injected yet on this page — ignore
-        }
-      }
-    );
+    const payload = { type: "otpDetected", otp, sender, body };
+    console.log("ZyncIT: 📨 Sending OTP to tab", activeTab.id, url);
+
+    // Always inject the content script first — this is idempotent for our use
+    // case (the IIFE registers an onMessage listener; duplicate listeners are
+    // harmless because handleOTP de-duplicates the toast and the paste is
+    // value-replacement). Inject explicitly so the message is guaranteed to
+    // have a listener even on tabs opened before the extension was reloaded.
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ["content-script.js"],
+      });
+    } catch (injErr) {
+      console.warn("ZyncIT: content-script inject failed (will still try sendMessage):", injErr?.message || injErr);
+    }
+
+    try {
+      await chrome.tabs.sendMessage(activeTab.id, payload);
+      console.log("ZyncIT: ✅ OTP delivered to content script");
+    } catch (sendErr) {
+      console.warn("ZyncIT: tabs.sendMessage failed:", sendErr?.message || sendErr);
+    }
   } catch (err) {
     console.warn("ZyncIT: Could not send OTP to active tab:", err);
   }
 }
 
 /**
- * Copy arbitrary text to clipboard via the active tab's content script.
+ * Copy arbitrary text to clipboard using the Offscreen API (MV3).
+ * This bypasses the focus/user-gesture requirement that affects content-script approach.
  * Used for Universal Copy feature.
  */
+// Singleton promise for offscreen document creation — prevents race condition
+// where concurrent calls to hasDocument()+createDocument() try to create twice.
+let offscreenCreationPromise = null;
+async function ensureOffscreenDocument() {
+  if (await chrome.offscreen.hasDocument()) return;
+  if (offscreenCreationPromise) return offscreenCreationPromise;
+  offscreenCreationPromise = chrome.offscreen.createDocument({
+    url: "offscreen/offscreen.html",
+    reasons: [chrome.offscreen.Reason.CLIPBOARD],
+    justification: "Write received message text to clipboard for Universal Copy feature",
+  }).catch((err) => {
+    // Another call may have already created it — ignore "single document" error
+    if (!/single offscreen document/i.test(err?.message || "")) throw err;
+  }).finally(() => {
+    offscreenCreationPromise = null;
+  });
+  return offscreenCreationPromise;
+}
+
 async function sendTextToClipboard(text) {
   try {
-    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (!activeTab || !activeTab.id) return;
-    if (!activeTab.url || activeTab.url.startsWith("chrome")) return;
-    chrome.tabs.sendMessage(activeTab.id, { type: "universalCopy", text }, () => {
-      if (chrome.runtime.lastError) { /* content script not present — ignore */ }
-    });
+    await ensureOffscreenDocument();
+    // Fire-and-forget: offscreen will write to clipboard.
+    // Don't await the response — multiple listeners (popup, SW) compete and
+    // can make `response.ok` undefined even when the write succeeds.
+    chrome.runtime.sendMessage({ type: "offscreen-copy", text }).catch(() => {});
+    console.log("ZyncIT: 📋 Sent text to offscreen clipboard:", text.slice(0, 60));
   } catch (err) {
-    console.warn("ZyncIT: Could not send text to clipboard:", err);
+    console.warn("ZyncIT: Could not copy to clipboard:", err);
   }
 }
 
@@ -921,6 +960,8 @@ function listenForSMSFromDevice(deviceId, deviceName) {
         snapshot.docs.forEach((d) => {
           seenSMSIds.add(d.id);
           const sms = d.data();
+          // Only process incoming (received) SMS — skip outgoing/sent messages
+          if (sms.smsType === "sent" || sms.direction === "outgoing") return;
           const ts = sms.timestamp || sms.receivedAt || 0;
           if (ts < twoMinutesAgo) return; // skip old messages
           const rawBody = sms.body || sms.message || sms.content || sms.text || "";
@@ -945,7 +986,7 @@ function listenForSMSFromDevice(deviceId, deviceName) {
                 const urlMatch = body.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
                 if (urlMatch) {
                   const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-                  chrome.tabs.create({ url: href, active: false });
+                  chrome.tabs.create({ url: href, active: false }).catch(() => {});
                 }
               }
               if (smartActions.universalCopy && body) {
@@ -965,6 +1006,8 @@ function listenForSMSFromDevice(deviceId, deviceName) {
         seenSMSIds.add(docId);
 
         const sms = change.doc.data();
+        // Only process incoming (received) SMS — skip outgoing/sent messages
+        if (sms.smsType === "sent" || sms.direction === "outgoing") return;
         const rawBody = sms.body || sms.message || sms.content || sms.text || "";
         const rawSender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
 
@@ -989,20 +1032,6 @@ function listenForSMSFromDevice(deviceId, deviceName) {
               });
               sendOTPToActiveTab(otp, sender, body);
             }
-          }
-
-          // Open URLs from SMS automatically
-          if (smartActions.openUrls) {
-            const urlMatch = body.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
-            if (urlMatch) {
-              const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-              chrome.tabs.create({ url: href, active: false });
-            }
-          }
-
-          // Universal Copy: copy raw SMS text to clipboard via active tab
-          if (smartActions.universalCopy && body) {
-            sendTextToClipboard(body);
           }
         }).catch((err) => console.warn("ZyncIT: OTP decrypt error:", err));
       });
