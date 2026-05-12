@@ -25,7 +25,7 @@ import { styles } from './styles';
 import { useChatScreen } from './useChatScreen';
 
 
-const URL_RE = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+const URL_RE = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+|(?:www\.)[^\s<>"{}|\\^`\[\]]+)/gi;
 
 const renderTextWithLinks = (
   content: string,
@@ -53,7 +53,10 @@ const renderTextWithLinks = (
           <Text
             key={i}
             style={{ color: linkColor, textDecorationLine: 'underline' }}
-            onPress={() => Linking.openURL(part.text)}
+            onPress={() => {
+              const href = /^https?:\/\//i.test(part.text) ? part.text : `https://${part.text}`;
+              Linking.openURL(href);
+            }}
           >
             {part.text}
           </Text>
@@ -285,7 +288,7 @@ const ChatScreen = () => {
                 styles.messageText,
                 { color: isMyMessage ? '#1a1a1a' : textColor, textAlign: isRTL ? 'right' : 'left' },
               ],
-              isMyMessage ? '#5c3d1e' : colors.primary,
+              isMyMessage ? '#5c3d1e' : '#1565C0',
             )}
 
             <Text

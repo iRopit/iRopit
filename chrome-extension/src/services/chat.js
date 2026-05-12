@@ -79,56 +79,9 @@ export function subscribeToChat() {
       rawMessages.map((msg) => decryptChatMessage(msg, user.uid)),
     );
 
-    // Auto-copy new messages from mobile to browser clipboard (Universal Copy)
-    // Auto-open images from mobile in a new tab (Open received images)
-    if (initialLoadDone) {
-      const newFromMobile = messages.filter(
-        (msg) =>
-          !seenMessageIds.has(msg.id) &&
-          msg.senderPlatform !== "chrome-extension" &&
-          !(msg.senderDeviceId || "").startsWith("ext_"),
-      );
-
-      if (newFromMobile.length > 0) {
-        // Check smart action settings once for the batch
-        chrome.storage.local.get(
-          ["smartAction_universalCopy", "smartAction_openImages", "smartAction_openUrls"],
-          (result) => {
-            const universalCopyOn = result.smartAction_universalCopy !== false;
-            const openImagesOn = result.smartAction_openImages === true;
-            const openUrlsOn = result.smartAction_openUrls === true;
-
-            // Universal Copy: copy last text message to clipboard
-            // Open URLs from text messages
-            newFromMobile
-              .filter((msg) => msg.type === "text" && msg.content)
-              .slice(-1)
-              .forEach((msg) => {
-                if (universalCopyOn) {
-                  navigator.clipboard.writeText(msg.content).catch(() => {});
-                }
-                if (openUrlsOn) {
-                  const urlMatch = msg.content.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
-                  if (urlMatch) {
-                    const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-                    chrome.tabs.create({ url: href, active: false });
-                  }
-                }
-              });
-
-            // Open received images in new tab
-            if (openImagesOn) {
-              newFromMobile
-                .filter((msg) => msg.type === "image" && msg.fileUrl)
-                .forEach((msg) => {
-                  const safeUrl = sanitizeUrl(msg.fileUrl);
-                  if (safeUrl) chrome.tabs.create({ url: safeUrl, active: false });
-                });
-            }
-          },
-        );
-      }
-    }
+    // Smart actions (Universal Copy, Open URLs, Open Images) are handled exclusively
+    // by the service worker poll to avoid duplicate opens (popup + SW snapshot + SW poll).
+    // See pollForChatSmartActions in src/service-worker.js.
 
     // Mark all current messages as seen
     messages.forEach((msg) => seenMessageIds.add(msg.id));

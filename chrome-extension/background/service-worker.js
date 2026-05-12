@@ -18832,7 +18832,6 @@ async function startListening() {
   unreadIdsBySource.clear();
   setBadgeCount(0);
   listenToUserNotifications();
-  listenToChatMessages();
   const devicesQuery = query(
     collection(db, "devices"),
     where("userId", "==", currentUser.uid)
@@ -18865,53 +18864,25 @@ async function startListening() {
     console.error("ZyncIT: Error getting devices:", error);
   }
 }
-function listenToChatMessages() {
-  if (!currentUser) return;
-  let isFirstChatSnapshot = true;
-  const seenChatIds = /* @__PURE__ */ new Set();
-  const fiveMinutesAgo = Date.now() - 5 * 60 * 1e3;
-  const q2 = query(
-    collection(db, "chats"),
-    where("participants", "array-contains", currentUser.uid),
-    orderBy("timestamp", "desc"),
-    limit(50)
-  );
-  const unsub = onSnapshot(q2, (snapshot) => {
-    if (isFirstChatSnapshot) {
-      isFirstChatSnapshot = false;
-      snapshot.docs.forEach((d) => {
-        seenChatIds.add(d.id);
-        const msg = d.data();
-        const ts = msg.timestamp || 0;
-        if (ts < fiveMinutesAgo) return;
-        if (msg.senderPlatform === "chrome-extension") return;
-        if ((msg.senderDeviceId || "").startsWith("ext_")) return;
-        processChatMessageSmartActions(msg);
-      });
-      return;
-    }
-    snapshot.docChanges().forEach((change) => {
-      if (change.type !== "added") return;
-      const docId = change.doc.id;
-      if (seenChatIds.has(docId)) return;
-      seenChatIds.add(docId);
-      const msg = change.doc.data();
-      if (msg.senderPlatform === "chrome-extension") return;
-      if ((msg.senderDeviceId || "").startsWith("ext_")) return;
-      processChatMessageSmartActions(msg);
-    });
-  }, (error) => {
-    if (error?.code === "permission-denied") return;
-    console.error("ZyncIT: Chat listener error:", error);
-  });
-  unsubscribeNotifications.push(unsub);
+var recentlyOpened = /* @__PURE__ */ new Map();
+var DEDUPE_WINDOW_MS = 30 * 1e3;
+function shouldOpen(target) {
+  if (!target) return false;
+  const now = Date.now();
+  for (const [k2, t] of recentlyOpened) {
+    if (now - t > DEDUPE_WINDOW_MS) recentlyOpened.delete(k2);
+  }
+  if (recentlyOpened.has(target)) return false;
+  recentlyOpened.set(target, now);
+  return true;
 }
-function processChatMessageSmartActions(msg) {
+function processChatMessageSmartActions(msg, freshSettings) {
   const uid = currentUser?.uid;
-  if (smartActions.openImages && msg.type === "image" && msg.fileUrl) {
+  const sa = freshSettings || smartActions;
+  if (sa.openImages && msg.type === "image" && msg.fileUrl) {
     decrypt(msg.fileUrl, uid).then((url) => {
       const safeUrl = url && url.startsWith("http") ? url : null;
-      if (safeUrl) {
+      if (safeUrl && shouldOpen(safeUrl)) {
         console.log("ZyncIT: \u{1F5BC}\uFE0F Opening received image:", safeUrl);
         chrome.tabs.create({ url: safeUrl, active: false });
       }
@@ -18922,15 +18893,17 @@ function processChatMessageSmartActions(msg) {
   if (msg.type === "text" && msg.content) {
     decrypt(msg.content, uid).then((content) => {
       if (!content) return;
-      if (smartActions.openUrls) {
+      if (sa.openUrls) {
         const urlMatch = content.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
         if (urlMatch) {
           const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-          console.log("ZyncIT: \u{1F517} Opening received URL from chat:", href);
-          chrome.tabs.create({ url: href, active: false });
+          if (shouldOpen(href)) {
+            console.log("ZyncIT: \u{1F517} Opening received URL from chat:", href);
+            chrome.tabs.create({ url: href, active: false });
+          }
         }
       }
-      if (smartActions.universalCopy) {
+      if (sa.universalCopy && shouldOpen("copy:" + content)) {
         sendTextToClipboard(content);
       }
     }).catch(() => {
@@ -19546,22 +19519,40 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 });
 chrome.alarms.create("refreshCache", { periodInMinutes: 5 });
+async function getSmartActionsFresh() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      ["smartAction_copyOtp", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy"],
+      (result) => {
+        resolve({
+          copyOtp: result.smartAction_copyOtp !== false,
+          openImages: result.smartAction_openImages === true,
+          openUrls: result.smartAction_openUrls === true,
+          universalCopy: result.smartAction_universalCopy !== false
+        });
+      }
+    );
+  });
+}
 async function pollForChatSmartActions() {
   if (!currentUser || !auth.currentUser) return;
-  if (!smartActions.openUrls && !smartActions.openImages && !smartActions.universalCopy) return;
+  const sa = await getSmartActionsFresh();
+  if (!sa.openUrls && !sa.openImages && !sa.universalCopy) return;
   try {
     const uid = currentUser.uid;
     const q2 = query(
       collection(db, "chats"),
       where("participants", "array-contains", uid),
       where("timestamp", ">", lastChatPollTimestamp),
-      orderBy("timestamp", "asc"),
+      orderBy("timestamp", "desc"),
       limit(20)
     );
     const snapshot = await getDocs(q2);
     if (snapshot.empty) return;
+    console.log(`ZyncIT: \u{1F4EC} Chat poll found ${snapshot.size} new message(s)`);
+    const docs = snapshot.docs.slice().reverse();
     let latestTs = lastChatPollTimestamp;
-    for (const docSnap of snapshot.docs) {
+    for (const docSnap of docs) {
       const msg = docSnap.data();
       const docId = docSnap.id;
       if (seenChatMessageIds.has(docId)) continue;
@@ -19569,7 +19560,7 @@ async function pollForChatSmartActions() {
       if (msg.senderPlatform === "chrome-extension") continue;
       if ((msg.senderDeviceId || "").startsWith("ext_")) continue;
       if (msg.timestamp > latestTs) latestTs = msg.timestamp;
-      await processChatMessageSmartActions(msg);
+      await processChatMessageSmartActions(msg, sa);
     }
     if (latestTs > lastChatPollTimestamp) {
       lastChatPollTimestamp = latestTs;

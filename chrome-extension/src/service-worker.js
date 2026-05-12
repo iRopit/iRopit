@@ -194,8 +194,9 @@ async function startListening() {
   // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
   listenToUserNotifications();
 
-  // 2. Listen to chat messages for smart actions (images, URLs, universal copy)
-  listenToChatMessages();
+  // 2. Chat smart actions are handled exclusively by pollForChatSmartActions (alarm-driven, runs every 10s)
+  // to avoid duplicate opens from snapshot listener + poll + popup.
+  // listenToChatMessages(); // disabled — see pollForChatSmartActions
 
   // 2. Get all user devices
   const devicesQuery = query(
@@ -299,14 +300,31 @@ function listenToChatMessages() {
   unsubscribeNotifications.push(unsub);
 }
 
-function processChatMessageSmartActions(msg) {
+// Dedupe map: URL/fileUrl → timestamp. Prevents re-opening the same target
+// when mobile sends one chat doc per recipient device (e.g. "Send to All Devices").
+const recentlyOpened = new Map();
+const DEDUPE_WINDOW_MS = 30 * 1000;
+function shouldOpen(target) {
+  if (!target) return false;
+  const now = Date.now();
+  // Cleanup expired entries
+  for (const [k, t] of recentlyOpened) {
+    if (now - t > DEDUPE_WINDOW_MS) recentlyOpened.delete(k);
+  }
+  if (recentlyOpened.has(target)) return false;
+  recentlyOpened.set(target, now);
+  return true;
+}
+
+function processChatMessageSmartActions(msg, freshSettings) {
   const uid = currentUser?.uid;
+  const sa = freshSettings || smartActions;
 
   // Open received images in a new tab (fileUrl may also be encrypted)
-  if (smartActions.openImages && msg.type === "image" && msg.fileUrl) {
+  if (sa.openImages && msg.type === "image" && msg.fileUrl) {
     decrypt(msg.fileUrl, uid).then((url) => {
       const safeUrl = url && url.startsWith("http") ? url : null;
-      if (safeUrl) {
+      if (safeUrl && shouldOpen(safeUrl)) {
         console.log("ZyncIT: 🖼️ Opening received image:", safeUrl);
         chrome.tabs.create({ url: safeUrl, active: false });
       }
@@ -320,17 +338,19 @@ function processChatMessageSmartActions(msg) {
       if (!content) return;
 
       // Open URLs from chat text
-      if (smartActions.openUrls) {
+      if (sa.openUrls) {
         const urlMatch = content.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
         if (urlMatch) {
           const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-          console.log("ZyncIT: 🔗 Opening received URL from chat:", href);
-          chrome.tabs.create({ url: href, active: false });
+          if (shouldOpen(href)) {
+            console.log("ZyncIT: 🔗 Opening received URL from chat:", href);
+            chrome.tabs.create({ url: href, active: false });
+          }
         }
       }
 
-      // Universal Copy
-      if (smartActions.universalCopy) {
+      // Universal Copy (dedupe by full content)
+      if (sa.universalCopy && shouldOpen("copy:" + content)) {
         sendTextToClipboard(content);
       }
     }).catch(() => {});
@@ -1143,10 +1163,29 @@ chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 }); // Every 15 second
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 }); // Every ~10 seconds
 chrome.alarms.create("refreshCache", { periodInMinutes: 5 }); // Every 5 minutes
 
+// Read smart action settings fresh from chrome.storage.local (avoids stale defaults on SW cold start)
+async function getSmartActionsFresh() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      ["smartAction_copyOtp", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy"],
+      (result) => {
+        resolve({
+          copyOtp: result.smartAction_copyOtp !== false,
+          openImages: result.smartAction_openImages === true,
+          openUrls: result.smartAction_openUrls === true,
+          universalCopy: result.smartAction_universalCopy !== false,
+        });
+      },
+    );
+  });
+}
+
 // Poll for new chat messages and apply smart actions (URL open, universal copy, image open)
 async function pollForChatSmartActions() {
   if (!currentUser || !auth.currentUser) return;
-  if (!smartActions.openUrls && !smartActions.openImages && !smartActions.universalCopy) return;
+  // Read settings fresh — avoids stale defaults if SW just woke up and storage load hasn't completed
+  const sa = await getSmartActionsFresh();
+  if (!sa.openUrls && !sa.openImages && !sa.universalCopy) return;
 
   try {
     const uid = currentUser.uid;
@@ -1154,14 +1193,17 @@ async function pollForChatSmartActions() {
       collection(db, "chats"),
       where("participants", "array-contains", uid),
       where("timestamp", ">", lastChatPollTimestamp),
-      orderBy("timestamp", "asc"),
+      orderBy("timestamp", "desc"),
       limit(20),
     );
     const snapshot = await getDocs(q);
     if (snapshot.empty) return;
 
+    console.log(`ZyncIT: 📬 Chat poll found ${snapshot.size} new message(s)`);
+    // Process in chronological order (oldest first)
+    const docs = snapshot.docs.slice().reverse();
     let latestTs = lastChatPollTimestamp;
-    for (const docSnap of snapshot.docs) {
+    for (const docSnap of docs) {
       const msg = docSnap.data();
       const docId = docSnap.id;
       if (seenChatMessageIds.has(docId)) continue;
@@ -1173,7 +1215,7 @@ async function pollForChatSmartActions() {
 
       if (msg.timestamp > latestTs) latestTs = msg.timestamp;
 
-      await processChatMessageSmartActions(msg);
+      await processChatMessageSmartActions(msg, sa);
     }
 
     // Persist updated state

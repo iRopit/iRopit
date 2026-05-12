@@ -248,7 +248,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         </View>
 
         {/* Version number */}
-        <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingBottom: 8, opacity: 0.6 }}>v1.0.5.25</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingBottom: 8, opacity: 0.6 }}>v1.0.5.26</Text>
       </SafeAreaView>
     </View>
   );
