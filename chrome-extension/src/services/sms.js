@@ -238,6 +238,9 @@ export async function loadSMS() {
   // Stop any previous listeners first
   stopSMSListener();
 
+  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
+  if (smsList) showListLoading(smsList);
+
   // === STEP 1: Show cached data instantly ===
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading
@@ -295,11 +298,6 @@ export async function loadSMS() {
     }
   } catch (e) {
     console.warn("[SMS] Cache load failed:", e);
-  }
-
-  // Show loading spinner only if no cached data
-  if (!hasCachedData && smsList) {
-    showListLoading(smsList);
   }
 
   // === STEP 2: Fetch fresh data from Firebase in background ===

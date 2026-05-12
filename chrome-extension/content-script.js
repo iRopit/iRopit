@@ -10,6 +10,12 @@
       handleOTP(message.otp, message.sender, message.body);
       sendResponse({ success: true });
     }
+    if (message.type === "universalCopy" && message.text) {
+      navigator.clipboard.writeText(message.text).catch(() => {
+        fallbackCopy(message.text);
+      });
+      sendResponse({ success: true });
+    }
     return false;
   });
 

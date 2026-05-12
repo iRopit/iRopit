@@ -2812,7 +2812,7 @@ body[dir="rtl"] .device-tag {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
+  padding: 4px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -2827,14 +2827,62 @@ body[dir="rtl"] .device-tag {
 
 .settings-toggle-label {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 .settings-toggle-label span {
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
+}
+
+.settings-toggle-desc {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.4;
+  max-width: 340px;
+}
+
+.toggle-info-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.toggle-info-icon svg {
+  display: block;
+}
+
+.toggle-info-icon .toggle-tooltip {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 8px;
+  width: 220px;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.toggle-info-icon:hover .toggle-tooltip {
+  opacity: 1;
 }
 
 .toggle-switch {

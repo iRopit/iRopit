@@ -261,6 +261,9 @@ export async function loadCalls() {
   const user = state.currentUser;
   if (!user) return;
 
+  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
+  if (callsList) showListLoading(callsList);
+
   // === STEP 1: Show cached calls instantly ===
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading
@@ -291,11 +294,6 @@ export async function loadCalls() {
     }
   } catch (e) {
     console.warn("[Calls] Cache load failed:", e);
-  }
-
-  // Show loading spinner only if no cached data
-  if (!hasCachedData && callsList) {
-    showListLoading(callsList);
   }
 
   // === STEP 2: Fetch fresh data from Firebase ===

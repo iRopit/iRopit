@@ -271,7 +271,7 @@ const ChatScreen = () => {
                 <Text
                   style={[
                     styles.fileName,
-                    { color: isMyMessage ? colors.textInverse : textColor },
+                    { color: isMyMessage ? '#1a1a1a' : textColor },
                   ]}
                 >
                   {(item as any).fileName || 'File'}
@@ -283,9 +283,9 @@ const ChatScreen = () => {
               item.content || '',
               [
                 styles.messageText,
-                { color: isMyMessage ? colors.textInverse : textColor, textAlign: isRTL ? 'right' : 'left' },
+                { color: isMyMessage ? '#1a1a1a' : textColor, textAlign: isRTL ? 'right' : 'left' },
               ],
-              isMyMessage ? 'rgba(255,255,255,0.85)' : colors.primary,
+              isMyMessage ? '#5c3d1e' : colors.primary,
             )}
 
             <Text
@@ -293,7 +293,7 @@ const ChatScreen = () => {
                 styles.messageTime,
                 {
                   color: isMyMessage
-                    ? 'rgba(255,255,255,0.6)'
+                    ? 'rgba(0,0,0,0.45)'
                     : secondaryTextColor,
                 },
               ]}

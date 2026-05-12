@@ -50,6 +50,8 @@ let currentDeviceId = null;
 let lastNotificationTimestamp = Date.now() - 5 * 60 * 1000; // 5 minutes ago
 let unsubscribeNotifications = [];
 let seenNotifications = new Set(); // Track seen notifications
+let lastChatPollTimestamp = Date.now() - 2 * 60 * 1000; // 2 minutes ago
+let seenChatMessageIds = new Set(); // Track seen chat message IDs for smart actions
 let isInitialLoad = true; // Flag to skip initial snapshot
 let serviceWorkerStartTime = Date.now(); // Track when SW started
 
@@ -63,9 +65,19 @@ let locallyReadNotificationIds = new Set();
 // Snooze: notifications suppressed until this timestamp (0 = not snoozed)
 let snoozeUntil = 0;
 
+// Smart action settings (kept in sync with chrome.storage.local)
+const smartActions = {
+  copyOtp: true,        // Copy OTP from SMS (default ON)
+  openImages: false,    // Open received images in new tab (default OFF)
+  openUrls: false,      // Open received URLs in new tab (default OFF)
+  universalCopy: true,  // Universal Copy text from mobile (default ON)
+};
+
 // Load timestamp from storage
 chrome.storage.local.get(
-  ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil"],
+  ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil",
+   "smartAction_copyOtp", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy",
+   "lastChatPollTimestamp", "seenChatMessageIds"],
   (result) => {
     console.log(
       "ZyncIT: Loading stored data - seenNotifications:",
@@ -83,6 +95,14 @@ chrome.storage.local.get(
     if (result.snoozeUntil) {
       snoozeUntil = result.snoozeUntil;
     }
+    // Load smart action settings (defaults: copyOtp ON, universalCopy ON, others OFF)
+    if ("smartAction_copyOtp" in result) smartActions.copyOtp = result.smartAction_copyOtp !== false;
+    if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages === true;
+    if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls === true;
+    if ("smartAction_universalCopy" in result) smartActions.universalCopy = result.smartAction_universalCopy !== false;
+    // Restore chat poll state
+    if (result.lastChatPollTimestamp) lastChatPollTimestamp = result.lastChatPollTimestamp;
+    if (result.seenChatMessageIds) seenChatMessageIds = new Set(result.seenChatMessageIds);
     // Update snooze title only — menus persist between SW restarts, no need to recreate
     updateSnoozeMenuTitle();
     // Also restore badge display
@@ -96,6 +116,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes.cached_notifications_data) {
     refreshBadgeFromCachedNotifications();
   }
+  // Keep smart action settings in sync
+  if (changes.smartAction_copyOtp !== undefined) smartActions.copyOtp = changes.smartAction_copyOtp.newValue !== false;
+  if (changes.smartAction_openImages !== undefined) smartActions.openImages = changes.smartAction_openImages.newValue === true;
+  if (changes.smartAction_openUrls !== undefined) smartActions.openUrls = changes.smartAction_openUrls.newValue === true;
+  if (changes.smartAction_universalCopy !== undefined) smartActions.universalCopy = changes.smartAction_universalCopy.newValue !== false;
 });
 
 // Listen for auth state changes
@@ -169,6 +194,9 @@ async function startListening() {
   // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
   listenToUserNotifications();
 
+  // 2. Listen to chat messages for smart actions (images, URLs, universal copy)
+  listenToChatMessages();
+
   // 2. Get all user devices
   const devicesQuery = query(
     collection(db, "devices"),
@@ -217,6 +245,95 @@ async function startListening() {
     );
   } catch (error) {
     console.error("ZyncIT: Error getting devices:", error);
+  }
+}
+
+// Listen to chat messages for smart actions (open images, universal copy)
+function listenToChatMessages() {
+  if (!currentUser) return;
+
+  let isFirstChatSnapshot = true;
+  const seenChatIds = new Set();
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+  const q = query(
+    collection(db, "chats"),
+    where("participants", "array-contains", currentUser.uid),
+    orderBy("timestamp", "desc"),
+    limit(50),
+  );
+
+  const unsub = onSnapshot(q, (snapshot) => {
+    if (isFirstChatSnapshot) {
+      isFirstChatSnapshot = false;
+      // On first load, process very recent messages that arrived while SW was inactive
+      snapshot.docs.forEach((d) => {
+        seenChatIds.add(d.id);
+        const msg = d.data();
+        const ts = msg.timestamp || 0;
+        if (ts < fiveMinutesAgo) return;
+        // Skip messages sent by this extension
+        if (msg.senderPlatform === "chrome-extension") return;
+        if ((msg.senderDeviceId || "").startsWith("ext_")) return;
+        processChatMessageSmartActions(msg);
+      });
+      return;
+    }
+
+    snapshot.docChanges().forEach((change) => {
+      if (change.type !== "added") return;
+      const docId = change.doc.id;
+      if (seenChatIds.has(docId)) return;
+      seenChatIds.add(docId);
+
+      const msg = change.doc.data();
+      if (msg.senderPlatform === "chrome-extension") return;
+      if ((msg.senderDeviceId || "").startsWith("ext_")) return;
+      processChatMessageSmartActions(msg);
+    });
+  }, (error) => {
+    if (error?.code === "permission-denied") return;
+    console.error("ZyncIT: Chat listener error:", error);
+  });
+
+  unsubscribeNotifications.push(unsub);
+}
+
+function processChatMessageSmartActions(msg) {
+  const uid = currentUser?.uid;
+
+  // Open received images in a new tab (fileUrl may also be encrypted)
+  if (smartActions.openImages && msg.type === "image" && msg.fileUrl) {
+    decrypt(msg.fileUrl, uid).then((url) => {
+      const safeUrl = url && url.startsWith("http") ? url : null;
+      if (safeUrl) {
+        console.log("ZyncIT: 🖼️ Opening received image:", safeUrl);
+        chrome.tabs.create({ url: safeUrl, active: false });
+      }
+    }).catch(() => {});
+    return; // image handled
+  }
+
+  // For text messages: decrypt content first, then apply smart actions
+  if (msg.type === "text" && msg.content) {
+    decrypt(msg.content, uid).then((content) => {
+      if (!content) return;
+
+      // Open URLs from chat text
+      if (smartActions.openUrls) {
+        const urlMatch = content.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+        if (urlMatch) {
+          const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+          console.log("ZyncIT: 🔗 Opening received URL from chat:", href);
+          chrome.tabs.create({ url: href, active: false });
+        }
+      }
+
+      // Universal Copy
+      if (smartActions.universalCopy) {
+        sendTextToClipboard(content);
+      }
+    }).catch(() => {});
   }
 }
 
@@ -354,24 +471,34 @@ function listenToUserNotifications() {
             decrypt(notification.body || notification.text || notification.content || "", uid),
           ]).then(([decTitle, decBody]) => {
             const combined = `${decTitle} ${decBody}`;
-            const otp = extractOTP(combined);
-            if (otp) {
-              const pkg = notification.packageName || notification.appPackage || "";
-              const appName = notification.appName || notification.app || "";
-              console.log("ZyncIT: 🔑 OTP detected from user notification:", otp, "app:", appName || pkg);
 
-              // Show dedicated OTP Chrome notification
-              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
-              const notifId = `iropit_otp_user_${Date.now()}`;
-              createNotificationIfNotSnoozed(notifId, {
-                type: "basic",
-                iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-                title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
-                message: `${otp} — Copied to clipboard`,
-                priority: 2,
-              });
+            // Copy OTP
+            if (smartActions.copyOtp) {
+              const otp = extractOTP(combined);
+              if (otp) {
+                const pkg = notification.packageName || notification.appPackage || "";
+                const appName = notification.appName || notification.app || "";
+                console.log("ZyncIT: 🔑 OTP detected from user notification:", otp, "app:", appName || pkg);
+                const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                const notifId = `iropit_otp_user_${Date.now()}`;
+                createNotificationIfNotSnoozed(notifId, {
+                  type: "basic",
+                  iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                  title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
+                  message: `${otp} — Copied to clipboard`,
+                  priority: 2,
+                });
+                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+              }
+            }
 
-              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            // Open URLs automatically
+            if (smartActions.openUrls) {
+              const urlMatch = combined.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+              if (urlMatch) {
+                const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+                chrome.tabs.create({ url: href, active: false });
+              }
             }
           }).catch(() => {});
 
@@ -567,24 +694,34 @@ function listenToDevice(deviceId, deviceName) {
             decrypt(notification.body || notification.text || notification.content || "", uid),
           ]).then(([decTitle, decBody]) => {
             const combined = `${decTitle} ${decBody}`;
-            const otp = extractOTP(combined);
-            if (otp) {
-              const pkg = notification.packageName || notification.appPackage || "";
-              const appName = notification.appName || notification.app || "";
-              console.log("ZyncIT: 🔑 OTP detected from device notification:", otp, "app:", appName || pkg);
 
-              // Show dedicated OTP Chrome notification
-              const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
-              const notifId = `iropit_otp_dev_${Date.now()}`;
-              createNotificationIfNotSnoozed(notifId, {
-                type: "basic",
-                iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-                title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
-                message: `${otp} — Copied to clipboard`,
-                priority: 2,
-              });
+            // Copy OTP
+            if (smartActions.copyOtp) {
+              const otp = extractOTP(combined);
+              if (otp) {
+                const pkg = notification.packageName || notification.appPackage || "";
+                const appName = notification.appName || notification.app || "";
+                console.log("ZyncIT: 🔑 OTP detected from device notification:", otp, "app:", appName || pkg);
+                const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                const notifId = `iropit_otp_dev_${Date.now()}`;
+                createNotificationIfNotSnoozed(notifId, {
+                  type: "basic",
+                  iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                  title: isEmail ? `Email OTP from ${appName || "Email"}` : `OTP from ${appName || decTitle}`,
+                  message: `${otp} — Copied to clipboard`,
+                  priority: 2,
+                });
+                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+              }
+            }
 
-              sendOTPToActiveTab(otp, appName || decTitle, decBody);
+            // Open URLs automatically
+            if (smartActions.openUrls) {
+              const urlMatch = combined.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+              if (urlMatch) {
+                const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+                chrome.tabs.create({ url: href, active: false });
+              }
             }
           }).catch(() => {});
 
@@ -718,6 +855,23 @@ async function sendOTPToActiveTab(otp, sender, body) {
 }
 
 /**
+ * Copy arbitrary text to clipboard via the active tab's content script.
+ * Used for Universal Copy feature.
+ */
+async function sendTextToClipboard(text) {
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!activeTab || !activeTab.id) return;
+    if (!activeTab.url || activeTab.url.startsWith("chrome")) return;
+    chrome.tabs.sendMessage(activeTab.id, { type: "universalCopy", text }, () => {
+      if (chrome.runtime.lastError) { /* content script not present — ignore */ }
+    });
+  } catch (err) {
+    console.warn("ZyncIT: Could not send text to clipboard:", err);
+  }
+}
+
+/**
  * Listen for new incoming SMS from a specific mobile device.
  * When an OTP is detected in the SMS body, forward it to the active tab
  * and show a Chrome notification.
@@ -738,10 +892,48 @@ function listenForSMSFromDevice(deviceId, deviceName) {
   const unsub = onSnapshot(
     smsQuery,
     (snapshot) => {
-      // On first load, mark everything as seen and exit
+      // On first load, process very recent SMS through smart actions (catches missed messages
+      // while the service worker was inactive), then mark all as seen.
       if (isFirstSMSSnapshot) {
         isFirstSMSSnapshot = false;
-        snapshot.docs.forEach((d) => seenSMSIds.add(d.id));
+        const uid = currentUser?.uid;
+        const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+        snapshot.docs.forEach((d) => {
+          seenSMSIds.add(d.id);
+          const sms = d.data();
+          const ts = sms.timestamp || sms.receivedAt || 0;
+          if (ts < twoMinutesAgo) return; // skip old messages
+          const rawBody = sms.body || sms.message || sms.content || sms.text || "";
+          const rawSender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
+          Promise.all([decrypt(rawBody, uid), decrypt(rawSender, uid)])
+            .then(([body, sender]) => {
+              if (smartActions.copyOtp) {
+                const otp = extractOTP(body);
+                if (otp) {
+                  const notifId = `iropit_otp_catchup_${Date.now()}`;
+                  createNotificationIfNotSnoozed(notifId, {
+                    type: "basic",
+                    iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                    title: `OTP from ${sender || deviceName}`,
+                    message: `${otp} — Copied to clipboard`,
+                    priority: 2,
+                  });
+                  sendOTPToActiveTab(otp, sender, body);
+                }
+              }
+              if (smartActions.openUrls) {
+                const urlMatch = body.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+                if (urlMatch) {
+                  const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+                  chrome.tabs.create({ url: href, active: false });
+                }
+              }
+              if (smartActions.universalCopy && body) {
+                sendTextToClipboard(body);
+              }
+            })
+            .catch(() => {});
+        });
         return;
       }
 
@@ -762,23 +954,36 @@ function listenForSMSFromDevice(deviceId, deviceName) {
           decrypt(rawBody, uid),
           decrypt(rawSender, uid),
         ]).then(([body, sender]) => {
-          const otp = extractOTP(body);
-          if (!otp) return;
+          // Copy OTP from SMS
+          if (smartActions.copyOtp) {
+            const otp = extractOTP(body);
+            if (otp) {
+              console.log("ZyncIT: 🔑 OTP detected from", deviceName, ":", otp, "sender:", sender);
+              const notifId = `iropit_otp_${Date.now()}`;
+              createNotificationIfNotSnoozed(notifId, {
+                type: "basic",
+                iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+                title: `OTP from ${sender || deviceName}`,
+                message: `${otp} — Copied to clipboard`,
+                priority: 2,
+              });
+              sendOTPToActiveTab(otp, sender, body);
+            }
+          }
 
-          console.log("ZyncIT: 🔑 OTP detected from", deviceName, ":", otp, "sender:", sender);
+          // Open URLs from SMS automatically
+          if (smartActions.openUrls) {
+            const urlMatch = body.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+            if (urlMatch) {
+              const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+              chrome.tabs.create({ url: href, active: false });
+            }
+          }
 
-          // Show Chrome notification
-          const notifId = `iropit_otp_${Date.now()}`;
-          createNotificationIfNotSnoozed(notifId, {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-            title: `OTP from ${sender || deviceName}`,
-            message: `${otp} — Copied to clipboard`,
-            priority: 2,
-          });
-
-          // Forward OTP to the active browser tab (content script handles clipboard + paste)
-          sendOTPToActiveTab(otp, sender, body);
+          // Universal Copy: copy raw SMS text to clipboard via active tab
+          if (smartActions.universalCopy && body) {
+            sendTextToClipboard(body);
+          }
         }).catch((err) => console.warn("ZyncIT: OTP decrypt error:", err));
       });
     },
@@ -937,6 +1142,51 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 }); // Every 15 seconds
 chrome.alarms.create("checkNotifications", { periodInMinutes: 0.17 }); // Every ~10 seconds
 chrome.alarms.create("refreshCache", { periodInMinutes: 5 }); // Every 5 minutes
+
+// Poll for new chat messages and apply smart actions (URL open, universal copy, image open)
+async function pollForChatSmartActions() {
+  if (!currentUser || !auth.currentUser) return;
+  if (!smartActions.openUrls && !smartActions.openImages && !smartActions.universalCopy) return;
+
+  try {
+    const uid = currentUser.uid;
+    const q = query(
+      collection(db, "chats"),
+      where("participants", "array-contains", uid),
+      where("timestamp", ">", lastChatPollTimestamp),
+      orderBy("timestamp", "asc"),
+      limit(20),
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return;
+
+    let latestTs = lastChatPollTimestamp;
+    for (const docSnap of snapshot.docs) {
+      const msg = docSnap.data();
+      const docId = docSnap.id;
+      if (seenChatMessageIds.has(docId)) continue;
+      seenChatMessageIds.add(docId);
+
+      // Skip messages sent by this extension
+      if (msg.senderPlatform === "chrome-extension") continue;
+      if ((msg.senderDeviceId || "").startsWith("ext_")) continue;
+
+      if (msg.timestamp > latestTs) latestTs = msg.timestamp;
+
+      await processChatMessageSmartActions(msg);
+    }
+
+    // Persist updated state
+    if (latestTs > lastChatPollTimestamp) {
+      lastChatPollTimestamp = latestTs;
+    }
+    const seenArray = Array.from(seenChatMessageIds).slice(-500);
+    chrome.storage.local.set({ lastChatPollTimestamp, seenChatMessageIds: seenArray });
+  } catch (error) {
+    if (error?.code === "permission-denied" || !auth.currentUser) return;
+    console.error("ZyncIT: Chat poll error:", error);
+  }
+}
 
 // Poll for new notifications (backup for when onSnapshot fails)
 async function pollForNewNotifications() {
@@ -1240,6 +1490,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "checkNotifications") {
     console.log("ZyncIT: 🔍 Polling for new notifications...");
     pollForNewNotifications();
+    pollForChatSmartActions();
   }
 
   if (alarm.name === "keepAlive") {

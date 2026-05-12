@@ -73,11 +73,13 @@ export function hideLoading() {
  */
 export function showListLoading(listElement) {
   if (listElement) {
+    const lang = getCurrentLanguage();
+    const label = lang === "ar" ? "جارٍ التحميل..." : "Loading...";
     listElement.innerHTML = `
       <div class="loading-state">
         <div class="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>${label}</p>
       </div>
-    `
+    `;
   }
 }

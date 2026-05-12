@@ -24419,6 +24419,15 @@ ${this.customData.serverResponse}`;
           settings_delete_account: "Delete Account",
           settings_about: "About",
           settings_tagline: "Sync your SMS and calls across all devices",
+          settings_smart_actions: "Smart Actions",
+          settings_auto_copy_otp: "Copy OTP from SMS automatically",
+          settings_auto_copy_otp_desc: "Automatically detect and copy OTP codes from received SMS messages.",
+          settings_auto_open_images: "Open received images automatically",
+          settings_auto_open_images_desc: "Automatically open received images in the Chrome extension.",
+          settings_auto_open_url: "Open received URLs automatically",
+          settings_auto_open_url_desc: "Automatically open received links in a new browser tab.",
+          settings_universal_copy: "Universal Copy",
+          settings_universal_copy_desc: "Copy text from mobile and make it instantly available on desktop.",
           select_all: "Select All",
           search_messages: "Search messages...",
           search_calls: "Search calls...",
@@ -24505,6 +24514,15 @@ ${this.customData.serverResponse}`;
           settings_delete_account: "\u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628",
           settings_about: "\u062D\u0648\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
           settings_tagline: "\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0639\u0628\u0631 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629",
+          settings_smart_actions: "\u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0644\u0630\u0643\u064A\u0629",
+          settings_auto_copy_otp: "\u0646\u0633\u062E OTP \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+          settings_auto_copy_otp_desc: "\u0627\u0644\u0643\u0634\u0641 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0639\u0646 \u0631\u0645\u0648\u0632 OTP \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u0648\u0646\u0633\u062E\u0647\u0627.",
+          settings_auto_open_images: "\u0641\u062A\u062D \u0627\u0644\u0635\u0648\u0631 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+          settings_auto_open_images_desc: "\u0641\u062A\u062D \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0646\u0635\u064A\u0629 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 Chrome.",
+          settings_auto_open_url: "\u0641\u062A\u062D \u0627\u0644\u0631\u0648\u0627\u0628\u0637 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+          settings_auto_open_url_desc: "\u0641\u062A\u062D \u0627\u0644\u0631\u0648\u0627\u0628\u0637 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u0641\u064A \u062A\u0628\u0648\u064A\u0628 \u062C\u062F\u064A\u062F.",
+          settings_universal_copy: "\u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0634\u0627\u0645\u0644",
+          settings_universal_copy_desc: "\u0627\u0646\u0633\u062E \u0646\u0635\u064B\u0627 \u0645\u0646 \u0627\u0644\u0647\u0627\u062A\u0641 \u0648\u0627\u062C\u0639\u0644\u0647 \u0645\u062A\u0627\u062D\u064B\u0627 \u0641\u0648\u0631\u064B\u0627 \u0639\u0644\u0649 \u0633\u0637\u062D \u0627\u0644\u0645\u0643\u062A\u0628.",
           select_all: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0643\u0644",
           search_messages: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           search_calls: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
@@ -24617,10 +24635,12 @@ ${this.customData.serverResponse}`;
   }
   function showListLoading(listElement) {
     if (listElement) {
+      const lang = getCurrentLanguage();
+      const label = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u0645\u064A\u0644..." : "Loading...";
       listElement.innerHTML = `
       <div class="loading-state">
         <div class="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>${label}</p>
       </div>
     `;
     }
@@ -25048,12 +25068,36 @@ ${this.customData.serverResponse}`;
       );
       if (initialLoadDone) {
         const newFromMobile = messages.filter(
-          (msg) => !seenMessageIds.has(msg.id) && msg.senderPlatform !== "chrome-extension" && !(msg.senderDeviceId || "").startsWith("ext_") && msg.type === "text" && msg.content
+          (msg) => !seenMessageIds.has(msg.id) && msg.senderPlatform !== "chrome-extension" && !(msg.senderDeviceId || "").startsWith("ext_")
         );
         if (newFromMobile.length > 0) {
-          const newest = newFromMobile[newFromMobile.length - 1];
-          navigator.clipboard.writeText(newest.content).catch(() => {
-          });
+          chrome.storage.local.get(
+            ["smartAction_universalCopy", "smartAction_openImages", "smartAction_openUrls"],
+            (result) => {
+              const universalCopyOn = result.smartAction_universalCopy !== false;
+              const openImagesOn = result.smartAction_openImages === true;
+              const openUrlsOn = result.smartAction_openUrls === true;
+              newFromMobile.filter((msg) => msg.type === "text" && msg.content).slice(-1).forEach((msg) => {
+                if (universalCopyOn) {
+                  navigator.clipboard.writeText(msg.content).catch(() => {
+                  });
+                }
+                if (openUrlsOn) {
+                  const urlMatch = msg.content.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+                  if (urlMatch) {
+                    const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
+                    chrome.tabs.create({ url: href, active: false });
+                  }
+                }
+              });
+              if (openImagesOn) {
+                newFromMobile.filter((msg) => msg.type === "image" && msg.fileUrl).forEach((msg) => {
+                  const safeUrl = sanitizeUrl(msg.fileUrl);
+                  if (safeUrl) chrome.tabs.create({ url: safeUrl, active: false });
+                });
+              }
+            }
+          );
         }
       }
       messages.forEach((msg) => seenMessageIds.add(msg.id));
@@ -26126,6 +26170,7 @@ ${this.customData.serverResponse}`;
   async function loadCalls() {
     const user = currentUser;
     if (!user) return;
+    if (callsList) showListLoading(callsList);
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     try {
@@ -26151,9 +26196,6 @@ ${this.customData.serverResponse}`;
       }
     } catch (e) {
       console.warn("[Calls] Cache load failed:", e);
-    }
-    if (!hasCachedData && callsList) {
-      showListLoading(callsList);
     }
     isSyncingCalls = true;
     updateCallsCountIndicator();
@@ -26970,6 +27012,7 @@ ${this.customData.serverResponse}`;
       return;
     }
     stopSMSListener();
+    if (smsList) showListLoading(smsList);
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     let cachedSMSData = null;
@@ -27007,9 +27050,6 @@ ${this.customData.serverResponse}`;
       }
     } catch (e) {
       console.warn("[SMS] Cache load failed:", e);
-    }
-    if (!hasCachedData && smsList) {
-      showListLoading(smsList);
     }
     isSyncing = true;
     showSyncIndicator();
@@ -28821,6 +28861,7 @@ ${this.customData.serverResponse}`;
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
+    if (notificationsList) showListLoading(notificationsList);
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     try {
@@ -28854,9 +28895,6 @@ ${this.customData.serverResponse}`;
       }
     } catch (e) {
       console.warn("[Notifications] Cache load failed:", e);
-    }
-    if (!hasCachedData && notificationsList) {
-      showListLoading(notificationsList);
     }
     const devicesQuery = query(
       collection(db, "devices"),
@@ -31443,6 +31481,21 @@ ${this.customData.serverResponse}`;
       if (displayNameInput) displayNameInput.value = userData.displayName || "";
       if (emailInput) emailInput.value = userData.email || "";
     }
+    const TOGGLE_KEYS = {
+      settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoOpenSms: "smartAction_openImages",
+      settingsAutoOpenUrl: "smartAction_openUrls",
+      settingsUniversalCopy: "smartAction_universalCopy"
+    };
+    const storageKeys = Object.values(TOGGLE_KEYS);
+    chrome.storage.local.get(storageKeys, (result) => {
+      for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
+        const el = document.getElementById(elId);
+        if (!el) continue;
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy";
+        el.checked = storageKey in result ? result[storageKey] : defaultOn;
+      }
+    });
   }
   async function saveDisplayName() {
     const user = currentUser;
@@ -31496,7 +31549,22 @@ ${this.customData.serverResponse}`;
   }
   function initSettingsListeners() {
     settingsBtn?.addEventListener("click", () => {
-      settingsModal.classList.remove("hidden");
+      const TOGGLE_KEYS = {
+        settingsAutoCopyOtp: "smartAction_copyOtp",
+        settingsAutoOpenSms: "smartAction_openImages",
+        settingsAutoOpenUrl: "smartAction_openUrls",
+        settingsUniversalCopy: "smartAction_universalCopy"
+      };
+      const storageKeys = Object.values(TOGGLE_KEYS);
+      chrome.storage.local.get(storageKeys, (result) => {
+        for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
+          const el = document.getElementById(elId);
+          if (!el) continue;
+          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy";
+          el.checked = storageKey in result ? result[storageKey] : defaultOn;
+        }
+        settingsModal.classList.remove("hidden");
+      });
     });
     closeSettingsBtn?.addEventListener("click", () => {
       settingsModal.classList.add("hidden");
@@ -31507,6 +31575,17 @@ ${this.customData.serverResponse}`;
       }
     });
     document.getElementById("saveDisplayNameBtn")?.addEventListener("click", saveDisplayName);
+    const SMART_TOGGLES = {
+      settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoOpenSms: "smartAction_openImages",
+      settingsAutoOpenUrl: "smartAction_openUrls",
+      settingsUniversalCopy: "smartAction_universalCopy"
+    };
+    for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
+      document.getElementById(elId)?.addEventListener("change", (e) => {
+        chrome.storage.local.set({ [storageKey]: e.target.checked });
+      });
+    }
     document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
       if (await showConfirmDialog(
         "Are you sure you want to permanently delete your account? All devices, SMS history, call logs, and notifications will be erased. This cannot be undone."

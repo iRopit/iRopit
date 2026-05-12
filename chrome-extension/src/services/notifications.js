@@ -112,6 +112,9 @@ export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
 
+  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
+  if (notificationsList) showListLoading(notificationsList);
+
   // === STEP 1: Show cached notifications instantly ===
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading
@@ -165,11 +168,6 @@ export async function loadNotifications() {
     }
   } catch (e) {
     console.warn("[Notifications] Cache load failed:", e);
-  }
-
-  // Show loading spinner only if no cached data
-  if (!hasCachedData && notificationsList) {
-    showListLoading(notificationsList);
   }
 
   // === STEP 2: Get devices list FIRST so we know the total snapshot count

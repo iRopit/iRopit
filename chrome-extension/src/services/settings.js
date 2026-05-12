@@ -47,6 +47,24 @@ export async function loadUserSettings() {
     if (displayNameInput) displayNameInput.value = userData.displayName || ""
     if (emailInput) emailInput.value = userData.email || ""
   }
+
+  // Load smart action toggle states from local storage
+  const TOGGLE_KEYS = {
+    settingsAutoCopyOtp: "smartAction_copyOtp",
+    settingsAutoOpenSms: "smartAction_openImages",
+    settingsAutoOpenUrl: "smartAction_openUrls",
+    settingsUniversalCopy: "smartAction_universalCopy",
+  }
+  const storageKeys = Object.values(TOGGLE_KEYS)
+  chrome.storage.local.get(storageKeys, (result) => {
+    for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
+      const el = document.getElementById(elId)
+      if (!el) continue
+      // Default: copyOtp and universalCopy default ON, others OFF
+      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy"
+      el.checked = storageKey in result ? result[storageKey] : defaultOn
+    }
+  })
 }
 
 /**
@@ -217,7 +235,23 @@ async function deleteAccount() {
 export function initSettingsListeners() {
   // Settings modal open/close
   settingsBtn?.addEventListener("click", () => {
-    settingsModal.classList.remove("hidden")
+    // Load latest toggle states before showing modal to avoid flash of wrong state
+    const TOGGLE_KEYS = {
+      settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoOpenSms: "smartAction_openImages",
+      settingsAutoOpenUrl: "smartAction_openUrls",
+      settingsUniversalCopy: "smartAction_universalCopy",
+    }
+    const storageKeys = Object.values(TOGGLE_KEYS)
+    chrome.storage.local.get(storageKeys, (result) => {
+      for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
+        const el = document.getElementById(elId)
+        if (!el) continue
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy"
+        el.checked = storageKey in result ? result[storageKey] : defaultOn
+      }
+      settingsModal.classList.remove("hidden")
+    })
   })
 
   closeSettingsBtn?.addEventListener("click", () => {
@@ -234,6 +268,19 @@ export function initSettingsListeners() {
   document
     .getElementById("saveDisplayNameBtn")
     ?.addEventListener("click", saveDisplayName)
+
+  // Smart action toggles — persist to chrome.storage.local so service worker can read them
+  const SMART_TOGGLES = {
+    settingsAutoCopyOtp: "smartAction_copyOtp",
+    settingsAutoOpenSms: "smartAction_openImages",
+    settingsAutoOpenUrl: "smartAction_openUrls",
+    settingsUniversalCopy: "smartAction_universalCopy",
+  }
+  for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
+    document.getElementById(elId)?.addEventListener("change", (e) => {
+      chrome.storage.local.set({ [storageKey]: e.target.checked })
+    })
+  }
 
   // Delete account
   document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
