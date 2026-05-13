@@ -26190,7 +26190,10 @@ ${this.customData.serverResponse}`;
       phoneNumber: resolvedPhone || data.phoneNumber || "",
       contactName: resolvedContact,
       type: data.type || data.callType || "incoming",
-      simSlot: data.simSlot != null ? data.simSlot : -1
+      simSlot: data.simSlot != null ? data.simSlot : -1,
+      // Strip any remaining encrypted fields so they don't persist in cache
+      name: data.name && typeof data.name === "string" && data.name.startsWith("ENC:") ? "" : data.name || "",
+      displayName: data.displayName && typeof data.displayName === "string" && data.displayName.startsWith("ENC:") ? "" : data.displayName || ""
     };
   }
   function resolveCallDeviceName(call) {
@@ -26210,7 +26213,7 @@ ${this.customData.serverResponse}`;
       const cached = await getCachedCalls();
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
         const hasEncryptedCache = cached.allCalls.some(
-          (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:") || call.name && typeof call.name === "string" && call.name.startsWith("ENC:")
+          (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:")
         );
         if (hasEncryptedCache) {
           console.warn(
