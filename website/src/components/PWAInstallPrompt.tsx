@@ -32,7 +32,7 @@ export default function PWAInstallPrompt() {
     useState<BeforeInstallPromptEvent | null>(null);
   const [show, setShow] = useState(false);
   const [visible, setVisible] = useState(false);
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   useEffect(() => {
     // Don't show if user dismissed before
@@ -79,11 +79,11 @@ export default function PWAInstallPrompt() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50"
+      className={`fixed bottom-4 z-50 ${isRTL ? "left-4" : "right-4"}`}
       style={{
         transition: "opacity 350ms ease, transform 350ms ease",
         opacity: visible ? 1 : 0,
-        transform: `translateX(${visible ? "0" : "24px"})`,
+        transform: `translateX(${visible ? "0" : isRTL ? "-24px" : "24px"})`,  
       }}
     >
       <div className="relative w-52 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
