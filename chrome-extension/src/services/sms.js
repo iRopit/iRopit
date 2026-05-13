@@ -256,22 +256,23 @@ export async function loadSMS() {
     const cached = await getCachedSMS();
     cachedSMSData = cached;
     if (cached && cached.allMessages && cached.allMessages.length > 0) {
-      // Detect if cached messages are still encrypted (ENC: prefix) â€” this can happen
-      // after a reinstall or if decryption previously failed before the cache was saved.
-      // If any key display fields are encrypted, the cache is stale: discard it and
-      // force a full fresh fetch so every message is properly decrypted.
-      const hasEncryptedCache = cached.allMessages.some(
-        (msg) =>
-          (msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:")) ||
-          (msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:")) ||
-          (msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:")) ||
-          (msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:")) ||
-          (msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:"))
-      );
+      // Detect cached messages still in encrypted form (ENC: prefix).
+      // This can happen for individual records whose key changed or whose decryption
+      // legitimately failed. Only treat the cache as corrupted (and force a full
+      // re-fetch) when the vast majority of entries are encrypted â€” otherwise the
+      // healthy entries are shown instantly and the bad ones are silently skipped.
+      const isEnc = (msg) =>
+        (msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:")) ||
+        (msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:")) ||
+        (msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:")) ||
+        (msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:")) ||
+        (msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:"));
+      const encCount = cached.allMessages.filter(isEnc).length;
+      const hasEncryptedCache = encCount > 0 && encCount / cached.allMessages.length >= 0.8;
 
       if (hasEncryptedCache) {
-        console.warn(
-          `[SMS] âš ï¸ Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`,
+        console.debug(
+          `[SMS] Cache mostly encrypted (${encCount}/${cached.allMessages.length}) - forcing full re-fetch`,
         );
         await clearCache().catch(() => {});
         // hasCachedData stays false â†’ full (non-delta) fetch will be used

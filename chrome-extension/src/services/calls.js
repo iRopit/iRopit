@@ -278,18 +278,20 @@ export async function loadCalls() {
   try {
     const cached = await getCachedCalls();
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
-      // Detect if cached calls still have encrypted fields (ENC: prefix) —
-      // this happens after sign-out/sign-in when the decryption key changes.
-      // Discard the stale cache and force a full fresh fetch.
-      const hasEncryptedCache = cached.allCalls.some(
-        (call) =>
-          (call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:")) ||
-          (call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:"))
-      );
+      // Detect cached calls still in encrypted form (ENC: prefix).
+      // Some individual records may legitimately fail to decrypt (e.g. records
+      // synced with an old key). Only treat the cache as corrupted and force a
+      // full re-fetch when most entries are encrypted — otherwise just skip the
+      // bad ones on the instant-render path.
+      const isEnc = (call) =>
+        (call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:")) ||
+        (call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:"));
+      const encCount = cached.allCalls.filter(isEnc).length;
+      const hasEncryptedCache = encCount > 0 && encCount / cached.allCalls.length >= 0.8;
 
       if (hasEncryptedCache) {
-        console.warn(
-          `[Calls] ⚠️ Encrypted calls detected in cache (${cached.allCalls.length} total) - clearing stale cache and forcing full re-fetch`,
+        console.debug(
+          `[Calls] Cache mostly encrypted (${encCount}/${cached.allCalls.length}) - forcing full re-fetch`,
         );
         await clearCache().catch(() => {});
         // hasCachedData stays false → full (non-delta) fetch will be used

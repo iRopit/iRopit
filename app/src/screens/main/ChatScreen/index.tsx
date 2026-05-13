@@ -176,7 +176,7 @@ const ChatScreen = () => {
           <TouchableOpacity
             style={[
               styles.messageBubble,
-              { backgroundColor: isMyMessage ? colors.primary : surfaceColor },
+              { backgroundColor: colors.primary },
             ]}
             onLongPress={() => {
               const options: { text: string; onPress: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [];
@@ -270,7 +270,7 @@ const ChatScreen = () => {
                 <Text
                   style={[
                     styles.fileName,
-                    { color: isMyMessage ? '#1a1a1a' : textColor },
+                    { color: '#1a1a1a' },
                   ]}
                 >
                   {(item as any).fileName || 'File'}
@@ -282,18 +282,16 @@ const ChatScreen = () => {
               item.content || '',
               [
                 styles.messageText,
-                { color: isMyMessage ? '#1a1a1a' : textColor, textAlign: isRTL ? 'right' : 'left' },
+                { color: '#1a1a1a', textAlign: isRTL ? 'right' : 'left' },
               ],
-              isMyMessage ? '#5c3d1e' : '#1565C0',
+              '#5c3d1e',
             )}
 
             <Text
               style={[
                 styles.messageTime,
                 {
-                  color: isMyMessage
-                    ? 'rgba(0,0,0,0.45)'
-                    : secondaryTextColor,
+                  color: 'rgba(0,0,0,0.45)',
                 },
               ]}
             >
