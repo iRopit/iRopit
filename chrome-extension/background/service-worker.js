@@ -19209,8 +19209,143 @@ function listenToDevice(deviceId, deviceName) {
     }
   );
   unsubscribeNotifications.push(unsub);
+  listenForRingingCallFromDevice(deviceId, deviceName);
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
+}
+var incomingCallWindowIds = /* @__PURE__ */ new Map();
+var incomingCallNotifIds = /* @__PURE__ */ new Map();
+function listenForRingingCallFromDevice(deviceId, deviceName) {
+  if (!currentUser) return;
+  console.log("ZyncIT: \u{1F4DE} Setting up ringing_call listener for device:", deviceId, deviceName);
+  const ringingDocRef = doc(
+    db,
+    "users",
+    currentUser.uid,
+    "devices",
+    deviceId,
+    "ringing_call",
+    "current"
+  );
+  const unsub = onSnapshot(
+    ringingDocRef,
+    async (snap) => {
+      console.log("ZyncIT: \u{1F4DE} ringing_call snapshot \u2014 exists:", snap.exists(), "device:", deviceId);
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("ZyncIT: \u{1F4DE} ringing_call data:", data);
+        if (data.status === "ringing") {
+          const uid = currentUser.uid;
+          const contactRaw = data.contactName || data.phoneNumber || "Unknown";
+          const contact = await decrypt(contactRaw, uid).catch(() => contactRaw);
+          const phoneRaw = data.phoneNumber || "";
+          const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
+          const deviceLabel = deviceName || data.deviceName || "Android Device";
+          const simSlot = data.simSlot;
+          const simLabel = simSlot === 0 || simSlot === 1 ? `SIM ${simSlot + 1}` : "SIM";
+          const callerLine = contact && contact !== phone ? `${contact} \u2022 ${phone}` : phone || "Unknown";
+          const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
+          const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
+          const popupEnabled = smartAction_incomingCallPopup !== false;
+          const existingWindowId = incomingCallWindowIds.get(deviceId);
+          if (!existingWindowId && popupEnabled) {
+            const params = new URLSearchParams({
+              contact: contact || "Unknown",
+              phone: phone || "",
+              device: deviceLabel,
+              sim: String(simSlot ?? -1)
+            });
+            const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+            console.log("ZyncIT: \u{1F4DE} Opening popup window:", url);
+            try {
+              const win = await chrome.windows.create({
+                url,
+                type: "popup",
+                width: 360,
+                height: 360,
+                focused: true,
+                top: 80,
+                left: 80
+              });
+              if (win?.id) {
+                incomingCallWindowIds.set(deviceId, win.id);
+                console.log("ZyncIT: \u2705 Popup window opened \u2014 id:", win.id);
+                const onRemoved = (removedId) => {
+                  if (removedId === win.id) {
+                    incomingCallWindowIds.delete(deviceId);
+                    chrome.windows.onRemoved.removeListener(onRemoved);
+                  }
+                };
+                chrome.windows.onRemoved.addListener(onRemoved);
+              }
+            } catch (e) {
+              console.error("ZyncIT: \u274C Could not open popup window:", e);
+            }
+          } else {
+            try {
+              const params = new URLSearchParams({
+                contact: contact || "Unknown",
+                phone: phone || "",
+                device: deviceLabel,
+                sim: String(simSlot ?? -1)
+              });
+              const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+              const tabs = await chrome.tabs.query({ windowId: existingWindowId });
+              if (tabs?.[0]) {
+                await chrome.tabs.update(tabs[0].id, { url });
+                console.log("ZyncIT: \u{1F4DE} Refreshed popup window with updated caller info");
+              }
+            } catch (e) {
+              console.warn("ZyncIT: Could not refresh popup window:", e);
+            }
+          }
+          if (!incomingCallNotifIds.has(deviceId)) {
+            const notificationId = `iropit_incoming_call_${deviceId}_${Date.now()}`;
+            incomingCallNotifIds.set(deviceId, notificationId);
+            createNotificationIfNotSnoozed(notificationId, {
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+              title: `\u{1F4DE} Incoming call: ${callerLine}`,
+              message: subtitle,
+              contextMessage: subtitle,
+              priority: 2,
+              requireInteraction: true,
+              silent: false
+            }, (createdId) => {
+              console.log("ZyncIT: \u2705 Incoming call notification created:", createdId);
+            });
+          }
+        }
+      } else {
+        const windowId = incomingCallWindowIds.get(deviceId);
+        if (windowId) {
+          incomingCallWindowIds.delete(deviceId);
+          try {
+            await chrome.windows.remove(windowId);
+            console.log("ZyncIT: \u{1F4DE} Closed popup window for device:", deviceId);
+          } catch (_) {
+          }
+        }
+        const notifId = incomingCallNotifIds.get(deviceId);
+        if (notifId) {
+          incomingCallNotifIds.delete(deviceId);
+          try {
+            chrome.notifications.clear(notifId);
+            console.log("ZyncIT: \u{1F4DE} Cleared incoming call notification for device:", deviceId);
+          } catch (_) {
+          }
+        }
+      }
+    },
+    (error) => {
+      if (error?.code === "permission-denied") {
+        console.warn("ZyncIT: \u{1F4DE} Permission denied for ringing_call on device:", deviceId);
+        return;
+      }
+      console.error("ZyncIT: Ringing call listener error for device", deviceId, ":", error);
+    }
+  );
+  unsubscribeNotifications.push(unsub);
 }
 function listenForCallsFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
@@ -19256,10 +19391,19 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 }
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
-  const hasOTPKeyword = /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|one.time.password|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة|verification.code|تحقق)\b/i.test(text);
-  if (!hasOTPKeyword) return null;
-  const match = text.match(/\b(\d{4,8})\b/);
-  return match ? match[1] : null;
+  const clean = text.replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/\s+/g, " ").trim();
+  const keywordRe = /(otp|verification.?code|one.?time.?pass(?:word|code)?|one.?time.?code|passcode|access.?code|security.?code|auth(?:entication)?.?code|login.?code|sign.?in.?code|activation.?code|reset.?code|password.?reset|temporary.?password|temp.?pass|2fa|two.?factor|2-factor|confirmation.?code|verify|verification|token|pin\b|\bcode\b|رمز|كود|تحقق|مفتاح|رمز المرور|كلمة السر المؤقتة)/i;
+  const kwMatch = clean.match(keywordRe);
+  if (!kwMatch) return null;
+  const kwIdx = kwMatch.index + kwMatch[0].length;
+  const window2 = clean.slice(kwIdx, kwIdx + 80);
+  const nearby = window2.match(/\b(\d{4,8})\b/);
+  if (nearby) return nearby[1];
+  const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
+  const beforeMatch = before.match(/\b(\d{4,8})\b/);
+  if (beforeMatch) return beforeMatch[1];
+  const any = clean.match(/\b(\d{4,8})\b/);
+  return any ? any[1] : null;
 }
 async function sendOTPToActiveTab(otp, sender, body) {
   try {

@@ -85,14 +85,42 @@ public class CallReceiver extends BroadcastReceiver {
             callWasAnswered = false;
             callStartTime = System.currentTimeMillis();
 
-            // Send ringing event if we have a number
-            if (lastNumber != null && !lastNumber.isEmpty()) {
-                String contactName = getContactName(context, lastNumber);
-                sendEvent("onCallReceived", createCallMap(lastNumber, contactName, "incoming", "ringing", 0));
+            // On Android 10+, lastNumber may be empty (EXTRA_INCOMING_NUMBER is null
+            // for non-default-dialer apps). Still write ringing_call so the Chrome
+            // extension shows "Unknown" — better than nothing.
+            String ringNumber = (lastNumber != null && !lastNumber.isEmpty()) ? lastNumber : "";
+            String ringContact = "";
+            if (!ringNumber.isEmpty()) {
+                ringContact = getContactName(context, ringNumber);
+                sendEvent("onCallReceived", createCallMap(ringNumber, ringContact, "incoming", "ringing", 0));
+            } else {
+                Log.w(TAG, "RINGING with empty number (Android 10+ privacy) — writing ringing_call with Unknown");
+            }
+
+            // Write ringing_call directly to Firestore (works even when app is in background)
+            try {
+                FirebaseHelper fbHelper = FirebaseHelper.getInstance(context);
+                if (fbHelper != null && fbHelper.isLoggedIn()) {
+                    fbHelper.writeRingingCall(ringNumber, ringContact, -1);
+                    Log.d(TAG, "✅ ringing_call written to Firestore — number=" + ringNumber);
+                } else {
+                    Log.w(TAG, "Cannot write ringing_call: user not logged in");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error writing ringing_call", e);
             }
             
         } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
-            // Call answered or outgoing call started
+            // Call answered or outgoing call started — clear the ringing popup
+            try {
+                FirebaseHelper fbHelper = FirebaseHelper.getInstance(context);
+                if (fbHelper != null && fbHelper.isLoggedIn()) {
+                    fbHelper.clearRingingCall();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing ringing_call on OFFHOOK", e);
+            }
+
             callWasAnswered = true;
             callAnswerTime = System.currentTimeMillis(); // record exact answer time for duration
             // For outgoing calls on Android 10+, NEW_OUTGOING_CALL is not fired,
@@ -110,7 +138,16 @@ public class CallReceiver extends BroadcastReceiver {
             }
 
         } else if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
-            // Call ended
+            // Call ended — clear the ringing popup (covers missed/rejected calls too)
+            try {
+                FirebaseHelper fbHelper = FirebaseHelper.getInstance(context);
+                if (fbHelper != null && fbHelper.isLoggedIn()) {
+                    fbHelper.clearRingingCall();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing ringing_call on IDLE", e);
+            }
+
             if (callStartTime > 0) {
                 // Wait for call log to update, then fetch the last call
                 final String savedNumber = lastNumber;

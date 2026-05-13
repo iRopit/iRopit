@@ -38,6 +38,15 @@ export async function loadUserSettings() {
   const user = state.currentUser
   if (!user) return
 
+  // Fill display name immediately from cached storage (avoids Firestore delay)
+  chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
+    const displayNameInput = document.getElementById("settingsDisplayName")
+    const emailInput = document.getElementById("settingsEmail")
+    if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName
+    if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail
+  })
+
+  // Then fetch fresh from Firestore and update cache
   const userDoc = await getDoc(doc(db, "users", user.uid))
   if (userDoc.exists()) {
     const userData = userDoc.data()
@@ -46,6 +55,12 @@ export async function loadUserSettings() {
 
     if (displayNameInput) displayNameInput.value = userData.displayName || ""
     if (emailInput) emailInput.value = userData.email || ""
+
+    // Cache for instant display next time
+    chrome.storage.local.set({
+      cachedDisplayName: userData.displayName || "",
+      cachedEmail: userData.email || "",
+    })
   }
 
   // Load smart action toggle states from local storage
@@ -54,14 +69,15 @@ export async function loadUserSettings() {
     settingsAutoOpenSms: "smartAction_openImages",
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",
+    settingsIncomingCallPopup: "smartAction_incomingCallPopup",
   }
   const storageKeys = Object.values(TOGGLE_KEYS)
   chrome.storage.local.get(storageKeys, (result) => {
     for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
       const el = document.getElementById(elId)
       if (!el) continue
-      // Default: copyOtp and universalCopy default ON, others OFF
-      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy"
+      // Default: copyOtp, universalCopy, incomingCallPopup default ON, others OFF
+      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup"
       el.checked = storageKey in result ? result[storageKey] : defaultOn
     }
   })
@@ -85,6 +101,9 @@ async function saveDisplayName() {
       displayName: newName,
       updatedAt: Date.now(),
     })
+
+    // Update cache so next open is instant
+    chrome.storage.local.set({ cachedDisplayName: newName })
 
     const userNameElement = document.getElementById("userName")
     if (userNameElement) userNameElement.textContent = newName
@@ -241,13 +260,14 @@ export function initSettingsListeners() {
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
+      settingsIncomingCallPopup: "smartAction_incomingCallPopup",
     }
     const storageKeys = Object.values(TOGGLE_KEYS)
     chrome.storage.local.get(storageKeys, (result) => {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId)
         if (!el) continue
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy"
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup"
         el.checked = storageKey in result ? result[storageKey] : defaultOn
       }
       settingsModal.classList.remove("hidden")
@@ -275,6 +295,7 @@ export function initSettingsListeners() {
     settingsAutoOpenSms: "smartAction_openImages",
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",
+    settingsIncomingCallPopup: "smartAction_incomingCallPopup",
   }
   for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
     document.getElementById(elId)?.addEventListener("change", (e) => {

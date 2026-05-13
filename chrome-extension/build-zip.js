@@ -23,6 +23,8 @@ const files = [
   "popup/sms-window.html",
   "popup/sms-window.bundle.js",
   "background/service-worker.js",
+  "offscreen/offscreen.html",
+  "offscreen/offscreen.js",
 ];
 
 for (const f of files) {

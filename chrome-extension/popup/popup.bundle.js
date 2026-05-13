@@ -24428,6 +24428,8 @@ ${this.customData.serverResponse}`;
           settings_auto_open_url_desc: "Automatically open received links in a new browser tab.",
           settings_universal_copy: "Universal Copy",
           settings_universal_copy_desc: "Copy text from mobile and make it instantly available on desktop.",
+          settings_incoming_call_popup: "Show Incoming Call Popup",
+          settings_incoming_call_popup_desc: "Display a popup window in Chrome when an incoming call is received on your mobile device.",
           select_all: "Select All",
           search_messages: "Search messages...",
           search_calls: "Search calls...",
@@ -24523,6 +24525,8 @@ ${this.customData.serverResponse}`;
           settings_auto_open_url_desc: "\u0641\u062A\u062D \u0627\u0644\u0631\u0648\u0627\u0628\u0637 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u0641\u064A \u062A\u0628\u0648\u064A\u0628 \u062C\u062F\u064A\u062F.",
           settings_universal_copy: "\u0627\u0644\u0646\u0633\u062E \u0627\u0644\u0634\u0627\u0645\u0644",
           settings_universal_copy_desc: "\u0627\u0646\u0633\u062E \u0646\u0635\u064B\u0627 \u0645\u0646 \u0627\u0644\u0647\u0627\u062A\u0641 \u0648\u0627\u062C\u0639\u0644\u0647 \u0645\u062A\u0627\u062D\u064B\u0627 \u0641\u0648\u0631\u064B\u0627 \u0639\u0644\u0649 \u0633\u0637\u062D \u0627\u0644\u0645\u0643\u062A\u0628.",
+          settings_incoming_call_popup: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 \u0627\u0644\u0648\u0627\u0631\u062F\u0629",
+          settings_incoming_call_popup_desc: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0645\u0646\u0628\u062B\u0642\u0629 \u0641\u064A Chrome \u0639\u0646\u062F \u0627\u0633\u062A\u0642\u0628\u0627\u0644 \u0645\u0643\u0627\u0644\u0645\u0629 \u0648\u0627\u0631\u062F\u0629 \u0639\u0644\u0649 \u062C\u0647\u0627\u0632\u0643 \u0627\u0644\u0645\u062D\u0645\u0648\u0644.",
           select_all: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0643\u0644",
           search_messages: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           search_calls: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
@@ -25073,9 +25077,38 @@ ${this.customData.serverResponse}`;
     });
     addUnsubscriber(unsub);
   }
+  function getStarredMessages() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("chatStarredMessages") || "[]"));
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  function saveStarredMessages(starredSet) {
+    localStorage.setItem("chatStarredMessages", JSON.stringify([...starredSet]));
+  }
+  function toggleStarMessage(msgId) {
+    const starred = getStarredMessages();
+    if (starred.has(msgId)) {
+      starred.delete(msgId);
+    } else {
+      starred.add(msgId);
+    }
+    saveStarredMessages(starred);
+  }
   function renderChatMessages(messages) {
     const selectedTab = document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
     const showDeviceName = true;
+    const chatSearchInput = document.getElementById("chatSearchInput");
+    if (chatSearchInput && !chatSearchInput.dataset.wired) {
+      chatSearchInput.dataset.wired = "1";
+      chatSearchInput.addEventListener("input", () => renderChatMessages(cachedChatMessages || []));
+    }
+    const chatShowStarred = document.getElementById("chatShowStarred");
+    if (chatShowStarred && !chatShowStarred.dataset.wired) {
+      chatShowStarred.dataset.wired = "1";
+      chatShowStarred.addEventListener("change", () => renderChatMessages(cachedChatMessages || []));
+    }
     let filteredMessages = messages;
     if (selectedTab !== "all") {
       filteredMessages = messages.filter((msg) => {
@@ -25089,6 +25122,19 @@ ${this.customData.serverResponse}`;
       seenMsgKeys.add(key);
       return true;
     });
+    const searchQuery = (document.getElementById("chatSearchInput")?.value || "").trim().toLowerCase();
+    if (searchQuery) {
+      filteredMessages = filteredMessages.filter((msg) => {
+        const content = (msg.content || "").toLowerCase();
+        const sender = (msg.senderName || msg.senderPlatform || "").toLowerCase();
+        return content.includes(searchQuery) || sender.includes(searchQuery);
+      });
+    }
+    const showStarredOnly = document.getElementById("chatShowStarred")?.checked;
+    if (showStarredOnly) {
+      const starred = getStarredMessages();
+      filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
+    }
     if (filteredMessages.length === 0) {
       chatMessages.innerHTML = `
       <div class="empty-state">
@@ -25145,6 +25191,7 @@ ${this.customData.serverResponse}`;
       );
       const isSentFromExtension = msg.senderPlatform === "chrome-extension" || msg.senderDeviceId && msg.senderDeviceId.startsWith("ext_");
       const direction = isSentFromExtension ? "sent" : "received";
+      const isStarred = getStarredMessages().has(msg.id);
       return `
         <div class="chat-message-wrapper ${direction}">
           <div class="chat-message ${direction}" 
@@ -25159,6 +25206,11 @@ ${this.customData.serverResponse}`;
             <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
           </div>
           <div class="chat-message-actions">
+            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${isStarred ? "Unstar" : "Star"} message">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
             <button class="chat-action-btn copy-msg-btn" title="Copy text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -25197,6 +25249,21 @@ ${this.customData.serverResponse}`;
         }).catch(() => {
           showToast("Copy failed", "error");
         });
+      });
+    });
+    chatMessages.querySelectorAll(".star-msg-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msgId = btn.dataset.msgId;
+        if (!msgId) return;
+        toggleStarMessage(msgId);
+        const nowStarred = getStarredMessages().has(msgId);
+        btn.classList.toggle("starred", nowStarred);
+        btn.title = nowStarred ? "Unstar message" : "Star message";
+        btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
+        if (document.getElementById("chatShowStarred")?.checked) {
+          renderChatMessages(cachedChatMessages || []);
+        }
       });
     });
     const lastMsg = chatMessages.lastElementChild;
@@ -31439,6 +31506,12 @@ ${this.customData.serverResponse}`;
   async function loadUserSettings() {
     const user = currentUser;
     if (!user) return;
+    chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
+      const displayNameInput = document.getElementById("settingsDisplayName");
+      const emailInput = document.getElementById("settingsEmail");
+      if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName;
+      if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail;
+    });
     const userDoc = await getDoc(doc(db, "users", user.uid));
     if (userDoc.exists()) {
       const userData = userDoc.data();
@@ -31446,19 +31519,24 @@ ${this.customData.serverResponse}`;
       const emailInput = document.getElementById("settingsEmail");
       if (displayNameInput) displayNameInput.value = userData.displayName || "";
       if (emailInput) emailInput.value = userData.email || "";
+      chrome.storage.local.set({
+        cachedDisplayName: userData.displayName || "",
+        cachedEmail: userData.email || ""
+      });
     }
     const TOGGLE_KEYS = {
       settingsAutoCopyOtp: "smartAction_copyOtp",
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
-      settingsUniversalCopy: "smartAction_universalCopy"
+      settingsUniversalCopy: "smartAction_universalCopy",
+      settingsIncomingCallPopup: "smartAction_incomingCallPopup"
     };
     const storageKeys = Object.values(TOGGLE_KEYS);
     chrome.storage.local.get(storageKeys, (result) => {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId);
         if (!el) continue;
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy";
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup";
         el.checked = storageKey in result ? result[storageKey] : defaultOn;
       }
     });
@@ -31476,6 +31554,7 @@ ${this.customData.serverResponse}`;
         displayName: newName,
         updatedAt: Date.now()
       });
+      chrome.storage.local.set({ cachedDisplayName: newName });
       const userNameElement = document.getElementById("userName");
       if (userNameElement) userNameElement.textContent = newName;
       showToast("Display name updated", "success");
@@ -31519,14 +31598,15 @@ ${this.customData.serverResponse}`;
         settingsAutoCopyOtp: "smartAction_copyOtp",
         settingsAutoOpenSms: "smartAction_openImages",
         settingsAutoOpenUrl: "smartAction_openUrls",
-        settingsUniversalCopy: "smartAction_universalCopy"
+        settingsUniversalCopy: "smartAction_universalCopy",
+        settingsIncomingCallPopup: "smartAction_incomingCallPopup"
       };
       const storageKeys = Object.values(TOGGLE_KEYS);
       chrome.storage.local.get(storageKeys, (result) => {
         for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
           const el = document.getElementById(elId);
           if (!el) continue;
-          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy";
+          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup";
           el.checked = storageKey in result ? result[storageKey] : defaultOn;
         }
         settingsModal.classList.remove("hidden");
@@ -31545,7 +31625,8 @@ ${this.customData.serverResponse}`;
       settingsAutoCopyOtp: "smartAction_copyOtp",
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
-      settingsUniversalCopy: "smartAction_universalCopy"
+      settingsUniversalCopy: "smartAction_universalCopy",
+      settingsIncomingCallPopup: "smartAction_incomingCallPopup"
     };
     for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
       document.getElementById(elId)?.addEventListener("change", (e) => {

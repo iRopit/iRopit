@@ -981,6 +981,24 @@ public class NotificationService extends NotificationListenerService {
                     phoneNumber, contactName
                 );
                 Log.i(TAG, "Notification queued for Firebase");
+
+                // For ACTIVE incoming call notifications (not missed calls), update the
+                // ringing_call/current doc with the real phone number + contact name.
+                // This is necessary because CallReceiver on Android 10+ receives null
+                // EXTRA_INCOMING_NUMBER, so it writes the doc with empty fields.
+                // The system phone app's "Incoming call" notification HAS the number.
+                if (type.equals("call") && !isMissedCall) {
+                    try {
+                        String finalPhone = (phoneNumber != null && !phoneNumber.isEmpty()) ? phoneNumber : "";
+                        String finalContact = (contactName != null && !contactName.isEmpty()) ? contactName : "";
+                        if (!finalPhone.isEmpty() || !finalContact.isEmpty()) {
+                            firebaseHelper.writeRingingCall(finalPhone, finalContact, -1);
+                            Log.i(TAG, "📞 Updated ringing_call from system phone notification — phone=" + finalPhone + ", contact=" + finalContact);
+                        }
+                    } catch (Exception ringEx) {
+                        Log.e(TAG, "Error updating ringing_call from notification", ringEx);
+                    }
+                }
             } else {
                 Log.d(TAG, "User not logged in, skipping Firebase");
             }

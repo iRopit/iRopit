@@ -304,6 +304,49 @@ public class FirebaseHelper {
                 });
     }
 
+    /** Write ringing_call/current doc so the Chrome extension can show an incoming call popup. */
+    public void writeRingingCall(String phoneNumber, String contactName, int simSlot) {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+
+        if (userId == null || deviceId == null) {
+            Log.w(TAG, "writeRingingCall: user not logged in");
+            return;
+        }
+        if (db == null) { initFirebase(); if (db == null) return; }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("status", "ringing");
+        data.put("phoneNumber", phoneNumber != null ? phoneNumber : "");
+        data.put("contactName", contactName != null ? contactName : "");
+        data.put("deviceName", getDeviceName());
+        data.put("simSlot", simSlot);
+        data.put("timestamp", System.currentTimeMillis());
+
+        db.collection("users").document(userId)
+                .collection("devices").document(deviceId)
+                .collection("ringing_call").document("current")
+                .set(data)
+                .addOnSuccessListener(v -> Log.i(TAG, "✅ ringing_call written for: " + phoneNumber))
+                .addOnFailureListener(e -> Log.e(TAG, "❌ writeRingingCall failed: " + e.getMessage()));
+    }
+
+    /** Delete ringing_call/current doc so the Chrome extension hides the incoming call popup. */
+    public void clearRingingCall() {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+
+        if (userId == null || deviceId == null) return;
+        if (db == null) { initFirebase(); if (db == null) return; }
+
+        db.collection("users").document(userId)
+                .collection("devices").document(deviceId)
+                .collection("ringing_call").document("current")
+                .delete()
+                .addOnSuccessListener(v -> Log.i(TAG, "✅ ringing_call cleared"))
+                .addOnFailureListener(e -> Log.e(TAG, "❌ clearRingingCall failed: " + e.getMessage()));
+    }
+
     public void updateBatteryLevel(int batteryPercent, boolean isCharging) {
         String userId = getUserId();
         String deviceId = getDeviceId();

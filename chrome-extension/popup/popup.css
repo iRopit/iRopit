@@ -1312,6 +1312,15 @@ body[dir="rtl"] .device-tag {
   transform: scale(1.1);
 }
 
+.chat-action-btn.starred {
+  color: #f59e0b;
+}
+
+.chat-action-btn.starred:hover {
+  background: #f59e0b;
+  color: white;
+}
+
 /* Typing Indicator */
 .typing-indicator {
   padding: 8px 16px;
@@ -3060,6 +3069,95 @@ html.dark .profile-logout-btn-footer {
   padding: 16px;
   margin-top: 8px;
 }
+
+/* Flat Display Name section */
+.settings-flat-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 4px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-flat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.settings-flat-section .settings-input-group input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color 0.2s;
+}
+
+.settings-flat-section .settings-input-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.settings-save-btn {
+  padding: 10px 18px;
+  background: var(--surface-secondary, #2a2a2a);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.settings-save-btn:hover {
+  background: var(--hover);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Flat Delete Account row */
+.settings-delete-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 4px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+  color: #e53935;
+  margin-top: 4px;
+}
+
+.settings-delete-row:hover {
+  background: var(--hover);
+  border-radius: 8px;
+}
+
+.settings-delete-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-delete-row > svg {
+  color: var(--text-secondary);
+}
+
 
 .settings-version {
   font-size: 13px;

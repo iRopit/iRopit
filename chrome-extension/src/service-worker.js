@@ -11,6 +11,7 @@ import {
 import {
   getFirestore,
   collection,
+  doc,
   query,
   where,
   orderBy,
@@ -752,9 +753,167 @@ function listenToDevice(deviceId, deviceName) {
 
   unsubscribeNotifications.push(unsub);
 
-  // Also listen for calls and SMS from this device
+  // Also listen for live ringing calls and completed calls/SMS from this device
+  listenForRingingCallFromDevice(deviceId, deviceName);
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
+}
+
+// ── Incoming call popup window + notification ────────────────────────────────
+
+/**
+ * Listen for the live ringing_call document for a device.
+ * When set (status === "ringing") → open a real Chrome popup window AND a system notification.
+ * When deleted → close popup + clear notification.
+ */
+// Track active incoming-call popup window IDs per device
+const incomingCallWindowIds = new Map(); // deviceId → windowId
+// Track active incoming-call notification IDs per device (fallback)
+const incomingCallNotifIds = new Map(); // deviceId → notificationId
+
+function listenForRingingCallFromDevice(deviceId, deviceName) {
+  if (!currentUser) return;
+
+  console.log("ZyncIT: 📞 Setting up ringing_call listener for device:", deviceId, deviceName);
+
+  const ringingDocRef = doc(
+    db,
+    "users", currentUser.uid,
+    "devices", deviceId,
+    "ringing_call", "current",
+  );
+
+  const unsub = onSnapshot(
+    ringingDocRef,
+    async (snap) => {
+      console.log("ZyncIT: 📞 ringing_call snapshot — exists:", snap.exists(), "device:", deviceId);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("ZyncIT: 📞 ringing_call data:", data);
+
+        if (data.status === "ringing") {
+          const uid = currentUser.uid;
+          const contactRaw = data.contactName || data.phoneNumber || "Unknown";
+          const contact = await decrypt(contactRaw, uid).catch(() => contactRaw);
+          const phoneRaw = data.phoneNumber || "";
+          const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
+          const deviceLabel = deviceName || data.deviceName || "Android Device";
+          const simSlot = data.simSlot;
+          const simLabel = (simSlot === 0 || simSlot === 1) ? `SIM ${simSlot + 1}` : "SIM";
+
+          const callerLine = contact && contact !== phone ? `${contact} • ${phone}` : (phone || "Unknown");
+          const subtitle = `${deviceLabel} • ${simLabel}`;
+
+          // ── Open / update the popup window (only if toggle is enabled) ─────
+          const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
+          const popupEnabled = smartAction_incomingCallPopup !== false; // default ON
+
+          const existingWindowId = incomingCallWindowIds.get(deviceId);
+          if (!existingWindowId && popupEnabled) {
+            const params = new URLSearchParams({
+              contact: contact || "Unknown",
+              phone: phone || "",
+              device: deviceLabel,
+              sim: String(simSlot ?? -1),
+            });
+            const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+            console.log("ZyncIT: 📞 Opening popup window:", url);
+
+            try {
+              const win = await chrome.windows.create({
+                url,
+                type: "popup",
+                width: 360,
+                height: 360,
+                focused: true,
+                top: 80,
+                left: 80,
+              });
+              if (win?.id) {
+                incomingCallWindowIds.set(deviceId, win.id);
+                console.log("ZyncIT: ✅ Popup window opened — id:", win.id);
+
+                const onRemoved = (removedId) => {
+                  if (removedId === win.id) {
+                    incomingCallWindowIds.delete(deviceId);
+                    chrome.windows.onRemoved.removeListener(onRemoved);
+                  }
+                };
+                chrome.windows.onRemoved.addListener(onRemoved);
+              }
+            } catch (e) {
+              console.error("ZyncIT: ❌ Could not open popup window:", e);
+            }
+          } else {
+            // Window already open — refresh URL with new params (e.g. number arrived after delay)
+            try {
+              const params = new URLSearchParams({
+                contact: contact || "Unknown",
+                phone: phone || "",
+                device: deviceLabel,
+                sim: String(simSlot ?? -1),
+              });
+              const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+              const tabs = await chrome.tabs.query({ windowId: existingWindowId });
+              if (tabs?.[0]) {
+                await chrome.tabs.update(tabs[0].id, { url });
+                console.log("ZyncIT: 📞 Refreshed popup window with updated caller info");
+              }
+            } catch (e) {
+              console.warn("ZyncIT: Could not refresh popup window:", e);
+            }
+          }
+
+          // ── Also show a system notification (visible even if window blocked) ──
+          if (!incomingCallNotifIds.has(deviceId)) {
+            const notificationId = `iropit_incoming_call_${deviceId}_${Date.now()}`;
+            incomingCallNotifIds.set(deviceId, notificationId);
+
+            createNotificationIfNotSnoozed(notificationId, {
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+              title: `📞 Incoming call: ${callerLine}`,
+              message: subtitle,
+              contextMessage: subtitle,
+              priority: 2,
+              requireInteraction: true,
+              silent: false,
+            }, (createdId) => {
+              console.log("ZyncIT: ✅ Incoming call notification created:", createdId);
+            });
+          }
+        }
+      } else {
+        // Document deleted → close popup + clear notification
+        const windowId = incomingCallWindowIds.get(deviceId);
+        if (windowId) {
+          incomingCallWindowIds.delete(deviceId);
+          try {
+            await chrome.windows.remove(windowId);
+            console.log("ZyncIT: 📞 Closed popup window for device:", deviceId);
+          } catch (_) {}
+        }
+        const notifId = incomingCallNotifIds.get(deviceId);
+        if (notifId) {
+          incomingCallNotifIds.delete(deviceId);
+          try {
+            chrome.notifications.clear(notifId);
+            console.log("ZyncIT: 📞 Cleared incoming call notification for device:", deviceId);
+          } catch (_) {}
+        }
+      }
+    },
+    (error) => {
+      if (error?.code === "permission-denied") {
+        console.warn("ZyncIT: 📞 Permission denied for ringing_call on device:", deviceId);
+        return;
+      }
+      console.error("ZyncIT: Ringing call listener error for device", deviceId, ":", error);
+    },
+  );
+
+  unsubscribeNotifications.push(unsub);
 }
 
 // Listen for calls from a specific device
@@ -820,15 +979,37 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
 
-  // Must contain an OTP-related keyword (English or Arabic, including email patterns)
-  const hasOTPKeyword =
-    /\b(otp|code|رمز|pin|كود|verify|verification|confirm|token|one.time|one.time.pass.?code|one.time.password|passcode|تحقق|secret|مفتاح|access.code|security.code|temporary.password|temp.pass|auth.code|authentication.code|login.code|sign.in.code|activation.code|reset.code|password.reset|2fa|two.factor|2-factor|مرور|رمز المرور|كلمة السر المؤقتة|verification.code|تحقق)\b/i
-      .test(text);
-  if (!hasOTPKeyword) return null;
+  // Strip HTML tags/entities (emails may be HTML), normalise whitespace
+  const clean = text
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // Extract standalone 4-8 digit number (prefer longer codes first, e.g. 6-digit)
-  const match = text.match(/\b(\d{4,8})\b/);
-  return match ? match[1] : null;
+  // Must contain an OTP-related keyword (English or Arabic, including email patterns)
+  const keywordRe =
+    /(otp|verification.?code|one.?time.?pass(?:word|code)?|one.?time.?code|passcode|access.?code|security.?code|auth(?:entication)?.?code|login.?code|sign.?in.?code|activation.?code|reset.?code|password.?reset|temporary.?password|temp.?pass|2fa|two.?factor|2-factor|confirmation.?code|verify|verification|token|pin\b|\bcode\b|رمز|كود|تحقق|مفتاح|رمز المرور|كلمة السر المؤقتة)/i;
+  const kwMatch = clean.match(keywordRe);
+  if (!kwMatch) return null;
+
+  // Prefer a 4-8 digit code appearing within 40 chars after the keyword
+  // (covers patterns like "Your OTP is 123456" / "Verification code: 987654")
+  const kwIdx = kwMatch.index + kwMatch[0].length;
+  const window = clean.slice(kwIdx, kwIdx + 80);
+  const nearby = window.match(/\b(\d{4,8})\b/);
+  if (nearby) return nearby[1];
+
+  // Also check 40 chars BEFORE the keyword (e.g. "123456 is your OTP")
+  const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
+  const beforeMatch = before.match(/\b(\d{4,8})\b/);
+  if (beforeMatch) return beforeMatch[1];
+
+  // Fallback: first 4-8 digit number in the whole text
+  const any = clean.match(/\b(\d{4,8})\b/);
+  return any ? any[1] : null;
 }
 
 /**
