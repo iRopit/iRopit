@@ -94,6 +94,28 @@ export function subscribeToChat() {
   state.addUnsubscriber(unsub);
 }
 
+// ── Starred messages persistence ─────────────────────────────────────────────
+function getStarredMessages() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("chatStarredMessages") || "[]"));
+  } catch { return new Set(); }
+}
+
+function saveStarredMessages(starredSet) {
+  localStorage.setItem("chatStarredMessages", JSON.stringify([...starredSet]));
+}
+
+function toggleStarMessage(msgId) {
+  const starred = getStarredMessages();
+  if (starred.has(msgId)) {
+    starred.delete(msgId);
+  } else {
+    starred.add(msgId);
+  }
+  saveStarredMessages(starred);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Render chat messages
  * @param {Array} messages - Array of chat messages
@@ -104,6 +126,20 @@ export function renderChatMessages(messages) {
     document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset
       .device || "all";
   const showDeviceName = true;
+
+  // Wire search input once
+  const chatSearchInput = document.getElementById("chatSearchInput");
+  if (chatSearchInput && !chatSearchInput.dataset.wired) {
+    chatSearchInput.dataset.wired = "1";
+    chatSearchInput.addEventListener("input", () => renderChatMessages(state.cachedChatMessages || []));
+  }
+
+  // Wire starred filter checkbox once
+  const chatShowStarred = document.getElementById("chatShowStarred");
+  if (chatShowStarred && !chatShowStarred.dataset.wired) {
+    chatShowStarred.dataset.wired = "1";
+    chatShowStarred.addEventListener("change", () => renderChatMessages(state.cachedChatMessages || []));
+  }
 
   // Filter messages by selected device
   let filteredMessages = messages;
@@ -126,6 +162,23 @@ export function renderChatMessages(messages) {
     seenMsgKeys.add(key);
     return true;
   });
+
+  // Apply search filter
+  const searchQuery = (document.getElementById("chatSearchInput")?.value || "").trim().toLowerCase();
+  if (searchQuery) {
+    filteredMessages = filteredMessages.filter((msg) => {
+      const content = (msg.content || "").toLowerCase();
+      const sender = (msg.senderName || msg.senderPlatform || "").toLowerCase();
+      return content.includes(searchQuery) || sender.includes(searchQuery);
+    });
+  }
+
+  // Apply starred-only filter
+  const showStarredOnly = document.getElementById("chatShowStarred")?.checked;
+  if (showStarredOnly) {
+    const starred = getStarredMessages();
+    filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
+  }
 
   if (filteredMessages.length === 0) {
     chatMessages.innerHTML = `
@@ -206,6 +259,7 @@ export function renderChatMessages(messages) {
         (msg.senderDeviceId && msg.senderDeviceId.startsWith("ext_"));
 
       const direction = isSentFromExtension ? "sent" : "received";
+      const isStarred = getStarredMessages().has(msg.id);
       return `
         <div class="chat-message-wrapper ${direction}">
           <div class="chat-message ${direction}" 
@@ -228,6 +282,11 @@ export function renderChatMessages(messages) {
             <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
           </div>
           <div class="chat-message-actions">
+            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${isStarred ? "Unstar" : "Star"} message">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
             <button class="chat-action-btn copy-msg-btn" title="Copy text">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -273,6 +332,24 @@ export function renderChatMessages(messages) {
       }).catch(() => {
         showToast("Copy failed", "error");
       });
+    });
+  });
+
+  // Star button handlers
+  chatMessages.querySelectorAll(".star-msg-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msgId = btn.dataset.msgId;
+      if (!msgId) return;
+      toggleStarMessage(msgId);
+      const nowStarred = getStarredMessages().has(msgId);
+      btn.classList.toggle("starred", nowStarred);
+      btn.title = nowStarred ? "Unstar message" : "Star message";
+      btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
+      // If starred-only filter is active, re-render to hide newly unstarred
+      if (document.getElementById("chatShowStarred")?.checked) {
+        renderChatMessages(state.cachedChatMessages || []);
+      }
     });
   });
 

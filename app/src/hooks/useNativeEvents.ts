@@ -8,6 +8,7 @@ import {
   AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import firestore from '@react-native-firebase/firestore';
 import { useSMSStore } from '../store/smsStore';
 import { useCallStore } from '../store/callStore';
 import { useAuthStore } from '../store/authStore';
@@ -341,6 +342,41 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     const callSubscription = DeviceEventEmitter.addListener(
       'onCallReceived',
       async data => {
+        const { currentDevice } = useDeviceStore.getState();
+
+        // ── Live ringing: write / clear the ringing_call sentinel doc ──────
+        if (data.status === 'ringing' && currentDevice) {
+          try {
+            const ringingDocRef = firestore()
+              .collection('users').doc(user.uid)
+              .collection('devices').doc(currentDevice.id)
+              .collection('ringing_call').doc('current');
+
+            await ringingDocRef.set({
+              status: 'ringing',
+              phoneNumber: data.phoneNumber || data.number || '',
+              contactName: data.contactName || data.name || null,
+              deviceName: currentDevice.nickname || currentDevice.name || 'Android Device',
+              simSlot: data.simSlot ?? -1,
+              timestamp: Date.now(),
+            });
+          } catch (e) {
+            console.error('[useNativeEvents] Failed to write ringing_call:', e);
+          }
+          return; // nothing else to do for a ringing event
+        }
+
+        // ── Call answered or ended: clear the ringing sentinel ───────────
+        if ((data.status === 'answered' || data.status === 'ended') && currentDevice) {
+          try {
+            await firestore()
+              .collection('users').doc(user.uid)
+              .collection('devices').doc(currentDevice.id)
+              .collection('ringing_call').doc('current')
+              .delete();
+          } catch (_) {}
+        }
+
         // Only process 'ended' events - they have correct type + duration from call log
         // Intermediate events (ringing, answered, started) have duration=0 and incomplete type
         if (data.status !== 'ended') return;
