@@ -27014,34 +27014,42 @@ ${this.customData.serverResponse}`;
     const digits = value.replace(/[\s\-().]/g, "");
     return /\d{3,}/.test(digits);
   }
+  function stripEnc(v) {
+    if (typeof v === "string" && v.startsWith("ENC:")) return "";
+    return v || "";
+  }
   function resolvePhoneNumber(data) {
     if (!data) return "";
     const candidates = [
-      data.phoneNumber,
-      data.sender,
-      data.address,
-      data.number,
-      data.phone
+      stripEnc(data.phoneNumber),
+      stripEnc(data.sender),
+      stripEnc(data.address),
+      stripEnc(data.number),
+      stripEnc(data.phone)
     ];
     const candidate = candidates.find((c) => c && isPhoneNumberLike2(c));
     if (candidate) return candidate;
-    if (data.title && isPhoneNumberLike2(data.title)) {
-      return data.title;
+    const title = stripEnc(data.title);
+    if (title && isPhoneNumberLike2(title)) {
+      return title;
     }
-    return data.phoneNumber || data.sender || data.address || data.number || data.phone || "";
+    return candidates.find((c) => c) || "";
   }
   function resolveContactName(data, phoneNumber) {
     if (!data) return "";
-    if (data.contactName && data.contactName.trim()) return data.contactName;
-    if (data.displayName && data.displayName.trim()) return data.displayName;
-    if (data.title && data.title.trim() && !isPhoneNumberLike2(data.title)) {
-      return data.title;
+    const cName = stripEnc(data.contactName);
+    const dName = stripEnc(data.displayName);
+    const title = stripEnc(data.title);
+    if (cName && cName.trim()) return cName;
+    if (dName && dName.trim()) return dName;
+    if (title && title.trim() && !isPhoneNumberLike2(title)) {
+      return title;
     }
     const fromContacts = getContactName(phoneNumber);
     if (fromContacts) return fromContacts;
-    if (data.title && data.title.trim() && data.title !== phoneNumber) {
-      const nonDigits = data.title.replace(/[\d\s\-+().]/g, "");
-      if (nonDigits.length > 0) return data.title;
+    if (title && title.trim() && title !== phoneNumber) {
+      const nonDigits = title.replace(/[\d\s\-+().]/g, "");
+      if (nonDigits.length > 0) return title;
     }
     return "";
   }
@@ -27076,13 +27084,13 @@ ${this.customData.serverResponse}`;
         );
         if (hasEncryptedCache) {
           console.warn(
-            `[SMS] \u26A0\uFE0F Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`
+            `[SMS] \xE2\u0161\xA0\xEF\xB8\x8F Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`
           );
           await clearCache().catch(() => {
           });
         } else {
           console.log(
-            `[SMS] \u{1F4E6} Showing ${cached.allMessages.length} cached messages instantly`
+            `[SMS] \xF0\u0178\u201C\xA6 Showing ${cached.allMessages.length} cached messages instantly`
           );
           hasCachedData = true;
           if (cached.byDevice) {
@@ -27130,7 +27138,7 @@ ${this.customData.serverResponse}`;
       });
       if (devicesList2.length === 0) {
         console.warn(
-          "\u26A0\uFE0F No mobile devices found for SMS loading - showing empty state"
+          "\xE2\u0161\xA0\xEF\xB8\x8F No mobile devices found for SMS loading - showing empty state"
         );
         renderSMS([]);
         return;
@@ -27179,7 +27187,7 @@ ${this.customData.serverResponse}`;
         try {
           const snapshot = await fetchDocs(q2);
           console.log(
-            `[SMS] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} messages from device ${device.id}`
+            `[SMS] ${isDelta ? "\xF0\u0178\u201D\u201E Delta" : "\xF0\u0178\u201C\xA5 Full"}: ${snapshot.size} messages from device ${device.id}`
           );
           const messages = await Promise.all(
             snapshot.docs.map(async (docSnap) => {
@@ -27197,7 +27205,8 @@ ${this.customData.serverResponse}`;
                 deviceName: device.name,
                 phoneNumber: resolvedPhone,
                 contactName: resolvedContact,
-                body: data.text || data.content || data.body || "",
+                title: stripEnc(data.title),
+                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                 timestamp: data.timestamp || data.receivedAt || Date.now(),
                 read: data.read === true,
                 type: data.type || "sms"
@@ -27209,7 +27218,7 @@ ${this.customData.serverResponse}`;
             const cachedIds = new Set(cachedMessages.map((m) => m.id));
             const brandNew = messages.filter((m) => !cachedIds.has(m.id));
             console.log(
-              `[SMS] \u{1F504} Delta: ${brandNew.length} new messages since cache for device ${device.id}`
+              `[SMS] \xF0\u0178\u201D\u201E Delta: ${brandNew.length} new messages since cache for device ${device.id}`
             );
             const merged = [...brandNew, ...cachedMessages];
             if (cachedMessages.length > 0) {
@@ -27235,17 +27244,17 @@ ${this.customData.serverResponse}`;
             updateSMSList(device.id, messages);
           }
         } catch (error) {
-          console.error(`\u274C SMS load error for device ${device.id}:`, error);
+          console.error(`\xE2\x9D\u0152 SMS load error for device ${device.id}:`, error);
         }
       });
       startSMSRealtimeListeners(user.uid, devicesList2);
       await Promise.all(loadPromises);
-      console.log("[SMS] \u2705 Initial load complete");
+      console.log("[SMS] \xE2\u0153\u2026 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
     } catch (error) {
       if (error?.code !== "permission-denied") {
-        console.error("\u274C loadSMS error:", error);
+        console.error("\xE2\x9D\u0152 loadSMS error:", error);
       }
       isSyncing = false;
       updateSMSCountIndicator();
@@ -27282,7 +27291,8 @@ ${this.customData.serverResponse}`;
                   deviceName: device.name,
                   phoneNumber: resolvedPhone,
                   contactName: resolvedContact,
-                  body: data.text || data.content || data.body || "",
+                  title: stripEnc(data.title),
+                  body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                   timestamp: data.timestamp || data.receivedAt || Date.now(),
                   read: data.read === true,
                   type: data.type || "sms"
@@ -27321,7 +27331,8 @@ ${this.customData.serverResponse}`;
                 deviceName: device.name,
                 phoneNumber: resolvedPhone,
                 contactName: resolvedContact,
-                body: data.text || data.content || data.body || "",
+                title: stripEnc(data.title),
+                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                 timestamp: data.timestamp || data.receivedAt || Date.now(),
                 read: data.read === true,
                 type: data.type || "sms"
@@ -27341,13 +27352,13 @@ ${this.customData.serverResponse}`;
             }
           }
           if (hasNewMessages) {
-            console.log(`[SMS] \u2728 Realtime update from device ${device.id}`);
+            console.log(`[SMS] \xE2\u0153\xA8 Realtime update from device ${device.id}`);
           }
         },
         (error) => {
           if (error?.code === "permission-denied") return;
           console.error(
-            `\u274C SMS realtime listener error for device ${device.id}:`,
+            `\xE2\x9D\u0152 SMS realtime listener error for device ${device.id}:`,
             error
           );
         }
@@ -27367,7 +27378,7 @@ ${this.customData.serverResponse}`;
     }
     isLoadingMore = true;
     console.log(
-      `[SMS] \u{1F4E5} Loading more SMS from ${devicesWithMore.length} devices...`
+      `[SMS] \xF0\u0178\u201C\xA5 Loading more SMS from ${devicesWithMore.length} devices...`
     );
     try {
       for (const [deviceId, deviceState] of devicesWithMore) {
@@ -27383,7 +27394,7 @@ ${this.customData.serverResponse}`;
         try {
           const snapshot = await getDocs(q2);
           console.log(
-            `[SMS] \u{1F4E5} Loaded ${snapshot.size} more messages from device ${deviceId}`
+            `[SMS] \xF0\u0178\u201C\xA5 Loaded ${snapshot.size} more messages from device ${deviceId}`
           );
           if (snapshot.empty) {
             deviceState.hasMore = false;
@@ -27410,7 +27421,8 @@ ${this.customData.serverResponse}`;
                 deviceName: cachedDeviceName,
                 phoneNumber: resolvedPhone,
                 contactName: resolvedContact,
-                body: data.text || data.content || data.body || "",
+                title: stripEnc(data.title),
+                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                 timestamp: data.timestamp || data.receivedAt || Date.now(),
                 read: data.read === true,
                 type: data.type || "sms"
@@ -27428,7 +27440,7 @@ ${this.customData.serverResponse}`;
             updateSMSList(deviceId, merged);
           }
         } catch (error) {
-          console.error(`\u274C Error loading more SMS from ${deviceId}:`, error);
+          console.error(`\xE2\x9D\u0152 Error loading more SMS from ${deviceId}:`, error);
           deviceState.loading = false;
         }
       }
@@ -27603,7 +27615,7 @@ ${this.customData.serverResponse}`;
           contactName,
           messages: [],
           messageIds: /* @__PURE__ */ new Set(),
-          // لتتبع IDs المستخدمة
+          // Ù„ØªØªØ¨Ø¹ IDs Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…Ø©
           lastMessage: msg,
           unreadCount: 0
         };
@@ -27790,7 +27802,7 @@ ${this.customData.serverResponse}`;
     smsContainer.addEventListener("scroll", () => {
       const { scrollTop, scrollHeight, clientHeight } = smsContainer;
       if (scrollHeight - scrollTop - clientHeight < 150 && hasMoreSMS() && !isLoadingMore) {
-        console.log("[SMS] \u{1F4DC} Infinite scroll triggered - loading more...");
+        console.log("[SMS] \xF0\u0178\u201C\u0153 Infinite scroll triggered - loading more...");
         showSMSScrollLoader();
         loadMoreSMS().then(() => {
           hideSMSScrollLoader();
@@ -27835,7 +27847,7 @@ ${this.customData.serverResponse}`;
         loadMoreSMS().then(() => hideSMSScrollLoader());
       });
     } else {
-      indicator.innerHTML = isSyncing ? `<span>${total} messages</span>${syncBadge}` : `<span>${total} messages \xB7 All loaded</span>`;
+      indicator.innerHTML = isSyncing ? `<span>${total} messages</span>${syncBadge}` : `<span>${total} messages \xC2\xB7 All loaded</span>`;
     }
   }
   function showSyncIndicator() {
@@ -27861,7 +27873,7 @@ ${this.customData.serverResponse}`;
     const si = document.getElementById("smsSearchInput");
     if (si) {
       si.value = "";
-      si.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Search messages...";
+      si.placeholder = getCurrentLanguage() === "ar" ? "...\xD8\xA8\xD8\xAD\xD8\xAB \xD9\x81\xD9\u0160 \xD8\xA7\xD9\u201E\xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E" : "Search messages...";
       delete si.dataset.convWired;
       si.dataset.wired = "";
       delete si.dataset.wired;
@@ -27967,7 +27979,7 @@ ${this.customData.serverResponse}`;
               <div class="message-text">${linkifyText2(msg.body || "")}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
-                ${resolveSMSDeviceName(msg) ? `<span class="message-device">\u{1F4F1} ${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
+                ${resolveSMSDeviceName(msg) ? `<span class="message-device">\xF0\u0178\u201C\xB1 ${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
                 <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28004,7 +28016,7 @@ ${this.customData.serverResponse}`;
       messagesContainer.addEventListener("scroll", () => {
         if (messagesContainer.scrollTop < 50 && hasMoreSMS() && !isLoadingMore) {
           console.log(
-            "[SMS] \u{1F4DC} Conversation scroll-up triggered - loading more..."
+            "[SMS] \xF0\u0178\u201C\u0153 Conversation scroll-up triggered - loading more..."
           );
           const previousHeight = messagesContainer.scrollHeight;
           const loader = document.createElement("div");
@@ -28101,7 +28113,7 @@ ${this.customData.serverResponse}`;
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const msgId = btn.dataset.id;
-        if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0631\u0633\u0627\u0644\u0629\u061F" : "Delete this message?")) {
+        if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\xD8\xAD\xD8\xB0\xD9\x81 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178" : "Delete this message?")) {
           deleteSingleSms(msgId);
         }
       });
@@ -28113,9 +28125,9 @@ ${this.customData.serverResponse}`;
         const text = msgBubble?.dataset.msgContent || "";
         if (text) {
           navigator.clipboard.writeText(text).then(() => {
-            showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
+            showToast(getCurrentLanguage() === "ar" ? "\xD8\xAA\xD9\u2026 \xD8\xA7\xD9\u201E\xD9\u2020\xD8\xB3\xD8\xAE" : "Copied!", "success");
           }).catch(() => {
-            showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+            showToast(getCurrentLanguage() === "ar" ? "\xD9\x81\xD8\xB4\xD9\u201E \xD8\xA7\xD9\u201E\xD9\u2020\xD8\xB3\xD8\xAE" : "Copy failed", "error");
           });
         }
       });
@@ -28338,7 +28350,7 @@ ${this.customData.serverResponse}`;
         return;
       }
       if (!await showConfirmDialog(
-        getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629 (${msgsToDelete.length} \u0631\u0633\u0627\u0644\u0629)\u061F` : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
+        getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9 (${msgsToDelete.length} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9)\xD8\u0178` : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
       )) return;
       showLoadingOverlay();
       try {
@@ -28538,7 +28550,7 @@ ${this.customData.serverResponse}`;
     if (selectedMessages.size === 0) return;
     const count = selectedMessages.size;
     if (!await showConfirmDialog(
-      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \u0631\u0633\u0627\u0644\u0629\u061F` : `Delete ${count} message${count > 1 ? "s" : ""}?`
+      getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 ${count} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178` : `Delete ${count} message${count > 1 ? "s" : ""}?`
     )) return;
     showLoadingOverlay();
     try {
@@ -28575,7 +28587,7 @@ ${this.customData.serverResponse}`;
     if (selectedConversations.size === 0) return;
     const count = selectedConversations.size;
     if (!await showConfirmDialog(
-      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \u0645\u062D\u0627\u062F\u062B\u0629\u061F \u0633\u064A\u062A\u0645 \u062D\u0630\u0641 \u062C\u0645\u064A\u0639 \u0631\u0633\u0627\u0626\u0644\u0647\u0627.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
+      getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 ${count} \xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9\xD8\u0178 \xD8\xB3\xD9\u0160\xD8\xAA\xD9\u2026 \xD8\xAD\xD8\xB0\xD9\x81 \xD8\xAC\xD9\u2026\xD9\u0160\xD8\xB9 \xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E\xD9\u2021\xD8\xA7.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
     )) return;
     showLoadingOverlay();
     try {

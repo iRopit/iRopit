@@ -768,6 +768,7 @@ function listenToDevice(deviceId, deviceName) {
  */
 // Track active incoming-call popup window IDs per device
 const incomingCallWindowIds = new Map(); // deviceId → windowId
+const incomingCallLastKey = new Map(); // deviceId → "phone|contact|timestamp"
 // Track active incoming-call notification IDs per device (fallback)
 const incomingCallNotifIds = new Map(); // deviceId → notificationId
 
@@ -811,6 +812,18 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           // ── Open / update the popup window (only if toggle is enabled) ─────
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
           const popupEnabled = smartAction_incomingCallPopup !== false; // default ON
+
+          // Skip if this is the same ringing event we already handled (snapshots
+          // can fire multiple times for the same Firestore doc — e.g. when the
+          // mobile app updates non-essential fields). The doc's `timestamp` is
+          // set once when ringing starts and never updated, so it uniquely
+          // identifies a single call event.
+          const callKey = `${phone}|${contact}|${data.timestamp || ""}`;
+          if (incomingCallLastKey.get(deviceId) === callKey) {
+            console.log("ZyncIT: 📞 Same ringing event — skipping duplicate popup");
+            return;
+          }
+          incomingCallLastKey.set(deviceId, callKey);
 
           const existingWindowId = incomingCallWindowIds.get(deviceId);
           if (!existingWindowId && popupEnabled) {
@@ -911,6 +924,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         }
       } else {
         // Document deleted → close popup + clear notification
+        incomingCallLastKey.delete(deviceId);
         const windowId = incomingCallWindowIds.get(deviceId);
         if (windowId) {
           incomingCallWindowIds.delete(deviceId);

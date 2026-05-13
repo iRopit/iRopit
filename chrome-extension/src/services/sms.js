@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMS Service
  * Handles SMS loading, rendering, and management
  */
@@ -145,6 +145,14 @@ function isPhoneNumberLike(value) {
 }
 
 /**
+ * Strip an ENC: value (failed decryption) so it never lands in cache or UI
+ */
+function stripEnc(v) {
+  if (typeof v === "string" && v.startsWith("ENC:")) return "";
+  return v || "";
+}
+
+/**
  * Resolve phone number from raw SMS data
  * @param {Object} data - SMS data
  * @returns {string}
@@ -152,29 +160,23 @@ function isPhoneNumberLike(value) {
 function resolvePhoneNumber(data) {
   if (!data) return "";
   const candidates = [
-    data.phoneNumber,
-    data.sender,
-    data.address,
-    data.number,
-    data.phone,
+    stripEnc(data.phoneNumber),
+    stripEnc(data.sender),
+    stripEnc(data.address),
+    stripEnc(data.number),
+    stripEnc(data.phone),
   ];
 
   const candidate = candidates.find((c) => c && isPhoneNumberLike(c));
 
   if (candidate) return candidate;
 
-  if (data.title && isPhoneNumberLike(data.title)) {
-    return data.title;
+  const title = stripEnc(data.title);
+  if (title && isPhoneNumberLike(title)) {
+    return title;
   }
 
-  return (
-    data.phoneNumber ||
-    data.sender ||
-    data.address ||
-    data.number ||
-    data.phone ||
-    ""
-  );
+  return candidates.find((c) => c) || "";
 }
 
 /**
@@ -186,13 +188,17 @@ function resolvePhoneNumber(data) {
 function resolveContactName(data, phoneNumber) {
   if (!data) return "";
 
+  const cName = stripEnc(data.contactName);
+  const dName = stripEnc(data.displayName);
+  const title = stripEnc(data.title);
+
   // Priority: explicit contactName > displayName > title (if not a phone number) > contacts lookup
-  if (data.contactName && data.contactName.trim()) return data.contactName;
-  if (data.displayName && data.displayName.trim()) return data.displayName;
+  if (cName && cName.trim()) return cName;
+  if (dName && dName.trim()) return dName;
 
   // title from Google Messages notification = contact name or phone number
-  if (data.title && data.title.trim() && !isPhoneNumberLike(data.title)) {
-    return data.title;
+  if (title && title.trim() && !isPhoneNumberLike(title)) {
+    return title;
   }
 
   // Lookup in local contacts map (handles multiple numbers per contact)
@@ -200,10 +206,10 @@ function resolveContactName(data, phoneNumber) {
   if (fromContacts) return fromContacts;
 
   // Last resort: check if title is different from phoneNumber (might be a name in another language)
-  if (data.title && data.title.trim() && data.title !== phoneNumber) {
+  if (title && title.trim() && title !== phoneNumber) {
     // Title has non-digit chars = likely a name
-    const nonDigits = data.title.replace(/[\d\s\-+().]/g, "");
-    if (nonDigits.length > 0) return data.title;
+    const nonDigits = title.replace(/[\d\s\-+().]/g, "");
+    if (nonDigits.length > 0) return title;
   }
 
   return "";
@@ -238,7 +244,7 @@ export async function loadSMS() {
   // Stop any previous listeners first
   stopSMSListener();
 
-  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
+  // Show loading spinner immediately â€” replaced by cached/fresh data when it arrives
   if (smsList) showListLoading(smsList);
 
   // === STEP 1: Show cached data instantly ===
@@ -250,7 +256,7 @@ export async function loadSMS() {
     const cached = await getCachedSMS();
     cachedSMSData = cached;
     if (cached && cached.allMessages && cached.allMessages.length > 0) {
-      // Detect if cached messages are still encrypted (ENC: prefix) — this can happen
+      // Detect if cached messages are still encrypted (ENC: prefix) â€” this can happen
       // after a reinstall or if decryption previously failed before the cache was saved.
       // If any key display fields are encrypted, the cache is stale: discard it and
       // force a full fresh fetch so every message is properly decrypted.
@@ -265,13 +271,13 @@ export async function loadSMS() {
 
       if (hasEncryptedCache) {
         console.warn(
-          `[SMS] ⚠️ Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`,
+          `[SMS] âš ï¸ Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`,
         );
         await clearCache().catch(() => {});
-        // hasCachedData stays false → full (non-delta) fetch will be used
+        // hasCachedData stays false â†’ full (non-delta) fetch will be used
       } else {
         console.log(
-          `[SMS] 📦 Showing ${cached.allMessages.length} cached messages instantly`,
+          `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
         );
         hasCachedData = true;
         // Restore state from cache.
@@ -279,7 +285,7 @@ export async function loadSMS() {
         // do NOT seed state.allSMS (per-device map) from cache. The realtime
         // Firestore listeners use Object.values(state.allSMS) to merge across
         // devices; if dev2 is pre-populated from cache and only dev1's listener
-        // fires, the merge mixes fresh dev1 + stale-cached dev2 → corrupted
+        // fires, the merge mixes fresh dev1 + stale-cached dev2 â†’ corrupted
         // state.allSMSMessages and a polluted cache write that persists the bad
         // data into the next session.
         if (cached.byDevice) {
@@ -342,7 +348,7 @@ export async function loadSMS() {
 
     if (devicesList.length === 0) {
       console.warn(
-        "⚠️ No mobile devices found for SMS loading - showing empty state",
+        "âš ï¸ No mobile devices found for SMS loading - showing empty state",
       );
       renderSMS([]);
       return;
@@ -408,7 +414,7 @@ export async function loadSMS() {
         // Use fetchDocs (getDocsFromServer when no custom cache) to bypass stale Firestore IndexedDB cache
         const snapshot = await fetchDocs(q);
         console.log(
-          `[SMS] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} messages from device ${device.id}`,
+          `[SMS] ${isDelta ? "ðŸ”„ Delta" : "ðŸ“¥ Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
 
         // Decrypt all messages in parallel with caching
@@ -432,7 +438,7 @@ export async function loadSMS() {
               deviceName: device.name,
               phoneNumber: resolvedPhone,
               contactName: resolvedContact,
-              body: data.text || data.content || data.body || "",
+              title: stripEnc(data.title),              body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
               timestamp: data.timestamp || data.receivedAt || Date.now(),
               read: data.read === true,
               type: data.type || "sms",
@@ -446,7 +452,7 @@ export async function loadSMS() {
           const cachedIds = new Set(cachedMessages.map((m) => m.id));
           const brandNew = messages.filter((m) => !cachedIds.has(m.id));
           console.log(
-            `[SMS] 🔄 Delta: ${brandNew.length} new messages since cache for device ${device.id}`,
+            `[SMS] ðŸ”„ Delta: ${brandNew.length} new messages since cache for device ${device.id}`,
           );
           const merged = [...brandNew, ...cachedMessages];
 
@@ -478,7 +484,7 @@ export async function loadSMS() {
           updateSMSList(device.id, messages);
         }
       } catch (error) {
-        console.error(`❌ SMS load error for device ${device.id}:`, error);
+        console.error(`âŒ SMS load error for device ${device.id}:`, error);
       }
     });
 
@@ -488,13 +494,13 @@ export async function loadSMS() {
 
     // Load all devices in parallel (full history runs in background)
     await Promise.all(loadPromises);
-    console.log("[SMS] ✅ Initial load complete");
+    console.log("[SMS] âœ… Initial load complete");
 
     isSyncing = false;
     updateSMSCountIndicator();
   } catch (error) {
     if (error?.code !== "permission-denied") {
-      console.error("❌ loadSMS error:", error);
+      console.error("âŒ loadSMS error:", error);
     }
     isSyncing = false;
     updateSMSCountIndicator();
@@ -541,7 +547,7 @@ function startSMSRealtimeListeners(userId, devicesList) {
                 deviceName: device.name,
                 phoneNumber: resolvedPhone,
                 contactName: resolvedContact,
-                body: data.text || data.content || data.body || "",
+                title: stripEnc(data.title),                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                 timestamp: data.timestamp || data.receivedAt || Date.now(),
                 read: data.read === true,
                 type: data.type || "sms",
@@ -585,7 +591,7 @@ function startSMSRealtimeListeners(userId, devicesList) {
               deviceName: device.name,
               phoneNumber: resolvedPhone,
               contactName: resolvedContact,
-              body: data.text || data.content || data.body || "",
+              title: stripEnc(data.title),              body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
               timestamp: data.timestamp || data.receivedAt || Date.now(),
               read: data.read === true,
               type: data.type || "sms",
@@ -613,13 +619,13 @@ function startSMSRealtimeListeners(userId, devicesList) {
         }
 
         if (hasNewMessages) {
-          console.log(`[SMS] ✨ Realtime update from device ${device.id}`);
+          console.log(`[SMS] âœ¨ Realtime update from device ${device.id}`);
         }
       },
       (error) => {
         if (error?.code === "permission-denied") return;
         console.error(
-          `❌ SMS realtime listener error for device ${device.id}:`,
+          `âŒ SMS realtime listener error for device ${device.id}:`,
           error,
         );
       },
@@ -648,7 +654,7 @@ export async function loadMoreSMS() {
 
   isLoadingMore = true;
   console.log(
-    `[SMS] 📥 Loading more SMS from ${devicesWithMore.length} devices...`,
+    `[SMS] ðŸ“¥ Loading more SMS from ${devicesWithMore.length} devices...`,
   );
 
   try {
@@ -667,7 +673,7 @@ export async function loadMoreSMS() {
       try {
         const snapshot = await getDocs(q);
         console.log(
-          `[SMS] 📥 Loaded ${snapshot.size} more messages from device ${deviceId}`,
+          `[SMS] ðŸ“¥ Loaded ${snapshot.size} more messages from device ${deviceId}`,
         );
 
         if (snapshot.empty) {
@@ -706,7 +712,7 @@ export async function loadMoreSMS() {
                 deviceName: cachedDeviceName,
                 phoneNumber: resolvedPhone,
                 contactName: resolvedContact,
-                body: data.text || data.content || data.body || "",
+                title: stripEnc(data.title),                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
                 timestamp: data.timestamp || data.receivedAt || Date.now(),
                 read: data.read === true,
                 type: data.type || "sms",
@@ -728,7 +734,7 @@ export async function loadMoreSMS() {
           updateSMSList(deviceId, merged);
         }
       } catch (error) {
-        console.error(`❌ Error loading more SMS from ${deviceId}:`, error);
+        console.error(`âŒ Error loading more SMS from ${deviceId}:`, error);
         deviceState.loading = false;
       }
     }
@@ -778,7 +784,7 @@ export function updateSMSList(deviceId, newMessages) {
     };
   });
 
-  // Store SMS by device — but preserve any locally-optimistic read:true status.
+  // Store SMS by device â€” but preserve any locally-optimistic read:true status.
   // If the user opened a conversation and we wrote read:true to Firestore, there is
   // a window where the Firestore snapshot can re-fire with the OLD read:false data
   // (before the server acknowledges the write).  Overwriting state here would reset
@@ -801,7 +807,7 @@ export function updateSMSList(deviceId, newMessages) {
     merged = merged.concat(msgs);
   });
 
-  // إزالة التكرار - الاحتفاظ بنسخة واحدة فقط من كل رسالة
+  // Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ØªÙƒØ±Ø§Ø± - Ø§Ù„Ø§Ø­ØªÙØ§Ø¸ Ø¨Ù†Ø³Ø®Ø© ÙˆØ§Ø­Ø¯Ø© ÙÙ‚Ø· Ù…Ù† ÙƒÙ„ Ø±Ø³Ø§Ù„Ø©
   // Two-pass dedup: first by document path, then by content (phone+timestamp+body)
   // Content dedup handles the case where NotificationService and BackgroundSmsService
   // created separate Firestore documents for the same SMS
@@ -1013,13 +1019,13 @@ export function renderSMS(messages) {
         phoneNumber: rawPhone,
         contactName: contactName,
         messages: [],
-        messageIds: new Set(), // لتتبع IDs المستخدمة
+        messageIds: new Set(), // Ù„ØªØªØ¨Ø¹ IDs Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…Ø©
         lastMessage: msg,
         unreadCount: 0,
       };
     }
 
-    // تجنب إضافة نفس الرسالة مرتين
+    // ØªØ¬Ù†Ø¨ Ø¥Ø¶Ø§ÙØ© Ù†ÙØ³ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø±ØªÙŠÙ†
     if (!grouped[key].messageIds.has(msg.id)) {
       grouped[key].messages.push(msg);
       grouped[key].messageIds.add(msg.id);
@@ -1224,7 +1230,7 @@ function attachSMSScrollHandler() {
       hasMoreSMS() &&
       !isLoadingMore
     ) {
-      console.log("[SMS] 📜 Infinite scroll triggered - loading more...");
+      console.log("[SMS] ðŸ“œ Infinite scroll triggered - loading more...");
       showSMSScrollLoader();
       loadMoreSMS().then(() => {
         hideSMSScrollLoader();
@@ -1292,7 +1298,7 @@ function updateSMSCountIndicator() {
   } else {
     indicator.innerHTML = isSyncing
       ? `<span>${total} messages</span>${syncBadge}`
-      : `<span>${total} messages · All loaded</span>`;
+      : `<span>${total} messages Â· All loaded</span>`;
   }
 }
 
@@ -1333,7 +1339,7 @@ function _goBackFromConversation() {
   const si = document.getElementById("smsSearchInput");
   if (si) {
     si.value = "";
-    si.placeholder = getCurrentLanguage() === "ar" ? "...بحث في الرسائل" : "Search messages...";
+    si.placeholder = getCurrentLanguage() === "ar" ? "...Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ø±Ø³Ø§Ø¦Ù„" : "Search messages...";
     delete si.dataset.convWired;
     si.dataset.wired = ""; // will be re-wired by renderSMS
     delete si.dataset.wired;
@@ -1400,7 +1406,7 @@ export function showConversation(phoneNumber) {
 
   console.log(`[SMS] showConversation: found ${conversation.length} messages`);
 
-  // إزالة التكرار في المحادثة
+  // Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ØªÙƒØ±Ø§Ø± ÙÙŠ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©
   const uniqueConversation = [];
   const seenIds = new Set();
   for (const msg of conversation) {
@@ -1500,7 +1506,7 @@ export function showConversation(phoneNumber) {
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg)
-                    ? `<span class="message-device">📱 ${escapeHtml(resolveSMSDeviceName(msg))}</span>`
+                    ? `<span class="message-device">ðŸ“± ${escapeHtml(resolveSMSDeviceName(msg))}</span>`
                     : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
                 <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
@@ -1543,7 +1549,7 @@ export function showConversation(phoneNumber) {
     messagesContainer.addEventListener("scroll", () => {
       if (messagesContainer.scrollTop < 50 && hasMoreSMS() && !isLoadingMore) {
         console.log(
-          "[SMS] 📜 Conversation scroll-up triggered - loading more...",
+          "[SMS] ðŸ“œ Conversation scroll-up triggered - loading more...",
         );
         const previousHeight = messagesContainer.scrollHeight;
 
@@ -1666,7 +1672,7 @@ export function showConversation(phoneNumber) {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const msgId = btn.dataset.id;
-      if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "حذف هذه الرسالة؟" : "Delete this message?")) {
+      if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø©ØŸ" : "Delete this message?")) {
         deleteSingleSms(msgId);
       }
     });
@@ -1680,9 +1686,9 @@ export function showConversation(phoneNumber) {
       const text = msgBubble?.dataset.msgContent || "";
       if (text) {
         navigator.clipboard.writeText(text).then(() => {
-          showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
+          showToast(getCurrentLanguage() === "ar" ? "ØªÙ… Ø§Ù„Ù†Ø³Ø®" : "Copied!", "success");
         }).catch(() => {
-          showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+          showToast(getCurrentLanguage() === "ar" ? "ÙØ´Ù„ Ø§Ù„Ù†Ø³Ø®" : "Copy failed", "error");
         });
       }
     });
@@ -1702,7 +1708,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
 
   // Resolve the actual phone number from the conversation grouping key.
   // The grouping key can be:
-  //   - "contact_<name>" for contacts with multiple numbers (strip prefix → still a name!)
+  //   - "contact_<name>" for contacts with multiple numbers (strip prefix â†’ still a name!)
   //   - "sender_<name>" for text/shortcode senders like "Orange", "HSBC"
   //   - A normalized numeric string e.g. "0501234567"
   let actualPhoneNumber;
@@ -1712,7 +1718,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
     showToast("Cannot send SMS to this type of sender", "error");
     return;
   } else if (phoneNumber.startsWith("contact_")) {
-    // Contact grouped by name (has multiple numbers) – look up the real phone from messages
+    // Contact grouped by name (has multiple numbers) â€“ look up the real phone from messages
     const contactName = phoneNumber.replace("contact_", "");
     const msgs = state.allSMSMessages.filter(
       (msg) => (msg.contactName || msg.title || "").trim() === contactName,
@@ -1731,7 +1737,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
       return;
     }
   } else {
-    // Numeric key – find raw phone from messages to preserve country code format
+    // Numeric key â€“ find raw phone from messages to preserve country code format
     const msgs = state.allSMSMessages.filter((msg) => {
       const rawPhone = msg.phoneNumber || msg.sender || "";
       return normalizePhoneNumber(rawPhone) === phoneNumber;
@@ -1793,7 +1799,7 @@ async function sendConversationMessage(phoneNumber, inputElement) {
       timestamp: timestamp,
     });
 
-    // Derive contactName from the conversation key (contact_Name → Name)
+    // Derive contactName from the conversation key (contact_Name â†’ Name)
     const sentContactName = phoneNumber.startsWith("contact_")
       ? phoneNumber.replace("contact_", "")
       : undefined;
@@ -1946,7 +1952,7 @@ async function markConversationAsRead(conversation) {
     state.setSMSData(deviceId, updated);
   });
 
-  // Update badge IMMEDIATELY after state update — before any awaits — so the
+  // Update badge IMMEDIATELY after state update â€” before any awaits â€” so the
   // count drops to 0 right when the conversation is opened, regardless of which
   // device tab is active ("All" or a specific device).
   updateTabBadges();
@@ -1954,7 +1960,7 @@ async function markConversationAsRead(conversation) {
   // Persist to cache in background (non-blocking for badge update)
   cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
 
-  // Write to Firestore (non-blocking for UI — state/cache already updated)
+  // Write to Firestore (non-blocking for UI â€” state/cache already updated)
   try {
     const batch = writeBatch(db);
     for (const msg of unreadMsgs) {
@@ -2003,7 +2009,7 @@ export async function deleteAllSms() {
     }
 
     if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-      ? `حذف هذه المحادثة (${msgsToDelete.length} رسالة)؟`
+      ? `Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© (${msgsToDelete.length} Ø±Ø³Ø§Ù„Ø©)ØŸ`
       : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
     ))) return;
 
@@ -2270,7 +2276,7 @@ async function deleteSelectedMessages() {
   if (selectedMessages.size === 0) return;
   const count = selectedMessages.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-    ? `حذف ${count} رسالة؟`
+    ? `Ø­Ø°Ù ${count} Ø±Ø³Ø§Ù„Ø©ØŸ`
     : `Delete ${count} message${count > 1 ? "s" : ""}?`
   ))) return;
   showLoadingOverlay();
@@ -2314,7 +2320,7 @@ export async function deleteSelectedConversations() {
 
   const count = selectedConversations.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-    ? `حذف ${count} محادثة؟ سيتم حذف جميع رسائلها.`
+    ? `Ø­Ø°Ù ${count} Ù…Ø­Ø§Ø¯Ø«Ø©ØŸ Ø³ÙŠØªÙ… Ø­Ø°Ù Ø¬Ù…ÙŠØ¹ Ø±Ø³Ø§Ø¦Ù„Ù‡Ø§.`
     : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
   ))) return;
 

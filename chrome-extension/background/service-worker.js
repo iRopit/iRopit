@@ -19214,6 +19214,7 @@ function listenToDevice(deviceId, deviceName) {
   listenForSMSFromDevice(deviceId, deviceName);
 }
 var incomingCallWindowIds = /* @__PURE__ */ new Map();
+var incomingCallLastKey = /* @__PURE__ */ new Map();
 var incomingCallNotifIds = /* @__PURE__ */ new Map();
 function listenForRingingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
@@ -19248,6 +19249,12 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
           const popupEnabled = smartAction_incomingCallPopup !== false;
+          const callKey = `${phone}|${contact}|${data.timestamp || ""}`;
+          if (incomingCallLastKey.get(deviceId) === callKey) {
+            console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 skipping duplicate popup");
+            return;
+          }
+          incomingCallLastKey.set(deviceId, callKey);
           const existingWindowId = incomingCallWindowIds.get(deviceId);
           if (!existingWindowId && popupEnabled) {
             const params = new URLSearchParams({
@@ -19339,6 +19346,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           }
         }
       } else {
+        incomingCallLastKey.delete(deviceId);
         const windowId = incomingCallWindowIds.get(deviceId);
         if (windowId) {
           incomingCallWindowIds.delete(deviceId);
