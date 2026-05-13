@@ -772,6 +772,101 @@ const incomingCallLastKey = new Map(); // deviceId → "phone|contact|timestamp"
 // Track active incoming-call notification IDs per device (fallback)
 const incomingCallNotifIds = new Map(); // deviceId → notificationId
 
+/**
+ * Normalize a phone number for cross-format matching.
+ * Strips all non-digits, then keeps the last 9 digits (covers most
+ * country-code variations: +14432566519 → 432566519).
+ */
+function normalizePhoneForMatch(phone) {
+  if (!phone || typeof phone !== "string") return "";
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.length > 9 ? digits.slice(-9) : digits;
+}
+
+/**
+ * Look up a contact name for the given phone number.
+ * Strategy:
+ *   1. Search the originating device's contacts subcollection in Firestore.
+ *   2. Fall back to the locally cached calls (chrome.storage.local) so that
+ *      previously seen callers are recognised even if the contact wasn't
+ *      synced from the phonebook.
+ *   3. Finally check the cached SMS data for a matching sender.
+ * Returns "" if nothing matches.
+ */
+async function lookupContactNameByPhone(deviceId, phone) {
+  if (!phone || !currentUser) return "";
+  const target = normalizePhoneForMatch(phone);
+  if (!target) return "";
+
+  // 1) Device's contacts subcollection
+  try {
+    const contactsRef = collection(
+      db,
+      "users", currentUser.uid,
+      "devices", deviceId,
+      "contacts",
+    );
+    const snap = await getDocs(contactsRef);
+    let match = "";
+    snap.forEach((d) => {
+      if (match) return;
+      const data = d.data() || {};
+      const candidates = [];
+      if (Array.isArray(data.phoneNumbers)) candidates.push(...data.phoneNumbers);
+      if (data.phoneNumber) candidates.push(data.phoneNumber);
+      for (const p of candidates) {
+        if (!p || typeof p !== "string") continue;
+        if (normalizePhoneForMatch(p) === target) {
+          match = data.name || "";
+          break;
+        }
+      }
+    });
+    if (match) return match;
+  } catch (e) {
+    // ignore — fall through to cache lookups
+  }
+
+  // 2) Cached calls
+  try {
+    const { cached_calls_data } = await chrome.storage.local.get("cached_calls_data");
+    const allCalls = cached_calls_data?.allCalls || [];
+    for (const c of allCalls) {
+      if (!c?.contactName || !c?.phoneNumber) continue;
+      if (typeof c.contactName !== "string") continue;
+      if (c.contactName.startsWith("ENC:")) continue;
+      if (normalizePhoneForMatch(c.phoneNumber) === target) {
+        // Skip "contact names" that are really just the phone number itself
+        if (normalizePhoneForMatch(c.contactName) === target) continue;
+        return c.contactName;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // 3) Cached SMS
+  try {
+    const { cached_sms_data } = await chrome.storage.local.get("cached_sms_data");
+    const allMessages = cached_sms_data?.allMessages || [];
+    for (const m of allMessages) {
+      const name = m?.contactName || m?.senderName || "";
+      const num = m?.phoneNumber || m?.address || m?.sender || "";
+      if (!name || !num) continue;
+      if (typeof name !== "string" || name.startsWith("ENC:")) continue;
+      if (normalizePhoneForMatch(num) === target) {
+        if (normalizePhoneForMatch(name) === target) continue;
+        return name;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return "";
+}
+
 function listenForRingingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
 
@@ -794,6 +889,20 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         console.log("ZyncIT: 📞 ringing_call data:", data);
 
         if (data.status === "ringing") {
+          // Guard against stale ringing_call docs: if the mobile failed to clear
+          // a previous call's doc and a new RINGING write didn't happen, the
+          // listener would otherwise replay old caller info. Reject anything
+          // older than 60 seconds.
+          const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
+          if (docTs > 0 && Date.now() - docTs > 60_000) {
+            console.warn(
+              "ZyncIT: 📞 Ignoring stale ringing_call doc — age:",
+              Math.round((Date.now() - docTs) / 1000),
+              "s",
+            );
+            return;
+          }
+
           const uid = currentUser.uid;
           const phoneRaw = data.phoneNumber || "";
           const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
@@ -802,6 +911,22 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
           // If decryption returned the raw ENC: string or contact equals phone, treat as no name
           if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
+
+          // If the mobile didn't supply a contact name (or the value was unusable),
+          // try to resolve it locally from synced contacts / cached calls / SMS so
+          // the popup shows the caller's name instead of "Unknown".
+          if (!contact && phone) {
+            try {
+              const resolved = await lookupContactNameByPhone(deviceId, phone);
+              if (resolved && resolved !== phone) {
+                contact = resolved;
+                console.log("ZyncIT: 📞 Resolved contact from local lookup:", contact);
+              }
+            } catch (e) {
+              console.warn("ZyncIT: 📞 Contact lookup failed:", e);
+            }
+          }
+
           const deviceLabel = deviceName || data.deviceName || "Android Device";
           const simSlot = data.simSlot;
           const simLabel = (simSlot === 0 || simSlot === 1) ? `SIM ${simSlot + 1}` : "SIM";

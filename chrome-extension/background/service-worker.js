@@ -19216,6 +19216,75 @@ function listenToDevice(deviceId, deviceName) {
 var incomingCallWindowIds = /* @__PURE__ */ new Map();
 var incomingCallLastKey = /* @__PURE__ */ new Map();
 var incomingCallNotifIds = /* @__PURE__ */ new Map();
+function normalizePhoneForMatch(phone) {
+  if (!phone || typeof phone !== "string") return "";
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.length > 9 ? digits.slice(-9) : digits;
+}
+async function lookupContactNameByPhone(deviceId, phone) {
+  if (!phone || !currentUser) return "";
+  const target = normalizePhoneForMatch(phone);
+  if (!target) return "";
+  try {
+    const contactsRef = collection(
+      db,
+      "users",
+      currentUser.uid,
+      "devices",
+      deviceId,
+      "contacts"
+    );
+    const snap = await getDocs(contactsRef);
+    let match = "";
+    snap.forEach((d) => {
+      if (match) return;
+      const data = d.data() || {};
+      const candidates = [];
+      if (Array.isArray(data.phoneNumbers)) candidates.push(...data.phoneNumbers);
+      if (data.phoneNumber) candidates.push(data.phoneNumber);
+      for (const p of candidates) {
+        if (!p || typeof p !== "string") continue;
+        if (normalizePhoneForMatch(p) === target) {
+          match = data.name || "";
+          break;
+        }
+      }
+    });
+    if (match) return match;
+  } catch (e) {
+  }
+  try {
+    const { cached_calls_data } = await chrome.storage.local.get("cached_calls_data");
+    const allCalls = cached_calls_data?.allCalls || [];
+    for (const c of allCalls) {
+      if (!c?.contactName || !c?.phoneNumber) continue;
+      if (typeof c.contactName !== "string") continue;
+      if (c.contactName.startsWith("ENC:")) continue;
+      if (normalizePhoneForMatch(c.phoneNumber) === target) {
+        if (normalizePhoneForMatch(c.contactName) === target) continue;
+        return c.contactName;
+      }
+    }
+  } catch (e) {
+  }
+  try {
+    const { cached_sms_data } = await chrome.storage.local.get("cached_sms_data");
+    const allMessages = cached_sms_data?.allMessages || [];
+    for (const m of allMessages) {
+      const name4 = m?.contactName || m?.senderName || "";
+      const num = m?.phoneNumber || m?.address || m?.sender || "";
+      if (!name4 || !num) continue;
+      if (typeof name4 !== "string" || name4.startsWith("ENC:")) continue;
+      if (normalizePhoneForMatch(num) === target) {
+        if (normalizePhoneForMatch(name4) === target) continue;
+        return name4;
+      }
+    }
+  } catch (e) {
+  }
+  return "";
+}
 function listenForRingingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
   console.log("ZyncIT: \u{1F4DE} Setting up ringing_call listener for device:", deviceId, deviceName);
@@ -19236,12 +19305,32 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         const data = snap.data();
         console.log("ZyncIT: \u{1F4DE} ringing_call data:", data);
         if (data.status === "ringing") {
+          const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
+          if (docTs > 0 && Date.now() - docTs > 6e4) {
+            console.warn(
+              "ZyncIT: \u{1F4DE} Ignoring stale ringing_call doc \u2014 age:",
+              Math.round((Date.now() - docTs) / 1e3),
+              "s"
+            );
+            return;
+          }
           const uid = currentUser.uid;
           const phoneRaw = data.phoneNumber || "";
           const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
           const contactRaw = data.contactName || "";
           let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
           if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
+          if (!contact && phone) {
+            try {
+              const resolved = await lookupContactNameByPhone(deviceId, phone);
+              if (resolved && resolved !== phone) {
+                contact = resolved;
+                console.log("ZyncIT: \u{1F4DE} Resolved contact from local lookup:", contact);
+              }
+            } catch (e) {
+              console.warn("ZyncIT: \u{1F4DE} Contact lookup failed:", e);
+            }
+          }
           const deviceLabel = deviceName || data.deviceName || "Android Device";
           const simSlot = data.simSlot;
           const simLabel = simSlot === 0 || simSlot === 1 ? `SIM ${simSlot + 1}` : "SIM";

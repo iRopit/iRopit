@@ -37,6 +37,7 @@ public class CallReceiver extends BroadcastReceiver {
     private static boolean isIncoming = false;
     private static boolean callEventSent = false;
     private static boolean callWasAnswered = false;
+    private static String lastRingingNumber = ""; // last number we wrote ringing_call for
 
     public static void setReactContext(ReactApplicationContext context) {
         reactContext = context;
@@ -61,6 +62,15 @@ public class CallReceiver extends BroadcastReceiver {
             if (state != null && !state.equals(lastState)) {
                 handleStateChange(context, state, phoneNumber);
                 lastState = state;
+            } else if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)
+                    && phoneNumber != null && !phoneNumber.isEmpty()
+                    && !phoneNumber.equals(lastRingingNumber)) {
+                // Same RINGING state but a DIFFERENT phone number — this happens
+                // for call-waiting or when the OS re-broadcasts RINGING without an
+                // intervening IDLE. Without this branch the new caller would be
+                // silently dropped because `state.equals(lastState)`.
+                Log.d(TAG, "RINGING re-broadcast with new number — forcing re-handle: " + phoneNumber);
+                handleStateChange(context, state, phoneNumber);
             }
         } else if ("android.intent.action.NEW_OUTGOING_CALL".equals(action)) {
             String phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
@@ -102,6 +112,7 @@ public class CallReceiver extends BroadcastReceiver {
                 FirebaseHelper fbHelper = FirebaseHelper.getInstance(context);
                 if (fbHelper != null && fbHelper.isLoggedIn()) {
                     fbHelper.writeRingingCall(ringNumber, ringContact, -1);
+                    lastRingingNumber = ringNumber;
                     Log.d(TAG, "✅ ringing_call written to Firestore — number=" + ringNumber);
                 } else {
                     Log.w(TAG, "Cannot write ringing_call: user not logged in");
@@ -168,6 +179,7 @@ public class CallReceiver extends BroadcastReceiver {
             isIncoming = false;
             callEventSent = false;
             callWasAnswered = false;
+            lastRingingNumber = "";
         }
     }
 
