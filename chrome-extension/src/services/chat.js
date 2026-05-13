@@ -16,6 +16,9 @@ import {
   ref,
   uploadBytes,
   getDownloadURL,
+  doc,
+  getDoc,
+  setDoc,
 } from "../config/firebase.js";
 
 import { chatMessages, chatInput, sendChatBtn } from "../ui/dom.js";
@@ -52,6 +55,15 @@ function linkifyText(text) {
 export function subscribeToChat() {
   const user = state.currentUser;
   if (!user) return;
+
+  // Restore starred messages from Firestore (survives reinstalls).
+  // Re-render once the async load completes so stars show correctly on first open.
+  loadStarredMessagesFromFirestore().then(() => {
+    const cached = state.cachedChatMessages;
+    if (cached && cached.length > 0) {
+      renderChatMessages(cached);
+    }
+  });
 
   const q = query(
     collection(db, "chats"),
@@ -95,14 +107,55 @@ export function subscribeToChat() {
 }
 
 // ── Starred messages persistence ─────────────────────────────────────────────
+// Starred message IDs are stored in Firestore under users/{uid}/preferences/chat
+// so they survive extension uninstall/reinstall. localStorage is used as a fast
+// local cache to avoid a Firestore round-trip on every render.
+
+const STARRED_LS_KEY = "chatStarredMessages";
+
 function getStarredMessages() {
   try {
-    return new Set(JSON.parse(localStorage.getItem("chatStarredMessages") || "[]"));
+    return new Set(JSON.parse(localStorage.getItem(STARRED_LS_KEY) || "[]"));
   } catch { return new Set(); }
 }
 
-function saveStarredMessages(starredSet) {
-  localStorage.setItem("chatStarredMessages", JSON.stringify([...starredSet]));
+function _saveStarredLocal(starredSet) {
+  localStorage.setItem(STARRED_LS_KEY, JSON.stringify([...starredSet]));
+}
+
+async function _getStarredDocRef() {
+  const user = state.currentUser;
+  if (!user) return null;
+  // Store on the user doc itself: Firestore rules already allow the user
+  // to read/write users/{uid}. A `preferences` subcollection would require
+  // its own rule and writes would be silently denied.
+  return doc(db, "users", user.uid);
+}
+
+/** Load starred IDs from Firestore into localStorage (called once on login). */
+export async function loadStarredMessagesFromFirestore() {
+  try {
+    const ref = await _getStarredDocRef();
+    if (!ref) return;
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const ids = snap.data().starredMessageIds || [];
+      _saveStarredLocal(new Set(ids));
+    }
+  } catch (e) {
+    console.debug("[Chat] Could not load starred messages from Firestore:", e);
+  }
+}
+
+async function saveStarredMessages(starredSet) {
+  _saveStarredLocal(starredSet);
+  try {
+    const ref = await _getStarredDocRef();
+    if (!ref) return;
+    await setDoc(ref, { starredMessageIds: [...starredSet] }, { merge: true });
+  } catch (e) {
+    console.warn("[Chat] Could not persist starred messages to Firestore:", e);
+  }
 }
 
 function toggleStarMessage(msgId) {
@@ -154,14 +207,23 @@ export function renderChatMessages(messages) {
   }
 
   // Deduplicate: fan-out sends one Firestore doc per device, so the same
-  // logical message may appear multiple times. Collapse by sender + timestamp + content.
-  const seenMsgKeys = new Set();
-  filteredMessages = filteredMessages.filter((msg) => {
-    const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ''}`;
-    if (seenMsgKeys.has(key)) return false;
-    seenMsgKeys.add(key);
-    return true;
+  // logical message may appear multiple times. Collapse by sender + timestamp.
+  // (All fan-out copies share the same Date.now() timestamp set before the loop,
+  // so we don't need content in the key — and avoiding it prevents false
+  // non-matches caused by unicode/decryption byte differences between copies.)
+  // Prefer the copy whose ID is starred so the star state survives the "All" tab.
+  const starred = getStarredMessages();
+  const keyToBestMsg = new Map();
+  filteredMessages.forEach((msg) => {
+    const key = `${msg.senderDeviceId}|${msg.timestamp}`;
+    if (!keyToBestMsg.has(key)) {
+      keyToBestMsg.set(key, msg);
+    } else if (starred.has(msg.id) && !starred.has(keyToBestMsg.get(key).id)) {
+      // Promote this copy because it's the one the user starred
+      keyToBestMsg.set(key, msg);
+    }
   });
+  filteredMessages = [...keyToBestMsg.values()];
 
   // Apply search filter
   const searchQuery = (document.getElementById("chatSearchInput")?.value || "").trim().toLowerCase();
@@ -176,7 +238,6 @@ export function renderChatMessages(messages) {
   // Apply starred-only filter
   const showStarredOnly = document.getElementById("chatShowStarred")?.checked;
   if (showStarredOnly) {
-    const starred = getStarredMessages();
     filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
   }
 
