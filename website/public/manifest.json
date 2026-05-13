@@ -8,18 +8,15 @@
   "display": "standalone",
   "background_color": "#F9FAFB",
   "theme_color": "#D5C19E",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "categories": ["productivity", "utilities", "communication"],
   "lang": "en",
   "dir": "ltr",
   "prefer_related_applications": false,
   "icons": [
     { "src": "/icons/icon-48.png", "sizes": "48x48", "type": "image/png" },
-    {
-      "src": "/icons/icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
+    { "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "/icons/icon-128.png", "sizes": "128x128", "type": "image/png" },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
@@ -45,17 +42,35 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "iRopit Dashboard"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "iRopit Mobile"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     },
     {
       "name": "Login",
       "short_name": "Login",
-      "url": "/login"
+      "url": "/login",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     }
   ]
 }
+
