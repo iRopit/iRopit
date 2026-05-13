@@ -986,17 +986,31 @@ public class NotificationService extends NotificationListenerService {
                 // ringing_call/current doc with the real phone number + contact name.
                 // This is necessary because CallReceiver on Android 10+ receives null
                 // EXTRA_INCOMING_NUMBER, so it writes the doc with empty fields.
-                // The system phone app's "Incoming call" notification HAS the number.
+                // Guard rails to prevent stale/wrong notifications from overwriting:
+                //   1) Must be from a known dialer/phone package (not SMS/WhatsApp/etc.)
+                //   2) Notification must be fresh (posted within last 5 seconds) so an
+                //      old re-processed notification can't hijack a new call's popup.
                 if (type.equals("call") && !isMissedCall) {
-                    try {
-                        String finalPhone = (phoneNumber != null && !phoneNumber.isEmpty()) ? phoneNumber : "";
-                        String finalContact = (contactName != null && !contactName.isEmpty()) ? contactName : "";
-                        if (!finalPhone.isEmpty() || !finalContact.isEmpty()) {
-                            firebaseHelper.writeRingingCall(finalPhone, finalContact, -1);
-                            Log.i(TAG, "📞 Updated ringing_call from system phone notification — phone=" + finalPhone + ", contact=" + finalContact);
+                    boolean isDialerPkg = false;
+                    for (String p : PHONE_PACKAGES) {
+                        if (p.equals(packageName)) { isDialerPkg = true; break; }
+                    }
+                    long ageMs = System.currentTimeMillis() - timestamp;
+                    if (!isDialerPkg) {
+                        Log.i(TAG, "📞 Skipping ringing_call update — package not a dialer: " + packageName);
+                    } else if (ageMs > 5000) {
+                        Log.i(TAG, "📞 Skipping ringing_call update — stale notification (age=" + ageMs + "ms)");
+                    } else {
+                        try {
+                            String finalPhone = (phoneNumber != null && !phoneNumber.isEmpty()) ? phoneNumber : "";
+                            String finalContact = (contactName != null && !contactName.isEmpty()) ? contactName : "";
+                            if (!finalPhone.isEmpty() || !finalContact.isEmpty()) {
+                                firebaseHelper.writeRingingCall(finalPhone, finalContact, -1);
+                                Log.i(TAG, "📞 Updated ringing_call from system phone notification — phone=" + finalPhone + ", contact=" + finalContact);
+                            }
+                        } catch (Exception ringEx) {
+                            Log.e(TAG, "Error updating ringing_call from notification", ringEx);
                         }
-                    } catch (Exception ringEx) {
-                        Log.e(TAG, "Error updating ringing_call from notification", ringEx);
                     }
                 }
             } else {
