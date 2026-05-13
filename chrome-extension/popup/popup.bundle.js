@@ -26175,19 +26175,23 @@ ${this.customData.serverResponse}`;
     const titleLower = (data.title || "").toLowerCase().trim();
     const isTitleCallDescription = titleLower === "call" || titleLower === "calling" || titleLower === "incoming call" || titleLower === "outgoing call" || titleLower === "missed call" || titleLower === "missed calls" || titleLower === "ongoing call" || titleLower === "on hold" || titleLower === "dialing" || titleLower === "ringing" || titleLower.includes("missed call") || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u0627\u0626\u062A\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0641\u0627\u0626\u062A\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0648\u0627\u0631\u062F\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0627\u062F\u0631\u0629" || titleLower === "\u0627\u062A\u0635\u0627\u0644" || /^\d{1,2}$/.test(titleLower);
     let rawContactName = data.contactName || data.displayName || "";
+    if (typeof rawContactName === "string" && rawContactName.startsWith("ENC:")) rawContactName = "";
     const contactLower = rawContactName.toLowerCase().trim();
     const isContactCallDescription = contactLower === "call" || contactLower === "calling" || contactLower === "incoming call" || contactLower === "outgoing call" || contactLower === "missed call" || contactLower === "missed calls" || contactLower === "ongoing call" || contactLower === "\u0645\u0643\u0627\u0644\u0645\u0629" || contactLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u0627\u0626\u062A\u0629" || contactLower === "\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0641\u0627\u0626\u062A\u0629" || /^\d{1,2}$/.test(contactLower);
     if (isContactCallDescription) {
       rawContactName = "";
     }
-    const resolvedPhone = data.phoneNumber || data.number || data.address || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
+    const rawPhoneNumber = data.phoneNumber && typeof data.phoneNumber === "string" && data.phoneNumber.startsWith("ENC:") ? "" : data.phoneNumber || "";
+    const rawNumber = data.number && typeof data.number === "string" && data.number.startsWith("ENC:") ? "" : data.number || "";
+    const rawAddress = data.address && typeof data.address === "string" && data.address.startsWith("ENC:") ? "" : data.address || "";
+    const resolvedPhone = rawPhoneNumber || rawNumber || rawAddress || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
     const resolvedContact = rawContactName || (data.title && !isTitleCallDescription && !isPhoneNumberLike(data.title) ? data.title : "") || getContactName(resolvedPhone) || "";
     return {
       ...data,
       id: firestoreId,
       deviceId,
       deviceName,
-      phoneNumber: resolvedPhone || data.phoneNumber || "",
+      phoneNumber: resolvedPhone || rawPhoneNumber || "",
       contactName: resolvedContact,
       type: data.type || data.callType || "incoming",
       simSlot: data.simSlot != null ? data.simSlot : -1,

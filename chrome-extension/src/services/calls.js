@@ -195,6 +195,7 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
     /^\d{1,2}$/.test(titleLower);
 
   let rawContactName = data.contactName || data.displayName || "";
+  if (typeof rawContactName === "string" && rawContactName.startsWith("ENC:")) rawContactName = "";
   const contactLower = rawContactName.toLowerCase().trim();
   const isContactCallDescription =
     contactLower === "call" ||
@@ -213,10 +214,13 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
     rawContactName = "";
   }
 
+  const rawPhoneNumber = (data.phoneNumber && typeof data.phoneNumber === "string" && data.phoneNumber.startsWith("ENC:")) ? "" : (data.phoneNumber || "");
+  const rawNumber = (data.number && typeof data.number === "string" && data.number.startsWith("ENC:")) ? "" : (data.number || "");
+  const rawAddress = (data.address && typeof data.address === "string" && data.address.startsWith("ENC:")) ? "" : (data.address || "");
   const resolvedPhone =
-    data.phoneNumber ||
-    data.number ||
-    data.address ||
+    rawPhoneNumber ||
+    rawNumber ||
+    rawAddress ||
     (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title)
       ? data.title
       : "") ||
@@ -234,7 +238,7 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
     id: firestoreId,
     deviceId: deviceId,
     deviceName: deviceName,
-    phoneNumber: resolvedPhone || data.phoneNumber || "",
+    phoneNumber: resolvedPhone || rawPhoneNumber || "",
     contactName: resolvedContact,
     type: data.type || data.callType || "incoming",
     simSlot: data.simSlot != null ? data.simSlot : -1,
