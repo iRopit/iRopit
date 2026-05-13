@@ -34,7 +34,7 @@ import { setCallsDataConfirmed } from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedCalls, cacheCallsData } from "./cache.js";
+import { getCachedCalls, cacheCallsData, clearCache } from "./cache.js";
 
 // ── Selection mode state ──────────────────────────────────────────────────────
 let callsSelectionMode = false;
@@ -271,26 +271,44 @@ export async function loadCalls() {
   try {
     const cached = await getCachedCalls();
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
-      console.log(
-        `[Calls] 📦 Showing ${cached.allCalls.length} cached calls instantly`,
+      // Detect if cached calls still have encrypted fields (ENC: prefix) —
+      // this happens after sign-out/sign-in when the decryption key changes.
+      // Discard the stale cache and force a full fresh fetch.
+      const hasEncryptedCache = cached.allCalls.some(
+        (call) =>
+          (call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:")) ||
+          (call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:")) ||
+          (call.name && typeof call.name === "string" && call.name.startsWith("ENC:"))
       );
-      hasCachedData = true;
-      if (cached.byDevice) {
-        for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
-          state.setCallsByDevice(deviceId, calls);
-          // Record newest timestamp per device for delta fetch
-          if (calls && calls.length > 0) {
-            cachedNewestTimestamps[deviceId] = Math.max(
-              ...calls.map((c) => c.timestamp || 0),
-            );
+
+      if (hasEncryptedCache) {
+        console.warn(
+          `[Calls] ⚠️ Encrypted calls detected in cache (${cached.allCalls.length} total) - clearing stale cache and forcing full re-fetch`,
+        );
+        await clearCache().catch(() => {});
+        // hasCachedData stays false → full (non-delta) fetch will be used
+      } else {
+        console.log(
+          `[Calls] 📦 Showing ${cached.allCalls.length} cached calls instantly`,
+        );
+        hasCachedData = true;
+        if (cached.byDevice) {
+          for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
+            state.setCallsByDevice(deviceId, calls);
+            // Record newest timestamp per device for delta fetch
+            if (calls && calls.length > 0) {
+              cachedNewestTimestamps[deviceId] = Math.max(
+                ...calls.map((c) => c.timestamp || 0),
+              );
+            }
           }
         }
-      }
-      state.setAllCallsData(cached.allCalls);
-      // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
-      setCallsDataConfirmed(false);
-      renderCalls(cached.allCalls.slice(0, 100));
-      // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
+        state.setAllCallsData(cached.allCalls);
+        // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
+        setCallsDataConfirmed(false);
+        renderCalls(cached.allCalls.slice(0, 100));
+        // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
+      } // end hasEncryptedCache else
     }
   } catch (e) {
     console.warn("[Calls] Cache load failed:", e);

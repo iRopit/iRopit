@@ -26209,23 +26209,34 @@ ${this.customData.serverResponse}`;
     try {
       const cached = await getCachedCalls();
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
-        console.log(
-          `[Calls] \u{1F4E6} Showing ${cached.allCalls.length} cached calls instantly`
+        const hasEncryptedCache = cached.allCalls.some(
+          (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:") || call.name && typeof call.name === "string" && call.name.startsWith("ENC:")
         );
-        hasCachedData = true;
-        if (cached.byDevice) {
-          for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
-            setCallsByDevice(deviceId, calls);
-            if (calls && calls.length > 0) {
-              cachedNewestTimestamps[deviceId] = Math.max(
-                ...calls.map((c) => c.timestamp || 0)
-              );
+        if (hasEncryptedCache) {
+          console.warn(
+            `[Calls] \u26A0\uFE0F Encrypted calls detected in cache (${cached.allCalls.length} total) - clearing stale cache and forcing full re-fetch`
+          );
+          await clearCache().catch(() => {
+          });
+        } else {
+          console.log(
+            `[Calls] \u{1F4E6} Showing ${cached.allCalls.length} cached calls instantly`
+          );
+          hasCachedData = true;
+          if (cached.byDevice) {
+            for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
+              setCallsByDevice(deviceId, calls);
+              if (calls && calls.length > 0) {
+                cachedNewestTimestamps[deviceId] = Math.max(
+                  ...calls.map((c) => c.timestamp || 0)
+                );
+              }
             }
           }
+          setAllCallsData(cached.allCalls);
+          setCallsDataConfirmed(false);
+          renderCalls(cached.allCalls.slice(0, 100));
         }
-        setAllCallsData(cached.allCalls);
-        setCallsDataConfirmed(false);
-        renderCalls(cached.allCalls.slice(0, 100));
       }
     } catch (e) {
       console.warn("[Calls] Cache load failed:", e);
