@@ -25033,6 +25033,7 @@ ${this.customData.serverResponse}`;
   __export(chat_exports, {
     clearReply: () => clearReply,
     initChatListeners: () => initChatListeners,
+    loadStarredMessagesFromFirestore: () => loadStarredMessagesFromFirestore,
     renderChatMessages: () => renderChatMessages,
     scrollChatToBottom: () => scrollChatToBottom,
     sendChatMessage: () => sendChatMessage,
@@ -25052,6 +25053,12 @@ ${this.customData.serverResponse}`;
   function subscribeToChat() {
     const user = currentUser;
     if (!user) return;
+    loadStarredMessagesFromFirestore().then(() => {
+      const cached = cachedChatMessages;
+      if (cached && cached.length > 0) {
+        renderChatMessages(cached);
+      }
+    });
     const q2 = query(
       collection(db, "chats"),
       where("participants", "array-contains", user.uid),
@@ -25079,13 +25086,41 @@ ${this.customData.serverResponse}`;
   }
   function getStarredMessages() {
     try {
-      return new Set(JSON.parse(localStorage.getItem("chatStarredMessages") || "[]"));
+      return new Set(JSON.parse(localStorage.getItem(STARRED_LS_KEY) || "[]"));
     } catch {
       return /* @__PURE__ */ new Set();
     }
   }
-  function saveStarredMessages(starredSet) {
-    localStorage.setItem("chatStarredMessages", JSON.stringify([...starredSet]));
+  function _saveStarredLocal(starredSet) {
+    localStorage.setItem(STARRED_LS_KEY, JSON.stringify([...starredSet]));
+  }
+  async function _getStarredDocRef() {
+    const user = currentUser;
+    if (!user) return null;
+    return doc(db, "users", user.uid);
+  }
+  async function loadStarredMessagesFromFirestore() {
+    try {
+      const ref2 = await _getStarredDocRef();
+      if (!ref2) return;
+      const snap = await getDoc(ref2);
+      if (snap.exists()) {
+        const ids = snap.data().starredMessageIds || [];
+        _saveStarredLocal(new Set(ids));
+      }
+    } catch (e) {
+      console.debug("[Chat] Could not load starred messages from Firestore:", e);
+    }
+  }
+  async function saveStarredMessages(starredSet) {
+    _saveStarredLocal(starredSet);
+    try {
+      const ref2 = await _getStarredDocRef();
+      if (!ref2) return;
+      await setDoc(ref2, { starredMessageIds: [...starredSet] }, { merge: true });
+    } catch (e) {
+      console.warn("[Chat] Could not persist starred messages to Firestore:", e);
+    }
   }
   function toggleStarMessage(msgId) {
     const starred = getStarredMessages();
@@ -25115,13 +25150,17 @@ ${this.customData.serverResponse}`;
         return msg.senderDeviceId === selectedTab || msg.receiverDeviceId === selectedTab;
       });
     }
-    const seenMsgKeys = /* @__PURE__ */ new Set();
-    filteredMessages = filteredMessages.filter((msg) => {
-      const key = `${msg.senderDeviceId}|${msg.timestamp}|${msg.content || msg.fileUrl || ""}`;
-      if (seenMsgKeys.has(key)) return false;
-      seenMsgKeys.add(key);
-      return true;
+    const starred = getStarredMessages();
+    const keyToBestMsg = /* @__PURE__ */ new Map();
+    filteredMessages.forEach((msg) => {
+      const key = `${msg.senderDeviceId}|${msg.timestamp}`;
+      if (!keyToBestMsg.has(key)) {
+        keyToBestMsg.set(key, msg);
+      } else if (starred.has(msg.id) && !starred.has(keyToBestMsg.get(key).id)) {
+        keyToBestMsg.set(key, msg);
+      }
     });
+    filteredMessages = [...keyToBestMsg.values()];
     const searchQuery = (document.getElementById("chatSearchInput")?.value || "").trim().toLowerCase();
     if (searchQuery) {
       filteredMessages = filteredMessages.filter((msg) => {
@@ -25132,7 +25171,6 @@ ${this.customData.serverResponse}`;
     }
     const showStarredOnly = document.getElementById("chatShowStarred")?.checked;
     if (showStarredOnly) {
-      const starred = getStarredMessages();
       filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
     }
     if (filteredMessages.length === 0) {
@@ -25593,7 +25631,7 @@ ${this.customData.serverResponse}`;
     window.setReplyTo = setReplyTo;
     window.clearReply = clearReply;
   }
-  var pendingFile;
+  var STARRED_LS_KEY, pendingFile;
   var init_chat = __esm({
     "src/services/chat.js"() {
       init_firebase();
@@ -25603,6 +25641,7 @@ ${this.customData.serverResponse}`;
       init_state();
       init_badges();
       init_cryptoService();
+      STARRED_LS_KEY = "chatStarredMessages";
       pendingFile = null;
     }
   });
@@ -26216,12 +26255,12 @@ ${this.customData.serverResponse}`;
     try {
       const cached = await getCachedCalls();
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
-        const hasEncryptedCache = cached.allCalls.some(
-          (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:")
-        );
+        const isEnc = (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:");
+        const encCount = cached.allCalls.filter(isEnc).length;
+        const hasEncryptedCache = encCount > 0 && encCount / cached.allCalls.length >= 0.8;
         if (hasEncryptedCache) {
-          console.warn(
-            `[Calls] \u26A0\uFE0F Encrypted calls detected in cache (${cached.allCalls.length} total) - clearing stale cache and forcing full re-fetch`
+          console.debug(
+            `[Calls] Cache mostly encrypted (${encCount}/${cached.allCalls.length}) - forcing full re-fetch`
           );
           await clearCache().catch(() => {
           });
@@ -27079,12 +27118,12 @@ ${this.customData.serverResponse}`;
       const cached = await getCachedSMS();
       cachedSMSData = cached;
       if (cached && cached.allMessages && cached.allMessages.length > 0) {
-        const hasEncryptedCache = cached.allMessages.some(
-          (msg) => msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:") || msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:") || msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:") || msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:") || msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:")
-        );
+        const isEnc = (msg) => msg.title && typeof msg.title === "string" && msg.title.startsWith("ENC:") || msg.contactName && typeof msg.contactName === "string" && msg.contactName.startsWith("ENC:") || msg.text && typeof msg.text === "string" && msg.text.startsWith("ENC:") || msg.body && typeof msg.body === "string" && msg.body.startsWith("ENC:") || msg.phoneNumber && typeof msg.phoneNumber === "string" && msg.phoneNumber.startsWith("ENC:");
+        const encCount = cached.allMessages.filter(isEnc).length;
+        const hasEncryptedCache = encCount > 0 && encCount / cached.allMessages.length >= 0.8;
         if (hasEncryptedCache) {
-          console.warn(
-            `[SMS] \xE2\u0161\xA0\xEF\xB8\x8F Encrypted messages detected in cache (${cached.allMessages.length} total) - clearing stale cache and forcing full re-fetch`
+          console.debug(
+            `[SMS] Cache mostly encrypted (${encCount}/${cached.allMessages.length}) - forcing full re-fetch`
           );
           await clearCache().catch(() => {
           });
