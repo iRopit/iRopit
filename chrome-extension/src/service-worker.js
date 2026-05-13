@@ -794,15 +794,18 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 
         if (data.status === "ringing") {
           const uid = currentUser.uid;
-          const contactRaw = data.contactName || data.phoneNumber || "Unknown";
-          const contact = await decrypt(contactRaw, uid).catch(() => contactRaw);
           const phoneRaw = data.phoneNumber || "";
           const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
+          // Only use contactName if it's a real name (not the same as phoneNumber)
+          const contactRaw = data.contactName || "";
+          let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
+          // If decryption returned the raw ENC: string or contact equals phone, treat as no name
+          if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
           const deviceLabel = deviceName || data.deviceName || "Android Device";
           const simSlot = data.simSlot;
           const simLabel = (simSlot === 0 || simSlot === 1) ? `SIM ${simSlot + 1}` : "SIM";
 
-          const callerLine = contact && contact !== phone ? `${contact} • ${phone}` : (phone || "Unknown");
+          const callerLine = contact ? `${contact} • ${phone}` : (phone || "Unknown");
           const subtitle = `${deviceLabel} • ${simLabel}`;
 
           // ── Open / update the popup window (only if toggle is enabled) ─────
@@ -845,23 +848,45 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
             } catch (e) {
               console.error("ZyncIT: ❌ Could not open popup window:", e);
             }
-          } else {
-            // Window already open — refresh URL with new params (e.g. number arrived after delay)
+          } else if (popupEnabled) {
+            // A window is already tracked for this device — close it and open a fresh one
+            // so the new caller data is shown immediately without any flash of old content.
             try {
-              const params = new URLSearchParams({
-                contact: contact || "Unknown",
-                phone: phone || "",
-                device: deviceLabel,
-                sim: String(simSlot ?? -1),
+              await chrome.windows.remove(existingWindowId);
+            } catch (_) { /* already closed */ }
+            incomingCallWindowIds.delete(deviceId);
+
+            const params = new URLSearchParams({
+              contact: contact || "Unknown",
+              phone: phone || "",
+              device: deviceLabel,
+              sim: String(simSlot ?? -1),
+            });
+            const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+            console.log("ZyncIT: 📞 Re-opening popup window for new call:", url);
+            try {
+              const win = await chrome.windows.create({
+                url,
+                type: "popup",
+                width: 360,
+                height: 360,
+                focused: true,
+                top: 80,
+                left: 80,
               });
-              const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
-              const tabs = await chrome.tabs.query({ windowId: existingWindowId });
-              if (tabs?.[0]) {
-                await chrome.tabs.update(tabs[0].id, { url });
-                console.log("ZyncIT: 📞 Refreshed popup window with updated caller info");
+              if (win?.id) {
+                incomingCallWindowIds.set(deviceId, win.id);
+                console.log("ZyncIT: ✅ New popup window opened — id:", win.id);
+                const onRemoved = (removedId) => {
+                  if (removedId === win.id) {
+                    incomingCallWindowIds.delete(deviceId);
+                    chrome.windows.onRemoved.removeListener(onRemoved);
+                  }
+                };
+                chrome.windows.onRemoved.addListener(onRemoved);
               }
             } catch (e) {
-              console.warn("ZyncIT: Could not refresh popup window:", e);
+              console.error("ZyncIT: ❌ Could not re-open popup window:", e);
             }
           }
 
