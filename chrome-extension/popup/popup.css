@@ -1888,8 +1888,9 @@ body[dir="rtl"] .device-tag {
 
 .toast {
   padding: 12px 16px;
-  background: var(--text);
-  color: var(--surface);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
   box-shadow: var(--shadow-lg);
