@@ -92,39 +92,44 @@ export function subscribeToChat(
   const q = query(
     collection(db, "chats"),
     where("participants", "array-contains", userId),
-    limit(100),
+    orderBy("timestamp", "desc"),
+    limit(200),
   );
 
   return onSnapshot(q, async (snapshot) => {
-    const messages: ChatMessage[] = [];
+    const messages: ChatMessage[] = await Promise.all(
+      snapshot.docs.map(async (d) => {
+        const data = d.data();
 
-    for (const d of snapshot.docs) {
-      const data = d.data();
+        // Decrypt all encrypted chat fields: content, fileUrl, fileName
+        let content = data.content || "";
+        let fileUrl = data.fileUrl || "";
+        let fileName = data.fileName || "";
 
-      // Decrypt all encrypted chat fields: content, fileUrl, fileName
-      let content = data.content || "";
-      let fileUrl = data.fileUrl || "";
-      let fileName = data.fileName || "";
+        try {
+          if (content) content = await decrypt(content, userId);
+          if (fileUrl) fileUrl = await decrypt(fileUrl, userId);
+          if (fileName) fileName = await decrypt(fileName, userId);
+        } catch {
+          // Decryption failure for one message should not block the rest
+        }
 
-      if (content) content = await decrypt(content, userId);
-      if (fileUrl) fileUrl = await decrypt(fileUrl, userId);
-      if (fileName) fileName = await decrypt(fileName, userId);
-
-      messages.push({
-        id: d.id,
-        content,
-        type: data.type || "text",
-        fileUrl: fileUrl || undefined,
-        fileName: fileName || undefined,
-        senderDeviceId: data.senderDeviceId || "",
-        senderPlatform: data.senderPlatform || "",
-        senderId: data.senderId || "",
-        senderName: data.senderName || "",
-        receiverDeviceId: data.receiverDeviceId || "",
-        timestamp: data.timestamp?.toMillis?.() || data.timestamp || Date.now(),
-        replyTo: data.replyTo,
-      });
-    }
+        return {
+          id: d.id,
+          content,
+          type: data.type || "text",
+          fileUrl: fileUrl || undefined,
+          fileName: fileName || undefined,
+          senderDeviceId: data.senderDeviceId || "",
+          senderPlatform: data.senderPlatform || "",
+          senderId: data.senderId || "",
+          senderName: data.senderName || "",
+          receiverDeviceId: data.receiverDeviceId || "",
+          timestamp: data.timestamp?.toMillis?.() || data.timestamp || Date.now(),
+          replyTo: data.replyTo,
+        } as ChatMessage;
+      }),
+    );
 
     messages.sort((a, b) => a.timestamp - b.timestamp);
 
