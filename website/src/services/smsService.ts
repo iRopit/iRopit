@@ -143,8 +143,11 @@ export function subscribeToSMS(
         phoneNumber = await decrypt(phoneNumber, userId);
         body = await decrypt(body, userId);
         contactName = await decrypt(contactName, userId);
-        if (!contactName || contactName === phoneNumber) {
-          contactName = resolveContactName(data, phoneNumber);
+        // Only fall back to phone number if decryption left us with nothing or
+        // an unreadable encrypted blob — do NOT re-call resolveContactName because
+        // it reads raw encrypted Firestore fields and would overwrite the decrypted value.
+        if (!contactName || contactName.startsWith("ENC:")) {
+          contactName = phoneNumber || "";
         }
 
         messages.push({
