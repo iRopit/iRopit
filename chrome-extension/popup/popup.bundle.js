@@ -30006,6 +30006,8 @@ ${this.customData.serverResponse}`;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
+  var BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+  var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
   var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
@@ -30015,7 +30017,7 @@ ${this.customData.serverResponse}`;
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
-    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
+    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
     AMOUNT_POS_RE.lastIndex = 0;

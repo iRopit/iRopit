@@ -286,6 +286,10 @@ const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|
 const BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
 // Mask balance figures — amount BEFORE keyword: "AED 5,000 balance" / "AED 5,000 is your available balance"
 const BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
+// Arabic balance figures — keyword BEFORE amount, e.g. "الرصيد المتاح 13195.21 EGP" or "المتاح 1568.76"
+const BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+// Arabic balance figures — amount BEFORE keyword, e.g. "1568.76 المتاح" / "13195.21 EGP الرصيد"
+const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
 // Unified regex to find all currency+amount candidates with their text position
 // The second alternative uses (?<!\w) to prevent matching digits embedded in card/account
 // numbers like "XXXX1311 USD" where 1311 is part of the card number, not an amount.
@@ -318,7 +322,9 @@ function extractTransactions(body) {
   // Step 1: Mask balance/informational amounts in both directions
   const masked = body
     .replace(BALANCE_MASK_RE_A, (m) => " ".repeat(m.length))
-    .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length));
+    .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_AR, (m) => " ".repeat(m.length))
+    .replace(BALANCE_MASK_RE_AR_B, (m) => " ".repeat(m.length));
 
   // Step 2: Find all currency+amount candidates with their string positions
   const candidates = [];
