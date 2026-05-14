@@ -7,6 +7,9 @@ import {
   subscribeToChat,
   sendChatMessage,
   getDeviceNames,
+  getStarredMessages,
+  loadStarredMessages,
+  toggleStarMessage,
   type ChatMessage,
 } from "@/services/chatService";
 import { getWebDeviceId } from "@/services/deviceService";
@@ -21,6 +24,10 @@ import {
   Smartphone,
   Chrome,
   Lock,
+  Star,
+  Search,
+  Reply,
+  X,
 } from "lucide-react";
 
 interface ChatTabProps {
@@ -88,12 +95,17 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
+  const [starred, setStarred] = useState<Set<string>>(new Set());
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const webDeviceId = getWebDeviceId();
 
   useEffect(() => {
     if (!user) return;
     getDeviceNames(user.uid).then(setDeviceNames);
+    loadStarredMessages(user.uid).then(setStarred);
     const unsub = subscribeToChat(user.uid, setMessages);
     return unsub;
   }, [user]);
@@ -104,14 +116,28 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
     }
   }, [messages]);
 
-  const filtered =
-    deviceFilter === "all"
-      ? messages
-      : messages.filter(
-          (m) =>
-            m.senderDeviceId === deviceFilter ||
-            m.receiverDeviceId === deviceFilter,
-        );
+  const filtered = (() => {
+    let result =
+      deviceFilter === "all"
+        ? messages
+        : messages.filter(
+            (m) =>
+              m.senderDeviceId === deviceFilter ||
+              m.receiverDeviceId === deviceFilter,
+          );
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (m) =>
+          (m.content || "").toLowerCase().includes(q) ||
+          (m.senderName || m.senderPlatform || "").toLowerCase().includes(q),
+      );
+    }
+    if (showStarredOnly) {
+      result = result.filter((m) => starred.has(m.id));
+    }
+    return result;
+  })();
 
   const handleSend = async () => {
     if (!input.trim() || !user || sending) return;
@@ -124,6 +150,7 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
         user.displayName || "",
       );
       setInput("");
+      setReplyTo(null);
     } finally {
       setSending(false);
     }
@@ -135,8 +162,40 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleToggleStar = async (msgId: string) => {
+    if (!user) return;
+    const updated = await toggleStarMessage(user.uid, msgId);
+    setStarred(new Set(updated));
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      {/* Search + Starred filter toolbar */}
+      <div className="p-3 border-b border-border flex items-center gap-2">
+        <div className="flex-1 relative">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("chat.searchMessages")}
+            className="w-full ps-10 pe-4 py-2 bg-surface-secondary border border-border rounded-full text-sm text-txt placeholder:text-txt-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+        <button
+          onClick={() => setShowStarredOnly((v) => !v)}
+          title={t("chat.showStarred")}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium border transition-colors shrink-0 ${
+            showStarredOnly
+              ? "bg-warning/15 border-warning/40 text-warning"
+              : "bg-surface-secondary border-border text-txt-secondary hover:bg-surface-tertiary"
+          }`}
+        >
+          <Star className={`w-3.5 h-3.5 ${showStarredOnly ? "fill-warning" : ""}`} />
+          {t("chat.showStarred")}
+        </button>
+      </div>
+
       {/* Messages Area */}
       {filtered.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
@@ -162,6 +221,10 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
             const isConsecutive =
               prevMsg?.senderDeviceId === msg.senderDeviceId &&
               msg.timestamp - prevMsg.timestamp < 120000;
+            const isStarred = starred.has(msg.id);
+            const replyOrigin = msg.replyTo
+              ? messages.find((m) => m.id === msg.replyTo)
+              : null;
 
             return (
               <div key={msg.id}>
@@ -198,8 +261,24 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
                         isMine
                           ? "bg-primary text-txt-inverse rounded-2xl rounded-ee-md"
                           : "bg-surface-secondary text-txt rounded-2xl rounded-es-md"
-                      } ${!isConsecutive ? "" : isMine ? "rounded-2xl rounded-ee-md" : "rounded-2xl rounded-es-md"}`}
+                      }`}
                     >
+                      {/* Reply preview */}
+                      {replyOrigin && (
+                        <div
+                          className={`text-xs px-2 py-1.5 rounded-lg mb-2 border-s-2 ${
+                            isMine
+                              ? "bg-white/10 border-white/40 text-white/70"
+                              : "bg-surface-tertiary border-primary/50 text-txt-secondary"
+                          } truncate`}
+                        >
+                          ↩{" "}
+                          {replyOrigin.content && !replyOrigin.content.startsWith("ENC:")
+                            ? replyOrigin.content.slice(0, 60)
+                            : t("chat.encryptedMessage")}
+                        </div>
+                      )}
+
                       {/* Image preview */}
                       {msg.type === "image" &&
                         msg.fileUrl &&
@@ -277,7 +356,7 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
                       {msg.content && msg.content.startsWith("ENC:") && (
                         <p className="whitespace-pre-wrap break-words opacity-50 italic text-xs flex items-center gap-1.5">
                           <Lock className="w-3 h-3" />
-                          {t("chat.encryptedMessage") || "Encrypted message"}
+                          {t("chat.encryptedMessage")}
                         </p>
                       )}
 
@@ -291,17 +370,36 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
                       )}
                     </div>
 
-                    {/* Copy action */}
-                    <button
-                      onClick={() => handleCopy(msg.content, msg.id)}
-                      className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all text-txt-tertiary hover:text-txt p-1.5 rounded-lg hover:bg-surface-secondary ${isMine ? "-start-9" : "-end-9"}`}
+                    {/* Hover action buttons */}
+                    <div
+                      className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all flex gap-0.5 ${isMine ? "-start-[88px]" : "-end-[88px]"}`}
                     >
-                      {copiedId === msg.id ? (
-                        <Check className="w-3.5 h-3.5 text-success" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                      <button
+                        onClick={() => setReplyTo(msg)}
+                        title={t("chat.replyTo")}
+                        className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt hover:bg-surface-secondary"
+                      >
+                        <Reply className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleCopy(msg.content, msg.id)}
+                        title={t("chat.copyMessage")}
+                        className="p-1.5 rounded-lg text-txt-tertiary hover:text-txt hover:bg-surface-secondary"
+                      >
+                        {copiedId === msg.id ? (
+                          <Check className="w-3.5 h-3.5 text-success" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleToggleStar(msg.id)}
+                        title={isStarred ? t("chat.unstarMessage") : t("chat.starMessage")}
+                        className={`p-1.5 rounded-lg hover:bg-surface-secondary ${isStarred ? "text-warning" : "text-txt-tertiary hover:text-txt"}`}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${isStarred ? "fill-warning" : ""}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -312,26 +410,47 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
 
       {/* Input */}
       <div className="p-3 border-t border-border bg-surface">
-        <div className="flex items-center gap-2 max-w-4xl mx-auto">
-          <div className="flex-1 flex items-center bg-surface-secondary border border-border rounded-2xl px-4 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-all">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && !e.shiftKey && handleSend()
-              }
-              placeholder={t("chat.typeMessage")}
-              className="flex-1 py-2.5 bg-transparent text-sm text-txt placeholder:text-txt-tertiary focus:outline-none"
-            />
+        <div className="flex flex-col gap-2 max-w-4xl mx-auto">
+          {/* Reply preview bar */}
+          {replyTo && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-surface-secondary rounded-xl border border-border text-xs text-txt-secondary">
+              <Reply className="w-3.5 h-3.5 shrink-0 text-primary" />
+              <span className="flex-1 truncate">
+                {t("chat.replyTo")}:{" "}
+                {replyTo.content && !replyTo.content.startsWith("ENC:")
+                  ? replyTo.content.slice(0, 80)
+                  : t("chat.encryptedMessage")}
+              </span>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="shrink-0 text-txt-tertiary hover:text-txt"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center bg-surface-secondary border border-border rounded-2xl px-4 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-all">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && !e.shiftKey && handleSend()
+                }
+                placeholder={t("chat.typeMessage")}
+                className="flex-1 py-2.5 bg-transparent text-sm text-txt placeholder:text-txt-tertiary focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || sending}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary hover:bg-primary-dark text-txt-inverse transition-all disabled:opacity-40 disabled:hover:bg-primary shrink-0 shadow-sm hover:shadow-md"
+            >
+              <Send className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || sending}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary hover:bg-primary-dark text-txt-inverse transition-all disabled:opacity-40 disabled:hover:bg-primary shrink-0 shadow-sm hover:shadow-md"
-          >
-            <Send className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>

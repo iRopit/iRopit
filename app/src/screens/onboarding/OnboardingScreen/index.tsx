@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './styles';
 import { useOnboarding } from './useOnboarding';
 import { t } from '../../../i18n';
+import { APP_VERSION } from '../../../constants';
 import { Button } from '../../../components/common';
 import {
   WelcomeStep,
@@ -248,7 +249,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         </View>
 
         {/* Version number */}
-        <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingBottom: 8, opacity: 0.6 }}>v1.0.5.26</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingBottom: 8, opacity: 0.6 }}>{`v${APP_VERSION}`}</Text>
       </SafeAreaView>
     </View>
   );

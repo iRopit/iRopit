@@ -19635,14 +19635,6 @@ function listenForSMSFromDevice(deviceId, deviceName) {
                 sendOTPToActiveTab(otp, sender, body);
               }
             }
-            if (smartActions.openUrls) {
-              const urlMatch = body.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
-              if (urlMatch) {
-                const href = urlMatch[1].startsWith("http") ? urlMatch[1] : `https://${urlMatch[1]}`;
-                chrome.tabs.create({ url: href, active: false }).catch(() => {
-                });
-              }
-            }
             if (smartActions.universalCopy && body) {
               sendTextToClipboard(body);
             }

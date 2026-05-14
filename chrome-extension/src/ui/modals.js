@@ -43,6 +43,12 @@ async function refreshContactsForSelectedDevice(force = false) {
   const deviceId = smsDevice?.value;
   if (!deviceId) return;
 
+  // Look up DOM elements by ID — this function lives outside initSmsModal so
+  // it cannot rely on closures; getElementById is the safe cross-scope approach.
+  const contactsGroup  = document.getElementById("contactsGroup");
+  const contactsSearch = document.getElementById("contactsSearch");
+  const phoneHint      = document.getElementById("phoneHint");
+
   const isRecentLoad =
     lastContactsDeviceId === deviceId &&
     Date.now() - lastContactsLoadedAt < 3000;
@@ -50,29 +56,34 @@ async function refreshContactsForSelectedDevice(force = false) {
   if (!force && isRecentLoad) return;
 
   // Show contacts group
-  contactsGroup.style.display = "block";
-  phoneHint.style.display = "block";
+  if (contactsGroup) contactsGroup.style.display = "block";
+  if (phoneHint) phoneHint.style.display = "block";
 
   // Clear previous data
-  contactsSearch.value = "";
+  if (contactsSearch) contactsSearch.value = "";
   deviceContacts = [];
   renderContacts([]);
 
-  // Load contacts
+  // Use the live in-memory contacts (kept fresh by the real-time subscription)
+  // so the modal always shows the same data as the rest of the extension.
+  // Fall back to a direct Firestore query only when state cache is empty.
   isContactsLoading = true;
-  contactsSearch.placeholder = "⏳ Loading contacts...";
+  if (contactsSearch) contactsSearch.placeholder = "⏳ Loading contacts...";
 
-  deviceContacts = await loadContactsForDevice(deviceId);
+  const cached = state.allContacts?.[deviceId];
+  deviceContacts = (cached && cached.length > 0)
+    ? cached
+    : await loadContactsForDevice(deviceId);
 
   isContactsLoading = false;
   lastContactsDeviceId = deviceId;
   lastContactsLoadedAt = Date.now();
 
   if (deviceContacts.length > 0) {
-    contactsSearch.placeholder = `Search ${deviceContacts.length} contacts...`;
+    if (contactsSearch) contactsSearch.placeholder = `Search ${deviceContacts.length} contacts...`;
     renderContacts(deviceContacts);
   } else {
-    contactsSearch.placeholder = "No contacts found";
+    if (contactsSearch) contactsSearch.placeholder = "No contacts found";
   }
 }
 

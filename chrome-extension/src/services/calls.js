@@ -67,7 +67,13 @@ function normalizePhoneNumber(phone) {
     normalized = normalized.substring(2);
   }
 
-  if (!normalized.startsWith("0") && normalized.length === 10) {
+  // Remove UAE country code (971) if present
+  if (normalized.startsWith("971") && normalized.length > 10) {
+    normalized = normalized.substring(3);
+  }
+
+  // Add leading 0 if missing (Egypt local = 10 digits, UAE local = 9 digits)
+  if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) {
     normalized = "0" + normalized;
   }
 
@@ -647,7 +653,7 @@ export function renderCalls(calls) {
       grouped[key] = {
         key: key,
         phoneNumber: call.phoneNumber || "Unknown",
-        contactName: call.contactName || "",
+        contactName: call.contactName || getContactName(normalizedPhone) || "",
         calls: [],
         lastCall: call,
         missedCount: 0,

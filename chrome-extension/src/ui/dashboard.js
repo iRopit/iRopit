@@ -6,7 +6,7 @@
 
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
-import { getFriendlyDeviceName } from "../utils/helpers.js";
+import { getFriendlyDeviceName, getPlatformIcon } from "../utils/helpers.js";
 
 /** Shorthand translator */
 function t(key) {
@@ -478,6 +478,59 @@ function renderSmsInsights(smsMessages) {
     <div class="dash-insights-section-title">${t("dash_spending_by_date")}</div>
     <div class="dash-date-spend-list">${dateRows}</div>` : ""}
   `;
+}
+
+export function updateInsightsDeviceTabs() {
+  const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+  if (!insightsDeviceTabs) return;
+
+  const mobileDevices = (state.devices || []).filter((d) => {
+    const platform = (d.platform || "").toLowerCase();
+    const type = (d.type || "").toLowerCase();
+    return (
+      type === "mobile" ||
+      type === "phone" ||
+      type === "tablet" ||
+      platform === "android" ||
+      platform === "ios"
+    );
+  });
+
+  const currentSelected =
+    insightsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  const deviceTabsHTML = mobileDevices.map((d) => {
+    const isActive = currentSelected === (d.id || d.docId) ? " active" : "";
+    return `<button class="device-tab${isActive}" data-device="${escapeHtml(d.id || d.docId)}">
+      ${getPlatformIcon(d.platform)}
+      <span>${escapeHtml(getFriendlyDeviceName(d))}</span>
+    </button>`;
+  }).join("");
+
+  const allActive = !mobileDevices.some((d) => (d.id || d.docId) === currentSelected) ? " active" : "";
+  insightsDeviceTabs.innerHTML = `
+    <button class="device-tab${allActive}" data-device="all">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>${t("dash_insights_all_devices")}</span>
+    </button>
+    ${deviceTabsHTML}
+  `;
+
+  if (!insightsDeviceTabs.dataset.wired) {
+    insightsDeviceTabs.dataset.wired = "1";
+    insightsDeviceTabs.addEventListener("click", (e) => {
+      const btn = e.target.closest(".device-tab");
+      if (!btn) return;
+      insightsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => tab.classList.remove("active"));
+      btn.classList.add("active");
+      renderDashboard();
+    });
+  }
 }
 
 /** Initialize the Dashboard tab */

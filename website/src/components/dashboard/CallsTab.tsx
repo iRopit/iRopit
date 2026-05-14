@@ -16,6 +16,7 @@ import {
   PhoneMissed,
   Clock,
   Trash2,
+  Search,
 } from "lucide-react";
 
 interface CallsTabProps {
@@ -72,6 +73,7 @@ export default function CallsTab({ devices }: CallsTabProps) {
   const { t } = useLanguage();
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [filter, setFilter] = useState<"all" | "missed">("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -98,8 +100,19 @@ export default function CallsTab({ devices }: CallsTabProps) {
     });
   }, [user, calls]);
 
-  const filtered =
-    filter === "missed" ? calls.filter((c) => c.type === "missed") : calls;
+  const filtered = (() => {
+    let result =
+      filter === "missed" ? calls.filter((c) => c.type === "missed") : calls;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.contactName.toLowerCase().includes(q) ||
+          c.phoneNumber.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  })();
 
   if (calls.length === 0) {
     return (
@@ -119,33 +132,45 @@ export default function CallsTab({ devices }: CallsTabProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Filter tabs */}
-      <div className="flex items-center gap-2 p-3 border-b border-border">
-        <button
-          onClick={() => setFilter("all")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
-            filter === "all"
-              ? "bg-primary text-txt-inverse"
-              : "text-txt-secondary hover:bg-surface-secondary"
-          }`}
-        >
-          {t("calls.allCalls")}
-        </button>
-        <button
-          onClick={() => setFilter("missed")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
-            filter === "missed"
-              ? "bg-error text-white"
-              : "text-txt-secondary hover:bg-surface-secondary"
-          }`}
-        >
-          {t("calls.missedCalls")}
-          {calls.filter((c) => c.type === "missed").length > 0 && (
-            <span className="ms-1.5 text-xs">
-              ({calls.filter((c) => c.type === "missed").length})
-            </span>
-          )}
-        </button>
+      {/* Filter tabs + Search */}
+      <div className="flex flex-col gap-2 p-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+              filter === "all"
+                ? "bg-primary text-txt-inverse"
+                : "text-txt-secondary hover:bg-surface-secondary"
+            }`}
+          >
+            {t("calls.allCalls")}
+          </button>
+          <button
+            onClick={() => setFilter("missed")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+              filter === "missed"
+                ? "bg-error text-white"
+                : "text-txt-secondary hover:bg-surface-secondary"
+            }`}
+          >
+            {t("calls.missedCalls")}
+            {calls.filter((c) => c.type === "missed").length > 0 && (
+              <span className="ms-1.5 text-xs">
+                ({calls.filter((c) => c.type === "missed").length})
+              </span>
+            )}
+          </button>
+        </div>
+        <div className="relative">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("calls.searchCalls")}
+            className="w-full ps-10 pe-4 py-2 bg-surface-secondary border border-border rounded-full text-sm text-txt placeholder:text-txt-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
       </div>
 
       {/* Call list */}

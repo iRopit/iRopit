@@ -125,8 +125,12 @@ function normalizePhoneNumber(phone) {
   if (normalized.startsWith("20") && normalized.length > 10) {
     normalized = normalized.substring(2);
   }
-  // Add leading 0 if missing for local numbers
-  if (!normalized.startsWith("0") && normalized.length === 10) {
+  // Remove UAE country code (971) if present
+  if (normalized.startsWith("971") && normalized.length > 10) {
+    normalized = normalized.substring(3);
+  }
+  // Add leading 0 if missing for local numbers (Egypt=10 digits, UAE=9 digits)
+  if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) {
     normalized = "0" + normalized;
   }
 

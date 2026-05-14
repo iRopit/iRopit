@@ -24466,6 +24466,7 @@ ${this.customData.serverResponse}`;
           sms_modal_title: "Send SMS",
           sms_label_device: "Send from device",
           sms_select_device: "Select device...",
+          sms_contacts_label: "Select from contacts",
           sms_label_phone: "Phone number",
           sms_placeholder_phone: "+1234567890",
           sms_label_message: "Message",
@@ -24563,6 +24564,7 @@ ${this.customData.serverResponse}`;
           sms_modal_title: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
           sms_label_device: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0646 \u062C\u0647\u0627\u0632",
           sms_select_device: "\u0627\u062E\u062A\u0631 \u062C\u0647\u0627\u0632...",
+          sms_contacts_label: "\u0627\u062E\u062A\u0631 \u0645\u0646 \u062C\u0647\u0627\u062A \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
           sms_label_phone: "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641",
           sms_placeholder_phone: "+1234567890",
           sms_label_message: "\u0627\u0644\u0631\u0633\u0627\u0644\u0629",
@@ -25795,173 +25797,6 @@ ${this.customData.serverResponse}`;
     }
   });
 
-  // src/services/contacts.js
-  function normalizePhoneNumber(phone) {
-    if (!phone || !phone.trim()) return "";
-    let normalized = phone.replace(/[^\d+]/g, "").trim();
-    normalized = normalized.replace(/^\+/, "");
-    if (normalized.startsWith("20") && normalized.length > 10) {
-      normalized = normalized.substring(2);
-    }
-    if (!normalized.startsWith("0") && normalized.length === 10) {
-      normalized = "0" + normalized;
-    }
-    return normalized;
-  }
-  async function loadContactsForDevice(deviceId) {
-    const user = currentUser;
-    if (!user || !deviceId) {
-      console.log("[Contacts] No user or device ID");
-      return [];
-    }
-    try {
-      const contactsRef = collection(
-        db,
-        "users",
-        user.uid,
-        "devices",
-        deviceId,
-        "contacts"
-      );
-      const q2 = query(contactsRef, orderBy("name", "asc"));
-      const snapshot = await getDocs(q2);
-      const contacts = [];
-      snapshot.forEach((doc2) => {
-        const data = doc2.data();
-        contacts.push({
-          id: doc2.id,
-          name: data.name || "Unknown",
-          phoneNumber: data.phoneNumber || "",
-          phoneNumbers: data.phoneNumbers || [data.phoneNumber]
-        });
-      });
-      console.log(
-        `[Contacts] Loaded ${contacts.length} contacts for device ${deviceId}`
-      );
-      return contacts;
-    } catch (error) {
-      if (error?.code === "permission-denied") return [];
-      console.error("[Contacts] Error loading contacts:", error);
-      return [];
-    }
-  }
-  async function loadAllContacts() {
-    const user = currentUser;
-    if (!user) return {};
-    stopContactsListeners();
-    const allContacts2 = {};
-    const phoneMap = {};
-    for (const device of devices) {
-      if (device.platform !== "chrome" && device.platform !== "chrome-extension") {
-        const contacts = await loadContactsForDevice(device.id);
-        if (contacts.length > 0) {
-          allContacts2[device.id] = contacts;
-          contacts.forEach((contact) => {
-            const phones = contact.phoneNumbers || [contact.phoneNumber];
-            phones.forEach((phone) => {
-              if (phone) {
-                const normalizedPhone = normalizePhoneNumber(phone);
-                if (normalizedPhone && !phoneMap[normalizedPhone]) {
-                  phoneMap[normalizedPhone] = contact.name;
-                }
-              }
-            });
-          });
-        }
-        const contactsRef = collection(
-          db,
-          "users",
-          user.uid,
-          "devices",
-          device.id,
-          "contacts"
-        );
-        const q2 = query(contactsRef, orderBy("name", "asc"));
-        const unsub = onSnapshot(
-          q2,
-          (snapshot) => {
-            if (snapshot.empty) return;
-            const updatedContacts = [];
-            snapshot.forEach((docSnap) => {
-              const data = docSnap.data();
-              updatedContacts.push({
-                id: docSnap.id,
-                name: data.name || "Unknown",
-                phoneNumber: data.phoneNumber || "",
-                phoneNumbers: data.phoneNumbers || [data.phoneNumber]
-              });
-            });
-            console.log(
-              `[Contacts] Real-time update: ${updatedContacts.length} contacts for device ${device.id}`
-            );
-            const currentAllContacts = { ...allContacts };
-            currentAllContacts[device.id] = updatedContacts;
-            setAllContacts(currentAllContacts);
-            const newPhoneMap = {};
-            Object.values(currentAllContacts).forEach((deviceContacts2) => {
-              deviceContacts2.forEach((contact) => {
-                const phones = contact.phoneNumbers || [contact.phoneNumber];
-                phones.forEach((phone) => {
-                  if (phone) {
-                    const normalized = normalizePhoneNumber(phone);
-                    if (normalized && !newPhoneMap[normalized]) {
-                      newPhoneMap[normalized] = contact.name;
-                    }
-                  }
-                });
-              });
-            });
-            setPhoneToContactMap(newPhoneMap);
-            console.log(
-              `[Contacts] Updated phone map: ${Object.keys(newPhoneMap).length} entries`
-            );
-          },
-          (error) => {
-            if (error?.code === "permission-denied") return;
-            console.error(
-              `[Contacts] Listener error for device ${device.id}:`,
-              error
-            );
-          }
-        );
-        contactsUnsubscribeFunctions.push(unsub);
-      }
-    }
-    setAllContacts(allContacts2);
-    setPhoneToContactMap(phoneMap);
-    console.log(
-      `[Contacts] Loaded contacts from ${Object.keys(allContacts2).length} devices`
-    );
-    console.log(
-      `[Contacts] Built phone map with ${Object.keys(phoneMap).length} entries`
-    );
-    return allContacts2;
-  }
-  function stopContactsListeners() {
-    contactsUnsubscribeFunctions.forEach((unsub) => unsub());
-    contactsUnsubscribeFunctions = [];
-  }
-  function getContactName(phoneNumber) {
-    if (!phoneNumber) return "";
-    const normalized = normalizePhoneNumber(phoneNumber);
-    return phoneToContactMap[normalized] || "";
-  }
-  function searchContacts(contacts, searchTerm) {
-    if (!searchTerm || !contacts) return contacts;
-    const term = searchTerm.toLowerCase();
-    return contacts.filter(
-      (contact) => contact.name.toLowerCase().includes(term) || contact.phoneNumber.includes(term) || contact.phoneNumbers && contact.phoneNumbers.some((p) => p.includes(term))
-    );
-  }
-  var contactsUnsubscribeFunctions;
-  var init_contacts = __esm({
-    "src/services/contacts.js"() {
-      init_firebase();
-      init_state();
-      contactsUnsubscribeFunctions = [];
-    }
-  });
-
   // src/services/cache.js
   function stripNonSerializable(items) {
     return items.map((item) => {
@@ -26137,14 +25972,17 @@ ${this.customData.serverResponse}`;
       selectAllCb.indeterminate = selectedCallGroups.size > 0 && selectedCallGroups.size < totalGroups;
     }
   }
-  function normalizePhoneNumber2(phone) {
+  function normalizePhoneNumber(phone) {
     if (!phone || !phone.trim()) return "";
     let normalized = phone.replace(/[^\d+]/g, "").trim();
     normalized = normalized.replace(/^\+/, "");
     if (normalized.startsWith("20") && normalized.length > 10) {
       normalized = normalized.substring(2);
     }
-    if (!normalized.startsWith("0") && normalized.length === 10) {
+    if (normalized.startsWith("971") && normalized.length > 10) {
+      normalized = normalized.substring(3);
+    }
+    if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) {
       normalized = "0" + normalized;
     }
     return normalized;
@@ -26516,13 +26354,13 @@ ${this.customData.serverResponse}`;
     }
     const grouped = {};
     filteredCalls.forEach((call) => {
-      const normalizedPhone = normalizePhoneNumber2(call.phoneNumber || "");
+      const normalizedPhone = normalizePhoneNumber(call.phoneNumber || "");
       const key = normalizedPhone ? normalizedPhone : call.contactName ? `contact_${call.contactName}` : "Unknown";
       if (!grouped[key]) {
         grouped[key] = {
           key,
           phoneNumber: call.phoneNumber || "Unknown",
-          contactName: call.contactName || "",
+          contactName: call.contactName || getContactName(normalizedPhone) || "",
           calls: [],
           lastCall: call,
           missedCount: 0,
@@ -26993,6 +26831,182 @@ ${this.customData.serverResponse}`;
     }
   });
 
+  // src/services/contacts.js
+  function normalizePhoneNumber2(phone) {
+    if (!phone || !phone.trim()) return "";
+    let normalized = phone.replace(/[^\d+]/g, "").trim();
+    normalized = normalized.replace(/^\+/, "");
+    if (normalized.startsWith("20") && normalized.length > 10) {
+      normalized = normalized.substring(2);
+    }
+    if (normalized.startsWith("971") && normalized.length > 10) {
+      normalized = normalized.substring(3);
+    }
+    if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) {
+      normalized = "0" + normalized;
+    }
+    return normalized;
+  }
+  async function loadContactsForDevice(deviceId) {
+    const user = currentUser;
+    if (!user || !deviceId) {
+      console.log("[Contacts] No user or device ID");
+      return [];
+    }
+    try {
+      const contactsRef = collection(
+        db,
+        "users",
+        user.uid,
+        "devices",
+        deviceId,
+        "contacts"
+      );
+      const q2 = query(contactsRef, orderBy("name", "asc"));
+      const snapshot = await getDocs(q2);
+      const contacts = [];
+      snapshot.forEach((doc2) => {
+        const data = doc2.data();
+        contacts.push({
+          id: doc2.id,
+          name: data.name || "Unknown",
+          phoneNumber: data.phoneNumber || "",
+          phoneNumbers: data.phoneNumbers || [data.phoneNumber]
+        });
+      });
+      console.log(
+        `[Contacts] Loaded ${contacts.length} contacts for device ${deviceId}`
+      );
+      return contacts;
+    } catch (error) {
+      if (error?.code === "permission-denied") return [];
+      console.error("[Contacts] Error loading contacts:", error);
+      return [];
+    }
+  }
+  async function loadAllContacts() {
+    const user = currentUser;
+    if (!user) return {};
+    stopContactsListeners();
+    const allContacts2 = {};
+    const phoneMap = {};
+    for (const device of devices) {
+      if (device.platform !== "chrome" && device.platform !== "chrome-extension") {
+        const contacts = await loadContactsForDevice(device.id);
+        if (contacts.length > 0) {
+          allContacts2[device.id] = contacts;
+          contacts.forEach((contact) => {
+            const phones = contact.phoneNumbers || [contact.phoneNumber];
+            phones.forEach((phone) => {
+              if (phone) {
+                const normalizedPhone = normalizePhoneNumber2(phone);
+                if (normalizedPhone && !phoneMap[normalizedPhone]) {
+                  phoneMap[normalizedPhone] = contact.name;
+                }
+              }
+            });
+          });
+        }
+        const contactsRef = collection(
+          db,
+          "users",
+          user.uid,
+          "devices",
+          device.id,
+          "contacts"
+        );
+        const q2 = query(contactsRef, orderBy("name", "asc"));
+        const unsub = onSnapshot(
+          q2,
+          (snapshot) => {
+            if (snapshot.empty) return;
+            const updatedContacts = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data();
+              updatedContacts.push({
+                id: docSnap.id,
+                name: data.name || "Unknown",
+                phoneNumber: data.phoneNumber || "",
+                phoneNumbers: data.phoneNumbers || [data.phoneNumber]
+              });
+            });
+            console.log(
+              `[Contacts] Real-time update: ${updatedContacts.length} contacts for device ${device.id}`
+            );
+            const currentAllContacts = { ...allContacts };
+            currentAllContacts[device.id] = updatedContacts;
+            setAllContacts(currentAllContacts);
+            const newPhoneMap = {};
+            Object.values(currentAllContacts).forEach((deviceContacts2) => {
+              deviceContacts2.forEach((contact) => {
+                const phones = contact.phoneNumbers || [contact.phoneNumber];
+                phones.forEach((phone) => {
+                  if (phone) {
+                    const normalized = normalizePhoneNumber2(phone);
+                    if (normalized && !newPhoneMap[normalized]) {
+                      newPhoneMap[normalized] = contact.name;
+                    }
+                  }
+                });
+              });
+            });
+            setPhoneToContactMap(newPhoneMap);
+            console.log(
+              `[Contacts] Updated phone map: ${Object.keys(newPhoneMap).length} entries`
+            );
+            if (allCallsData && allCallsData.length > 0) {
+              Promise.resolve().then(() => (init_calls(), calls_exports)).then(({ renderCalls: renderCalls2 }) => {
+                renderCalls2(allCallsData);
+              }).catch(() => {
+              });
+            }
+          },
+          (error) => {
+            if (error?.code === "permission-denied") return;
+            console.error(
+              `[Contacts] Listener error for device ${device.id}:`,
+              error
+            );
+          }
+        );
+        contactsUnsubscribeFunctions.push(unsub);
+      }
+    }
+    setAllContacts(allContacts2);
+    setPhoneToContactMap(phoneMap);
+    console.log(
+      `[Contacts] Loaded contacts from ${Object.keys(allContacts2).length} devices`
+    );
+    console.log(
+      `[Contacts] Built phone map with ${Object.keys(phoneMap).length} entries`
+    );
+    return allContacts2;
+  }
+  function stopContactsListeners() {
+    contactsUnsubscribeFunctions.forEach((unsub) => unsub());
+    contactsUnsubscribeFunctions = [];
+  }
+  function getContactName(phoneNumber) {
+    if (!phoneNumber) return "";
+    const normalized = normalizePhoneNumber2(phoneNumber);
+    return phoneToContactMap[normalized] || "";
+  }
+  function searchContacts(contacts, searchTerm) {
+    if (!searchTerm || !contacts) return contacts;
+    const term = searchTerm.toLowerCase();
+    return contacts.filter(
+      (contact) => contact.name.toLowerCase().includes(term) || contact.phoneNumber.includes(term) || contact.phoneNumbers && contact.phoneNumbers.some((p) => p.includes(term))
+    );
+  }
+  var contactsUnsubscribeFunctions;
+  var init_contacts = __esm({
+    "src/services/contacts.js"() {
+      init_firebase();
+      init_state();
+      contactsUnsubscribeFunctions = [];
+    }
+  });
+
   // src/services/sms.js
   var sms_exports = {};
   __export(sms_exports, {
@@ -27043,7 +27057,10 @@ ${this.customData.serverResponse}`;
     if (normalized.startsWith("20") && normalized.length > 10) {
       normalized = normalized.substring(2);
     }
-    if (!normalized.startsWith("0") && normalized.length === 10) {
+    if (normalized.startsWith("971") && normalized.length > 10) {
+      normalized = normalized.substring(3);
+    }
+    if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) {
       normalized = "0" + normalized;
     }
     return normalized;
@@ -29787,7 +29804,6 @@ ${this.customData.serverResponse}`;
     CALLS: "cached_calls_data",
     NOTIFICATIONS: "cached_notifications_data"
   };
-  var dashboardRenderSeq = 0;
   function toDateStr(ts) {
     const d = new Date(ts);
     const y = d.getFullYear();
@@ -29807,60 +29823,19 @@ ${this.customData.serverResponse}`;
       CACHE_KEYS.CALLS,
       CACHE_KEYS.NOTIFICATIONS
     ]);
-    const stateSms = allSMSMessages || [];
-    const cacheSms = result[CACHE_KEYS.SMS]?.allMessages || [];
-    const seenIds = /* @__PURE__ */ new Set();
-    const seenContent = /* @__PURE__ */ new Set();
-    const allSms = [];
-    for (const msg of [...stateSms, ...cacheSms]) {
-      const uniqueId = msg.docId || msg.id || msg.docRef?.path || `${msg.timestamp}_${msg.phoneNumber || msg.sender || ""}`;
-      if (seenIds.has(uniqueId)) continue;
-      seenIds.add(uniqueId);
-      const phone = ((msg.phoneNumber || msg.sender || "") + "").trim().toLowerCase();
-      const body = ((msg.body || msg.text || "") + "").trim().substring(0, 100);
-      const timeWindow = Math.floor((msg.timestamp || 0) / 3e5);
-      const contentKey = `${phone}_${timeWindow}_${body}`;
-      const bodyKey = body.length > 20 ? `body_${timeWindow}_${body}` : null;
-      if (seenContent.has(contentKey)) continue;
-      if (bodyKey && seenContent.has(bodyKey)) continue;
-      seenContent.add(contentKey);
-      if (bodyKey) seenContent.add(bodyKey);
-      allSms.push(msg);
-    }
-    const callsFromFlat = allCallsData || [];
-    const callsByDeviceFlat = Object.values(allCallsByDevice || {}).flat();
-    const stateNotifFlat = allNotificationsMessages || [];
-    const cacheNotifFlat = Object.values(
-      result[CACHE_KEYS.NOTIFICATIONS]?.byDevice || {}
-    ).flat();
-    const sourceNotifs = stateNotifFlat.length > 0 ? stateNotifFlat : cacheNotifFlat;
-    const isRealDevice = (did) => did && did !== "user" && did !== "_user_notifications";
-    const DAY_MS = 24 * 60 * 60 * 1e3;
-    const notifByBucket = /* @__PURE__ */ new Map();
-    for (const n of sourceNotifs) {
-      const title = (n.title || n.appName || "").trim();
-      const body = String(n.body || n.text || "").trim().slice(0, 200);
-      if (!title && !body) continue;
-      const ts = getEventTs(n, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
-      const dayBucket = ts > 0 ? Math.floor(ts / DAY_MS) : 0;
-      const bucket = `${title}|${body}|${dayBucket}`;
-      const existing = notifByBucket.get(bucket);
-      if (!existing) {
-        notifByBucket.set(bucket, n);
-      } else if (!isRealDevice(existing.deviceId) && isRealDevice(n.deviceId)) {
-        notifByBucket.set(bucket, n);
+    const smsData = result[CACHE_KEYS.SMS];
+    const callsData = result[CACHE_KEYS.CALLS];
+    const notifData = result[CACHE_KEYS.NOTIFICATIONS];
+    const allSms = smsData?.allMessages || [];
+    const allCalls = callsData?.allCalls || [];
+    const allNotifs = [];
+    if (notifData?.byDevice) {
+      for (const deviceNotifs of Object.values(notifData.byDevice)) {
+        if (Array.isArray(deviceNotifs)) {
+          allNotifs.push(...deviceNotifs);
+        }
       }
     }
-    let allNotifs = Array.from(notifByBucket.values());
-    let storageAllCalls = result[CACHE_KEYS.CALLS]?.allCalls || [];
-    const callsById = /* @__PURE__ */ new Map();
-    for (const call of [...storageAllCalls, ...callsByDeviceFlat, ...callsFromFlat]) {
-      const key = call.id || call.key;
-      if (key && !callsById.has(key)) callsById.set(key, call);
-      else if (!key) callsById.set(/* @__PURE__ */ Symbol(), call);
-    }
-    const allCalls = Array.from(callsById.values());
-    console.log(`[Dashboard] loadRawData: sms=${allSms.length} (state=${stateSms.length}, cache=${cacheSms.length}), calls=${allCalls.length}, notifs=${allNotifs.length}`);
     return { allSms, allCalls, allNotifs };
   }
   function setDefaultDates() {
@@ -29882,31 +29857,7 @@ ${this.customData.serverResponse}`;
   function dayEnd(dateStr) {
     return (/* @__PURE__ */ new Date(dateStr + "T23:59:59.999")).getTime();
   }
-  function getEventTs(record, preferredKeys = []) {
-    if (!record || typeof record !== "object") return 0;
-    const fallbackKeys = ["timestamp", "receivedAt", "callDate", "date", "createdAt", "time", "ts"];
-    const keys = preferredKeys.length > 0 ? preferredKeys : fallbackKeys;
-    for (const key of keys) {
-      const raw = record[key];
-      if (raw == null) continue;
-      if (typeof raw === "object" && typeof raw.seconds === "number") {
-        const ms = raw.seconds * 1e3 + Math.floor((raw.nanoseconds || 0) / 1e6);
-        if (ms > 0) return ms;
-        continue;
-      }
-      if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
-        const ms = new Date(raw).getTime();
-        if (Number.isFinite(ms) && ms > 0) return ms;
-        continue;
-      }
-      const n = Number(raw);
-      if (!Number.isFinite(n) || n <= 0) continue;
-      return n < 1e12 ? n * 1e3 : n;
-    }
-    return 0;
-  }
   async function renderDashboard() {
-    const renderSeq = ++dashboardRenderSeq;
     const fromInput = document.getElementById("dashFromDate");
     const toInput = document.getElementById("dashToDate");
     const smsCountEl = document.getElementById("dashSmsCount");
@@ -29930,64 +29881,37 @@ ${this.customData.serverResponse}`;
     const fromTs = dayStart(fromVal);
     const toTs = dayEnd(toVal);
     const { allSms, allCalls, allNotifs } = await loadRawData();
-    if (renderSeq !== dashboardRenderSeq) return;
     const filteredSms = allSms.filter((m) => {
-      const ts = getEventTs(m, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
+      const ts = m.timestamp || m.receivedAt || 0;
       return ts >= fromTs && ts <= toTs;
     });
     const filteredCalls = allCalls.filter((c) => {
-      const ts = getEventTs(c, ["timestamp", "callDate", "receivedAt", "date", "createdAt", "time"]);
+      const ts = c.timestamp || c.callDate || 0;
       return ts >= fromTs && ts <= toTs;
     });
     const filteredNotifs = allNotifs.filter((n) => {
-      const ts = getEventTs(n, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
+      const ts = n.timestamp || n.receivedAt || 0;
       return ts >= fromTs && ts <= toTs;
     });
-    updateInsightsDeviceTabs();
-    const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
-    const selectedInsightsDevice = insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
-    const mobileDeviceIds = new Set(
-      (devices || []).filter((d) => {
-        const platform = (d.platform || "").toLowerCase();
-        const type = (d.type || "").toLowerCase();
-        return type === "mobile" || type === "phone" || type === "tablet" || platform === "android" || platform === "ios";
-      }).map((d) => d.id || d.docId)
-    );
-    if (mobileDeviceIds.size === 0) {
-      for (const m of filteredSms) {
-        if (m.deviceId && m.deviceId !== "user" && m.deviceId !== "_user_notifications") {
-          mobileDeviceIds.add(m.deviceId);
-        }
-      }
-      for (const c of filteredCalls) {
-        if (c.deviceId && c.deviceId !== "user" && c.deviceId !== "_user_notifications") {
-          mobileDeviceIds.add(c.deviceId);
-        }
-      }
-    }
-    const isUserLevel = (did) => did === "user" || did === "_user_notifications";
-    const deviceFilteredSms = selectedInsightsDevice === "all" ? filteredSms.filter((m) => mobileDeviceIds.has(m.deviceId)) : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-    const deviceFilteredCalls = selectedInsightsDevice === "all" ? filteredCalls.filter((c) => mobileDeviceIds.has(c.deviceId)) : filteredCalls.filter((c) => c.deviceId === selectedInsightsDevice);
-    const deviceFilteredNotifs = selectedInsightsDevice === "all" ? filteredNotifs : filteredNotifs.filter((n) => n.deviceId === selectedInsightsDevice);
-    if (smsCountEl) smsCountEl.textContent = deviceFilteredSms.length;
-    if (callsCountEl) callsCountEl.textContent = deviceFilteredCalls.length;
-    if (notifCountEl) notifCountEl.textContent = deviceFilteredNotifs.length;
+    if (smsCountEl) smsCountEl.textContent = filteredSms.length;
+    if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
+    if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
     const byDate = {};
-    for (const n of deviceFilteredNotifs) {
-      const ts = getEventTs(n, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
+    for (const n of filteredNotifs) {
+      const ts = n.timestamp || n.receivedAt || 0;
       const dateKey = toDateStr(ts);
       if (!byDate[dateKey]) byDate[dateKey] = [];
       byDate[dateKey].push({ ...n, _ts: ts });
     }
     const smsByDate = {};
-    for (const m of deviceFilteredSms) {
-      const ts = getEventTs(m, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
+    for (const m of filteredSms) {
+      const ts = m.timestamp || m.receivedAt || 0;
       const dk = toDateStr(ts);
       smsByDate[dk] = (smsByDate[dk] || 0) + 1;
     }
     const callsByDate = {};
-    for (const c of deviceFilteredCalls) {
-      const ts = getEventTs(c, ["timestamp", "callDate", "receivedAt", "date", "createdAt", "time"]);
+    for (const c of filteredCalls) {
+      const ts = c.timestamp || c.callDate || 0;
       const dk = toDateStr(ts);
       callsByDate[dk] = (callsByDate[dk] || 0) + 1;
     }
@@ -29997,14 +29921,6 @@ ${this.customData.serverResponse}`;
       ...Object.keys(callsByDate)
     ]);
     const sortedDates = Array.from(allDates).sort((a, b) => b.localeCompare(a));
-    const insightNotifToTs = toTs + 24 * 60 * 60 * 1e3;
-    const insightNotifs = allNotifs.filter((n) => {
-      const ts = getEventTs(n, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
-      if (ts < fromTs || ts > insightNotifToTs) return false;
-      if (selectedInsightsDevice === "all") return true;
-      return n.deviceId === selectedInsightsDevice;
-    });
-    renderSmsInsights(deviceFilteredSms, insightNotifs, toTs);
     if (sortedDates.length === 0) {
       breakdownList.innerHTML = `<div class="empty-state">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -30016,6 +29932,24 @@ ${this.customData.serverResponse}`;
     </div>`;
       return;
     }
+    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+    if (insightsDeviceSelect) {
+      const mobileDevices = (devices || []).filter((d) => {
+        const platform = (d.platform || "").toLowerCase();
+        const type = (d.type || "").toLowerCase();
+        return !platform.includes("chrome") && type !== "extension";
+      });
+      const prevVal = insightsDeviceSelect.value;
+      insightsDeviceSelect.innerHTML = `<option value="all">${t("dash_insights_all_devices")}</option>` + mobileDevices.map(
+        (d) => `<option value="${escapeHtml2(d.id)}">${escapeHtml2(getFriendlyDeviceName(d))}</option>`
+      ).join("");
+      if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
+        insightsDeviceSelect.value = prevVal;
+      }
+    }
+    const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
+    const insightsSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
+    renderSmsInsights(insightsSms);
     const html = sortedDates.map((dateKey) => {
       const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
       const smsCount = smsByDate[dateKey] || 0;
@@ -30067,38 +30001,21 @@ ${this.customData.serverResponse}`;
     "\uFDFC": "SAR"
   };
   var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
-  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|salary|transferred\s+to\s+your|received\s+(?:in(?:to)?|to)\s+(?:your|the)|incoming\s+(?:transfer|wire|payment|fund|funds?))\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد|إلى\s*حسابك|الى\s*حسابك)/i;
-  var STRONG_CREDIT_RE = /\b(credited|deposited|reversed)\b/i;
-  var STRONG_DEBIT_RE = /\b(debited|deducted|deduct|withdrawn|withdrawal|charged)\b/i;
+  var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
-  var BALANCE_MASK_AR = /(?:الرصيد\s*المتاح|رصيدك\s*المتاح|رصيدك|الرصيد|الحد\s*المتاح|الحد\s*الائتماني|حد\s*الائتمان|المبلغ\s*المتاح|الرصيد\s*الحالي|رصيد\s*حسابك)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
-    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund|reversed)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|حسابك|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|تم\s*تنفيذ\s*تحويل|عملية\s*شراء|للمزيد\s*اتصل)/i;
+    const STRONG = /\b(debited|credited|transaction|txn|purchase|withdrawal|has been used|used for|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
     return STRONG.test(body);
   }
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
-    if (CARD_BILL_PAYMENT_RE.test(body)) {
-      const creditResults = [];
-      AMOUNT_POS_RE.lastIndex = 0;
-      let cm;
-      while ((cm = AMOUNT_POS_RE.exec(body)) !== null) {
-        const currRaw = (cm[1] || cm[4] || "").trim().toUpperCase();
-        const amtRaw = (cm[2] || cm[3] || "").replace(/,/g, "");
-        const amount = parseFloat(amtRaw);
-        if (!isNaN(amount) && amount > 0 && currRaw) {
-          const currency = CURRENCY_MAP[currRaw] || currRaw;
-          creditResults.push({ amount, currency, type: "credit" });
-        }
-      }
-      return creditResults;
-    }
-    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_AR, (m2) => " ".repeat(m2.length));
+    if (CARD_BILL_PAYMENT_RE.test(body)) return [];
+    const masked = body.replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
     AMOUNT_POS_RE.lastIndex = 0;
@@ -30122,9 +30039,7 @@ ${this.customData.serverResponse}`;
       const isCredit = CREDIT_KEYWORDS.test(ctx);
       if (!isDebit && !isCredit) continue;
       if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
-      const isStrongCredit = STRONG_CREDIT_RE.test(ctx);
-      const isStrongDebit = STRONG_DEBIT_RE.test(ctx);
-      const type = isStrongCredit && !isStrongDebit ? "credit" : isCredit && !isDebit ? "credit" : "debit";
+      const type = isCredit && !isDebit ? "credit" : "debit";
       const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
       const key = `${currency}:${c.amount}:${type}`;
       if (seen.has(key)) continue;
@@ -30133,70 +30048,49 @@ ${this.customData.serverResponse}`;
     }
     return results;
   }
-  function analyzeSmsSpending(smsMessages, notifMessages = [], toTs = Infinity) {
+  function analyzeSmsSpending(smsMessages) {
     const byCurrency = {};
     const byDate = {};
-    console.log(`[Insights] analyzeSmsSpending: ${smsMessages.length} SMS, ${notifMessages.length} notifications`);
-    if (smsMessages.length <= 50) {
-      smsMessages.forEach((m, i) => {
-        const ts = getEventTs(m, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
-        const body = m.bigText || m.body || m.text || m.content || m.title || "";
-        const sender = m.sender || m.address || "?";
-        console.log(`[Insights] SMS[${i}] ts=${ts > 0 ? new Date(ts).toISOString() : "NO_TS"} sender="${sender.slice(0, 20)}" body="${body.slice(0, 80)}"`);
-      });
-    }
-    let bankingCount = 0;
-    function accumulate(txn, ts, sender, body) {
-      const cur = txn.currency;
-      if (!byCurrency[cur]) byCurrency[cur] = { debit: 0, credit: 0, txns: [] };
-      if (txn.type === "debit") byCurrency[cur].debit += txn.amount;
-      if (txn.type === "credit") byCurrency[cur].credit += txn.amount;
-      byCurrency[cur].txns.push({
-        amount: txn.amount,
-        type: txn.type,
-        sender: escapeHtml2(sender),
-        ts,
-        snippet: escapeHtml2(body.slice(0, 80))
-      });
-      if (ts > 0) {
-        const dk = toDateStr(ts);
-        if (!byDate[dk]) byDate[dk] = {};
-        if (!byDate[dk][cur]) byDate[dk][cur] = { debit: 0, credit: 0 };
-        if (txn.type === "debit") byDate[dk][cur].debit += txn.amount;
-        if (txn.type === "credit") byDate[dk][cur].credit += txn.amount;
-      }
-    }
-    const smsAmountsGlobal = /* @__PURE__ */ new Set();
-    const TXN_VERB_RE = /\b(debited|credited|deposited|charged|withdrawn|withdrawal|deducted|reversed|refund|cashback|used\s+for|has\s+been\s+used|paid|payment|purchase|transferred|transfer)\b|(?:تم\s*خصم|تم\s*(?:ايداع|إيداع)|تم\s*(?:اضافة|إضافة)|تم\s*تنفيذ\s*تحويل|عملية\s*شراء|سحب|راتب|استرداد)/i;
     for (const msg of smsMessages) {
-      const body = msg.bigText || msg.body || msg.text || msg.content || msg.title || "";
+      const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
-      bankingCount++;
       const sender = msg.sender || msg.address || "Unknown";
-      const ts = getEventTs(msg, ["timestamp", "createdAt", "receivedAt", "date", "time"]);
-      const dateStr = ts > 0 ? toDateStr(ts) : "nodate";
+      const ts = msg.timestamp || msg.receivedAt || 0;
       const txns = extractTransactions(body);
-      console.log(`[Insights] SMS #${bankingCount}: sender="${sender.slice(0, 20)}", body="${body.slice(0, 90)}", txns=[${txns.map((t2) => `${t2.type} ${t2.currency} ${t2.amount}`).join(", ") || "none"}]`);
       for (const txn of txns) {
-        smsAmountsGlobal.add(`${txn.currency}:${txn.amount}`);
-        accumulate(txn, ts, sender, body);
+        const cur = txn.currency;
+        if (!byCurrency[cur]) byCurrency[cur] = { debit: 0, credit: 0, txns: [] };
+        if (txn.type === "debit") byCurrency[cur].debit += txn.amount;
+        if (txn.type === "credit") byCurrency[cur].credit += txn.amount;
+        byCurrency[cur].txns.push({
+          amount: txn.amount,
+          type: txn.type,
+          sender: escapeHtml2(sender),
+          ts,
+          snippet: escapeHtml2(body.slice(0, 80))
+        });
+        if (ts) {
+          const dk = toDateStr(ts);
+          if (!byDate[dk]) byDate[dk] = {};
+          if (!byDate[dk][cur]) byDate[dk][cur] = { debit: 0, credit: 0 };
+          if (txn.type === "debit") byDate[dk][cur].debit += txn.amount;
+          if (txn.type === "credit") byDate[dk][cur].credit += txn.amount;
+        }
       }
     }
-    void notifMessages;
-    console.log(`[Insights] Done: ${bankingCount} SMS banking msgs (notifications path disabled). Totals:`, Object.fromEntries(Object.entries(byCurrency).map(([c, v]) => [c, `+${v.credit} -${v.debit}`])));
     return { byCurrency, byDate };
   }
   function fmtAmt(n) {
     return n.toLocaleString(void 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  function renderSmsInsights(smsMessages, notifMessages = [], toTs = Infinity) {
+  function renderSmsInsights(smsMessages) {
     const container = document.getElementById("dashInsightsBody");
     if (!container) return;
-    if ((!smsMessages || smsMessages.length === 0) && (!notifMessages || notifMessages.length === 0)) {
+    if (!smsMessages || smsMessages.length === 0) {
       container.innerHTML = `<div class="dash-insights-empty">${t("dash_insights_no_sms")}</div>`;
       return;
     }
-    const { byCurrency, byDate } = analyzeSmsSpending(smsMessages, notifMessages, toTs);
+    const { byCurrency, byDate } = analyzeSmsSpending(smsMessages);
     const currencies = Object.keys(byCurrency);
     if (currencies.length === 0) {
       container.innerHTML = `<div class="dash-insights-empty">${t("dash_insights_no_financial")}</div>`;
@@ -30287,18 +30181,6 @@ ${this.customData.serverResponse}`;
   }
   function initDashboard() {
     setDefaultDates();
-    document.addEventListener("callsDataUpdated", () => {
-      const insightsTabEl = document.getElementById("dashboardTab");
-      if (insightsTabEl && insightsTabEl.classList.contains("active")) {
-        renderDashboard();
-      }
-    });
-    document.addEventListener("notificationsDataUpdated", () => {
-      const insightsTabEl = document.getElementById("dashboardTab");
-      if (insightsTabEl && insightsTabEl.classList.contains("active")) {
-        renderDashboard();
-      }
-    });
     const filterBtn = document.getElementById("dashFilterBtn");
     const resetBtn = document.getElementById("dashResetBtn");
     if (filterBtn) {
@@ -30313,6 +30195,10 @@ ${this.customData.serverResponse}`;
         setDefaultDates();
         renderDashboard();
       });
+    }
+    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
+    if (insightsDeviceSelect) {
+      insightsDeviceSelect.addEventListener("change", () => renderDashboard());
     }
     document.querySelectorAll(".tab").forEach((tab) => {
       if (tab.dataset.tab === "dashboard") {
@@ -30336,37 +30222,41 @@ ${this.customData.serverResponse}`;
   async function refreshContactsForSelectedDevice(force = false) {
     const deviceId = smsDevice?.value;
     if (!deviceId) return;
+    const contactsGroup = document.getElementById("contactsGroup");
+    const contactsSearch = document.getElementById("contactsSearch");
+    const phoneHint = document.getElementById("phoneHint");
     const isRecentLoad = lastContactsDeviceId === deviceId && Date.now() - lastContactsLoadedAt < 3e3;
     if (!force && isRecentLoad) return;
-    contactsGroup.style.display = "block";
-    phoneHint.style.display = "block";
-    contactsSearch.value = "";
+    if (contactsGroup) contactsGroup.style.display = "block";
+    if (phoneHint) phoneHint.style.display = "block";
+    if (contactsSearch) contactsSearch.value = "";
     deviceContacts = [];
     renderContacts([]);
     isContactsLoading = true;
-    contactsSearch.placeholder = "\u23F3 Loading contacts...";
-    deviceContacts = await loadContactsForDevice(deviceId);
+    if (contactsSearch) contactsSearch.placeholder = "\u23F3 Loading contacts...";
+    const cached = allContacts?.[deviceId];
+    deviceContacts = cached && cached.length > 0 ? cached : await loadContactsForDevice(deviceId);
     isContactsLoading = false;
     lastContactsDeviceId = deviceId;
     lastContactsLoadedAt = Date.now();
     if (deviceContacts.length > 0) {
-      contactsSearch.placeholder = `Search ${deviceContacts.length} contacts...`;
+      if (contactsSearch) contactsSearch.placeholder = `Search ${deviceContacts.length} contacts...`;
       renderContacts(deviceContacts);
     } else {
-      contactsSearch.placeholder = "No contacts found";
+      if (contactsSearch) contactsSearch.placeholder = "No contacts found";
     }
   }
   function initSmsModal() {
-    const contactsGroup2 = document.getElementById("contactsGroup");
+    const contactsGroup = document.getElementById("contactsGroup");
     const contactsDropdown = document.getElementById("contactsDropdown");
-    const contactsSearch2 = document.getElementById("contactsSearch");
+    const contactsSearch = document.getElementById("contactsSearch");
     const contactsList = document.getElementById("contactsList");
-    const phoneHint2 = document.getElementById("phoneHint");
+    const phoneHint = document.getElementById("phoneHint");
     newSmsBtn?.addEventListener("click", () => {
       smsModal.classList.remove("hidden");
       if (smsDevice.value) {
-        contactsGroup2.style.display = "block";
-        phoneHint2.style.display = "block";
+        contactsGroup.style.display = "block";
+        phoneHint.style.display = "block";
         refreshContactsForSelectedDevice(true);
       }
     });
@@ -30392,25 +30282,25 @@ ${this.customData.serverResponse}`;
           `[Modal] Loaded ${deviceContacts.length} contacts for device`
         );
       } else {
-        contactsGroup2.style.display = "none";
-        phoneHint2.style.display = "none";
+        contactsGroup.style.display = "none";
+        phoneHint.style.display = "none";
         deviceContacts = [];
         renderContacts([]);
       }
     });
-    contactsSearch2?.addEventListener("focus", () => {
+    contactsSearch?.addEventListener("focus", () => {
       refreshContactsForSelectedDevice();
     });
-    contactsSearch2?.addEventListener("click", () => {
+    contactsSearch?.addEventListener("click", () => {
       refreshContactsForSelectedDevice();
     });
-    contactsSearch2?.addEventListener("focus", () => {
+    contactsSearch?.addEventListener("focus", () => {
       if (deviceContacts.length > 0 && !isContactsLoading) {
         contactsDropdown?.classList.remove("hidden");
       }
     });
-    contactsSearch2?.addEventListener("input", () => {
-      const term = contactsSearch2.value;
+    contactsSearch?.addEventListener("input", () => {
+      const term = contactsSearch.value;
       const filtered = searchContacts(deviceContacts, term);
       renderContacts(filtered);
       if (filtered.length > 0) {
@@ -30424,15 +30314,15 @@ ${this.customData.serverResponse}`;
     });
   }
   function resetContactsUI() {
-    const contactsGroup2 = document.getElementById("contactsGroup");
-    const contactsSearch2 = document.getElementById("contactsSearch");
-    const phoneHint2 = document.getElementById("phoneHint");
-    if (contactsGroup2) contactsGroup2.style.display = "none";
-    if (contactsSearch2) {
-      contactsSearch2.value = "";
-      contactsSearch2.placeholder = "Search contacts by name or number...";
+    const contactsGroup = document.getElementById("contactsGroup");
+    const contactsSearch = document.getElementById("contactsSearch");
+    const phoneHint = document.getElementById("phoneHint");
+    if (contactsGroup) contactsGroup.style.display = "none";
+    if (contactsSearch) {
+      contactsSearch.value = "";
+      contactsSearch.placeholder = "Search contacts by name or number...";
     }
-    if (phoneHint2) phoneHint2.style.display = "none";
+    if (phoneHint) phoneHint.style.display = "none";
     deviceContacts = [];
   }
   function renderContacts(contacts) {
@@ -30466,9 +30356,9 @@ ${this.customData.serverResponse}`;
         const phone = item.dataset.phone;
         const name5 = item.dataset.name;
         smsPhone.value = phone;
-        const contactsSearch2 = document.getElementById("contactsSearch");
-        if (contactsSearch2) {
-          contactsSearch2.value = `${name5} (${phone})`;
+        const contactsSearch = document.getElementById("contactsSearch");
+        if (contactsSearch) {
+          contactsSearch.value = `${name5} (${phone})`;
         }
         document.getElementById("contactsDropdown")?.classList.add("hidden");
       });
@@ -30540,11 +30430,11 @@ ${this.customData.serverResponse}`;
     hideLoading();
   }
   function initCallModal() {
-    const contactsGroup2 = document.getElementById("callContactsGroup");
+    const contactsGroup = document.getElementById("callContactsGroup");
     const contactsDropdown = document.getElementById("callContactsDropdown");
-    const contactsSearch2 = document.getElementById("callContactsSearch");
+    const contactsSearch = document.getElementById("callContactsSearch");
     const contactsList = document.getElementById("callContactsList");
-    const phoneHint2 = document.getElementById("callPhoneHint");
+    const phoneHint = document.getElementById("callPhoneHint");
     let callDeviceContacts = [];
     let isCallContactsLoading = false;
     let lastCallContactsDeviceId = null;
@@ -30554,22 +30444,22 @@ ${this.customData.serverResponse}`;
       if (!deviceId) return;
       const isRecent = lastCallContactsDeviceId === deviceId && Date.now() - lastCallContactsLoadedAt < 3e3;
       if (!force && isRecent) return;
-      contactsGroup2.style.display = "block";
-      phoneHint2.style.display = "block";
-      contactsSearch2.value = "";
+      contactsGroup.style.display = "block";
+      phoneHint.style.display = "block";
+      contactsSearch.value = "";
       callDeviceContacts = [];
       renderCallContacts([]);
       isCallContactsLoading = true;
-      contactsSearch2.placeholder = "\u23F3 Loading contacts...";
+      contactsSearch.placeholder = "\u23F3 Loading contacts...";
       callDeviceContacts = await loadContactsForDevice(deviceId);
       isCallContactsLoading = false;
       lastCallContactsDeviceId = deviceId;
       lastCallContactsLoadedAt = Date.now();
       if (callDeviceContacts.length > 0) {
-        contactsSearch2.placeholder = `Search ${callDeviceContacts.length} contacts...`;
+        contactsSearch.placeholder = `Search ${callDeviceContacts.length} contacts...`;
         renderCallContacts(callDeviceContacts);
       } else {
-        contactsSearch2.placeholder = "No contacts found";
+        contactsSearch.placeholder = "No contacts found";
       }
     }
     function renderCallContacts(contacts) {
@@ -30600,18 +30490,18 @@ ${this.customData.serverResponse}`;
           const phone = item.dataset.phone;
           const name5 = item.dataset.name;
           if (callPhone) callPhone.value = phone;
-          if (contactsSearch2) contactsSearch2.value = `${name5} (${phone})`;
+          if (contactsSearch) contactsSearch.value = `${name5} (${phone})`;
           contactsDropdown?.classList.add("hidden");
         });
       });
     }
     function resetCallContactsUI() {
-      if (contactsGroup2) contactsGroup2.style.display = "none";
-      if (contactsSearch2) {
-        contactsSearch2.value = "";
-        contactsSearch2.placeholder = "Search contacts by name or number...";
+      if (contactsGroup) contactsGroup.style.display = "none";
+      if (contactsSearch) {
+        contactsSearch.value = "";
+        contactsSearch.placeholder = "Search contacts by name or number...";
       }
-      if (phoneHint2) phoneHint2.style.display = "none";
+      if (phoneHint) phoneHint.style.display = "none";
       callDeviceContacts = [];
     }
     function closeModal() {
@@ -30622,8 +30512,8 @@ ${this.customData.serverResponse}`;
     newCallBtn?.addEventListener("click", () => {
       callModal?.classList.remove("hidden");
       if (callDevice?.value) {
-        contactsGroup2.style.display = "block";
-        phoneHint2.style.display = "block";
+        contactsGroup.style.display = "block";
+        phoneHint.style.display = "block";
         refreshCallContacts(true);
       }
     });
@@ -30633,21 +30523,21 @@ ${this.customData.serverResponse}`;
       if (callDevice.value) {
         await refreshCallContacts(true);
       } else {
-        contactsGroup2.style.display = "none";
-        phoneHint2.style.display = "none";
+        contactsGroup.style.display = "none";
+        phoneHint.style.display = "none";
         callDeviceContacts = [];
         renderCallContacts([]);
       }
     });
-    contactsSearch2?.addEventListener("focus", () => refreshCallContacts());
-    contactsSearch2?.addEventListener("click", () => refreshCallContacts());
-    contactsSearch2?.addEventListener("focus", () => {
+    contactsSearch?.addEventListener("focus", () => refreshCallContacts());
+    contactsSearch?.addEventListener("click", () => refreshCallContacts());
+    contactsSearch?.addEventListener("focus", () => {
       if (callDeviceContacts.length > 0 && !isCallContactsLoading) {
         contactsDropdown?.classList.remove("hidden");
       }
     });
-    contactsSearch2?.addEventListener("input", () => {
-      const filtered = searchContacts(callDeviceContacts, contactsSearch2.value);
+    contactsSearch?.addEventListener("input", () => {
+      const filtered = searchContacts(callDeviceContacts, contactsSearch.value);
       renderCallContacts(filtered);
       if (filtered.length > 0) contactsDropdown?.classList.remove("hidden");
     });

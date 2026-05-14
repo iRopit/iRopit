@@ -9,7 +9,7 @@ import {
   type NotificationItem,
 } from "@/services/notificationService";
 import type { DeviceInfo } from "@/services/deviceService";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, CheckCheck } from "lucide-react";
 
 interface NotificationsTabProps {
   devices: DeviceInfo[];
@@ -56,24 +56,35 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [search, setSearch] = useState("");
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeToNotifications(user.uid, devices, (notifs) => {
       setNotifications(notifs);
-      markAllNotificationsAsRead(user.uid, notifs).catch(() => {});
     });
     return unsub;
   }, [user, devices]);
 
-  const filtered = search
-    ? notifications.filter(
-        (n) =>
-          n.title.toLowerCase().includes(search.toLowerCase()) ||
-          n.body.toLowerCase().includes(search.toLowerCase()) ||
-          n.appName.toLowerCase().includes(search.toLowerCase()),
-      )
-    : notifications;
+  const handleMarkAllRead = () => {
+    if (!user) return;
+    markAllNotificationsAsRead(user.uid, notifications).catch(() => {});
+  };
+
+  const filtered = (() => {
+    let result = search
+      ? notifications.filter(
+          (n) =>
+            n.title.toLowerCase().includes(search.toLowerCase()) ||
+            n.body.toLowerCase().includes(search.toLowerCase()) ||
+            n.appName.toLowerCase().includes(search.toLowerCase()),
+        )
+      : notifications;
+    if (showUnreadOnly) {
+      result = result.filter((n) => n.read === false);
+    }
+    return result;
+  })();
 
   if (notifications.length === 0) {
     return (
@@ -93,9 +104,9 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Search */}
-      <div className="p-3 border-b border-border">
-        <div className="relative">
+      {/* Search + filters toolbar */}
+      <div className="p-3 border-b border-border flex items-center gap-2">
+        <div className="flex-1 relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
           <input
             type="text"
@@ -105,6 +116,23 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
             className="w-full ps-10 pe-4 py-2 bg-surface-secondary border border-border rounded-full text-sm text-txt placeholder:text-txt-tertiary focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
+        <button
+          onClick={() => setShowUnreadOnly((v) => !v)}
+          className={`px-3 py-2 rounded-full text-xs font-medium border transition-colors shrink-0 ${
+            showUnreadOnly
+              ? "bg-primary/15 border-primary/40 text-primary"
+              : "bg-surface-secondary border-border text-txt-secondary hover:bg-surface-tertiary"
+          }`}
+        >
+          {t("notifications.showUnread")}
+        </button>
+        <button
+          onClick={handleMarkAllRead}
+          title={t("notifications.markAllRead")}
+          className="p-2 rounded-full bg-surface-secondary border border-border text-txt-secondary hover:bg-surface-tertiary transition-colors shrink-0"
+        >
+          <CheckCheck className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Notification list */}

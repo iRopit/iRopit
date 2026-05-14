@@ -28,7 +28,7 @@ const en = {
     services: "Services",
     privacyPolicy: "Privacy Policy",
     contact: "Contact",
-    dashboard: "Insights",
+    dashboard: "Dashboard",
     downloadApp: "Download App",
     login: "Login",
     signup: "Sign Up",
@@ -83,6 +83,10 @@ const en = {
     file: "File",
     replyTo: "Reply to",
     encryptedMessage: "Encrypted message",
+    searchMessages: "Search messages...",
+    starMessage: "Star",
+    unstarMessage: "Unstar",
+    showStarred: "Starred only",
   },
 
   // SMS
@@ -127,6 +131,7 @@ const en = {
     clearAll: "Clear all",
     duration: "Duration",
     unknown: "Unknown",
+    searchCalls: "Search calls...",
   },
 
   // Notifications
@@ -136,6 +141,7 @@ const en = {
     markAllRead: "Mark all as read",
     searchNotifications: "Search notifications...",
     allApps: "All Apps",
+    showUnread: "Unread only",
   },
 
   // Devices

@@ -95,12 +95,12 @@ export const useContactStore = create<ContactState>((set, get) => ({
     try {
       set({ isSyncing: true });
 
-      // Load contacts first if not loaded
+      // Always re-read from native contacts so newly-added entries (e.g. Google
+      // Contacts sync after app start) are picked up. Previously this only
+      // ran when the in-memory cache was empty, which caused new contacts to
+      // be missed on subsequent syncs.
+      await get().loadContacts();
       let { contacts } = get();
-      if (contacts.length === 0) {
-        await get().loadContacts();
-        contacts = get().contacts;
-      }
 
       if (contacts.length === 0) {
         console.log('[ContactStore] No contacts to sync');

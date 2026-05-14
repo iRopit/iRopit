@@ -28,7 +28,7 @@ const ar = {
     services: "الخدمات",
     privacyPolicy: "سياسة الخصوصية",
     contact: "اتصل بنا",
-    dashboard: "الإحصائيات",
+    dashboard: "لوحة التحكم",
     downloadApp: "تحميل التطبيق",
     login: "تسجيل الدخول",
     signup: "إنشاء حساب",
@@ -83,6 +83,10 @@ const ar = {
     file: "ملف",
     replyTo: "رد على",
     encryptedMessage: "رسالة مشفرة",
+    searchMessages: "البحث في الرسائل...",
+    starMessage: "تمييز بنجمة",
+    unstarMessage: "إزالة النجمة",
+    showStarred: "المميزة فقط",
   },
 
   // SMS
@@ -127,6 +131,7 @@ const ar = {
     clearAll: "مسح الكل",
     duration: "المدة",
     unknown: "غير معروف",
+    searchCalls: "البحث في المكالمات...",
   },
 
   // Notifications
@@ -136,6 +141,7 @@ const ar = {
     markAllRead: "تعليم الكل كمقروء",
     searchNotifications: "بحث في الإشعارات...",
     allApps: "جميع التطبيقات",
+    showUnread: "غير المقروءة فقط",
   },
 
   // Devices

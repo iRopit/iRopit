@@ -7,9 +7,68 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  doc,
+  getDoc,
+  setDoc,
 } from "@/lib/firebase";
 import { decrypt } from "@/lib/crypto";
 import type { DeviceInfo } from "./deviceService";
+
+// ── Starred messages ──────────────────────────────────────────────────────────
+const STARRED_LS_KEY = "chatStarredMessages";
+
+export function getStarredMessages(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    return new Set(JSON.parse(localStorage.getItem(STARRED_LS_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveStarredLocal(s: Set<string>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STARRED_LS_KEY, JSON.stringify([...s]));
+}
+
+export async function loadStarredMessages(userId: string): Promise<Set<string>> {
+  try {
+    const snap = await getDoc(doc(db, "users", userId));
+    if (snap.exists()) {
+      const ids: string[] = snap.data().starredMessageIds || [];
+      const s = new Set<string>(ids);
+      saveStarredLocal(s);
+      return s;
+    }
+  } catch (e) {
+    console.debug("[Chat] Could not load starred messages:", e);
+  }
+  return getStarredMessages();
+}
+
+export async function toggleStarMessage(
+  userId: string,
+  msgId: string,
+): Promise<Set<string>> {
+  const starred = getStarredMessages();
+  if (starred.has(msgId)) {
+    starred.delete(msgId);
+  } else {
+    starred.add(msgId);
+  }
+  saveStarredLocal(starred);
+  try {
+    await setDoc(
+      doc(db, "users", userId),
+      { starredMessageIds: [...starred] },
+      { merge: true },
+    );
+  } catch (e) {
+    console.warn("[Chat] Could not persist starred messages:", e);
+  }
+  return starred;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
   id: string;
