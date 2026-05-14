@@ -121,6 +121,17 @@ export default function DashboardPage() {  const { user } = useAuth();
       ? mobileDevices
       : mobileDevices.filter((d) => d.id === deviceFilter);
 
+  // Chat sidebar should include chrome-extension devices too — exclude only
+  // the current web device (which is "you"), keeping mobile + chrome ext.
+  const currentWebDeviceId = getWebDeviceId();
+  const chatSidebarDevices = devices.filter((d) => {
+    if (d.id === currentWebDeviceId) return false;
+    const p = (d.platform || "").toLowerCase();
+    const tp = (d.type || "").toLowerCase();
+    // Exclude other web devices (only show mobile + chrome extension)
+    return p !== "web" && tp !== "web";
+  });
+
   const renderTab = () => {
     switch (activeTab) {
       case "overview":
@@ -169,7 +180,8 @@ export default function DashboardPage() {  const { user } = useAuth();
       {/* Tab content with vertical device sidebar */}
       <main className="flex-1 flex min-h-0 bg-bg pb-16 md:pb-0 overflow-hidden">
         {/* Vertical device sidebar — shown for tabs that use device filtering */}
-        {(["chat", "sms", "calls", "notifications", "overview"] as const).includes(activeTab as never) && mobileDevices.length > 0 && (
+        {(["chat", "sms", "calls", "notifications", "overview"] as const).includes(activeTab as never) &&
+          (activeTab === "chat" ? chatSidebarDevices.length > 0 : mobileDevices.length > 0) && (
           <aside className="hidden md:flex flex-col w-44 shrink-0 border-e border-border bg-surface overflow-y-auto">
             <div className="p-2 flex flex-col gap-0.5">
               <button
@@ -183,7 +195,7 @@ export default function DashboardPage() {  const { user } = useAuth();
                 <Layers className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{t("chat.allDevices")}</span>
               </button>
-              {mobileDevices.map((dev) => (
+              {(activeTab === "chat" ? chatSidebarDevices : mobileDevices).map((dev) => (
                 <button
                   key={dev.id}
                   onClick={() => setDeviceFilter(dev.id)}
