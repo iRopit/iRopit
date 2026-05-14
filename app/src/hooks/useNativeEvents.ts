@@ -119,8 +119,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     const doInitialSync = async () => {
       try {
-        // v5: re-sync after deploying getSlotIndex Java fix (v4 ran before Java rebuild)
-        const syncKey = `@iRopit:initialDeviceSyncDone_v5_${user.uid}_${currentDevice.id}`;
+        // v6: bumped initial backfill limit from 100 → 500 calls/SMS
+        const syncKey = `@iRopit:initialDeviceSyncDone_v6_${user.uid}_${currentDevice.id}`;
         const alreadySynced = await AsyncStorage.getItem(syncKey);
         if (alreadySynced) {
           console.log('[InitialSync] Already done, skipping');
@@ -145,9 +145,9 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           try {
             let nativeCalls: any[] = [];
             if (CallLogModule) {
-              nativeCalls = (await CallLogModule.getCallLog(100)) || [];
+              nativeCalls = (await CallLogModule.getCallLog(500)) || [];
             } else if (ZyncITModule?.getCallLog) {
-              nativeCalls = (await ZyncITModule.getCallLog(100)) || [];
+              nativeCalls = (await ZyncITModule.getCallLog(500)) || [];
             }
             console.log(`[InitialSync] Got ${nativeCalls.length} calls from device`);
             if (nativeCalls.length > 0) {
@@ -164,9 +164,9 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           try {
             let nativeSms: any[] = [];
             if (SmsModule) {
-              nativeSms = (await SmsModule.getAllSms(100)) || [];
+              nativeSms = (await SmsModule.getAllSms(500)) || [];
             } else if (ZyncITModule?.getAllSms) {
-              nativeSms = (await ZyncITModule.getAllSms(100)) || [];
+              nativeSms = (await ZyncITModule.getAllSms(500)) || [];
             }
             console.log(`[InitialSync] Got ${nativeSms.length} SMS from device`);
             if (nativeSms.length > 0) {
