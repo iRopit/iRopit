@@ -22,6 +22,8 @@ const SMSScreen = () => {
   const {
     conversations,
     isLoading,
+    isLoadingMore,
+    hasMoreMessages,
     initialLoading,
     permissionGranted,
     showCompose,
@@ -38,6 +40,7 @@ const SMSScreen = () => {
     openCompose,
     closeCompose,
     loadFromDevice,
+    loadMoreMessages,
     handleSendMessage,
     handleMarkAllAsRead,
     handleDeleteAll,
@@ -196,6 +199,15 @@ const SMSScreen = () => {
           conversations.length === 0 && styles.emptyList,
         ]}
         ListEmptyComponent={renderEmptyComponent}
+        onEndReached={() => hasMoreMessages && loadMoreMessages()}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

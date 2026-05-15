@@ -9,6 +9,9 @@ import { Conversation } from './types';
 export const useSMSScreen = () => {
   const messages = useSMSStore(state => state.messages);
   const isLoading = useSMSStore(state => state.isLoading);
+  const isLoadingMore = useSMSStore(state => state.isLoadingMore);
+  const hasMoreMessages = useSMSStore(state => state.hasMoreMessages);
+  const loadMoreMessages = useSMSStore(state => state.loadMoreMessages);
   const addMessage = useSMSStore(state => state.addMessage);
   const setMessages = useSMSStore(state => state.setMessages);
   const syncMessages = useSMSStore(state => state.syncMessages);
@@ -213,6 +216,8 @@ export const useSMSScreen = () => {
     messages,
     conversations,
     isLoading,
+    isLoadingMore,
+    hasMoreMessages,
     initialLoading,
     permissionGranted,
     showCompose,
@@ -236,6 +241,7 @@ export const useSMSScreen = () => {
     openCompose,
     closeCompose,
     loadFromDevice,
+    loadMoreMessages,
     handleSendMessage,
     handleMarkAllAsRead,
     handleDeleteAll,

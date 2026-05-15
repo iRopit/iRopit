@@ -53,11 +53,15 @@ interface SMSState {
   messages: SMS[];
   isLoading: boolean;
   isSyncing: boolean;
+  isLoadingMore: boolean;
+  hasMoreMessages: boolean;
+  oldestMessageTimestamp: number | null;
   error: string | null;
   unsubscribe: (() => void) | null;
 
   // Actions
   loadMessages: (deviceId?: string) => void;
+  loadMoreMessages: (deviceId?: string) => Promise<void>;
   loadMessagesForSender: (sender: string) => Promise<SMS[]>;
   setMessages: (messages: SMS[]) => void;
   addMessage: (message: SMS) => void;
@@ -83,6 +87,9 @@ export const useSMSStore = create<SMSState>()(
       messages: [],
       isLoading: false,
       isSyncing: false,
+      isLoadingMore: false,
+      hasMoreMessages: false,
+      oldestMessageTimestamp: null,
       error: null,
       unsubscribe: null,
 
@@ -295,7 +302,16 @@ export const useSMSStore = create<SMSState>()(
               dedupedMessages.sort(
                 (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
               );
-              set({ messages: dedupedMessages, isLoading: false });
+              const oldestTs =
+                dedupedMessages.length > 0
+                  ? Math.min(...dedupedMessages.map(m => m.timestamp || Infinity))
+                  : null;
+              set({
+                messages: dedupedMessages,
+                isLoading: false,
+                hasMoreMessages: snapshot.size >= SMS_PAGE_SIZE,
+                oldestMessageTimestamp: oldestTs,
+              });
             },
             error => {
               set({ error: error.message, isLoading: false });
@@ -303,6 +319,74 @@ export const useSMSStore = create<SMSState>()(
           );
 
         set({ unsubscribe });
+      },
+
+      loadMoreMessages: async (deviceIdParam?: string) => {
+        const { user } = useAuthStore.getState();
+        const { currentDevice } = useDeviceStore.getState();
+        const { isLoadingMore, hasMoreMessages, oldestMessageTimestamp, messages } = get();
+
+        if (!user || !currentDevice || isLoadingMore || !hasMoreMessages || !oldestMessageTimestamp) return;
+
+        const deviceId = deviceIdParam || currentDevice.id;
+        set({ isLoadingMore: true });
+
+        try {
+          const snapshot = await firestore()
+            .collection(COLLECTIONS.USERS)
+            .doc(user.uid)
+            .collection(COLLECTIONS.DEVICES)
+            .doc(deviceId)
+            .collection(COLLECTIONS.NOTIFICATIONS)
+            .where('type', '==', 'sms')
+            .where('timestamp', '<', oldestMessageTimestamp)
+            .orderBy('timestamp', 'desc')
+            .limit(SMS_PAGE_SIZE)
+            .get();
+
+          const rawMessages: any[] = [];
+          snapshot.forEach(doc => rawMessages.push({ ...doc.data(), id: doc.id }));
+
+          const decryptedMessages = await Promise.all(
+            rawMessages.map(msg => decryptSMS(msg, user.uid)),
+          );
+
+          const olderMessages: SMS[] = decryptedMessages.map(
+            data =>
+              ({
+                id: data.id,
+                threadId: data.threadId || '',
+                userId: data.userId || user.uid,
+                deviceId: data.deviceId || currentDevice.id,
+                body: data.text || data.content || data.body || '',
+                text: data.text || data.content || data.body || '',
+                phoneNumber: data.phoneNumber || '',
+                sender: data.phoneNumber || '',
+                contactName: data.contactName || '',
+                timestamp: data.timestamp || data.receivedAt || Date.now(),
+                read: data.read || false,
+                type: data.smsType || 'inbox',
+                syncedAt: data.syncedAt || Date.now(),
+              } as SMS),
+          );
+
+          const newOldestTs =
+            olderMessages.length > 0
+              ? Math.min(...olderMessages.map(m => m.timestamp || Infinity))
+              : oldestMessageTimestamp;
+
+          const merged = mergeByIdKeepNewest([...messages, ...olderMessages]);
+          merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+          set({
+            messages: merged,
+            hasMoreMessages: snapshot.size >= SMS_PAGE_SIZE,
+            oldestMessageTimestamp: newOldestTs,
+            isLoadingMore: false,
+          });
+        } catch {
+          set({ isLoadingMore: false });
+        }
       },
 
       // جلب الرسائل برقم الهاتف أو اسم المرسل

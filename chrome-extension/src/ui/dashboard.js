@@ -1,7 +1,6 @@
 /**
  * Dashboard Module
- * Shows summary stats (SMS, Calls, Notifications) filtered by date range
- * and a per-date breakdown of notifications.
+ * Shows summary stats (SMS, Calls) and money spending filtered by date range.
  */
 
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
@@ -26,7 +25,6 @@ function t(key) {
 const CACHE_KEYS = {
   SMS: "cached_sms_data",
   CALLS: "cached_calls_data",
-  NOTIFICATIONS: "cached_notifications_data",
 };
 
 /** Format a JS Date as YYYY-MM-DD */
@@ -59,7 +57,6 @@ async function loadInsightsDataDirect(fromTs, toTs) {
     return {
       allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
       allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
-      allNotifs: raw.allNotifs.filter((n) => { const ts = n.timestamp || n.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
     };
   }
 
@@ -87,13 +84,11 @@ async function loadInsightsDataDirect(fromTs, toTs) {
     return {
       allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
       allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
-      allNotifs: raw.allNotifs.filter((n) => { const ts = n.timestamp || n.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
     };
   }
 
   const allSms = [];
   const allCalls = [];
-  const allNotifs = [];
 
   await Promise.all(mobileDevices.map(async (device) => {
     try {
@@ -117,7 +112,6 @@ async function loadInsightsDataDirect(fromTs, toTs) {
       notifSnap.docs.forEach((d) => {
         const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
         if (item.type === "sms") allSms.push(item);
-        allNotifs.push(item);
       });
       callsSnap.docs.forEach((d) => {
         allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
@@ -125,7 +119,7 @@ async function loadInsightsDataDirect(fromTs, toTs) {
     } catch (_) { /* skip devices with permission errors */ }
   }));
 
-  return { allSms, allCalls, allNotifs };
+  return { allSms, allCalls };
 }
 
 /** Load all raw data from chrome.storage.local */
@@ -133,27 +127,15 @@ async function loadRawData() {
   const result = await chrome.storage.local.get([
     CACHE_KEYS.SMS,
     CACHE_KEYS.CALLS,
-    CACHE_KEYS.NOTIFICATIONS,
   ]);
 
   const smsData = result[CACHE_KEYS.SMS];
   const callsData = result[CACHE_KEYS.CALLS];
-  const notifData = result[CACHE_KEYS.NOTIFICATIONS];
 
   const allSms = smsData?.allMessages || [];
   const allCalls = callsData?.allCalls || [];
 
-  // Flatten notifications from byDevice
-  const allNotifs = [];
-  if (notifData?.byDevice) {
-    for (const deviceNotifs of Object.values(notifData.byDevice)) {
-      if (Array.isArray(deviceNotifs)) {
-        allNotifs.push(...deviceNotifs);
-      }
-    }
-  }
-
-  return { allSms, allCalls, allNotifs };
+  return { allSms, allCalls };
 }
 
 /** Set default date range: from = 7 days ago, to = today */
@@ -189,7 +171,6 @@ async function renderDashboard() {
   const toInput = document.getElementById("dashToDate");
   const smsCountEl = document.getElementById("dashSmsCount");
   const callsCountEl = document.getElementById("dashCallsCount");
-  const notifCountEl = document.getElementById("dashNotifCount");
   const breakdownList = document.getElementById("dashBreakdownList");
 
   if (!fromInput || !toInput || !breakdownList) return;
@@ -213,39 +194,26 @@ async function renderDashboard() {
   const toTs = dayEnd(toVal);
 
   // Query Firestore directly for the selected date range — consistent across all machines
-  const { allSms, allCalls, allNotifs } = await loadInsightsDataDirect(fromTs, toTs);
+  const { allSms, allCalls } = await loadInsightsDataDirect(fromTs, toTs);
 
   // Determine selected device from the active sidebar tab
   const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
   const selectedDevice =
     insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
 
-  // Apply device filter to all data
+  // Apply device filter
   const filteredSms = selectedDevice === "all"
     ? allSms
     : allSms.filter((m) => m.deviceId === selectedDevice);
   const filteredCalls = selectedDevice === "all"
     ? allCalls
     : allCalls.filter((c) => c.deviceId === selectedDevice);
-  const filteredNotifs = selectedDevice === "all"
-    ? allNotifs
-    : allNotifs.filter((n) => n.deviceId === selectedDevice);
 
   // Update stat counters
   if (smsCountEl) smsCountEl.textContent = filteredSms.length;
   if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
-  if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
 
-  // Group notifications by date (descending)
-  const byDate = {};
-  for (const n of filteredNotifs) {
-    const ts = n.timestamp || n.receivedAt || 0;
-    const dateKey = toDateStr(ts);
-    if (!byDate[dateKey]) byDate[dateKey] = [];
-    byDate[dateKey].push({ ...n, _ts: ts });
-  }
-
-  // Also add SMS and Calls counts per date (for the pill summary)
+  // Group SMS and Calls counts per date (for the pill summary)
   const smsByDate = {};
   for (const m of filteredSms) {
     const ts = m.timestamp || m.receivedAt || 0;
@@ -262,7 +230,6 @@ async function renderDashboard() {
 
   // Collect all dates that have at least something
   const allDates = new Set([
-    ...Object.keys(byDate),
     ...Object.keys(smsByDate),
     ...Object.keys(callsByDate),
   ]);
@@ -305,10 +272,8 @@ async function renderDashboard() {
   renderSmsInsights(filteredSms);
 
   const html = sortedDates.map((dateKey) => {
-    const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
     const smsCount = smsByDate[dateKey] || 0;
     const callCount = callsByDate[dateKey] || 0;
-    const notifCount = (byDate[dateKey] || []).length;
 
     const pills = [
       smsCount > 0 ? `<span class="dash-count-pill sms">
@@ -317,9 +282,6 @@ async function renderDashboard() {
       callCount > 0 ? `<span class="dash-count-pill calls">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
         ${callCount}</span>` : "",
-      notifCount > 0 ? `<span class="dash-count-pill notif">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-        ${notifCount}</span>` : "",
     ].filter(Boolean).join("");
 
     return `<div class="dash-date-group">
@@ -631,7 +593,6 @@ async function refreshAndRender() {
   const breakdownList = document.getElementById("dashBreakdownList");
   const smsCountEl = document.getElementById("dashSmsCount");
   const callsCountEl = document.getElementById("dashCallsCount");
-  const notifCountEl = document.getElementById("dashNotifCount");
 
   const spinnerSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
 
@@ -642,7 +603,6 @@ async function refreshAndRender() {
   }
   if (smsCountEl) smsCountEl.innerHTML = spinnerSvg;
   if (callsCountEl) callsCountEl.innerHTML = spinnerSvg;
-  if (notifCountEl) notifCountEl.innerHTML = spinnerSvg;
   if (breakdownList) {
     breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
