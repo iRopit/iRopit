@@ -54,8 +54,13 @@ function formatDateLabel(dateStr) {
 async function loadInsightsDataDirect(fromTs, toTs) {
   const currentUser = state.currentUser;
   if (!currentUser) {
-    // Not authenticated yet — fall back to local cache
-    return loadRawData();
+    // Not authenticated yet — filter local cache by date range as fallback
+    const raw = await loadRawData();
+    return {
+      allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+      allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
+      allNotifs: raw.allNotifs.filter((n) => { const ts = n.timestamp || n.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+    };
   }
 
   // Get all mobile devices for this user
@@ -77,7 +82,13 @@ async function loadInsightsDataDirect(fromTs, toTs) {
       }
     });
   } catch (_) {
-    return loadRawData(); // fallback on error
+    // fallback on devices query error — filter local cache by date range
+    const raw = await loadRawData();
+    return {
+      allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+      allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
+      allNotifs: raw.allNotifs.filter((n) => { const ts = n.timestamp || n.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+    };
   }
 
   const allSms = [];
