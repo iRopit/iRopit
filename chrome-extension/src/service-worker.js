@@ -2470,5 +2470,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true, listening: true });
   }
 
+  // Refresh popup cache on demand (called by Insights Apply button)
+  if (message.type === "requestCacheRefresh") {
+    refreshPopupCache()
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
+    return true; // keep channel open for async response
+  }
+
   return true;
 });

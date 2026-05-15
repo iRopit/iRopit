@@ -539,6 +539,39 @@ export function updateInsightsDeviceTabs() {
   }
 }
 
+/** Request the SW to refresh the cache, then render the dashboard */
+async function refreshAndRender() {
+  const filterBtn = document.getElementById("dashFilterBtn");
+  const breakdownList = document.getElementById("dashBreakdownList");
+
+  // Show loading state on the button and breakdown area
+  if (filterBtn) {
+    filterBtn.disabled = true;
+    filterBtn.textContent = t("common_loading") || "Loading...";
+  }
+  if (breakdownList) {
+    breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+      <p style="margin-top:8px">${t("common_loading") || "Loading..."}</p>
+    </div>`;
+  }
+
+  try {
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "requestCacheRefresh" }, () => resolve());
+    });
+  } catch (_) { /* SW may be waking up; proceed with existing cache */ }
+
+  if (filterBtn) {
+    filterBtn.disabled = false;
+    filterBtn.textContent = t("dash_apply") || "Apply";
+  }
+
+  renderDashboard();
+}
+
 /** Initialize the Dashboard tab */
 export function initDashboard() {
   setDefaultDates();
@@ -547,7 +580,7 @@ export function initDashboard() {
   const resetBtn = document.getElementById("dashResetBtn");
 
   if (filterBtn) {
-    filterBtn.addEventListener("click", () => renderDashboard());
+    filterBtn.addEventListener("click", () => refreshAndRender());
   }
 
   if (resetBtn) {
@@ -557,7 +590,7 @@ export function initDashboard() {
       if (fromInput) fromInput.value = "";
       if (toInput) toInput.value = "";
       setDefaultDates();
-      renderDashboard();
+      refreshAndRender();
     });
   }
 
