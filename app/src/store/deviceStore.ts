@@ -129,6 +129,25 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       const deviceModel = (await DeviceInfo.getModel()) || 'Unknown';
       const systemName = (await DeviceInfo.getSystemName()) || Platform.OS;
 
+      // If the locally-generated ID differs from what Firestore already has for
+      // this device (same user + model + name), reuse the existing document ID.
+      // This preserves all stored data (SMS, calls) across app reinstalls / upgrades.
+      let finalDeviceId = deviceId;
+      try {
+        const dupSnap = await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .where('userId', '==', user.uid)
+          .where('model', '==', deviceModel)
+          .where('name', '==', deviceName)
+          .limit(1)
+          .get();
+        if (!dupSnap.empty && dupSnap.docs[0].id !== deviceId) {
+          finalDeviceId = dupSnap.docs[0].id;
+          // Persist the canonical ID so subsequent runs don't regenerate
+          await AsyncStorage.setItem(DEVICE_ID_KEY, finalDeviceId);
+        }
+      } catch (_) {}
+
       // Get FCM token for push notifications
       let fcmToken: string | null = null;
       try {
@@ -149,15 +168,13 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       }
 
       // Check if device already exists to preserve nickname
-      // Wrapped in try-catch: if doc belongs to another user, permission-denied
-      // is thrown here. We catch it and proceed without the existing data,
-      // letting the write below claim the device under the current user's uid.
+      // Use finalDeviceId (may be the canonical existing ID).
       let savedNickname: string | null = null;
       let savedCreatedAt: number | null = null;
       try {
         const existingDoc = await firestore()
           .collection(COLLECTIONS.DEVICES)
-          .doc(deviceId)
+          .doc(finalDeviceId)
           .get();
         const existingData = existingDoc.data();
         savedNickname = existingData?.nickname || null;
@@ -177,7 +194,7 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
 
       // Build device object with no undefined values (Firebase rejects undefined)
       const device: Device = {
-        id: deviceId,
+        id: finalDeviceId,
         name: deviceName,
         type: 'phone',
         platform: systemName,
@@ -206,34 +223,19 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       // Save to Firestore - always use set with merge to avoid not-found errors
       await firestore()
         .collection(COLLECTIONS.DEVICES)
-        .doc(deviceId)
+        .doc(finalDeviceId)
         .set(device, { merge: true });
 
       // Save credentials to native BEFORE updating currentDevice state.
       // CallRequestService starts when currentDevice is set; it needs credentials
       // already in SharedPreferences or it will stop itself immediately.
       try {
-        await NativeCredentialsService.saveCredentials(user.uid, deviceId);
+        await NativeCredentialsService.saveCredentials(user.uid, finalDeviceId);
 
         // Also save the friendly device name for background notifications
         const friendlyName = savedNickname || deviceName || 'Android';
         await NativeCredentialsService.saveDeviceName(friendlyName);
       } catch (credError) {}
-
-      // Silently remove stale duplicate devices: same user + model + name but
-      // different ID. This cleans up leftover docs from app reinstalls / upgrades.
-      try {
-        const dupSnap = await firestore()
-          .collection(COLLECTIONS.DEVICES)
-          .where('userId', '==', user.uid)
-          .where('model', '==', deviceModel)
-          .where('name', '==', deviceName)
-          .get();
-        const deleteOps = dupSnap.docs
-          .filter((d: any) => d.id !== deviceId)
-          .map((d: any) => d.ref.delete());
-        await Promise.all(deleteOps);
-      } catch (_) {}
 
       set({ currentDevice: device, isLoading: false });
     } catch (error: any) {
