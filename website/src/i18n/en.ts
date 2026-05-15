@@ -156,6 +156,8 @@ const en = {
     android: "Android",
     chromeExtension: "Chrome Extension",
     ios: "iOS",
+    remove: "Remove",
+    removeConfirm: "Remove this device?",
   },
 
   // Common

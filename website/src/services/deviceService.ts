@@ -105,3 +105,7 @@ export async function getUserDevices(userId: string): Promise<DeviceInfo[]> {
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DeviceInfo);
 }
+
+export async function deleteDevice(deviceId: string): Promise<void> {
+  await deleteDoc(doc(db, "devices", deviceId));
+}

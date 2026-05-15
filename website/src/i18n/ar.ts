@@ -156,6 +156,8 @@ const ar = {
     android: "أندرويد",
     chromeExtension: "إضافة كروم",
     ios: "iOS",
+    remove: "إزالة",
+    removeConfirm: "إزالة هذا الجهاز؟",
   },
 
   // Common

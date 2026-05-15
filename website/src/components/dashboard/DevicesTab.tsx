@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   getUserDevices,
   getWebDeviceId,
+  deleteDevice,
   type DeviceInfo,
 } from "@/services/deviceService";
-import { Smartphone, Monitor, Chrome, Wifi, WifiOff } from "lucide-react";
+import { Smartphone, Monitor, Chrome, Wifi, WifiOff, Trash2 } from "lucide-react";
 
 interface DevicesTabProps {
   devices: DeviceInfo[];
@@ -59,6 +59,19 @@ function getPlatformLabel(
 export default function DevicesTab({ devices, onRefresh }: DevicesTabProps) {
   const { t } = useLanguage();
   const webDeviceId = getWebDeviceId();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete(deviceId: string) {
+    setDeleting(true);
+    try {
+      await deleteDevice(deviceId);
+      onRefresh();
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
+  }
 
   if (devices.length === 0) {
     return (
@@ -119,7 +132,7 @@ export default function DevicesTab({ devices, onRefresh }: DevicesTabProps) {
                 </p>
               </div>
 
-              <div className="text-end shrink-0">
+              <div className="text-end shrink-0 flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {isOnline ? (
                     <>
@@ -138,10 +151,39 @@ export default function DevicesTab({ devices, onRefresh }: DevicesTabProps) {
                   )}
                 </div>
                 {device.lastActiveAt && (
-                  <p className="text-[10px] text-txt-tertiary mt-1">
+                  <p className="text-[10px] text-txt-tertiary">
                     {t("devices.lastActive")}:{" "}
                     {formatLastActive(device.lastActiveAt)}
                   </p>
+                )}
+                {!isCurrentDevice && (
+                  confirmDeleteId === device.id ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[10px] text-txt-secondary">{t("devices.removeConfirm")}</span>
+                      <button
+                        onClick={() => handleDelete(device.id)}
+                        disabled={deleting}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-error/10 text-error hover:bg-error/20 font-medium"
+                      >
+                        {t("common.confirm")}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deleting}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-surface-secondary text-txt-secondary hover:bg-border"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteId(device.id)}
+                      className="mt-1 p-1 rounded text-txt-tertiary hover:text-error hover:bg-error/10 transition-colors"
+                      title={t("devices.remove")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )
                 )}
               </div>
             </div>
