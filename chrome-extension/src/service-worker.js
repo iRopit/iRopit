@@ -2411,6 +2411,72 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+/**
+ * Query Firestore directly for Insights data within a specific date range.
+ * This bypasses chrome.storage.local so every machine gets identical results
+ * regardless of its local cache state or installation date.
+ */
+async function fetchInsightsFromFirestore(fromTs, toTs) {
+  if (!currentUser || !auth.currentUser) throw new Error("Not authenticated");
+
+  // Get all mobile devices for this user
+  const devicesSnap = await getDocs(query(
+    collection(db, "devices"),
+    where("userId", "==", currentUser.uid),
+  ));
+
+  const mobileDevices = [];
+  devicesSnap.forEach((docSnap) => {
+    const d = docSnap.data();
+    if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
+      let name = d.nickname;
+      if (!name) {
+        const platform = (d.platform || "").toLowerCase();
+        name = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+      }
+      mobileDevices.push({ id: d.id, name });
+    }
+  });
+
+  const allSms = [];
+  const allCalls = [];
+  const allNotifs = [];
+
+  await Promise.all(mobileDevices.map(async (device) => {
+    // Fetch all notifications (SMS + others) in date range — split by type client-side
+    const [notifSnap, callsSnap] = await Promise.all([
+      getDocs(query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        where("timestamp", ">=", fromTs),
+        where("timestamp", "<=", toTs),
+        orderBy("timestamp", "desc"),
+        limit(5000),
+      )),
+      getDocs(query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
+        where("timestamp", ">=", fromTs),
+        where("timestamp", "<=", toTs),
+        orderBy("timestamp", "desc"),
+        limit(5000),
+      )),
+    ]);
+
+    notifSnap.docs.forEach((d) => {
+      const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
+      if (item.type === "sms") {
+        allSms.push(item);
+      }
+      allNotifs.push(item);
+    });
+
+    callsSnap.docs.forEach((d) => {
+      allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
+    });
+  }));
+
+  return { allSms, allCalls, allNotifs };
+}
+
 // Message handler from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "setDeviceId") {
@@ -2468,6 +2534,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "restartListening") {
     startListening();
     sendResponse({ success: true, listening: true });
+  }
+
+  // Fetch Insights data directly from Firestore for a specific date range.
+  // Bypasses the per-machine chrome.storage.local cache so results are consistent
+  // across all computers regardless of when the extension was installed.
+  if (message.type === "fetchInsightsData") {
+    const { fromTs, toTs } = message;
+    fetchInsightsFromFirestore(fromTs, toTs)
+      .then((data) => sendResponse({ success: true, ...data }))
+      .catch((err) => sendResponse({ success: false, error: err?.message || "Unknown error" }));
+    return true; // keep channel open for async response
   }
 
   // Refresh popup cache on demand (called by Insights Apply button)

@@ -37,6 +37,31 @@ function formatDateLabel(dateStr) {
   return d.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Load Insights data directly from Firestore for a specific date range.
+ *  Sends a message to the service worker which queries Firestore server-side.
+ *  This ensures every machine (regardless of local cache age or install date)
+ *  gets identical, complete data for the same date range.
+ */
+async function loadInsightsDataDirect(fromTs, toTs) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: "fetchInsightsData", fromTs, toTs },
+      (response) => {
+        if (chrome.runtime.lastError || !response?.success) {
+          // Fallback to local cache if SW is unavailable
+          resolve(loadRawData());
+          return;
+        }
+        resolve({
+          allSms: response.allSms || [],
+          allCalls: response.allCalls || [],
+          allNotifs: response.allNotifs || [],
+        });
+      },
+    );
+  });
+}
+
 /** Load all raw data from chrome.storage.local */
 async function loadRawData() {
   const result = await chrome.storage.local.get([
@@ -121,23 +146,13 @@ async function renderDashboard() {
   const fromTs = dayStart(fromVal);
   const toTs = dayEnd(toVal);
 
-  const { allSms, allCalls, allNotifs } = await loadRawData();
+  // Query Firestore directly for the selected date range — consistent across all machines
+  const { allSms, allCalls, allNotifs } = await loadInsightsDataDirect(fromTs, toTs);
 
-  // Filter by date range
-  const filteredSms = allSms.filter((m) => {
-    const ts = m.timestamp || m.receivedAt || 0;
-    return ts >= fromTs && ts <= toTs;
-  });
-
-  const filteredCalls = allCalls.filter((c) => {
-    const ts = c.timestamp || c.callDate || 0;
-    return ts >= fromTs && ts <= toTs;
-  });
-
-  const filteredNotifs = allNotifs.filter((n) => {
-    const ts = n.timestamp || n.receivedAt || 0;
-    return ts >= fromTs && ts <= toTs;
-  });
+  // Data is already scoped to the date range by the Firestore query; no client-side filter needed.
+  const filteredSms = allSms;
+  const filteredCalls = allCalls;
+  const filteredNotifs = allNotifs;
 
   // Update stat counters
   if (smsCountEl) smsCountEl.textContent = filteredSms.length;
@@ -539,12 +554,12 @@ export function updateInsightsDeviceTabs() {
   }
 }
 
-/** Request the SW to refresh the cache, then render the dashboard */
+/** Render Insights with a loading indicator while fetching from Firestore */
 async function refreshAndRender() {
   const filterBtn = document.getElementById("dashFilterBtn");
   const breakdownList = document.getElementById("dashBreakdownList");
 
-  // Show loading state on the button and breakdown area
+  // Show loading state
   if (filterBtn) {
     filterBtn.disabled = true;
     filterBtn.textContent = t("common_loading") || "Loading...";
@@ -558,18 +573,12 @@ async function refreshAndRender() {
     </div>`;
   }
 
-  try {
-    await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "requestCacheRefresh" }, () => resolve());
-    });
-  } catch (_) { /* SW may be waking up; proceed with existing cache */ }
+  await renderDashboard();
 
   if (filterBtn) {
     filterBtn.disabled = false;
     filterBtn.textContent = t("dash_apply") || "Apply";
   }
-
-  renderDashboard();
 }
 
 /** Initialize the Dashboard tab */
