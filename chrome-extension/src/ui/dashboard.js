@@ -624,12 +624,20 @@ export function updateInsightsDeviceTabs() {
 async function refreshAndRender() {
   const filterBtn = document.getElementById("dashFilterBtn");
   const breakdownList = document.getElementById("dashBreakdownList");
+  const smsCountEl = document.getElementById("dashSmsCount");
+  const callsCountEl = document.getElementById("dashCallsCount");
+  const notifCountEl = document.getElementById("dashNotifCount");
 
-  // Show loading state
+  const spinnerSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
+
+  // Show loading state on stat cards and button
   if (filterBtn) {
     filterBtn.disabled = true;
     filterBtn.textContent = t("common_loading") || "Loading...";
   }
+  if (smsCountEl) smsCountEl.innerHTML = spinnerSvg;
+  if (callsCountEl) callsCountEl.innerHTML = spinnerSvg;
+  if (notifCountEl) notifCountEl.innerHTML = spinnerSvg;
   if (breakdownList) {
     breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
@@ -678,7 +686,7 @@ export function initDashboard() {
   // Auto-render when tab is clicked
   document.querySelectorAll(".tab").forEach((tab) => {
     if (tab.dataset.tab === "dashboard") {
-      tab.addEventListener("click", () => renderDashboard());
+      tab.addEventListener("click", () => refreshAndRender());
     }
   });
 }
