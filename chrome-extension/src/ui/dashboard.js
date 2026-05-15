@@ -7,6 +7,15 @@
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 import { getFriendlyDeviceName, getPlatformIcon } from "../utils/helpers.js";
+import {
+  db,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+} from "../config/firebase.js";
 
 /** Shorthand translator */
 function t(key) {
@@ -38,28 +47,74 @@ function formatDateLabel(dateStr) {
 }
 
 /** Load Insights data directly from Firestore for a specific date range.
- *  Sends a message to the service worker which queries Firestore server-side.
+ *  Queries Firestore from the popup context using the authenticated user.
  *  This ensures every machine (regardless of local cache age or install date)
  *  gets identical, complete data for the same date range.
  */
 async function loadInsightsDataDirect(fromTs, toTs) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type: "fetchInsightsData", fromTs, toTs },
-      (response) => {
-        if (chrome.runtime.lastError || !response?.success) {
-          // Fallback to local cache if SW is unavailable
-          resolve(loadRawData());
-          return;
+  const currentUser = state.currentUser;
+  if (!currentUser) {
+    // Not authenticated yet — fall back to local cache
+    return loadRawData();
+  }
+
+  // Get all mobile devices for this user
+  let mobileDevices = [];
+  try {
+    const devicesSnap = await getDocs(query(
+      collection(db, "devices"),
+      where("userId", "==", currentUser.uid),
+    ));
+    devicesSnap.forEach((docSnap) => {
+      const d = docSnap.data();
+      if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
+        let name = d.nickname;
+        if (!name) {
+          const platform = (d.platform || "").toLowerCase();
+          name = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
         }
-        resolve({
-          allSms: response.allSms || [],
-          allCalls: response.allCalls || [],
-          allNotifs: response.allNotifs || [],
-        });
-      },
-    );
-  });
+        mobileDevices.push({ id: d.id, name });
+      }
+    });
+  } catch (_) {
+    return loadRawData(); // fallback on error
+  }
+
+  const allSms = [];
+  const allCalls = [];
+  const allNotifs = [];
+
+  await Promise.all(mobileDevices.map(async (device) => {
+    try {
+      const [notifSnap, callsSnap] = await Promise.all([
+        getDocs(query(
+          collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+          where("timestamp", ">=", fromTs),
+          where("timestamp", "<=", toTs),
+          orderBy("timestamp", "desc"),
+          limit(5000),
+        )),
+        getDocs(query(
+          collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
+          where("timestamp", ">=", fromTs),
+          where("timestamp", "<=", toTs),
+          orderBy("timestamp", "desc"),
+          limit(5000),
+        )),
+      ]);
+
+      notifSnap.docs.forEach((d) => {
+        const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
+        if (item.type === "sms") allSms.push(item);
+        allNotifs.push(item);
+      });
+      callsSnap.docs.forEach((d) => {
+        allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
+      });
+    } catch (_) { /* skip devices with permission errors */ }
+  }));
+
+  return { allSms, allCalls, allNotifs };
 }
 
 /** Load all raw data from chrome.storage.local */
