@@ -215,10 +215,21 @@ async function renderDashboard() {
   // Query Firestore directly for the selected date range — consistent across all machines
   const { allSms, allCalls, allNotifs } = await loadInsightsDataDirect(fromTs, toTs);
 
-  // Data is already scoped to the date range by the Firestore query; no client-side filter needed.
-  const filteredSms = allSms;
-  const filteredCalls = allCalls;
-  const filteredNotifs = allNotifs;
+  // Determine selected device from the active sidebar tab
+  const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+  const selectedDevice =
+    insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  // Apply device filter to all data
+  const filteredSms = selectedDevice === "all"
+    ? allSms
+    : allSms.filter((m) => m.deviceId === selectedDevice);
+  const filteredCalls = selectedDevice === "all"
+    ? allCalls
+    : allCalls.filter((c) => c.deviceId === selectedDevice);
+  const filteredNotifs = selectedDevice === "all"
+    ? allNotifs
+    : allNotifs.filter((n) => n.deviceId === selectedDevice);
 
   // Update stat counters
   if (smsCountEl) smsCountEl.textContent = filteredSms.length;
@@ -290,14 +301,8 @@ async function renderDashboard() {
     }
   }
 
-  // Filter SMS by selected device for insights
-  const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
-  const insightsSms = selectedInsightsDevice === "all"
-    ? filteredSms
-    : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-
-  // Render SMS spending insights
-  renderSmsInsights(insightsSms);
+  // Render SMS spending insights (filteredSms is already device-filtered above)
+  renderSmsInsights(filteredSms);
 
   const html = sortedDates.map((dateKey) => {
     const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);

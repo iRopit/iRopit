@@ -20549,6 +20549,57 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     sendPageToDevice(url, deviceId);
   }
 });
+async function fetchInsightsFromFirestore(fromTs, toTs) {
+  if (!currentUser || !auth.currentUser) throw new Error("Not authenticated");
+  const devicesSnap = await getDocs(query(
+    collection(db, "devices"),
+    where("userId", "==", currentUser.uid)
+  ));
+  const mobileDevices = [];
+  devicesSnap.forEach((docSnap) => {
+    const d = docSnap.data();
+    if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
+      let name4 = d.nickname;
+      if (!name4) {
+        const platform = (d.platform || "").toLowerCase();
+        name4 = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+      }
+      mobileDevices.push({ id: d.id, name: name4 });
+    }
+  });
+  const allSms = [];
+  const allCalls = [];
+  const allNotifs = [];
+  await Promise.all(mobileDevices.map(async (device) => {
+    const [notifSnap, callsSnap] = await Promise.all([
+      getDocs(query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
+        where("timestamp", ">=", fromTs),
+        where("timestamp", "<=", toTs),
+        orderBy("timestamp", "desc"),
+        limit(5e3)
+      )),
+      getDocs(query(
+        collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
+        where("timestamp", ">=", fromTs),
+        where("timestamp", "<=", toTs),
+        orderBy("timestamp", "desc"),
+        limit(5e3)
+      ))
+    ]);
+    notifSnap.docs.forEach((d) => {
+      const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
+      if (item.type === "sms") {
+        allSms.push(item);
+      }
+      allNotifs.push(item);
+    });
+    callsSnap.docs.forEach((d) => {
+      allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
+    });
+  }));
+  return { allSms, allCalls, allNotifs };
+}
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "setDeviceId") {
     currentDeviceId = message.deviceId;
@@ -20591,6 +20642,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "restartListening") {
     startListening();
     sendResponse({ success: true, listening: true });
+  }
+  if (message.type === "fetchInsightsData") {
+    const { fromTs, toTs } = message;
+    fetchInsightsFromFirestore(fromTs, toTs).then((data) => sendResponse({ success: true, ...data })).catch((err) => sendResponse({ success: false, error: err?.message || "Unknown error" }));
+    return true;
+  }
+  if (message.type === "requestCacheRefresh") {
+    refreshPopupCache().then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));
+    return true;
   }
   return true;
 });

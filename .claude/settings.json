@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(dir *)",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\Moham\\\\.gradle\\\\jdks\\\\eclipse_adoptium-17-amd64-windows.2 /b 2>&1\")",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\Moham\\\\.android\\\\studio /b 2>&1\")",
+      "Bash(node build.js)",
+      "Read(//g/My Drive/Projects/iRopit/App/iRopit Release/APK/**)",
+      "PowerShell($env:JAVA_HOME = \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; $env:ANDROID_HOME = \"C:\\\\Users\\\\Moham\\\\AppData\\\\Local\\\\Android\\\\Sdk\"; $env:Path = \"$env:JAVA_HOME\\\\bin;$env:Path\"; Set-Location \"c:\\\\Users\\\\Moham\\\\iRopit\\\\app\\\\android\"; .\\\\gradlew.bat assembleRelease --no-daemon 2>&1 | Select-Object -Last 100)",
+      "PowerShell($src = \"c:\\\\Users\\\\Moham\\\\iRopit\\\\app\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\release\\\\iRopit-v1.0.5.6.apk\"; $dst = \"G:\\\\My Drive\\\\Projects\\\\iRopit\\\\App\\\\iRopit Release\\\\APK\\\\iRopit-v1.0.5.6.apk\"; Copy-Item -Path $src -Destination $dst -Force; if \\(Test-Path $dst\\) { $f = Get-Item $dst; \"Copied: $\\($f.FullName\\)\"; \"Size: $\\([math]::Round\\($f.Length/1MB,2\\)\\) MB\"; \"Modified: $\\($f.LastWriteTime\\)\" } else { \"FAILED\" })"
+    ]
+  }
+}

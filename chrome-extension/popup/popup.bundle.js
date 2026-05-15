@@ -24479,6 +24479,7 @@ ${this.customData.serverResponse}`;
           dash_to: "To",
           dash_apply: "Apply",
           dash_reset: "Reset",
+          common_loading: "Loading...",
           dash_sms: "SMS",
           dash_calls: "Calls",
           dash_notifications: "Notifications",
@@ -24577,6 +24578,7 @@ ${this.customData.serverResponse}`;
           dash_to: "\u0625\u0644\u0649",
           dash_apply: "\u062A\u0637\u0628\u064A\u0642",
           dash_reset: "\u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646",
+          common_loading: "\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u0645\u064A\u0644...",
           dash_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           dash_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
@@ -29795,6 +29797,7 @@ ${this.customData.serverResponse}`;
   init_i18n();
   init_state();
   init_helpers();
+  init_firebase();
   function t(key) {
     const lang = getCurrentLanguage();
     return translations[lang] && translations[lang][key] || translations["en"][key] || key;
@@ -29816,6 +29819,93 @@ ${this.customData.serverResponse}`;
     const lang = getCurrentLanguage();
     const locale = lang === "ar" ? "ar-EG" : void 0;
     return d.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+  }
+  async function loadInsightsDataDirect(fromTs, toTs) {
+    const currentUser2 = currentUser;
+    if (!currentUser2) {
+      const raw = await loadRawData();
+      return {
+        allSms: raw.allSms.filter((m) => {
+          const ts = m.timestamp || m.receivedAt || 0;
+          return ts >= fromTs && ts <= toTs;
+        }),
+        allCalls: raw.allCalls.filter((c) => {
+          const ts = c.timestamp || c.callDate || 0;
+          return ts >= fromTs && ts <= toTs;
+        }),
+        allNotifs: raw.allNotifs.filter((n) => {
+          const ts = n.timestamp || n.receivedAt || 0;
+          return ts >= fromTs && ts <= toTs;
+        })
+      };
+    }
+    let mobileDevices = [];
+    try {
+      const devicesSnap = await getDocs(query(
+        collection(db, "devices"),
+        where("userId", "==", currentUser2.uid)
+      ));
+      devicesSnap.forEach((docSnap) => {
+        const d = docSnap.data();
+        if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
+          let name5 = d.nickname;
+          if (!name5) {
+            const platform = (d.platform || "").toLowerCase();
+            name5 = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+          }
+          mobileDevices.push({ id: d.id, name: name5 });
+        }
+      });
+    } catch (_) {
+      const raw = await loadRawData();
+      return {
+        allSms: raw.allSms.filter((m) => {
+          const ts = m.timestamp || m.receivedAt || 0;
+          return ts >= fromTs && ts <= toTs;
+        }),
+        allCalls: raw.allCalls.filter((c) => {
+          const ts = c.timestamp || c.callDate || 0;
+          return ts >= fromTs && ts <= toTs;
+        }),
+        allNotifs: raw.allNotifs.filter((n) => {
+          const ts = n.timestamp || n.receivedAt || 0;
+          return ts >= fromTs && ts <= toTs;
+        })
+      };
+    }
+    const allSms = [];
+    const allCalls = [];
+    const allNotifs = [];
+    await Promise.all(mobileDevices.map(async (device) => {
+      try {
+        const [notifSnap, callsSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, "users", currentUser2.uid, "devices", device.id, "notifications"),
+            where("timestamp", ">=", fromTs),
+            where("timestamp", "<=", toTs),
+            orderBy("timestamp", "desc"),
+            limit(5e3)
+          )),
+          getDocs(query(
+            collection(db, "users", currentUser2.uid, "devices", device.id, "calls"),
+            where("timestamp", ">=", fromTs),
+            where("timestamp", "<=", toTs),
+            orderBy("timestamp", "desc"),
+            limit(5e3)
+          ))
+        ]);
+        notifSnap.docs.forEach((d) => {
+          const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
+          if (item.type === "sms") allSms.push(item);
+          allNotifs.push(item);
+        });
+        callsSnap.docs.forEach((d) => {
+          allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
+        });
+      } catch (_) {
+      }
+    }));
+    return { allSms, allCalls, allNotifs };
   }
   async function loadRawData() {
     const result = await chrome.storage.local.get([
@@ -29880,19 +29970,12 @@ ${this.customData.serverResponse}`;
     }
     const fromTs = dayStart(fromVal);
     const toTs = dayEnd(toVal);
-    const { allSms, allCalls, allNotifs } = await loadRawData();
-    const filteredSms = allSms.filter((m) => {
-      const ts = m.timestamp || m.receivedAt || 0;
-      return ts >= fromTs && ts <= toTs;
-    });
-    const filteredCalls = allCalls.filter((c) => {
-      const ts = c.timestamp || c.callDate || 0;
-      return ts >= fromTs && ts <= toTs;
-    });
-    const filteredNotifs = allNotifs.filter((n) => {
-      const ts = n.timestamp || n.receivedAt || 0;
-      return ts >= fromTs && ts <= toTs;
-    });
+    const { allSms, allCalls, allNotifs } = await loadInsightsDataDirect(fromTs, toTs);
+    const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+    const selectedDevice = insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+    const filteredSms = selectedDevice === "all" ? allSms : allSms.filter((m) => m.deviceId === selectedDevice);
+    const filteredCalls = selectedDevice === "all" ? allCalls : allCalls.filter((c) => c.deviceId === selectedDevice);
+    const filteredNotifs = selectedDevice === "all" ? allNotifs : allNotifs.filter((n) => n.deviceId === selectedDevice);
     if (smsCountEl) smsCountEl.textContent = filteredSms.length;
     if (callsCountEl) callsCountEl.textContent = filteredCalls.length;
     if (notifCountEl) notifCountEl.textContent = filteredNotifs.length;
@@ -29947,9 +30030,7 @@ ${this.customData.serverResponse}`;
         insightsDeviceSelect.value = prevVal;
       }
     }
-    const selectedInsightsDevice = insightsDeviceSelect ? insightsDeviceSelect.value : "all";
-    const insightsSms = selectedInsightsDevice === "all" ? filteredSms : filteredSms.filter((m) => m.deviceId === selectedInsightsDevice);
-    renderSmsInsights(insightsSms);
+    renderSmsInsights(filteredSms);
     const html = sortedDates.map((dateKey) => {
       const notifs = (byDate[dateKey] || []).sort((a, b) => b._ts - a._ts);
       const smsCount = smsByDate[dateKey] || 0;
@@ -30181,12 +30262,40 @@ ${this.customData.serverResponse}`;
       });
     }
   }
+  async function refreshAndRender() {
+    const filterBtn = document.getElementById("dashFilterBtn");
+    const breakdownList = document.getElementById("dashBreakdownList");
+    const smsCountEl = document.getElementById("dashSmsCount");
+    const callsCountEl = document.getElementById("dashCallsCount");
+    const notifCountEl = document.getElementById("dashNotifCount");
+    const spinnerSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
+    if (filterBtn) {
+      filterBtn.disabled = true;
+      filterBtn.textContent = t("common_loading") || "Loading...";
+    }
+    if (smsCountEl) smsCountEl.innerHTML = spinnerSvg;
+    if (callsCountEl) callsCountEl.innerHTML = spinnerSvg;
+    if (notifCountEl) notifCountEl.innerHTML = spinnerSvg;
+    if (breakdownList) {
+      breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+      <p style="margin-top:8px">${t("common_loading") || "Loading..."}</p>
+    </div>`;
+    }
+    await renderDashboard();
+    if (filterBtn) {
+      filterBtn.disabled = false;
+      filterBtn.textContent = t("dash_apply") || "Apply";
+    }
+  }
   function initDashboard() {
     setDefaultDates();
     const filterBtn = document.getElementById("dashFilterBtn");
     const resetBtn = document.getElementById("dashResetBtn");
     if (filterBtn) {
-      filterBtn.addEventListener("click", () => renderDashboard());
+      filterBtn.addEventListener("click", () => refreshAndRender());
     }
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
@@ -30195,7 +30304,7 @@ ${this.customData.serverResponse}`;
         if (fromInput) fromInput.value = "";
         if (toInput) toInput.value = "";
         setDefaultDates();
-        renderDashboard();
+        refreshAndRender();
       });
     }
     const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
@@ -30204,7 +30313,7 @@ ${this.customData.serverResponse}`;
     }
     document.querySelectorAll(".tab").forEach((tab) => {
       if (tab.dataset.tab === "dashboard") {
-        tab.addEventListener("click", () => renderDashboard());
+        tab.addEventListener("click", () => refreshAndRender());
       }
     });
   }

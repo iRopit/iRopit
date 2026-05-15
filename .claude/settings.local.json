@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(dir \"C:\\\\\" ; echo \"ANDROID_HOME=$env:ANDROID_HOME\" ; echo \"JAVA_HOME=$env:JAVA_HOME\")",
+      "PowerShell(dir \"C:\\\\Users\\\\Moham\\\\AppData\\\\Local\\\\Android\" -ErrorAction SilentlyContinue; dir \"$env:LOCALAPPDATA\\\\Android\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-ChildItem \"G:\\\\My Drive\\\\Projects\\\\iRopit\\\\App\\\\Extension\\\\IRopit-Extension\" | Select-Object Name, LastWriteTime, @{N='Size\\(KB\\)';E={[math]::Round\\($_.Length/1KB,1\\)}})",
+      "PowerShell(Get-ChildItem \"G:\\\\My Drive\\\\Projects\\\\iRopit\\\\App\\\\Extension\\\\IRopit-Extension\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object Name, LastWriteTime | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\" -Directory | Where-Object { $_.Name -match \"java|jdk|android|studio\" -or $_.Name -match \"Android\" } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\\" -Directory | Select-Object Name; [System.Environment]::GetEnvironmentVariable\\(\"ANDROID_HOME\"\\); [System.Environment]::GetEnvironmentVariable\\(\"JAVA_HOME\"\\))",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\Moham\\\\.android /b 2>&1\")",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\Moham\\\\AndroidStudioProjects /b 2>&1\")",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\Moham\\\\.gradle /b 2>&1\")"
+    ]
+  }
+}
