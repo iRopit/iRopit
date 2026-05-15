@@ -220,6 +220,21 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         await NativeCredentialsService.saveDeviceName(friendlyName);
       } catch (credError) {}
 
+      // Silently remove stale duplicate devices: same user + model + name but
+      // different ID. This cleans up leftover docs from app reinstalls / upgrades.
+      try {
+        const dupSnap = await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .where('userId', '==', user.uid)
+          .where('model', '==', deviceModel)
+          .where('name', '==', deviceName)
+          .get();
+        const deleteOps = dupSnap.docs
+          .filter((d: any) => d.id !== deviceId)
+          .map((d: any) => d.ref.delete());
+        await Promise.all(deleteOps);
+      } catch (_) {}
+
       set({ currentDevice: device, isLoading: false });
     } catch (error: any) {
       // Fallback: create a local device only

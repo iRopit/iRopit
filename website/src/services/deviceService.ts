@@ -103,7 +103,33 @@ export interface DeviceInfo {
 export async function getUserDevices(userId: string): Promise<DeviceInfo[]> {
   const q = query(collection(db, "devices"), where("userId", "==", userId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DeviceInfo);
+  const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DeviceInfo);
+
+  // Deduplicate: if multiple devices share the same name+model+platform, keep
+  // only the most recently active one (covers app reinstall / upgrade scenario).
+  const seen = new Map<string, DeviceInfo>();
+  for (const dev of all) {
+    const key = [
+      (dev.name || "").toLowerCase(),
+      (dev.model || "").toLowerCase(),
+      (dev.platform || "").toLowerCase(),
+    ].join("|");
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, dev);
+    } else {
+      const devTs = dev.lastActiveAt ?? 0;
+      const exTs = existing.lastActiveAt ?? 0;
+      // Prefer online device; among equal, prefer most recent timestamp
+      const devWins =
+        (dev.isOnline && !existing.isOnline) ||
+        (!existing.isOnline && devTs > exTs) ||
+        (dev.isOnline && existing.isOnline && devTs > exTs);
+      if (devWins) seen.set(key, dev);
+    }
+  }
+
+  return Array.from(seen.values());
 }
 
 export async function deleteDevice(deviceId: string): Promise<void> {
