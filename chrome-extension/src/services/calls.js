@@ -782,7 +782,7 @@ export function renderCalls(calls) {
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
-        <button class="call-list-hover-btn call-list-hover-call" title="Call">
+        <button class="call-list-hover-btn call-list-hover-call" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
           </svg>
@@ -965,18 +965,18 @@ async function showCallHistory(phoneNumber) {
           <div class="conversation-name">${contactName}</div>
           ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
-        <button class="chat-action-btn copy-phone-btn" title="Copy number">
+        <button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ الرقم' : 'Copy number'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
           </svg>
         </button>
         <div class="call-action-buttons">
-          <button class="call-action-btn" id="dialPhoneBtn" title="Call on phone">
+          <button class="call-action-btn" id="dialPhoneBtn" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call on phone'}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
             </svg>
-            <span>Call</span>
+            <span>${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}</span>
           </button>
           <button class="call-action-btn call-action-whatsapp" id="whatsappPhoneBtn" title="Open in WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

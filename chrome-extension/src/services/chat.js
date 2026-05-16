@@ -29,6 +29,7 @@ import {
   escapeHtml,
   sanitizeUrl,
 } from "../utils/helpers.js";
+import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { encryptChatMessage, decryptChatMessage } from "./cryptoService.js";
@@ -343,12 +344,12 @@ export function renderChatMessages(messages) {
             <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
           </div>
           <div class="chat-message-actions">
-            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${isStarred ? "Unstar" : "Star"} message">
+            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === 'ar' ? (isStarred ? 'إلغاء تمييز الرسالة' : 'تمييز الرسالة') : (isStarred ? 'Unstar message' : 'Star message')}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </button>
-            <button class="chat-action-btn copy-msg-btn" title="Copy text">
+            <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ النص' : 'Copy text'}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>

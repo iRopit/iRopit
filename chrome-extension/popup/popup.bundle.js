@@ -25286,12 +25286,12 @@ ${this.customData.serverResponse}`;
             <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
           </div>
           <div class="chat-message-actions">
-            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${isStarred ? "Unstar" : "Star"} message">
+            <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? isStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : isStarred ? "Unstar message" : "Star message"}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </button>
-            <button class="chat-action-btn copy-msg-btn" title="Copy text">
+            <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0646\u0635" : "Copy text"}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
@@ -25680,6 +25680,7 @@ ${this.customData.serverResponse}`;
       init_dom();
       init_toasts();
       init_helpers();
+      init_i18n();
       init_state();
       init_badges();
       init_cryptoService();
@@ -26534,7 +26535,7 @@ ${this.customData.serverResponse}`;
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
-        <button class="call-list-hover-btn call-list-hover-call" title="Call">
+        <button class="call-list-hover-btn call-list-hover-call" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
           </svg>
@@ -26693,18 +26694,18 @@ ${this.customData.serverResponse}`;
           <div class="conversation-name">${contactName}</div>
           ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
-        <button class="chat-action-btn copy-phone-btn" title="Copy number">
+        <button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0631\u0642\u0645" : "Copy number"}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
           </svg>
         </button>
         <div class="call-action-buttons">
-          <button class="call-action-btn" id="dialPhoneBtn" title="Call on phone">
+          <button class="call-action-btn" id="dialPhoneBtn" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call on phone"}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
             </svg>
-            <span>Call</span>
+            <span>${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}</span>
           </button>
           <button class="call-action-btn call-action-whatsapp" id="whatsappPhoneBtn" title="Open in WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -27891,7 +27892,7 @@ ${this.customData.serverResponse}`;
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
-        <button class="call-list-hover-btn sms-hover-call" title="Call">
+        <button class="call-list-hover-btn sms-hover-call" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
           </svg>
@@ -28174,11 +28175,11 @@ ${this.customData.serverResponse}`;
         ${(() => {
       const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike2(phoneNumber) ? phoneNumber : "");
       return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
-          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="Call">
+          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
             </svg>
-            <span>Call</span>
+            <span>${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}</span>
           </button>
           <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -28199,7 +28200,7 @@ ${this.customData.serverResponse}`;
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg) ? `<span class="message-device">\xF0\u0178\u201C\xB1 ${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
-                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641" : "Delete"}">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -28207,7 +28208,7 @@ ${this.customData.serverResponse}`;
               </div>
             </div>
             <div class="chat-message-actions">
-              <button class="chat-action-btn copy-msg-btn" title="Copy text">
+              <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0646\u0635" : "Copy text"}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                   <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>

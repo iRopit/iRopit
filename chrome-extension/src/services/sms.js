@@ -1132,7 +1132,7 @@ export function renderSMS(messages) {
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
-        <button class="call-list-hover-btn sms-hover-call" title="Call">
+        <button class="call-list-hover-btn sms-hover-call" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
           </svg>
@@ -1521,11 +1521,11 @@ export function showConversation(phoneNumber) {
         ${(() => {
           const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike(phoneNumber) ? phoneNumber : "");
           return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
-          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="Call">
+          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
             </svg>
-            <span>Call</span>
+            <span>${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}</span>
           </button>
           <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -1557,7 +1557,7 @@ export function showConversation(phoneNumber) {
                     ? `<span class="message-device">ðŸ“± ${escapeHtml(resolveSMSDeviceName(msg))}</span>`
                     : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
-                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="Delete">
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === 'ar' ? 'حذف' : 'Delete'}">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                   </svg>
@@ -1565,7 +1565,7 @@ export function showConversation(phoneNumber) {
               </div>
             </div>
             <div class="chat-message-actions">
-              <button class="chat-action-btn copy-msg-btn" title="Copy text">
+              <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ النص' : 'Copy text'}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                   <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
