@@ -24419,9 +24419,11 @@ ${this.customData.serverResponse}`;
           settings_delete_account: "Delete Account",
           settings_about: "About",
           settings_tagline: "Sync your SMS and calls across all devices",
-          settings_smart_actions: "Smart Actions",
+          settings_smart_actions: "Premium Actions",
           settings_auto_copy_otp: "Copy OTP from SMS automatically",
           settings_auto_copy_otp_desc: "Automatically detect and copy OTP codes from received SMS messages.",
+          settings_auto_copy_otp_email: "Copy OTP from email automatically",
+          settings_auto_copy_otp_email_desc: "Automatically detect and copy OTP codes from received email notifications.",
           settings_auto_open_images: "Open received images automatically",
           settings_auto_open_images_desc: "Automatically open received images in the Chrome extension.",
           settings_auto_open_url: "Open received URLs automatically",
@@ -24487,6 +24489,8 @@ ${this.customData.serverResponse}`;
           dash_sms: "SMS",
           dash_calls: "Calls",
           dash_notifications: "Notifications",
+          dash_export_summary: "Export SMS & Calls",
+          dash_export_spending: "Export Spending",
           dash_insights_title: "SMS Spending Insights",
           dash_insights_empty_filter: "Apply a date filter to see spending analysis",
           dash_insights_no_sms: "No SMS data in selected range",
@@ -24522,9 +24526,11 @@ ${this.customData.serverResponse}`;
           settings_delete_account: "\u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628",
           settings_about: "\u062D\u0648\u0644 \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
           settings_tagline: "\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0639\u0628\u0631 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u062C\u0647\u0632\u0629",
-          settings_smart_actions: "\u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0644\u0630\u0643\u064A\u0629",
+          settings_smart_actions: "\u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0644\u0645\u0645\u064A\u0632\u0629",
           settings_auto_copy_otp: "\u0646\u0633\u062E OTP \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
           settings_auto_copy_otp_desc: "\u0627\u0644\u0643\u0634\u0641 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0639\u0646 \u0631\u0645\u0648\u0632 OTP \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u0648\u0646\u0633\u062E\u0647\u0627.",
+          settings_auto_copy_otp_email: "\u0646\u0633\u062E OTP \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+          settings_auto_copy_otp_email_desc: "\u0627\u0644\u0643\u0634\u0641 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0639\u0646 \u0631\u0645\u0648\u0632 OTP \u0641\u064A \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u0648\u0646\u0633\u062E\u0647\u0627.",
           settings_auto_open_images: "\u0641\u062A\u062D \u0627\u0644\u0635\u0648\u0631 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
           settings_auto_open_images_desc: "\u0641\u062A\u062D \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0646\u0635\u064A\u0629 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u0641\u064A \u0625\u0636\u0627\u0641\u0629 Chrome.",
           settings_auto_open_url: "\u0641\u062A\u062D \u0627\u0644\u0631\u0648\u0627\u0628\u0637 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
@@ -24590,6 +24596,8 @@ ${this.customData.serverResponse}`;
           dash_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           dash_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          dash_export_summary: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          dash_export_spending: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0625\u0646\u0641\u0627\u0642",
           dash_insights_title: "\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           dash_insights_empty_filter: "\u0637\u0628\u0651\u0642 \u0641\u0644\u062A\u0631 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0644\u0639\u0631\u0636 \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0625\u0646\u0641\u0627\u0642",
           dash_insights_no_sms: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F",
@@ -25840,6 +25848,31 @@ ${this.customData.serverResponse}`;
       }
     }, 3e3);
   }
+  async function flushSMSCache() {
+    if (smsCacheWriteTimer) {
+      clearTimeout(smsCacheWriteTimer);
+      smsCacheWriteTimer = null;
+    }
+    const payload = smsCachePending;
+    smsCachePending = null;
+    if (!payload) return;
+    try {
+      const cacheData = {
+        byDevice: {},
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 500)
+      };
+      for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+      }
+      await chrome.storage.local.set({
+        [CACHE_KEYS.SMS]: cacheData,
+        [CACHE_KEYS.TIMESTAMP]: Date.now()
+      });
+      console.log(`[Cache] \u2705 Flushed ${payload.allMessages.length} SMS messages to cache (immediate)`);
+    } catch (error) {
+      console.warn("[Cache] Failed to flush SMS cache:", error);
+    }
+  }
   async function cacheCallsData(callsByDevice, allCalls) {
     try {
       const cacheData = {
@@ -26136,9 +26169,21 @@ ${this.customData.serverResponse}`;
               }
             }
           }
-          setAllCallsData(cached.allCalls);
+          const sanitizeCall = (c) => {
+            const hasEnc = c.contactName && typeof c.contactName === "string" && c.contactName.startsWith("ENC:") || c.phoneNumber && typeof c.phoneNumber === "string" && c.phoneNumber.startsWith("ENC:") || c.displayName && typeof c.displayName === "string" && c.displayName.startsWith("ENC:") || c.name && typeof c.name === "string" && c.name.startsWith("ENC:");
+            if (!hasEnc) return c;
+            return {
+              ...c,
+              contactName: c.contactName && c.contactName.startsWith("ENC:") ? "" : c.contactName || "",
+              phoneNumber: c.phoneNumber && c.phoneNumber.startsWith("ENC:") ? "" : c.phoneNumber || "",
+              displayName: c.displayName && c.displayName.startsWith("ENC:") ? "" : c.displayName || "",
+              name: c.name && c.name.startsWith("ENC:") ? "" : c.name || ""
+            };
+          };
+          const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
+          setAllCallsData(sanitizedCachedCalls);
           setCallsDataConfirmed(false);
-          renderCalls(cached.allCalls.slice(0, 100));
+          renderCalls(sanitizedCachedCalls.slice(0, 100));
         }
       }
     } catch (e) {
@@ -26327,13 +26372,8 @@ ${this.customData.serverResponse}`;
       indicator.id = "callsCountIndicator";
       indicator.className = "sms-count-indicator";
     }
-    if (isSyncingCalls) {
-      indicator.classList.add("indicator-top");
-      callsContainer.prepend(indicator);
-    } else {
-      indicator.classList.remove("indicator-top");
-      callsContainer.appendChild(indicator);
-    }
+    indicator.classList.remove("indicator-top");
+    callsContainer.appendChild(indicator);
     if (isSyncingCalls) {
       const countText = total > 0 ? `${total} calls` : "";
       indicator.innerHTML = `<span>${countText}</span><span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
@@ -26399,13 +26439,15 @@ ${this.customData.serverResponse}`;
     }
     const grouped = {};
     filteredCalls.forEach((call) => {
-      const normalizedPhone = normalizePhoneNumber(call.phoneNumber || "");
-      const key = normalizedPhone ? normalizedPhone : call.contactName ? `contact_${call.contactName}` : "Unknown";
+      const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+      const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+      const normalizedPhone = normalizePhoneNumber(safePhone);
+      const key = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "Unknown";
       if (!grouped[key]) {
         grouped[key] = {
           key,
-          phoneNumber: call.phoneNumber || "Unknown",
-          contactName: call.contactName || getContactName(normalizedPhone) || "",
+          phoneNumber: safePhone || "Unknown",
+          contactName: safeContact || getContactName(normalizedPhone) || "",
           calls: [],
           lastCall: call,
           missedCount: 0,
@@ -27208,6 +27250,7 @@ ${this.customData.serverResponse}`;
                 cachedNewestTimestamps[deviceId] = Math.max(
                   ...msgs.map((m) => m.timestamp || 0)
                 );
+                setSMSData(deviceId, msgs);
               }
             }
           }
@@ -27367,6 +27410,8 @@ ${this.customData.serverResponse}`;
       console.log("[SMS] \xE2\u0153\u2026 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
+      flushSMSCache().catch(() => {
+      });
       try {
         window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
       } catch (_) {
@@ -27973,13 +28018,8 @@ ${this.customData.serverResponse}`;
       indicator.id = "smsCountIndicator";
       indicator.className = "sms-count-indicator";
     }
-    if (isSyncing) {
-      indicator.classList.add("indicator-top");
-      smsContainer.prepend(indicator);
-    } else {
-      indicator.classList.remove("indicator-top");
-      smsContainer.appendChild(indicator);
-    }
+    indicator.classList.remove("indicator-top");
+    smsContainer.appendChild(indicator);
     const syncBadge = isSyncing ? `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>` : "";
     if (moreAvailable) {
       indicator.innerHTML = `<span>${total} messages loaded</span>${syncBadge}<button class="load-more-btn" id="loadMoreSmsBtn">Load more</button>`;
@@ -29280,7 +29320,7 @@ ${this.customData.serverResponse}`;
       addUnsubscriber(unsub);
     });
   }
-  function resolveDeviceName(notif) {
+  function resolveDeviceName2(notif) {
     if (notif.deviceId && notif.deviceId !== "user" && notif.deviceId !== "_user_notifications") {
       const device = devices.find((d) => d.id === notif.deviceId);
       if (device) return device.nickname || device.name || notif.deviceName || null;
@@ -29362,7 +29402,7 @@ ${this.customData.serverResponse}`;
       <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
       <div class="notif-bubble-body">${linkifyText3(notif.text || notif.body || "")}</div>
       <div class="notif-bubble-footer">
-        ${resolveDeviceName(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+        ${resolveDeviceName2(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName2(notif))}</span>` : `<span></span>`}
         <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
       </div>
     </div>
@@ -29480,7 +29520,7 @@ ${this.customData.serverResponse}`;
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
       const isSelected = notifSelectionMode && selectedNotifApps.has(key);
-      const groupDeviceName = resolveDeviceName(latest) || group.items.map(resolveDeviceName).find(Boolean) || null;
+      const groupDeviceName = resolveDeviceName2(latest) || group.items.map(resolveDeviceName2).find(Boolean) || null;
       return `
       <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
            data-app-key="${escapeHtml(key)}"
@@ -29814,7 +29854,7 @@ ${this.customData.serverResponse}`;
       const app2 = n.appName || n.packageName || "";
       const title = n.title || "";
       const body = n.text || n.body || "";
-      const device = resolveDeviceName(n) || "";
+      const device = resolveDeviceName2(n) || "";
       return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
     const now = /* @__PURE__ */ new Date();
@@ -30058,6 +30098,147 @@ ${this.customData.serverResponse}`;
   function escapeHtml2(str) {
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+  var _enc = new TextEncoder();
+  var _CRC32 = (() => {
+    const t2 = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j2 = 0; j2 < 8; j2++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+      t2[i] = c;
+    }
+    return t2;
+  })();
+  function _crc32(b) {
+    let c = 4294967295;
+    for (const v of b) c = _CRC32[(c ^ v) & 255] ^ c >>> 8;
+    return (c ^ 4294967295) >>> 0;
+  }
+  function _u16(n) {
+    return [n & 255, n >> 8 & 255];
+  }
+  function _u32(n) {
+    return [n & 255, n >> 8 & 255, n >> 16 & 255, n >> 24 & 255];
+  }
+  function _buildZip(files) {
+    const parts = [], cd = [];
+    let offset = 0;
+    for (const { name: name5, data } of files) {
+      const nb = _enc.encode(name5);
+      const crc = _crc32(data);
+      const lh = new Uint8Array([
+        80,
+        75,
+        3,
+        4,
+        ..._u16(20),
+        ..._u16(0),
+        ..._u16(0),
+        ..._u16(0),
+        ..._u16(0),
+        ..._u32(crc),
+        ..._u32(data.length),
+        ..._u32(data.length),
+        ..._u16(nb.length),
+        ..._u16(0),
+        ...nb
+      ]);
+      parts.push(lh, data);
+      cd.push({ nb, crc, size: data.length, off: offset });
+      offset += lh.length + data.length;
+    }
+    const cdParts = cd.map(({ nb, crc, size, off }) => new Uint8Array([
+      80,
+      75,
+      1,
+      2,
+      ..._u16(20),
+      ..._u16(20),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u32(crc),
+      ..._u32(size),
+      ..._u32(size),
+      ..._u16(nb.length),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u16(0),
+      ..._u32(0),
+      ..._u32(off),
+      ...nb
+    ]));
+    const cdSize = cdParts.reduce((s, p) => s + p.length, 0);
+    const eocd = new Uint8Array([
+      80,
+      75,
+      5,
+      6,
+      ..._u16(0),
+      ..._u16(0),
+      ..._u16(cd.length),
+      ..._u16(cd.length),
+      ..._u32(cdSize),
+      ..._u32(offset),
+      ..._u16(0)
+    ]);
+    const all = [...parts, ...cdParts, eocd];
+    const total = all.reduce((s, p) => s + p.length, 0);
+    const out = new Uint8Array(total);
+    let pos = 0;
+    for (const p of all) {
+      out.set(p, pos);
+      pos += p.length;
+    }
+    return out;
+  }
+  function _xesc(s) {
+    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function _colLetter(i) {
+    return i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + i % 26);
+  }
+  function buildXLSX(sheets) {
+    const ss = [], ssIdx = /* @__PURE__ */ new Map();
+    const si = (v) => {
+      const s = String(v ?? "");
+      if (!ssIdx.has(s)) {
+        ssIdx.set(s, ss.length);
+        ss.push(s);
+      }
+      return ssIdx.get(s);
+    };
+    const sheetXMLs = sheets.map(({ headers, rows }) => {
+      const all = [headers, ...rows];
+      const body = all.map(
+        (row, ri) => `<row r="${ri + 1}">${row.map((v, ci) => {
+          const ref2 = `${_colLetter(ci)}${ri + 1}`;
+          if (v === null || v === void 0 || v === "") return `<c r="${ref2}"/>`;
+          if (typeof v === "number" && isFinite(v)) return `<c r="${ref2}" t="n"><v>${v}</v></c>`;
+          return `<c r="${ref2}" t="s"><v>${si(v)}</v></c>`;
+        }).join("")}</row>`
+      ).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+    });
+    const ssXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map((s) => `<si><t xml:space="preserve">${_xesc(s)}</t></si>`).join("")}</sst>`;
+    const wbXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map(({ name: name5 }, i) => `<sheet name="${_xesc(name5)}" sheetId="${i + 1}" r:id="rId${i + 2}"/>`).join("")}</sheets></workbook>`;
+    const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>${sheets.map((_, i) => `<Relationship Id="rId${i + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>`;
+    const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+    const sheetCT = sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
+    const ctXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>${sheetCT}</Types>`;
+    const styXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
+    const files = [
+      { name: "[Content_Types].xml", data: _enc.encode(ctXML) },
+      { name: "_rels/.rels", data: _enc.encode(rootRels) },
+      { name: "xl/workbook.xml", data: _enc.encode(wbXML) },
+      { name: "xl/_rels/workbook.xml.rels", data: _enc.encode(wbRels) },
+      { name: "xl/sharedStrings.xml", data: _enc.encode(ssXML) },
+      { name: "xl/styles.xml", data: _enc.encode(styXML) },
+      ...sheetXMLs.map((xml, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: _enc.encode(xml) }))
+    ];
+    return new Blob([_buildZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  }
   var CURRENCY_MAP = {
     SAR: "SAR",
     AED: "AED",
@@ -30270,6 +30451,124 @@ ${this.customData.serverResponse}`;
       filterBtn.textContent = t("dash_apply") || "Apply";
     }
   }
+  function downloadCSV(csv, filename) {
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function localStampNow() {
+    const now = /* @__PURE__ */ new Date();
+    return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + "_" + String(now.getHours()).padStart(2, "0") + "-" + String(now.getMinutes()).padStart(2, "0");
+  }
+  function resolveDeviceName(id) {
+    if (!id) return "";
+    const dev = (devices || []).find((d) => d.id === id);
+    return dev ? getFriendlyDeviceName(dev) : id;
+  }
+  async function getCurrentFilteredData() {
+    const fromInput = document.getElementById("dashFromDate");
+    const toInput = document.getElementById("dashToDate");
+    const fromVal = fromInput?.value || "";
+    const toVal = toInput?.value || "";
+    let allSms = allSMSMessages || [];
+    let allCalls = allCallsData || [];
+    if (fromVal && toVal) {
+      const fromTs = dayStart(fromVal);
+      const toTs = dayEnd(toVal);
+      const data = await loadInsightsData(fromTs, toTs);
+      allSms = data.allSms;
+      allCalls = data.allCalls;
+    }
+    const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+    const selectedDevice = insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+    const filteredSms = selectedDevice === "all" ? allSms : allSms.filter((m) => m.deviceId === selectedDevice);
+    const filteredCalls = selectedDevice === "all" ? allCalls : allCalls.filter((c) => c.deviceId === selectedDevice);
+    return { filteredSms, filteredCalls, fromVal, toVal };
+  }
+  async function exportInsightsSummaryToCSV() {
+    const { filteredSms, filteredCalls, fromVal, toVal } = await getCurrentFilteredData();
+    const stamp = localStampNow();
+    const suffix = fromVal && toVal ? `_${fromVal}_to_${toVal}` : "";
+    if (filteredSms.length === 0 && filteredCalls.length === 0) {
+      alert("No data to export in the selected range.");
+      return;
+    }
+    const smsHeaders = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
+    const smsRows = filteredSms.map((m) => {
+      const d = new Date(m.timestamp || 0);
+      const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
+      return [
+        d.toLocaleDateString("en-GB"),
+        d.toLocaleTimeString(),
+        direction,
+        m.contactName || m.title || "",
+        m.phoneNumber || m.sender || "",
+        m.body || m.text || m.content || "",
+        m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "",
+        resolveDeviceName(m.deviceId) || m.deviceName || ""
+      ];
+    });
+    const callsHeaders = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+    const callsRows = filteredCalls.map((c) => {
+      const d = new Date(c.timestamp || 0);
+      return [
+        d.toLocaleDateString("en-GB"),
+        d.toLocaleTimeString(),
+        c.type || "",
+        c.contactName || c.title || "",
+        c.phoneNumber || c.number || c.sender || "",
+        typeof c.duration === "number" ? c.duration : Number(c.duration) || 0,
+        resolveDeviceName(c.deviceId) || c.deviceName || ""
+      ];
+    });
+    const blob = buildXLSX([
+      { name: "SMS", headers: smsHeaders, rows: smsRows },
+      { name: "Calls", headers: callsHeaders, rows: callsRows }
+    ]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `iRopit-Insights${suffix}_${stamp}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  async function exportInsightsSpendingToCSV() {
+    const { filteredSms, fromVal, toVal } = await getCurrentFilteredData();
+    const stamp = localStampNow();
+    const suffix = fromVal && toVal ? `_${fromVal}_to_${toVal}` : "";
+    if (filteredSms.length === 0) {
+      alert("No SMS data to export.");
+      return;
+    }
+    const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
+    const rows = [];
+    for (const msg of filteredSms) {
+      const body = msg.body || msg.text || msg.content || "";
+      if (!isBankingSMS(body)) continue;
+      const txns = extractTransactions(body);
+      if (txns.length === 0) continue;
+      const d = new Date(msg.timestamp || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const sender = msg.sender || msg.address || msg.phoneNumber || "";
+      const device = resolveDeviceName(msg.deviceId) || msg.deviceName || "";
+      const snippet = body.slice(0, 100).replace(/\n/g, " ");
+      for (const txn of txns) {
+        rows.push(
+          [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, device, snippet].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
+        );
+      }
+    }
+    if (rows.length === 0) {
+      alert("No financial transactions found in the selected range.");
+      return;
+    }
+    downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Spending${suffix}_${stamp}.csv`);
+  }
   function initDashboard() {
     setDefaultDates();
     const filterBtn = document.getElementById("dashFilterBtn");
@@ -30287,6 +30586,8 @@ ${this.customData.serverResponse}`;
         refreshAndRender();
       });
     }
+    document.getElementById("exportInsightsSummaryBtn")?.addEventListener("click", () => exportInsightsSummaryToCSV());
+    document.getElementById("exportInsightsSpendingBtn")?.addEventListener("click", () => exportInsightsSpendingToCSV());
     const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
     if (insightsDeviceSelect) {
       insightsDeviceSelect.addEventListener("change", () => renderDashboard());
@@ -31587,6 +31888,7 @@ ${this.customData.serverResponse}`;
     }
     const TOGGLE_KEYS = {
       settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
@@ -31598,7 +31900,7 @@ ${this.customData.serverResponse}`;
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId);
         if (!el) continue;
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
         el.checked = storageKey in result ? result[storageKey] : defaultOn;
       }
     });
@@ -31658,6 +31960,7 @@ ${this.customData.serverResponse}`;
     settingsBtn?.addEventListener("click", () => {
       const TOGGLE_KEYS = {
         settingsAutoCopyOtp: "smartAction_copyOtp",
+        settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
         settingsAutoOpenSms: "smartAction_openImages",
         settingsAutoOpenUrl: "smartAction_openUrls",
         settingsUniversalCopy: "smartAction_universalCopy",
@@ -31669,7 +31972,7 @@ ${this.customData.serverResponse}`;
         for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
           const el = document.getElementById(elId);
           if (!el) continue;
-          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
+          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
           el.checked = storageKey in result ? result[storageKey] : defaultOn;
         }
         settingsModal.classList.remove("hidden");
@@ -31686,6 +31989,7 @@ ${this.customData.serverResponse}`;
     document.getElementById("saveDisplayNameBtn")?.addEventListener("click", saveDisplayName);
     const SMART_TOGGLES = {
       settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
@@ -31920,6 +32224,10 @@ ${this.customData.serverResponse}`;
   }
   init();
   window.addEventListener("pagehide", () => {
+    try {
+      flushSMSCache();
+    } catch (_) {
+    }
     cleanupSubscriptions();
   });
 })();

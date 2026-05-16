@@ -18722,6 +18722,8 @@ var snoozeUntil = 0;
 var smartActions = {
   copyOtp: true,
   // Copy OTP from SMS (default ON)
+  copyOtpEmail: true,
+  // Copy OTP from email (default ON)
   openImages: false,
   // Open received images in new tab (default OFF)
   openUrls: false,
@@ -18736,6 +18738,7 @@ chrome.storage.local.get(
     "badgeCount",
     "snoozeUntil",
     "smartAction_copyOtp",
+    "smartAction_copyOtpEmail",
     "smartAction_openImages",
     "smartAction_openUrls",
     "smartAction_universalCopy",
@@ -18758,6 +18761,7 @@ chrome.storage.local.get(
       snoozeUntil = result.snoozeUntil;
     }
     if ("smartAction_copyOtp" in result) smartActions.copyOtp = result.smartAction_copyOtp !== false;
+    if ("smartAction_copyOtpEmail" in result) smartActions.copyOtpEmail = result.smartAction_copyOtpEmail !== false;
     if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages === true;
     if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls === true;
     if ("smartAction_universalCopy" in result) smartActions.universalCopy = result.smartAction_universalCopy !== false;
@@ -18773,6 +18777,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     refreshBadgeFromCachedNotifications();
   }
   if (changes.smartAction_copyOtp !== void 0) smartActions.copyOtp = changes.smartAction_copyOtp.newValue !== false;
+  if (changes.smartAction_copyOtpEmail !== void 0) smartActions.copyOtpEmail = changes.smartAction_copyOtpEmail.newValue !== false;
   if (changes.smartAction_openImages !== void 0) smartActions.openImages = changes.smartAction_openImages.newValue === true;
   if (changes.smartAction_openUrls !== void 0) smartActions.openUrls = changes.smartAction_openUrls.newValue === true;
   if (changes.smartAction_universalCopy !== void 0) smartActions.universalCopy = changes.smartAction_universalCopy.newValue !== false;
@@ -19010,6 +19015,7 @@ function listenToUserNotifications() {
                 const appName = notification.appName || notification.app || "";
                 console.log("ZyncIT: \u{1F511} OTP detected from user notification:", otp, "app:", appName || pkg);
                 const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                if (isEmail && !smartActions.copyOtpEmail) return;
                 const notifId = `iropit_otp_user_${Date.now()}`;
                 createNotificationIfNotSnoozed(notifId, {
                   type: "basic",
@@ -19177,6 +19183,7 @@ function listenToDevice(deviceId, deviceName) {
                 const appName = notification.appName || notification.app || "";
                 console.log("ZyncIT: \u{1F511} OTP detected from device notification:", otp, "app:", appName || pkg);
                 const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                if (isEmail && !smartActions.copyOtpEmail) return;
                 const notifId = `iropit_otp_dev_${Date.now()}`;
                 createNotificationIfNotSnoozed(notifId, {
                   type: "basic",
