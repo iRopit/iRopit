@@ -374,7 +374,7 @@ export function updateChatDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All Devices</span>
+      <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>
     </button>
     ${deviceTabsHTML}
   `;
@@ -473,7 +473,7 @@ export function updateSmsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All Devices</span>${allCountHtml}
+      <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -561,7 +561,7 @@ export function updateCallsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All Devices</span>${allCountHtml}
+      <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
@@ -632,7 +632,7 @@ export function updateNotificationsDeviceTabs() {
         <path d="M23 21v-2a4 4 0 00-3-3.87"/>
         <path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      <span>All Devices</span>${allCountHtml}
+      <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
   `;
