@@ -297,7 +297,7 @@ function init() {
 
   // Refresh button
   document.getElementById("refreshBtn")?.addEventListener("click", () => {
-    showToast("Refreshing...", "info");
+    showToast(getCurrentLanguage() === "ar" ? "...جارٍ التحديث" : "Refreshing...", "info");
     loadData();
   });
 }

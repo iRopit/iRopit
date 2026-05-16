@@ -116,6 +116,9 @@ export const translations = {
     dash_notif_by_date: "Notifications by Date",
     dash_select_range: "Select a date range and apply filter",
     dash_no_data: "No data found for selected range",
+    new_call: "New Call",
+    call_from_device: "Call from device",
+    toast_refreshing: "Refreshing...",
   },
   ar: {
     nav_sms: "الرسائل",
@@ -229,6 +232,9 @@ export const translations = {
     dash_notif_by_date: "الإشعارات حسب التاريخ",
     dash_select_range: "اختر نطاق تاريخ وطبّق الفلتر",
     dash_no_data: "لا توجد بيانات في النطاق المحدد",
+    new_call: "مكالمة جديدة",
+    call_from_device: "اتصل من جهاز",
+    toast_refreshing: "...جارٍ التحديث",
   },
 }
 

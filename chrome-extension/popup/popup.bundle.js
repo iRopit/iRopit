@@ -24508,7 +24508,10 @@ ${this.customData.serverResponse}`;
           dash_spending_by_date: "Spending by Date",
           dash_notif_by_date: "Notifications by Date",
           dash_select_range: "Select a date range and apply filter",
-          dash_no_data: "No data found for selected range"
+          dash_no_data: "No data found for selected range",
+          new_call: "New Call",
+          call_from_device: "Call from device",
+          toast_refreshing: "Refreshing..."
         },
         ar: {
           nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
@@ -24621,7 +24624,10 @@ ${this.customData.serverResponse}`;
           dash_spending_by_date: "\u0627\u0644\u0625\u0646\u0641\u0627\u0642 \u062D\u0633\u0628 \u0627\u0644\u062A\u0627\u0631\u064A\u062E",
           dash_notif_by_date: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A \u062D\u0633\u0628 \u0627\u0644\u062A\u0627\u0631\u064A\u062E",
           dash_select_range: "\u0627\u062E\u062A\u0631 \u0646\u0637\u0627\u0642 \u062A\u0627\u0631\u064A\u062E \u0648\u0637\u0628\u0651\u0642 \u0627\u0644\u0641\u0644\u062A\u0631",
-          dash_no_data: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F"
+          dash_no_data: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0628\u064A\u0627\u0646\u0627\u062A \u0641\u064A \u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u062D\u062F\u062F",
+          new_call: "\u0645\u0643\u0627\u0644\u0645\u0629 \u062C\u062F\u064A\u062F\u0629",
+          call_from_device: "\u0627\u062A\u0635\u0644 \u0645\u0646 \u062C\u0647\u0627\u0632",
+          toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
       };
       currentLanguage = localStorage.getItem("appLanguage") || "en";
@@ -32230,7 +32236,7 @@ ${this.customData.serverResponse}`;
     document.getElementById("markAllNotifReadBtn")?.addEventListener("click", markAllNotificationsAsRead);
     document.getElementById("deleteAllNotifBtn")?.addEventListener("click", deleteSelectedNotifications);
     document.getElementById("refreshBtn")?.addEventListener("click", () => {
-      showToast("Refreshing...", "info");
+      showToast(getCurrentLanguage() === "ar" ? "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B" : "Refreshing...", "info");
       loadData();
     });
   }
