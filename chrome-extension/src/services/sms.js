@@ -43,7 +43,7 @@ import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptSMS } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedSMS, cacheSMSData, clearCache } from "./cache.js";
+import { getCachedSMS, cacheSMSData, clearCache, flushSMSCache } from "./cache.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 
 // Linkify plain-text URLs in a message body (escapes HTML first, then wraps URLs)
@@ -518,6 +518,9 @@ export async function loadSMS() {
 
     isSyncing = false;
     updateSMSCountIndicator();
+    // Flush the cache immediately so the popup closing before the 3s debounce
+    // doesn't lose the persisted snapshot â€” otherwise every reopen does a full re-fetch.
+    flushSMSCache().catch(() => {});
     try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   } catch (error) {
     if (error?.code !== "permission-denied") {

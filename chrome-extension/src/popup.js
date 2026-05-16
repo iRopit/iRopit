@@ -53,7 +53,7 @@ import {
 } from "./services/settings.js";
 import { loadAllContacts } from "./services/contacts.js";
 import { initTheme } from "./services/theme.js";
-import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications } from "./services/cache.js";
+import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flushSMSCache } from "./services/cache.js";
 
 // Import utilities
 import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./utils/i18n.js";
@@ -307,5 +307,8 @@ init();
 
 // Clean up Firestore listeners when popup closes to avoid WebChannel transport errors
 window.addEventListener("pagehide", () => {
+  // Flush any pending SMS cache write so the next popup open shows cached data
+  // instead of re-loading everything from Firestore.
+  try { flushSMSCache(); } catch (_) {}
   cleanupSubscriptions();
 });

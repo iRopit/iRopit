@@ -67,6 +67,37 @@ export async function cacheSMSData(smsByDevice, allMessages) {
 }
 
 /**
+ * Force an immediate write of any pending SMS cache data, bypassing the debounce.
+ * Call this at the end of the initial sync so the cache is persisted even if the
+ * popup is closed before the 3-second debounce timer fires.
+ */
+export async function flushSMSCache() {
+  if (smsCacheWriteTimer) {
+    clearTimeout(smsCacheWriteTimer);
+    smsCacheWriteTimer = null;
+  }
+  const payload = smsCachePending;
+  smsCachePending = null;
+  if (!payload) return;
+  try {
+    const cacheData = {
+      byDevice: {},
+      allMessages: stripNonSerializable(payload.allMessages).slice(0, 500),
+    };
+    for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
+      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+    }
+    await chrome.storage.local.set({
+      [CACHE_KEYS.SMS]: cacheData,
+      [CACHE_KEYS.TIMESTAMP]: Date.now(),
+    });
+    console.log(`[Cache] ✅ Flushed ${payload.allMessages.length} SMS messages to cache (immediate)`);
+  } catch (error) {
+    console.warn("[Cache] Failed to flush SMS cache:", error);
+  }
+}
+
+/**
  * Save calls data to local cache
  * @param {Object} callsByDevice - Calls data keyed by deviceId
  * @param {Array} allCalls - All merged calls
