@@ -120,8 +120,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     const doInitialSync = async () => {
       try {
-        // v8: initial SMS sync capped at 2000 (was unlimited in v7)
-        const syncKey = `@iRopit:initialDeviceSyncDone_v8_${user.uid}_${currentDevice.id}`;
+        // v9: initial call sync capped at 2000 (was unlimited in v8); SMS stays at 5000
+        const syncKey = `@iRopit:initialDeviceSyncDone_v9_${user.uid}_${currentDevice.id}`;
         const alreadySynced = await AsyncStorage.getItem(syncKey);
         if (alreadySynced) {
           console.log('[InitialSync] Already done, skipping');
@@ -141,14 +141,16 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           return;
         }
 
-        // Sync call log — no artificial limit: read entire device history
+        // Sync call log — capped at 2000 newest calls on initial/fresh install.
+        // Native query uses ORDER BY date DESC so the most recent 2000 are fetched first.
+        const INITIAL_CALL_LIMIT = 2000;
         if (hasCallLog) {
           try {
             let nativeCalls: any[] = [];
             if (CallLogModule) {
-              nativeCalls = (await CallLogModule.getCallLog(100000)) || [];
+              nativeCalls = (await CallLogModule.getCallLog(INITIAL_CALL_LIMIT)) || [];
             } else if (ZyncITModule?.getCallLog) {
-              nativeCalls = (await ZyncITModule.getCallLog(100000)) || [];
+              nativeCalls = (await ZyncITModule.getCallLog(INITIAL_CALL_LIMIT)) || [];
             }
             console.log(`[InitialSync] Got ${nativeCalls.length} calls from device`);
             if (nativeCalls.length > 0) {
