@@ -543,6 +543,155 @@ async function refreshAndRender() {
   }
 }
 
+// ── Insights Export ───────────────────────────────────────────────────────────
+
+/** Download a string as a CSV file */
+function downloadCSV(csv, filename) {
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Return a YYYY-MM-DD_HH-MM timestamp for filenames */
+function localStampNow() {
+  const now = new Date();
+  return now.getFullYear() + "-" +
+    String(now.getMonth() + 1).padStart(2, "0") + "-" +
+    String(now.getDate()).padStart(2, "0") + "_" +
+    String(now.getHours()).padStart(2, "0") + "-" +
+    String(now.getMinutes()).padStart(2, "0");
+}
+
+/** Resolve the friendly device name for a message/call record */
+function resolveDeviceName(id) {
+  if (!id) return "";
+  const dev = (state.devices || []).find((d) => d.id === id);
+  return dev ? getFriendlyDeviceName(dev) : id;
+}
+
+/** Return the current date-filtered, device-filtered SMS and Calls data */
+async function getCurrentFilteredData() {
+  const fromInput = document.getElementById("dashFromDate");
+  const toInput   = document.getElementById("dashToDate");
+  const fromVal   = fromInput?.value || "";
+  const toVal     = toInput?.value   || "";
+
+  let allSms   = state.allSMSMessages || [];
+  let allCalls = state.allCallsData   || [];
+
+  if (fromVal && toVal) {
+    const fromTs = dayStart(fromVal);
+    const toTs   = dayEnd(toVal);
+    const data   = await loadInsightsData(fromTs, toTs);
+    allSms   = data.allSms;
+    allCalls = data.allCalls;
+  }
+
+  const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
+  const selectedDevice =
+    insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
+
+  const filteredSms   = selectedDevice === "all" ? allSms   : allSms.filter((m) => m.deviceId === selectedDevice);
+  const filteredCalls = selectedDevice === "all" ? allCalls : allCalls.filter((c) => c.deviceId === selectedDevice);
+
+  return { filteredSms, filteredCalls, fromVal, toVal };
+}
+
+/**
+ * Export 1 – SMS + Calls data (two CSV files) for the current date/device filter.
+ */
+export async function exportInsightsSummaryToCSV() {
+  const { filteredSms, filteredCalls, fromVal, toVal } = await getCurrentFilteredData();
+  const stamp  = localStampNow();
+  const suffix = fromVal && toVal ? `_${fromVal}_to_${toVal}` : "";
+
+  if (filteredSms.length === 0 && filteredCalls.length === 0) {
+    alert("No data to export in the selected range.");
+    return;
+  }
+
+  if (filteredSms.length > 0) {
+    const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
+    const rows = filteredSms.map((m) => {
+      const d         = new Date(m.timestamp || 0);
+      const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
+      const contact   = m.contactName || m.title || "";
+      const phone     = m.phoneNumber || m.sender || "";
+      const body      = m.body || m.text || m.content || "";
+      const sim       = m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "";
+      const device    = resolveDeviceName(m.deviceId) || m.deviceName || "";
+      return [d.toLocaleDateString("en-GB"), d.toLocaleTimeString(), direction, contact, phone, body, sim, device]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Insights-SMS${suffix}_${stamp}.csv`);
+  }
+
+  if (filteredCalls.length > 0) {
+    const header = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+    const rows = filteredCalls.map((c) => {
+      const d       = new Date(c.timestamp || 0);
+      const type    = c.type || "";
+      const contact = c.contactName || c.title || "";
+      const phone   = c.phoneNumber || c.number || c.sender || "";
+      const dur     = c.duration || 0;
+      const device  = resolveDeviceName(c.deviceId) || c.deviceName || "";
+      return [d.toLocaleDateString("en-GB"), d.toLocaleTimeString(), type, contact, phone, dur, device]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Insights-Calls${suffix}_${stamp}.csv`);
+  }
+}
+
+/**
+ * Export 2 – SMS spending transactions for the current date/device filter.
+ * Columns: Date, Time, Currency, Type, Amount, Sender, Device, Message Snippet
+ */
+export async function exportInsightsSpendingToCSV() {
+  const { filteredSms, fromVal, toVal } = await getCurrentFilteredData();
+  const stamp  = localStampNow();
+  const suffix = fromVal && toVal ? `_${fromVal}_to_${toVal}` : "";
+
+  if (filteredSms.length === 0) {
+    alert("No SMS data to export.");
+    return;
+  }
+
+  const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
+  const rows   = [];
+
+  for (const msg of filteredSms) {
+    const body = msg.body || msg.text || msg.content || "";
+    if (!isBankingSMS(body)) continue;
+    const txns = extractTransactions(body);
+    if (txns.length === 0) continue;
+
+    const d       = new Date(msg.timestamp || 0);
+    const date    = d.toLocaleDateString("en-GB");
+    const time    = d.toLocaleTimeString();
+    const sender  = msg.sender || msg.address || msg.phoneNumber || "";
+    const device  = resolveDeviceName(msg.deviceId) || msg.deviceName || "";
+    const snippet = body.slice(0, 100).replace(/\n/g, " ");
+
+    for (const txn of txns) {
+      rows.push(
+        [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, device, snippet]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
+      );
+    }
+  }
+
+  if (rows.length === 0) {
+    alert("No financial transactions found in the selected range.");
+    return;
+  }
+
+  downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Spending${suffix}_${stamp}.csv`);
+}
+
 /** Initialize the Dashboard tab */
 export function initDashboard() {
   setDefaultDates();
@@ -564,6 +713,10 @@ export function initDashboard() {
       refreshAndRender();
     });
   }
+
+  // Export buttons
+  document.getElementById("exportInsightsSummaryBtn")?.addEventListener("click", () => exportInsightsSummaryToCSV());
+  document.getElementById("exportInsightsSpendingBtn")?.addEventListener("click", () => exportInsightsSpendingToCSV());
 
   // Re-render insights when device filter changes
   const insightsDeviceSelect = document.getElementById("dashInsightsDevice");

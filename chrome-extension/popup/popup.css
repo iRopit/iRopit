@@ -3673,6 +3673,14 @@ html.dark .profile-logout-btn-footer {
   flex-shrink: 0;
 }
 
+.dashboard-insights-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 8px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .dash-stat-card {
   flex: 1;
   display: flex;
