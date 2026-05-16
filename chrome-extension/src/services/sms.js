@@ -297,20 +297,19 @@ export async function loadSMS() {
           `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
         );
         hasCachedData = true;
-        // Restore state from cache.
-        // NOTE: We compute cachedNewestTimestamps per device for delta fetch, but
-        // do NOT seed state.allSMS (per-device map) from cache. The realtime
-        // Firestore listeners use Object.values(state.allSMS) to merge across
-        // devices; if dev2 is pre-populated from cache and only dev1's listener
-        // fires, the merge mixes fresh dev1 + stale-cached dev2 â†’ corrupted
-        // state.allSMSMessages and a polluted cache write that persists the bad
-        // data into the next session.
+        // Restore state from cache (both the flat list AND the per-device map).
+        // The delta-fetch path below reads cachedMessages from `state.getSMSData(device.id)`
+        // and merges them with newly-arrived messages. If we don't seed the per-device map,
+        // the merge drops all cached messages — the UI flickers from "570 cached" down to
+        // just the few new delta messages. `updateSMSList` already dedupes by id and content,
+        // so any overlap between cache and fresh fetch is handled safely.
         if (cached.byDevice) {
           for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
             if (msgs && msgs.length > 0) {
               cachedNewestTimestamps[deviceId] = Math.max(
                 ...msgs.map((m) => m.timestamp || 0),
               );
+              state.setSMSData(deviceId, msgs);
             }
           }
         }
