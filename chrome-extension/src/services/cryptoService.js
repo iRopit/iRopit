@@ -254,7 +254,7 @@ export const ENCRYPTED_FIELDS = {
     "phoneNumber",
     "contactName",
   ],
-  call: ["phoneNumber", "contactName", "displayName"],
+  call: ["phoneNumber", "contactName", "displayName", "title", "number", "address", "name"],
   notification: ["title", "body", "text"],
   contact: ["name", "phoneNumber", "email"],
 };

@@ -25033,7 +25033,7 @@ ${this.customData.serverResponse}`;
           "phoneNumber",
           "contactName"
         ],
-        call: ["phoneNumber", "contactName", "displayName"],
+        call: ["phoneNumber", "contactName", "displayName", "title", "number", "address", "name"],
         notification: ["title", "body", "text"],
         contact: ["name", "phoneNumber", "email"]
       };
@@ -26063,6 +26063,7 @@ ${this.customData.serverResponse}`;
     return decrypted;
   }
   function processCallDoc(data, firestoreId, deviceId, deviceName) {
+    if (data.title && typeof data.title === "string" && data.title.startsWith("ENC:")) data = { ...data, title: "" };
     const titleLower = (data.title || "").toLowerCase().trim();
     const isTitleCallDescription = titleLower === "call" || titleLower === "calling" || titleLower === "incoming call" || titleLower === "outgoing call" || titleLower === "missed call" || titleLower === "missed calls" || titleLower === "ongoing call" || titleLower === "on hold" || titleLower === "dialing" || titleLower === "ringing" || titleLower.includes("missed call") || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u0627\u0626\u062A\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0641\u0627\u0626\u062A\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0648\u0627\u0631\u062F\u0629" || titleLower === "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0627\u062F\u0631\u0629" || titleLower === "\u0627\u062A\u0635\u0627\u0644" || /^\d{1,2}$/.test(titleLower);
     let rawContactName = data.contactName || data.displayName || "";

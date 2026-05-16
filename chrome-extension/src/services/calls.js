@@ -184,6 +184,8 @@ async function decryptCallCached(data, userId, docId) {
  * Process a raw call document into a normalized call object
  */
 function processCallDoc(data, firestoreId, deviceId, deviceName) {
+  // Strip any un-decrypted ENC: prefix from title before using it
+  if (data.title && typeof data.title === "string" && data.title.startsWith("ENC:")) data = { ...data, title: "" };
   const titleLower = (data.title || "").toLowerCase().trim();
   const isTitleCallDescription =
     titleLower === "call" ||
