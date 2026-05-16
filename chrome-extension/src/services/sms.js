@@ -1326,15 +1326,9 @@ function updateSMSCountIndicator() {
     indicator.className = "sms-count-indicator";
   }
 
-  // While syncing: pin to top so the badge appears above the first message.
-  // Otherwise: move to bottom as a footer (count / load-more).
-  if (isSyncing) {
-    indicator.classList.add("indicator-top");
-    smsContainer.prepend(indicator);
-  } else {
-    indicator.classList.remove("indicator-top");
-    smsContainer.appendChild(indicator);
-  }
+  // Always place the indicator at the bottom, below all messages.
+  indicator.classList.remove("indicator-top");
+  smsContainer.appendChild(indicator);
 
   const syncBadge = isSyncing
     ? `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`
