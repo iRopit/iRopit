@@ -1489,7 +1489,7 @@ export function showConversation(phoneNumber) {
   // Update the global delete button to reflect "delete this conversation" context
   const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
   if (deleteAllBtn) {
-    deleteAllBtn.title = "Delete this conversation";
+    deleteAllBtn.title = getCurrentLanguage() === "ar" ? "حذف هذه المحادثة" : "Delete this conversation";
     deleteAllBtn.disabled = false;
   }
 
@@ -2052,7 +2052,7 @@ export async function deleteAllSms() {
     });
 
     if (msgsToDelete.length === 0) {
-      showToast("No messages in this conversation", "info");
+      showToast(getCurrentLanguage() === "ar" ? "لا توجد رسائل في هذه المحادثة" : "No messages in this conversation", "info");
       return;
     }
 
@@ -2072,12 +2072,12 @@ export async function deleteAllSms() {
       const deletedIds = new Set(msgsToDelete.map((m) => m.id));
       const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
       state.setAllSMSMessages(updatedMessages);
-      showToast(`${msgsToDelete.length} messages deleted`, "success");
+      showToast(getCurrentLanguage() === "ar" ? `تم حذف ${msgsToDelete.length} رسالة` : `${msgsToDelete.length} messages deleted`, "success");
       state.setCurrentConversation(null);
       renderSMS(updatedMessages);
     } catch (error) {
       console.error("Delete conversation error:", error);
-      showToast("Failed to delete conversation", "error");
+      showToast(getCurrentLanguage() === "ar" ? "فشل حذف المحادثة" : "Failed to delete conversation", "error");
     }
     hideLoading();
     return;
@@ -2089,7 +2089,7 @@ export async function deleteAllSms() {
   }
 
   // Nothing selected and not in a conversation
-  showToast("Tap the select button to choose messages to delete", "info");
+  showToast(getCurrentLanguage() === "ar" ? "اضغط على زر التحديد لاختيار الرسائل للحذف" : "Tap the select button to choose messages to delete", "info");
 }
 
 /**
@@ -2102,13 +2102,13 @@ async function deleteSingleSms(msgId) {
 
   const msg = state.allSMSMessages.find((m) => m.id === msgId);
   if (!msg || !msg.docRef) {
-    showToast("Message not found", "error");
+    showToast(getCurrentLanguage() === "ar" ? "الرسالة غير موجودة" : "Message not found", "error");
     return;
   }
 
   try {
     await deleteDoc(msg.docRef);
-    showToast("Message deleted", "success");
+    showToast(getCurrentLanguage() === "ar" ? "تم حذف الرسالة" : "Message deleted", "success");
 
     const updatedMessages = state.allSMSMessages.filter((m) => m.id !== msgId);
     state.setAllSMSMessages(updatedMessages);
@@ -2139,7 +2139,7 @@ async function deleteSingleSms(msgId) {
     }
   } catch (error) {
     console.error("Delete SMS error:", error);
-    showToast("Failed to delete message", "error");
+    showToast(getCurrentLanguage() === "ar" ? "فشل حذف الرسالة" : "Failed to delete message", "error");
   }
 }
 
@@ -2397,7 +2397,7 @@ export async function deleteSelectedConversations() {
 
     if (deletedCount > 0) {
       await batch.commit();
-      showToast(`${deletedCount} messages deleted`, "success");
+      showToast(getCurrentLanguage() === "ar" ? `تم حذف ${deletedCount} رسالة` : `${deletedCount} messages deleted`, "success");
 
       const deletedIds = new Set(msgsToDelete.map((m) => m.id));
       const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
@@ -2415,7 +2415,7 @@ export async function deleteSelectedConversations() {
     renderSMS(state.allSMSMessages);
   } catch (error) {
     console.error("Delete selected conversations error:", error);
-    showToast("Failed to delete selected conversations", "error");
+    showToast(getCurrentLanguage() === "ar" ? "فشل حذف المحادثات المختارة" : "Failed to delete selected conversations", "error");
   }
   hideLoading();
 }
