@@ -8,11 +8,19 @@
     if (!ts) return "";
     const d = new Date(ts);
     const now = /* @__PURE__ */ new Date();
+    const isAr = localStorage.getItem("appLanguage") === "ar";
+    const locale = isAr ? "ar-SA" : "en-US";
+    const timeStr = d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
     const isToday = d.toDateString() === now.toDateString();
     if (isToday) {
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return (isAr ? "\u0627\u0644\u064A\u0648\u0645 " : "Today ") + timeStr;
     }
-    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return (isAr ? "\u0623\u0645\u0633 " : "Yesterday ") + timeStr;
+    }
+    return d.toLocaleDateString(locale, { month: "short", day: "numeric" }) + " " + timeStr;
   }
   function escapeHtml(str) {
     if (!str) return "";

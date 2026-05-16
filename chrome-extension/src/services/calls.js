@@ -36,6 +36,18 @@ import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
 import { getCachedCalls, cacheCallsData, clearCache } from "./cache.js";
 
+// ── Call type label (i18n) ──────────────────────────────────────────────────
+function getCallTypeLabel(type) {
+  const ar = getCurrentLanguage() === "ar";
+  switch (type) {
+    case "incoming": return ar ? "واردة"   : "Incoming";
+    case "outgoing": return ar ? "صادرة"   : "Outgoing";
+    case "missed":   return ar ? "فائتة"   : "Missed";
+    case "rejected": return ar ? "مرفوضة" : "Rejected";
+    default:         return type;
+  }
+}
+
 // ── Selection mode state ──────────────────────────────────────────────────────
 let callsSelectionMode = false;
 let selectedCallGroups = new Set(); // keyed by group.phoneNumber
@@ -766,7 +778,7 @@ export function renderCalls(calls) {
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.lastCall.type}</div>
+        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
@@ -983,7 +995,7 @@ async function showCallHistory(phoneNumber) {
               ${getCallIcon(call.type)}
             </div>
             <div class="call-info">
-              <div class="call-type">${call.type}</div>
+              <div class="call-type">${getCallTypeLabel(call.type)}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
               ${(resolveCallDeviceName(call) || (call.simSlot != null && call.simSlot >= 0)) ? `<div class="call-detail-meta">${resolveCallDeviceName(call) ? `<span class="device-tag">${resolveCallDeviceName(call)}</span>` : ''}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ''}</div>` : ''}
             </div>

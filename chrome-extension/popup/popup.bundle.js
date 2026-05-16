@@ -26027,6 +26027,21 @@ ${this.customData.serverResponse}`;
     setCallsSelectAll: () => setCallsSelectAll,
     toggleCallsSelectionMode: () => toggleCallsSelectionMode
   });
+  function getCallTypeLabel(type) {
+    const ar = getCurrentLanguage() === "ar";
+    switch (type) {
+      case "incoming":
+        return ar ? "\u0648\u0627\u0631\u062F\u0629" : "Incoming";
+      case "outgoing":
+        return ar ? "\u0635\u0627\u062F\u0631\u0629" : "Outgoing";
+      case "missed":
+        return ar ? "\u0641\u0627\u0626\u062A\u0629" : "Missed";
+      case "rejected":
+        return ar ? "\u0645\u0631\u0641\u0648\u0636\u0629" : "Rejected";
+      default:
+        return type;
+    }
+  }
   function _updateCallsSelectionToolbar(totalGroups) {
     const deleteBtn = document.getElementById("deleteAllCallsBtn");
     const countSpan = document.getElementById("callsSelectedCount");
@@ -26515,7 +26530,7 @@ ${this.customData.serverResponse}`;
         <div class="list-item-title">
           <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
         </div>
-        <div class="list-item-subtitle">${group.lastCall.type}</div>
+        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       <div class="call-list-hover-actions">
@@ -26707,7 +26722,7 @@ ${this.customData.serverResponse}`;
               ${getCallIcon(call.type)}
             </div>
             <div class="call-info">
-              <div class="call-type">${call.type}</div>
+              <div class="call-type">${getCallTypeLabel(call.type)}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
               ${resolveCallDeviceName(call) || call.simSlot != null && call.simSlot >= 0 ? `<div class="call-detail-meta">${resolveCallDeviceName(call) ? `<span class="device-tag">${resolveCallDeviceName(call)}</span>` : ""}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ""}</div>` : ""}
             </div>
