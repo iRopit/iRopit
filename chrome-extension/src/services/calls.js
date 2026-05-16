@@ -331,10 +331,27 @@ export async function loadCalls() {
             }
           }
         }
-        state.setAllCallsData(cached.allCalls);
+        // Sanitize any lingering ENC: values that slipped through decryption on the cached items
+        const sanitizeCall = (c) => {
+          const hasEnc =
+            (c.contactName && typeof c.contactName === "string" && c.contactName.startsWith("ENC:")) ||
+            (c.phoneNumber && typeof c.phoneNumber === "string" && c.phoneNumber.startsWith("ENC:")) ||
+            (c.displayName && typeof c.displayName === "string" && c.displayName.startsWith("ENC:")) ||
+            (c.name && typeof c.name === "string" && c.name.startsWith("ENC:"));
+          if (!hasEnc) return c;
+          return {
+            ...c,
+            contactName: (c.contactName && c.contactName.startsWith("ENC:")) ? "" : (c.contactName || ""),
+            phoneNumber: (c.phoneNumber && c.phoneNumber.startsWith("ENC:")) ? "" : (c.phoneNumber || ""),
+            displayName: (c.displayName && c.displayName.startsWith("ENC:")) ? "" : (c.displayName || ""),
+            name: (c.name && c.name.startsWith("ENC:")) ? "" : (c.name || ""),
+          };
+        };
+        const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
+        state.setAllCallsData(sanitizedCachedCalls);
         // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
         setCallsDataConfirmed(false);
-        renderCalls(cached.allCalls.slice(0, 100));
+        renderCalls(sanitizedCachedCalls.slice(0, 100));
         // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
       } // end hasEncryptedCache else
     }
@@ -687,17 +704,20 @@ export function renderCalls(calls) {
   // Group calls by phone number
   const grouped = {};
   filteredCalls.forEach((call) => {
-    const normalizedPhone = normalizePhoneNumber(call.phoneNumber || "");
+    // Strip any ENC: values that may have survived cache or failed decryption
+    const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+    const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+    const normalizedPhone = normalizePhoneNumber(safePhone);
     const key = normalizedPhone
       ? normalizedPhone
-      : call.contactName
-        ? `contact_${call.contactName}`
+      : safeContact
+        ? `contact_${safeContact}`
         : "Unknown";
     if (!grouped[key]) {
       grouped[key] = {
         key: key,
-        phoneNumber: call.phoneNumber || "Unknown",
-        contactName: call.contactName || getContactName(normalizedPhone) || "",
+        phoneNumber: safePhone || "Unknown",
+        contactName: safeContact || getContactName(normalizedPhone) || "",
         calls: [],
         lastCall: call,
         missedCount: 0,
