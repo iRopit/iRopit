@@ -347,6 +347,62 @@ public class FirebaseHelper {
                 .addOnFailureListener(e -> Log.e(TAG, "❌ clearRingingCall failed: " + e.getMessage()));
     }
 
+    /** Write outgoing_call/current doc so the Chrome extension can show an outgoing call popup.
+     *  Mirrors writeRingingCall — must run natively (not from JS) so it works when the
+     *  React Native JS thread isn't alive (app killed / backgrounded). */
+    public void writeOutgoingCall(String phoneNumber, String contactName, int simSlot) {
+        writeOutgoingCall(phoneNumber, contactName, simSlot, null);
+    }
+
+    /** Write outgoing_call/current doc with arbitrary debug fields. Pass {@code debugFields} to
+     *  embed `_dbg_*` keys in the doc — visible to the Chrome extension for remote debugging. */
+    public void writeOutgoingCall(String phoneNumber, String contactName, int simSlot, Map<String, Object> debugFields) {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+
+        if (userId == null || deviceId == null) {
+            Log.w(TAG, "writeOutgoingCall: user not logged in");
+            return;
+        }
+        if (db == null) { initFirebase(); if (db == null) return; }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("status", "dialing");
+        data.put("phoneNumber", phoneNumber != null ? phoneNumber : "");
+        data.put("contactName", contactName != null ? contactName : "");
+        data.put("deviceName", getDeviceName());
+        data.put("simSlot", simSlot);
+        data.put("timestamp", System.currentTimeMillis());
+        if (debugFields != null) {
+            for (Map.Entry<String, Object> entry : debugFields.entrySet()) {
+                data.put("_dbg_" + entry.getKey(), entry.getValue());
+            }
+        }
+
+        db.collection("users").document(userId)
+                .collection("devices").document(deviceId)
+                .collection("outgoing_call").document("current")
+                .set(data)
+                .addOnSuccessListener(v -> Log.i(TAG, "✅ outgoing_call written for: " + phoneNumber + " (dbg=" + (debugFields != null ? debugFields.get("source") : "none") + ")"))
+                .addOnFailureListener(e -> Log.e(TAG, "❌ writeOutgoingCall failed: " + e.getMessage()));
+    }
+
+    /** Delete outgoing_call/current doc so the Chrome extension hides the outgoing call popup. */
+    public void clearOutgoingCall() {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+
+        if (userId == null || deviceId == null) return;
+        if (db == null) { initFirebase(); if (db == null) return; }
+
+        db.collection("users").document(userId)
+                .collection("devices").document(deviceId)
+                .collection("outgoing_call").document("current")
+                .delete()
+                .addOnSuccessListener(v -> Log.i(TAG, "✅ outgoing_call cleared"))
+                .addOnFailureListener(e -> Log.e(TAG, "❌ clearOutgoingCall failed: " + e.getMessage()));
+    }
+
     public void updateBatteryLevel(int batteryPercent, boolean isCharging) {
         String userId = getUserId();
         String deviceId = getDeviceId();

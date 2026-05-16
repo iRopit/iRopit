@@ -159,6 +159,11 @@ const callDecryptionCache = new Map();
 let callListenerUnsubs = [];
 let isSyncingCalls = false;
 
+/** Returns true while loadCalls() is still fetching from Firestore. */
+export function isCallsSyncing() {
+  return isSyncingCalls;
+}
+
 /**
  * Decrypt call with caching
  */
@@ -275,7 +280,14 @@ export async function loadCalls() {
   if (!user) return;
 
   // Show loading spinner immediately — replaced by cached/fresh data when it arrives
-  if (callsList) showListLoading(callsList);
+  if (callsList) {
+    const lang = getCurrentLanguage();
+    const syncingMsg =
+      lang === "ar"
+        ? "جارٍ مزامنة المكالمات من هاتفك…"
+        : "Syncing calls from your phone…";
+    showListLoading(callsList, syncingMsg);
+  }
 
   // === STEP 1: Show cached calls instantly ===
   let hasCachedData = false;
@@ -365,6 +377,7 @@ export async function loadCalls() {
     isSyncingCalls = false;
     updateCallsCountIndicator();
     renderCalls([]);
+    try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
     return;
   }
 
@@ -431,6 +444,7 @@ export async function loadCalls() {
 
   isSyncingCalls = false;
   updateCallsCountIndicator();
+  try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
 
   // Start lightweight realtime listeners for new calls only
   for (const device of devicesList) {
@@ -560,12 +574,22 @@ function updateCallsCountIndicator() {
     return;
   }
 
+  const callsContainer = document.getElementById("callsList");
+  if (!callsContainer) return;
+
   if (!indicator) {
-    const callsContainer = document.getElementById("callsList");
-    if (!callsContainer) return;
     indicator = document.createElement("div");
     indicator.id = "callsCountIndicator";
     indicator.className = "sms-count-indicator";
+  }
+
+  // While syncing: pin to top so the badge appears above the first call.
+  // Otherwise: move to bottom as a footer.
+  if (isSyncingCalls) {
+    indicator.classList.add("indicator-top");
+    callsContainer.prepend(indicator);
+  } else {
+    indicator.classList.remove("indicator-top");
     callsContainer.appendChild(indicator);
   }
 
@@ -627,11 +651,29 @@ export function renderCalls(calls) {
   }
 
   if (filteredCalls.length === 0) {
+    // On fresh install we are still syncing while the list is empty.
+    // Don't replace the "Syncing calls…" spinner with the empty state until
+    // sync actually finishes.
+    if (isSyncingCalls && !searchQuery && selectedTab === "all") {
+      const lang = getCurrentLanguage();
+      const syncingMsg =
+        lang === "ar"
+          ? "جارٍ مزامنة المكالمات من هاتفك…"
+          : "Syncing calls from your phone…";
+      callsList.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+      updateTabBadges();
+      return;
+    }
     callsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
-        </svg>
+      </svg>
         <p>No calls yet</p>
         <span>Call history from your phone will appear here</span>
       </div>

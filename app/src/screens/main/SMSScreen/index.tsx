@@ -22,6 +22,7 @@ const SMSScreen = () => {
   const {
     conversations,
     isLoading,
+    isSyncing,
     isLoadingMore,
     hasMoreMessages,
     initialLoading,
@@ -45,6 +46,11 @@ const SMSScreen = () => {
     handleMarkAllAsRead,
     handleDeleteAll,
   } = useSMSScreen();
+
+  // Show loading state when either the initial native read or the historical
+  // Firestore sync is still in progress and we don't have any conversations yet.
+  const showInitialLoader =
+    conversations.length === 0 && (initialLoading || isSyncing || isLoading);
 
   const renderConversation = ({
     item,
@@ -166,7 +172,7 @@ const SMSScreen = () => {
     </View>
   );
 
-  if (initialLoading && conversations.length === 0) {
+  if (showInitialLoader) {
     return (
       <Container
         isDark={isDarkMode}
@@ -176,7 +182,7 @@ const SMSScreen = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: secondaryTextColor }]}>
-            {isRTL ? 'جاري التحميل...' : 'Loading...'}
+            {isRTL ? 'جاري تحميل الرسائل...' : 'Loading messages...'}
           </Text>
         </View>
       </Container>

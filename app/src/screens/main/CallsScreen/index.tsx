@@ -35,6 +35,7 @@ const CallsScreen = () => {
     isSelectMode,
     selectedCalls,
     isLoading,
+    isSyncing,
 
     // Theme
     isRTL,
@@ -119,8 +120,9 @@ const CallsScreen = () => {
     />
   );
 
-  // Show loading indicator only if loading takes too long and no data yet
-  if (false && isLoading && calls.length === 0) {
+  // Show loading indicator while initial historical sync is running and we
+  // don't have any calls yet (avoids the "No Calls" flash on fresh install).
+  if ((isLoading || isSyncing) && calls.length === 0) {
     return (
       <Container
         isDark={isDarkMode}
@@ -145,7 +147,7 @@ const CallsScreen = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: secondaryTextColor }]}>
-            {isRTL ? 'جاري التحميل...' : 'Loading...'}
+            {isRTL ? 'جاري تحميل المكالمات...' : 'Loading calls...'}
           </Text>
         </View>
       </Container>

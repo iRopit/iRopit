@@ -83,6 +83,11 @@ let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
 let isSyncing = false;
 
+/** Returns true while loadSMS() is still fetching from Firestore. */
+export function isSMSSyncing() {
+  return isSyncing;
+}
+
 // Selection mode state
 let selectionMode = false;
 let selectedConversations = new Set();
@@ -248,8 +253,15 @@ export async function loadSMS() {
   // Stop any previous listeners first
   stopSMSListener();
 
-  // Show loading spinner immediately â€” replaced by cached/fresh data when it arrives
-  if (smsList) showListLoading(smsList);
+  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
+  if (smsList) {
+    const lang = getCurrentLanguage();
+    const syncingMsg =
+      lang === "ar"
+        ? "جارٍ مزامنة الرسائل من هاتفك…"
+        : "Syncing messages from your phone…";
+    showListLoading(smsList, syncingMsg);
+  }
 
   // === STEP 1: Show cached data instantly ===
   let hasCachedData = false;
@@ -355,7 +367,10 @@ export async function loadSMS() {
       console.warn(
         "âš ï¸ No mobile devices found for SMS loading - showing empty state",
       );
+      isSyncing = false;
+      updateSMSCountIndicator();
       renderSMS([]);
+      try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
       return;
     }
 
@@ -503,12 +518,14 @@ export async function loadSMS() {
 
     isSyncing = false;
     updateSMSCountIndicator();
+    try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   } catch (error) {
     if (error?.code !== "permission-denied") {
-      console.error("âŒ loadSMS error:", error);
+      console.error("loadSMS error:", error);
     }
     isSyncing = false;
     updateSMSCountIndicator();
+    try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   }
 }
 
@@ -921,6 +938,25 @@ export function renderSMS(messages) {
   }
 
   if (filteredMessages.length === 0) {
+    // On fresh install we are still syncing while the list is empty.
+    // Don't replace the "Syncing messages…" spinner with the empty state
+    // until sync actually finishes — otherwise the user sees "No messages yet"
+    // before any data has had a chance to load.
+    if (isSyncing && !searchQuery && selectedTab === "all") {
+      const lang = getCurrentLanguage();
+      const syncingMsg =
+        lang === "ar"
+          ? "جارٍ مزامنة الرسائل من هاتفك…"
+          : "Syncing messages from your phone…";
+      smsListElement.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+      updateTabBadges();
+      return;
+    }
     smsListElement.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -1279,12 +1315,22 @@ function updateSMSCountIndicator() {
     return;
   }
 
+  const smsContainer = document.getElementById("smsList");
+  if (!smsContainer) return;
+
   if (!indicator) {
-    const smsContainer = document.getElementById("smsList");
-    if (!smsContainer) return;
     indicator = document.createElement("div");
     indicator.id = "smsCountIndicator";
     indicator.className = "sms-count-indicator";
+  }
+
+  // While syncing: pin to top so the badge appears above the first message.
+  // Otherwise: move to bottom as a footer (count / load-more).
+  if (isSyncing) {
+    indicator.classList.add("indicator-top");
+    smsContainer.prepend(indicator);
+  } else {
+    indicator.classList.remove("indicator-top");
     smsContainer.appendChild(indicator);
   }
 
@@ -1303,9 +1349,10 @@ function updateSMSCountIndicator() {
   } else {
     indicator.innerHTML = isSyncing
       ? `<span>${total} messages</span>${syncBadge}`
-      : `<span>${total} messages Â· All loaded</span>`;
+      : `<span>${total} messages · All loaded</span>`;
   }
 }
+
 
 /**
  * Show sync indicator while fetching from Firebase

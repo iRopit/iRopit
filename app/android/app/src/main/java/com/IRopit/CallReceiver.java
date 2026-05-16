@@ -38,6 +38,95 @@ public class CallReceiver extends BroadcastReceiver {
     private static boolean callEventSent = false;
     private static boolean callWasAnswered = false;
     private static String lastRingingNumber = ""; // last number we wrote ringing_call for
+    // True when `lastNumber` was just set by a fresh NEW_OUTGOING_CALL broadcast
+    // (i.e., it represents the current dial, not a residue from a previous call).
+    // Older Androids (<=9) fire NEW_OUTGOING_CALL with the dialed number; we can
+    // trust it as the real number when this flag is set.
+    private static boolean lastNumberFromBroadcast = false;
+    // Pending call-log lookup runnable (OFFHOOK → delayed). Stored so we can
+    // cancel it in IDLE if the call ends before the 1800 ms delay fires.
+    private static android.os.Handler outgoingLookupHandler = null;
+    private static Runnable outgoingLookupRunnable = null;
+
+    // ── Active outgoing-call state ───────────────────────────────────────────────
+    // These fields are set in OFFHOOK (outgoing) and cleared in IDLE. The
+    // NotificationService consults them when a dialer notification arrives so it
+    // can fill in the dialed number on devices where CallLog is not populated
+    // during an active call.
+    private static volatile boolean outgoingCallActive = false;
+    private static volatile boolean outgoingDocWritten = false;
+    private static volatile long outgoingBaselineCallLogId = -1L;
+    private static volatile long outgoingOffhookTime = 0L;
+    private static volatile String outgoingLastNumberAtOffhook = "";
+    private static volatile String outgoingLastStateAtOffhook = "";
+
+    /**
+     * Called by {@link NotificationService} when a dialer-app notification carries
+     * a phone number. If there is an active outgoing call that hasn't yet had its
+     * Firestore doc written with a real number, we write it now.
+     *
+     * @param context any context (we use applicationContext)
+     * @param number  the phone number extracted from the dialer notification
+     */
+    public static void onDialerNotificationNumber(Context context, String number) {
+        if (number == null || number.isEmpty()) return;
+        if (!outgoingCallActive || outgoingDocWritten) return;
+        writeOutgoingNow(context.getApplicationContext(), number, "dialer-notification");
+    }
+
+    /** Single point of truth for writing outgoing_call/current with a real number. */
+    private static synchronized void writeOutgoingNow(Context appCtx, String number, String source) {
+        if (number == null || number.isEmpty()) return;
+        if (outgoingDocWritten) return; // write once per call
+        try {
+            FirebaseHelper fb = FirebaseHelper.getInstance(appCtx);
+            if (fb == null || !fb.isLoggedIn()) {
+                Log.w(TAG, "Cannot write outgoing_call: user not logged in (source=" + source + ")");
+                return;
+            }
+            outgoingDocWritten = true;
+            lastNumber = number;
+            String cn = "";
+            try { cn = staticGetContactName(appCtx, number); } catch (Exception ignore) {}
+            Map<String, Object> dbg = new HashMap<>();
+            dbg.put("source", source);
+            dbg.put("lastNumberAtOffhook", outgoingLastNumberAtOffhook);
+            dbg.put("lastStateAtOffhook", outgoingLastStateAtOffhook);
+            dbg.put("baselineCallLogId", outgoingBaselineCallLogId);
+            dbg.put("offhookTime", outgoingOffhookTime);
+            dbg.put("matchedNumber", number);
+            dbg.put("appVersion", "1.1.2.23");
+            fb.writeOutgoingCall(number, cn, -1, dbg);
+            Log.d(TAG, "✅ outgoing_call written (" + source + ") number=" + number);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in writeOutgoingNow", e);
+        }
+    }
+
+    /** Static-friendly contact name lookup (delegates to the instance helper). */
+    private static String staticGetContactName(Context context, String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isEmpty()) return "";
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) return "";
+        Cursor cursor = null;
+        try {
+            Uri uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(phoneNumber));
+            cursor = context.getContentResolver().query(uri,
+                new String[] { ContactsContract.PhoneLookup.DISPLAY_NAME },
+                null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                String name = cursor.getString(0);
+                if (name != null && !name.isEmpty()) return name;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "staticGetContactName failed: " + e.getMessage());
+        } finally {
+            if (cursor != null) try { cursor.close(); } catch (Exception ignore) {}
+        }
+        return "";
+    }
 
     public static void setReactContext(ReactApplicationContext context) {
         reactContext = context;
@@ -77,6 +166,7 @@ public class CallReceiver extends BroadcastReceiver {
             Log.d(TAG, "Outgoing call to: " + phoneNumber);
             if (phoneNumber != null) {
                 lastNumber = phoneNumber;
+                lastNumberFromBroadcast = true; // trusted: came from system broadcast for THIS dial
                 isIncoming = false;
                 callWasAnswered = false;
                 callStartTime = System.currentTimeMillis();
@@ -146,14 +236,124 @@ public class CallReceiver extends BroadcastReceiver {
             } else if (!callEventSent) {
                 sendEvent("onCallReceived", createCallMap(lastNumber, contactName, "outgoing", "started", 0));
                 callEventSent = true;
+
+                // Write outgoing_call sentinel natively so the Chrome extension popup
+                // works even when the React Native JS thread is not running
+                // (app killed / backgrounded). Mirrors writeRingingCall pattern.
+                //
+                // STRATEGY (v1.1.2.21): NEVER write an empty outgoing_call doc — that
+                // makes the popup open showing "Unknown". Only write once we have a
+                // real phone number. Sources (in priority order):
+                //   1) Fresh NEW_OUTGOING_CALL broadcast (older Androids ≤9).
+                //   2) Immediate CallLog query (delay=0) — works on many devices.
+                //   3) Retried CallLog queries at 150/300/600/1200/2400/4000 ms.
+                //   4) Dialer-app ongoing notification (via NotificationService) —
+                //      the ONLY reliable source on Android 10+ where CallLog only
+                //      populates after IDLE. Requires Notification Access permission.
+                // Any source that fires first wins (guarded by outgoingDocWritten).
+                final Context appCtx = context.getApplicationContext();
+                final long callOffhookTime = System.currentTimeMillis();
+                final String lastNumberAtOffhook = lastNumber == null ? "" : lastNumber;
+                final String lastStateAtOffhook = lastState == null ? "" : lastState;
+                final boolean numberFromBroadcast = lastNumberFromBroadcast;
+                // Capture call-log baseline NOW so it represents pre-dial state.
+                final long baselineCallLogId = queryMaxCallLogId(appCtx);
+
+                // Publish shared state so NotificationService can also write.
+                outgoingCallActive = true;
+                outgoingDocWritten = false;
+                outgoingBaselineCallLogId = baselineCallLogId;
+                outgoingOffhookTime = callOffhookTime;
+                outgoingLastNumberAtOffhook = lastNumberAtOffhook;
+                outgoingLastStateAtOffhook = lastStateAtOffhook;
+
+                Log.d(TAG, "Outgoing lookup baseline _ID=" + baselineCallLogId
+                        + " lastNumberAtOffhook='" + lastNumberAtOffhook
+                        + "' fromBroadcast=" + numberFromBroadcast);
+
+                // Consume the broadcast freshness flag so a subsequent OFFHOOK without
+                // a new NEW_OUTGOING_CALL won't mistakenly trust the leftover.
+                lastNumberFromBroadcast = false;
+
+                // 1) Trust fresh NEW_OUTGOING_CALL broadcast (older Android dialers).
+                if (numberFromBroadcast && !lastNumberAtOffhook.isEmpty()) {
+                    writeOutgoingNow(appCtx, lastNumberAtOffhook, "new-outgoing-broadcast");
+                }
+
+                // 2) Immediate CallLog lookup.
+                if (!outgoingDocWritten) {
+                    String dialedNow = queryLatestOutgoingNumberAfterId(appCtx, baselineCallLogId);
+                    if (dialedNow != null && !dialedNow.isEmpty()) {
+                        writeOutgoingNow(appCtx, dialedNow, "immediate-lookup");
+                    }
+                }
+
+                // 3) Schedule CallLog retries. Stops as soon as outgoingDocWritten is true
+                //    (which can happen via the dialer-notification path too).
+                if (outgoingLookupHandler != null && outgoingLookupRunnable != null) {
+                    outgoingLookupHandler.removeCallbacks(outgoingLookupRunnable);
+                }
+                if (!outgoingDocWritten) {
+                    outgoingLookupHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+                    final int[] attempt = { 0 };
+                    final long[] delays = { 150, 300, 600, 1200, 2400, 4000 };
+                    outgoingLookupRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                if (outgoingDocWritten || !outgoingCallActive) {
+                                    outgoingLookupRunnable = null;
+                                    outgoingLookupHandler = null;
+                                    return;
+                                }
+                                String dialed = queryLatestOutgoingNumberAfterId(appCtx, baselineCallLogId);
+                                if (dialed != null && !dialed.isEmpty()) {
+                                    writeOutgoingNow(appCtx, dialed,
+                                            "delayed-lookup-attempt-" + (attempt[0] + 1));
+                                    outgoingLookupRunnable = null;
+                                    outgoingLookupHandler = null;
+                                    return;
+                                }
+                                attempt[0]++;
+                                if (attempt[0] < delays.length && outgoingLookupHandler != null) {
+                                    Log.d(TAG, "Outgoing lookup attempt " + attempt[0]
+                                            + " — no new OUTGOING row yet (baseline=" + baselineCallLogId
+                                            + "), retrying in " + delays[attempt[0]] + "ms");
+                                    outgoingLookupHandler.postDelayed(this, delays[attempt[0]]);
+                                } else {
+                                    Log.w(TAG, "Could not resolve dialed number from call log after "
+                                            + attempt[0] + " attempts (baseline=" + baselineCallLogId
+                                            + ") — relying on dialer notification (if any)");
+                                    outgoingLookupRunnable = null;
+                                    outgoingLookupHandler = null;
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error in delayed outgoing_call lookup", e);
+                                outgoingLookupRunnable = null;
+                                outgoingLookupHandler = null;
+                            }
+                        }
+                    };
+                    outgoingLookupHandler.postDelayed(outgoingLookupRunnable, delays[0]);
+                }
             }
 
         } else if (TelephonyManager.EXTRA_STATE_IDLE.equals(state)) {
+            // Cancel any pending call-log lookup so it can't re-write outgoing_call
+            // after clearOutgoingCall() has already removed the doc (this would make
+            // the extension pop up a stale popup on the *next* call).
+            if (outgoingLookupHandler != null && outgoingLookupRunnable != null) {
+                outgoingLookupHandler.removeCallbacks(outgoingLookupRunnable);
+                outgoingLookupRunnable = null;
+                outgoingLookupHandler = null;
+                Log.d(TAG, "Cancelled pending outgoing_call lookup (call ended before delay)");
+            }
             // Call ended — clear the ringing popup (covers missed/rejected calls too)
             try {
                 FirebaseHelper fbHelper = FirebaseHelper.getInstance(context);
                 if (fbHelper != null && fbHelper.isLoggedIn()) {
                     fbHelper.clearRingingCall();
+                    fbHelper.clearOutgoingCall();
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error clearing ringing_call on IDLE", e);
@@ -176,10 +376,18 @@ public class CallReceiver extends BroadcastReceiver {
             callStartTime = 0;
             callAnswerTime = 0;
             lastNumber = "";
+            lastNumberFromBroadcast = false;
             isIncoming = false;
             callEventSent = false;
             callWasAnswered = false;
             lastRingingNumber = "";
+            // Clear shared outgoing-call state used by NotificationService.
+            outgoingCallActive = false;
+            outgoingDocWritten = false;
+            outgoingBaselineCallLogId = -1L;
+            outgoingOffhookTime = 0L;
+            outgoingLastNumberAtOffhook = "";
+            outgoingLastStateAtOffhook = "";
         }
     }
 
@@ -413,6 +621,71 @@ public class CallReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             Log.e(TAG, "Error saving call to Firebase", e);
         }
+    }
+
+    /**
+     * Query the most recent OUTGOING entry from CallLog and return its phone number,
+     * if it was placed at-or-after {@code sinceMillis}. Used on Android 10+ where
+     * NEW_OUTGOING_CALL is no longer broadcast to non-default-dialer apps, so we
+     * can't capture the dialed number at OFFHOOK time.
+     */
+    /** Return the highest CallLog._ID currently in the call log, or -1 if unreadable. */
+    private long queryMaxCallLogId(Context context) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG)
+                != PackageManager.PERMISSION_GRANTED) {
+            return -1L;
+        }
+        Cursor cursor = null;
+        try {
+            cursor = context.getContentResolver().query(
+                CallLog.Calls.CONTENT_URI,
+                new String[] { CallLog.Calls._ID },
+                null, null,
+                CallLog.Calls._ID + " DESC LIMIT 1"
+            );
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getLong(0);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "queryMaxCallLogId error", e);
+        } finally {
+            if (cursor != null) try { cursor.close(); } catch (Exception ignore) {}
+        }
+        return -1L;
+    }
+
+    /**
+     * Return the most recent OUTGOING CallLog entry's phone number whose _ID is strictly
+     * greater than {@code sinceId}. This guarantees we only match rows that appeared
+     * AFTER the current call's OFFHOOK — making stale rows from previous calls impossible
+     * to return, regardless of their DURATION or DATE.
+     */
+    private String queryLatestOutgoingNumberAfterId(Context context, long sinceId) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG)
+                != PackageManager.PERMISSION_GRANTED) {
+            return "";
+        }
+        Cursor cursor = null;
+        try {
+            cursor = context.getContentResolver().query(
+                CallLog.Calls.CONTENT_URI,
+                new String[] { CallLog.Calls.NUMBER, CallLog.Calls._ID },
+                CallLog.Calls.TYPE + " = ? AND " + CallLog.Calls._ID + " > ?",
+                new String[] { String.valueOf(CallLog.Calls.OUTGOING_TYPE), String.valueOf(sinceId) },
+                CallLog.Calls._ID + " DESC LIMIT 1"
+            );
+            if (cursor != null && cursor.moveToFirst()) {
+                String num = cursor.getString(0);
+                long newId = cursor.getLong(1);
+                Log.d(TAG, "queryLatestOutgoingNumberAfterId matched _ID=" + newId + " number=" + num);
+                return num != null ? num : "";
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "queryLatestOutgoingNumber error", e);
+        } finally {
+            if (cursor != null) try { cursor.close(); } catch (Exception ignore) {}
+        }
+        return "";
     }
 
     private String getContactName(Context context, String phoneNumber) {

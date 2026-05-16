@@ -20,6 +20,7 @@ export const useCallsScreen = () => {
   const {
     calls,
     isLoading,
+    isSyncing,
     loadCalls,
     clearAllCalls,
     deleteCallsByPhoneNumbers,
@@ -266,6 +267,7 @@ export const useCallsScreen = () => {
     isSelectMode,
     selectedCalls,
     isLoading,
+    isSyncing,
 
     // Device filter
     devices,

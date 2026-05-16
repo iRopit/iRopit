@@ -19210,6 +19210,7 @@ function listenToDevice(deviceId, deviceName) {
   );
   unsubscribeNotifications.push(unsub);
   listenForRingingCallFromDevice(deviceId, deviceName);
+  listenForOutgoingCallFromDevice(deviceId, deviceName);
   listenForCallsFromDevice(deviceId, deviceName);
   listenForSMSFromDevice(deviceId, deviceName);
 }
@@ -19462,6 +19463,147 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         return;
       }
       console.error("ZyncIT: Ringing call listener error for device", deviceId, ":", error);
+    }
+  );
+  unsubscribeNotifications.push(unsub);
+}
+var outgoingCallWindowIds = /* @__PURE__ */ new Map();
+var outgoingCallLastTs = /* @__PURE__ */ new Map();
+var outgoingCallNotifIds = /* @__PURE__ */ new Map();
+function listenForOutgoingCallFromDevice(deviceId, deviceName) {
+  if (!currentUser) return;
+  console.log("ZyncIT: \u{1F4F2} Setting up outgoing_call listener for device:", deviceId, deviceName);
+  const outgoingDocRef = doc(
+    db,
+    "users",
+    currentUser.uid,
+    "devices",
+    deviceId,
+    "outgoing_call",
+    "current"
+  );
+  const unsub = onSnapshot(
+    outgoingDocRef,
+    async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.status === "dialing" || data.status === "started") {
+          const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
+          if (docTs > 0 && Date.now() - docTs > 6e4) {
+            console.warn("ZyncIT: \u{1F4F2} Ignoring stale outgoing_call doc");
+            return;
+          }
+          const uid = currentUser.uid;
+          const phoneRaw = data.phoneNumber || "";
+          const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
+          const contactRaw = data.contactName || "";
+          let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
+          if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
+          if (!contact && phone) {
+            try {
+              const resolved = await lookupContactNameByPhone(deviceId, phone);
+              if (resolved && resolved !== phone) contact = resolved;
+            } catch (_) {
+            }
+          }
+          const deviceLabel = deviceName || data.deviceName || "Android Device";
+          const simSlot = data.simSlot;
+          const simLabel = simSlot === 0 || simSlot === 1 ? `SIM ${simSlot + 1}` : "SIM";
+          const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
+          const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
+          const { smartAction_outgoingCallPopup } = await chrome.storage.local.get("smartAction_outgoingCallPopup");
+          const popupEnabled = smartAction_outgoingCallPopup !== false;
+          if (outgoingCallLastTs.get(deviceId) === docTs) return;
+          outgoingCallLastTs.set(deviceId, docTs);
+          const existingWindowId = outgoingCallWindowIds.get(deviceId);
+          const openPopup = async () => {
+            const params = new URLSearchParams({
+              contact: contact || "Unknown",
+              phone: phone || "",
+              device: deviceLabel,
+              sim: String(simSlot ?? -1)
+            });
+            const url = chrome.runtime.getURL(`popup/outgoing-call.html?${params}`);
+            try {
+              const win = await chrome.windows.create({
+                url,
+                type: "popup",
+                width: 360,
+                height: 360,
+                focused: true,
+                top: 80,
+                left: 80
+              });
+              if (win?.id) {
+                outgoingCallWindowIds.set(deviceId, win.id);
+                const onRemoved = (removedId) => {
+                  if (removedId === win.id) {
+                    outgoingCallWindowIds.delete(deviceId);
+                    chrome.windows.onRemoved.removeListener(onRemoved);
+                  }
+                };
+                chrome.windows.onRemoved.addListener(onRemoved);
+              }
+            } catch (e) {
+              console.error("ZyncIT: \u274C Could not open outgoing popup window:", e);
+            }
+          };
+          if (!existingWindowId && popupEnabled) {
+            await openPopup();
+          } else if (popupEnabled) {
+            try {
+              await chrome.windows.remove(existingWindowId);
+            } catch (_) {
+            }
+            outgoingCallWindowIds.delete(deviceId);
+            await openPopup();
+          }
+          if (!outgoingCallNotifIds.has(deviceId)) {
+            const notificationId = `iropit_outgoing_call_${deviceId}_${Date.now()}`;
+            outgoingCallNotifIds.set(deviceId, notificationId);
+            createNotificationIfNotSnoozed(notificationId, {
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+              title: `\u{1F4F2} Outgoing call: ${callerLine}`,
+              message: subtitle,
+              contextMessage: subtitle,
+              priority: 2,
+              requireInteraction: true,
+              silent: true
+            }, (createdId) => {
+              console.log("ZyncIT: \u2705 Outgoing call notification created:", createdId);
+            });
+          }
+        }
+      } else {
+        outgoingCallLastTs.delete(deviceId);
+        const windowId = outgoingCallWindowIds.get(deviceId);
+        if (windowId) {
+          outgoingCallWindowIds.delete(deviceId);
+          try {
+            await chrome.windows.remove(windowId);
+          } catch (_) {
+          }
+        }
+        const notifId = outgoingCallNotifIds.get(deviceId);
+        if (notifId) {
+          outgoingCallNotifIds.delete(deviceId);
+          try {
+            chrome.notifications.clear(notifId);
+          } catch (_) {
+          }
+        }
+      }
+    },
+    (error) => {
+      if (error?.code === "permission-denied") {
+        console.warn("ZyncIT: \u{1F4F2} Permission denied for outgoing_call on device:", deviceId, "\u2014 retrying in 10s");
+        setTimeout(() => {
+          if (currentUser) listenForOutgoingCallFromDevice(deviceId, deviceName);
+        }, 1e4);
+        return;
+      }
+      console.error("ZyncIT: Outgoing call listener error for device", deviceId, ":", error);
     }
   );
   unsubscribeNotifications.push(unsub);

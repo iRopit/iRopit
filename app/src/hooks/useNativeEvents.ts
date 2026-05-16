@@ -6,6 +6,7 @@ import {
   Alert,
   DeviceEventEmitter,
   AppState,
+  InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
@@ -119,8 +120,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     const doInitialSync = async () => {
       try {
-        // v6: bumped initial backfill limit from 100 → 500 calls/SMS
-        const syncKey = `@iRopit:initialDeviceSyncDone_v6_${user.uid}_${currentDevice.id}`;
+        // v8: initial SMS sync capped at 2000 (was unlimited in v7)
+        const syncKey = `@iRopit:initialDeviceSyncDone_v8_${user.uid}_${currentDevice.id}`;
         const alreadySynced = await AsyncStorage.getItem(syncKey);
         if (alreadySynced) {
           console.log('[InitialSync] Already done, skipping');
@@ -140,14 +141,14 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           return;
         }
 
-        // Sync call log
+        // Sync call log — no artificial limit: read entire device history
         if (hasCallLog) {
           try {
             let nativeCalls: any[] = [];
             if (CallLogModule) {
-              nativeCalls = (await CallLogModule.getCallLog(500)) || [];
+              nativeCalls = (await CallLogModule.getCallLog(100000)) || [];
             } else if (ZyncITModule?.getCallLog) {
-              nativeCalls = (await ZyncITModule.getCallLog(500)) || [];
+              nativeCalls = (await ZyncITModule.getCallLog(100000)) || [];
             }
             console.log(`[InitialSync] Got ${nativeCalls.length} calls from device`);
             if (nativeCalls.length > 0) {
@@ -159,14 +160,17 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           }
         }
 
-        // Sync SMS
+        // Sync SMS — limit to 5000 newest messages on initial/fresh install to keep setup fast.
+        // Native query uses ORDER BY date DESC so the most recent 5000 are fetched first.
+        // Ongoing new SMS are synced in real-time via the SMS listener.
+        const INITIAL_SMS_LIMIT = 5000;
         if (hasSms) {
           try {
             let nativeSms: any[] = [];
             if (SmsModule) {
-              nativeSms = (await SmsModule.getAllSms(500)) || [];
+              nativeSms = (await SmsModule.getAllSms(INITIAL_SMS_LIMIT)) || [];
             } else if (ZyncITModule?.getAllSms) {
-              nativeSms = (await ZyncITModule.getAllSms(500)) || [];
+              nativeSms = (await ZyncITModule.getAllSms(INITIAL_SMS_LIMIT)) || [];
             }
             console.log(`[InitialSync] Got ${nativeSms.length} SMS from device`);
             if (nativeSms.length > 0) {
@@ -185,7 +189,14 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       }
     };
 
-    doInitialSync();
+    // Defer the heavy work until after the UI has had time to mount/render,
+    // then add a small delay so the first paint/navigation isn't blocked
+    // by the native module call + encrypt/batch-write loop.
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
+        doInitialSync();
+      }, 1500);
+    });
   }, [user?.uid, currentDevice?.id]);
 
   // الاستماع لطلبات إرسال SMS من Chrome Extension + بدء Foreground Service
@@ -273,16 +284,16 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     } catch (error) {}
   }, []);
 
-  // تحميل كل الرسائل من الجهاز
+  // تحميل كل الرسائل من الجهاز — بدون حد
   const loadAllSMS = useCallback(async () => {
     if (Platform.OS !== 'android') return [];
 
     try {
       if (SmsModule) {
-        const messages = await SmsModule.getAllSms(100);
+        const messages = await SmsModule.getAllSms(100000);
         return messages || [];
       } else if (ZyncITModule?.getAllSms) {
-        const messages = await ZyncITModule.getAllSms(100);
+        const messages = await ZyncITModule.getAllSms(100000);
         return messages || [];
       }
       return [];
@@ -291,17 +302,17 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     }
   }, []);
 
-  // تحميل سجل المكالمات من الجهاز
+  // تحميل سجل المكالمات من الجهاز — بدون حد
   const loadCallLog = useCallback(async () => {
     if (Platform.OS !== 'android') return [];
 
     try {
       // Use CallLogModule first, fallback to ZyncITModule
       if (CallLogModule) {
-        const calls = await CallLogModule.getCallLog(100);
+        const calls = await CallLogModule.getCallLog(100000);
         return calls || [];
       } else if (ZyncITModule?.getCallLog) {
-        const calls = await ZyncITModule.getCallLog(100);
+        const calls = await ZyncITModule.getCallLog(100000);
         return calls || [];
       }
       return [];
@@ -373,6 +384,24 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
               .collection('users').doc(user.uid)
               .collection('devices').doc(currentDevice.id)
               .collection('ringing_call').doc('current')
+              .delete();
+          } catch (_) {}
+        }
+
+        // ── Live outgoing call: native CallReceiver writes outgoing_call directly
+        // (works even when JS isn't running) and re-queries the call log to fill
+        // in the dialed number on Android 10+. Don't duplicate the write here.
+        if (data.type === 'outgoing' && data.status === 'started') {
+          return;
+        }
+
+        // ── Outgoing call ended: clear the outgoing sentinel ─────────────
+        if (data.status === 'ended' && currentDevice) {
+          try {
+            await firestore()
+              .collection('users').doc(user.uid)
+              .collection('devices').doc(currentDevice.id)
+              .collection('outgoing_call').doc('current')
               .delete();
           } catch (_) {}
         }

@@ -24430,6 +24430,8 @@ ${this.customData.serverResponse}`;
           settings_universal_copy_desc: "Copy text from mobile and make it instantly available on desktop.",
           settings_incoming_call_popup: "Show Incoming Call Popup",
           settings_incoming_call_popup_desc: "Display a popup window in Chrome when an incoming call is received on your mobile device.",
+          settings_outgoing_call_popup: "Show Outgoing Call Popup",
+          settings_outgoing_call_popup_desc: "Display a popup window in Chrome when you start an outgoing call from your mobile device.",
           select_all: "Select All",
           search_messages: "Search messages...",
           search_calls: "Search calls...",
@@ -24440,8 +24442,10 @@ ${this.customData.serverResponse}`;
           new_sms: "New SMS",
           empty_messages: "No messages yet",
           empty_messages_sub: "Messages from your phone will appear here",
+          syncing_messages: "Syncing messages from your phone\u2026",
           empty_calls: "No calls yet",
           empty_calls_sub: "Call history from your phone will appear here",
+          syncing_calls: "Syncing calls from your phone\u2026",
           empty_notifications: "No notifications yet",
           empty_notifications_sub: "Notifications from your phone will appear here",
           tooltip_toggle_theme: "Toggle dark mode",
@@ -24529,6 +24533,8 @@ ${this.customData.serverResponse}`;
           settings_universal_copy_desc: "\u0627\u0646\u0633\u062E \u0646\u0635\u064B\u0627 \u0645\u0646 \u0627\u0644\u0647\u0627\u062A\u0641 \u0648\u0627\u062C\u0639\u0644\u0647 \u0645\u062A\u0627\u062D\u064B\u0627 \u0641\u0648\u0631\u064B\u0627 \u0639\u0644\u0649 \u0633\u0637\u062D \u0627\u0644\u0645\u0643\u062A\u0628.",
           settings_incoming_call_popup: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 \u0627\u0644\u0648\u0627\u0631\u062F\u0629",
           settings_incoming_call_popup_desc: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0645\u0646\u0628\u062B\u0642\u0629 \u0641\u064A Chrome \u0639\u0646\u062F \u0627\u0633\u062A\u0642\u0628\u0627\u0644 \u0645\u0643\u0627\u0644\u0645\u0629 \u0648\u0627\u0631\u062F\u0629 \u0639\u0644\u0649 \u062C\u0647\u0627\u0632\u0643 \u0627\u0644\u0645\u062D\u0645\u0648\u0644.",
+          settings_outgoing_call_popup: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 \u0627\u0644\u0635\u0627\u062F\u0631\u0629",
+          settings_outgoing_call_popup_desc: "\u0639\u0631\u0636 \u0646\u0627\u0641\u0630\u0629 \u0645\u0646\u0628\u062B\u0642\u0629 \u0641\u064A Chrome \u0639\u0646\u062F \u0628\u062F\u0621 \u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0627\u062F\u0631\u0629 \u0645\u0646 \u062C\u0647\u0627\u0632\u0643 \u0627\u0644\u0645\u062D\u0645\u0648\u0644.",
           select_all: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0643\u0644",
           search_messages: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           search_calls: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
@@ -24539,8 +24545,10 @@ ${this.customData.serverResponse}`;
           new_sms: "\u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629",
           empty_messages: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062F",
           empty_messages_sub: "\u0633\u062A\u0638\u0647\u0631 \u0631\u0633\u0627\u0626\u0644 \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
+          syncing_messages: "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026",
           empty_calls: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0628\u0639\u062F",
           empty_calls_sub: "\u0633\u064A\u0638\u0647\u0631 \u0633\u062C\u0644 \u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
+          syncing_calls: "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026",
           empty_notifications: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0628\u0639\u062F",
           empty_notifications_sub: "\u0633\u062A\u0638\u0647\u0631 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0647\u0627\u062A\u0641\u0643 \u0647\u0646\u0627",
           tooltip_toggle_theme: "\u062A\u0628\u062F\u064A\u0644 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0644\u064A\u0644\u064A",
@@ -24641,10 +24649,10 @@ ${this.customData.serverResponse}`;
   function hideLoading() {
     loadingOverlay.classList.add("hidden");
   }
-  function showListLoading(listElement) {
+  function showListLoading(listElement, message) {
     if (listElement) {
       const lang = getCurrentLanguage();
-      const label = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u0645\u064A\u0644..." : "Loading...";
+      const label = message || (lang === "ar" ? "\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u0645\u064A\u0644..." : "Loading...");
       listElement.innerHTML = `
       <div class="loading-state">
         <div class="loading-spinner"></div>
@@ -25823,8 +25831,8 @@ ${this.customData.serverResponse}`;
           cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
         }
         await chrome.storage.local.set({
-          [CACHE_KEYS2.SMS]: cacheData,
-          [CACHE_KEYS2.TIMESTAMP]: Date.now()
+          [CACHE_KEYS.SMS]: cacheData,
+          [CACHE_KEYS.TIMESTAMP]: Date.now()
         });
         console.log(`[Cache] \u2705 Saved ${payload.allMessages.length} SMS messages to cache (debounced)`);
       } catch (error) {
@@ -25842,7 +25850,7 @@ ${this.customData.serverResponse}`;
         cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, 500);
       }
       await chrome.storage.local.set({
-        [CACHE_KEYS2.CALLS]: cacheData
+        [CACHE_KEYS.CALLS]: cacheData
       });
       console.log(`[Cache] \u2705 Saved ${allCalls.length} calls to cache`);
     } catch (error) {
@@ -25863,7 +25871,7 @@ ${this.customData.serverResponse}`;
           serializable[key] = notifs.slice(0, 500);
         }
         await chrome.storage.local.set({
-          [CACHE_KEYS2.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() }
+          [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() }
         });
       } catch (error) {
         console.warn("[Cache] Failed to save notifications cache:", error);
@@ -25872,11 +25880,11 @@ ${this.customData.serverResponse}`;
   }
   async function getCachedNotifications() {
     try {
-      const result = await chrome.storage.local.get([CACHE_KEYS2.NOTIFICATIONS]);
-      const data = result[CACHE_KEYS2.NOTIFICATIONS];
+      const result = await chrome.storage.local.get([CACHE_KEYS.NOTIFICATIONS]);
+      const data = result[CACHE_KEYS.NOTIFICATIONS];
       if (!data) return null;
       if (Date.now() - (data.savedAt || 0) > 7 * 24 * 60 * 60 * 1e3) {
-        await chrome.storage.local.remove([CACHE_KEYS2.NOTIFICATIONS]);
+        await chrome.storage.local.remove([CACHE_KEYS.NOTIFICATIONS]);
         return null;
       }
       return data;
@@ -25888,15 +25896,15 @@ ${this.customData.serverResponse}`;
   async function getCachedSMS() {
     try {
       const result = await chrome.storage.local.get([
-        CACHE_KEYS2.SMS,
-        CACHE_KEYS2.TIMESTAMP
+        CACHE_KEYS.SMS,
+        CACHE_KEYS.TIMESTAMP
       ]);
-      const timestamp = result[CACHE_KEYS2.TIMESTAMP];
-      const data = result[CACHE_KEYS2.SMS];
+      const timestamp = result[CACHE_KEYS.TIMESTAMP];
+      const data = result[CACHE_KEYS.SMS];
       if (!data || !timestamp) return null;
       if (Date.now() - timestamp > MAX_CACHE_AGE_MS) {
         console.log("[Cache] SMS cache expired, clearing...");
-        await chrome.storage.local.remove([CACHE_KEYS2.SMS]);
+        await chrome.storage.local.remove([CACHE_KEYS.SMS]);
         return null;
       }
       console.log(
@@ -25910,8 +25918,8 @@ ${this.customData.serverResponse}`;
   }
   async function getCachedCalls() {
     try {
-      const result = await chrome.storage.local.get([CACHE_KEYS2.CALLS]);
-      const data = result[CACHE_KEYS2.CALLS];
+      const result = await chrome.storage.local.get([CACHE_KEYS.CALLS]);
+      const data = result[CACHE_KEYS.CALLS];
       if (!data) return null;
       console.log(`[Cache] \u{1F4E6} Loaded ${data.allCalls?.length || 0} cached calls`);
       return data;
@@ -25923,20 +25931,20 @@ ${this.customData.serverResponse}`;
   async function clearCache() {
     try {
       await chrome.storage.local.remove([
-        CACHE_KEYS2.SMS,
-        CACHE_KEYS2.CALLS,
-        CACHE_KEYS2.NOTIFICATIONS,
-        CACHE_KEYS2.TIMESTAMP
+        CACHE_KEYS.SMS,
+        CACHE_KEYS.CALLS,
+        CACHE_KEYS.NOTIFICATIONS,
+        CACHE_KEYS.TIMESTAMP
       ]);
       console.log("[Cache] \u{1F5D1}\uFE0F Cache cleared");
     } catch (error) {
       console.warn("[Cache] Failed to clear cache:", error);
     }
   }
-  var CACHE_KEYS2, MAX_CACHE_AGE_MS, smsCacheWriteTimer, smsCachePending, notifCacheWriteTimer, notifCachePending;
+  var CACHE_KEYS, MAX_CACHE_AGE_MS, smsCacheWriteTimer, smsCachePending, notifCacheWriteTimer, notifCachePending;
   var init_cache = __esm({
     "src/services/cache.js"() {
-      CACHE_KEYS2 = {
+      CACHE_KEYS = {
         SMS: "cached_sms_data",
         CALLS: "cached_calls_data",
         NOTIFICATIONS: "cached_notifications_data",
@@ -25957,6 +25965,7 @@ ${this.customData.serverResponse}`;
     deleteSelectedCallGroups: () => deleteSelectedCallGroups,
     exportCallsToCSV: () => exportCallsToCSV,
     initiateDialRequest: () => initiateDialRequest,
+    isCallsSyncing: () => isCallsSyncing,
     loadCalls: () => loadCalls,
     markAllCallsAsViewed: () => markAllCallsAsViewed,
     renderCalls: () => renderCalls,
@@ -26038,6 +26047,9 @@ ${this.customData.serverResponse}`;
       console.error("Failed to mark calls as viewed:", error);
     }
   }
+  function isCallsSyncing() {
+    return isSyncingCalls;
+  }
   async function decryptCallCached(data, userId, docId) {
     const cached = callDecryptionCache.get(docId);
     if (cached && cached.timestamp === data.timestamp) {
@@ -26089,7 +26101,11 @@ ${this.customData.serverResponse}`;
   async function loadCalls() {
     const user = currentUser;
     if (!user) return;
-    if (callsList) showListLoading(callsList);
+    if (callsList) {
+      const lang = getCurrentLanguage();
+      const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
+      showListLoading(callsList, syncingMsg);
+    }
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     try {
@@ -26154,6 +26170,10 @@ ${this.customData.serverResponse}`;
       isSyncingCalls = false;
       updateCallsCountIndicator();
       renderCalls([]);
+      try {
+        window.dispatchEvent(new CustomEvent("iropit:calls-sync-done"));
+      } catch (_) {
+      }
       return;
     }
     const loadPromises = devicesList2.map(async (device) => {
@@ -26208,6 +26228,10 @@ ${this.customData.serverResponse}`;
     );
     isSyncingCalls = false;
     updateCallsCountIndicator();
+    try {
+      window.dispatchEvent(new CustomEvent("iropit:calls-sync-done"));
+    } catch (_) {
+    }
     for (const device of devicesList2) {
       const q2 = query(
         collection(db, "users", user.uid, "devices", device.id, "calls"),
@@ -26295,12 +26319,18 @@ ${this.customData.serverResponse}`;
       indicator?.remove();
       return;
     }
+    const callsContainer = document.getElementById("callsList");
+    if (!callsContainer) return;
     if (!indicator) {
-      const callsContainer = document.getElementById("callsList");
-      if (!callsContainer) return;
       indicator = document.createElement("div");
       indicator.id = "callsCountIndicator";
       indicator.className = "sms-count-indicator";
+    }
+    if (isSyncingCalls) {
+      indicator.classList.add("indicator-top");
+      callsContainer.prepend(indicator);
+    } else {
+      indicator.classList.remove("indicator-top");
       callsContainer.appendChild(indicator);
     }
     if (isSyncingCalls) {
@@ -26342,11 +26372,23 @@ ${this.customData.serverResponse}`;
       });
     }
     if (filteredCalls.length === 0) {
+      if (isSyncingCalls && !searchQuery && selectedTab === "all") {
+        const lang = getCurrentLanguage();
+        const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
+        callsList.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+        updateTabBadges();
+        return;
+      }
       callsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
-        </svg>
+      </svg>
         <p>No calls yet</p>
         <span>Call history from your phone will appear here</span>
       </div>
@@ -27017,6 +27059,7 @@ ${this.customData.serverResponse}`;
     exportSMSToCSV: () => exportSMSToCSV,
     hasMoreSMS: () => hasMoreSMS,
     initSMSNavigation: () => initSMSNavigation,
+    isSMSSyncing: () => isSMSSyncing,
     loadMoreSMS: () => loadMoreSMS,
     loadSMS: () => loadSMS,
     markAllSmsAsRead: () => markAllSmsAsRead,
@@ -27042,6 +27085,9 @@ ${this.customData.serverResponse}`;
       if (device) return device.nickname || device.name || msg.deviceName || null;
     }
     return msg.deviceName || null;
+  }
+  function isSMSSyncing() {
+    return isSyncing;
   }
   async function decryptSMSCached(data, userId, docId) {
     const cached = decryptionCache.get(docId);
@@ -27129,7 +27175,11 @@ ${this.customData.serverResponse}`;
       return;
     }
     stopSMSListener();
-    if (smsList) showListLoading(smsList);
+    if (smsList) {
+      const lang = getCurrentLanguage();
+      const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing messages from your phone\u2026";
+      showListLoading(smsList, syncingMsg);
+    }
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     let cachedSMSData = null;
@@ -27198,7 +27248,13 @@ ${this.customData.serverResponse}`;
         console.warn(
           "\xE2\u0161\xA0\xEF\xB8\x8F No mobile devices found for SMS loading - showing empty state"
         );
+        isSyncing = false;
+        updateSMSCountIndicator();
         renderSMS([]);
+        try {
+          window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
+        } catch (_) {
+        }
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
@@ -27310,12 +27366,20 @@ ${this.customData.serverResponse}`;
       console.log("[SMS] \xE2\u0153\u2026 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
+      try {
+        window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
+      } catch (_) {
+      }
     } catch (error) {
       if (error?.code !== "permission-denied") {
-        console.error("\xE2\x9D\u0152 loadSMS error:", error);
+        console.error("loadSMS error:", error);
       }
       isSyncing = false;
       updateSMSCountIndicator();
+      try {
+        window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
+      } catch (_) {
+      }
     }
   }
   function startSMSRealtimeListeners(userId, devicesList2) {
@@ -27597,6 +27661,18 @@ ${this.customData.serverResponse}`;
       return;
     }
     if (filteredMessages.length === 0) {
+      if (isSyncing && !searchQuery && selectedTab === "all") {
+        const lang = getCurrentLanguage();
+        const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing messages from your phone\u2026";
+        smsListElement.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+        updateTabBadges();
+        return;
+      }
       smsListElement.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -27889,12 +27965,18 @@ ${this.customData.serverResponse}`;
       indicator?.remove();
       return;
     }
+    const smsContainer = document.getElementById("smsList");
+    if (!smsContainer) return;
     if (!indicator) {
-      const smsContainer = document.getElementById("smsList");
-      if (!smsContainer) return;
       indicator = document.createElement("div");
       indicator.id = "smsCountIndicator";
       indicator.className = "sms-count-indicator";
+    }
+    if (isSyncing) {
+      indicator.classList.add("indicator-top");
+      smsContainer.prepend(indicator);
+    } else {
+      indicator.classList.remove("indicator-top");
       smsContainer.appendChild(indicator);
     }
     const syncBadge = isSyncing ? `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>` : "";
@@ -27905,7 +27987,7 @@ ${this.customData.serverResponse}`;
         loadMoreSMS().then(() => hideSMSScrollLoader());
       });
     } else {
-      indicator.innerHTML = isSyncing ? `<span>${total} messages</span>${syncBadge}` : `<span>${total} messages \xC2\xB7 All loaded</span>`;
+      indicator.innerHTML = isSyncing ? `<span>${total} messages</span>${syncBadge}` : `<span>${total} messages \xB7 All loaded</span>`;
     }
   }
   function showSyncIndicator() {
@@ -28954,9 +29036,9 @@ ${this.customData.serverResponse}`;
     if (!container) return;
     const indicator = document.createElement("div");
     indicator.id = "notifSyncIndicator";
-    indicator.className = "sms-count-indicator";
+    indicator.className = "sms-count-indicator indicator-top";
     indicator.innerHTML = `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
-    container.appendChild(indicator);
+    container.prepend(indicator);
   }
   function notifSnapshotReady() {
     pendingNotifSnapshots--;
@@ -29797,12 +29879,13 @@ ${this.customData.serverResponse}`;
   init_i18n();
   init_state();
   init_helpers();
-  init_firebase();
+  init_sms();
+  init_calls();
   function t(key) {
     const lang = getCurrentLanguage();
     return translations[lang] && translations[lang][key] || translations["en"][key] || key;
   }
-  var CACHE_KEYS = {
+  var CACHE_KEYS2 = {
     SMS: "cached_sms_data",
     CALLS: "cached_calls_data"
   };
@@ -29819,90 +29902,40 @@ ${this.customData.serverResponse}`;
     const locale = lang === "ar" ? "ar-EG" : void 0;
     return d.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
   }
-  async function loadInsightsDataDirect(fromTs, toTs) {
-    const currentUser2 = currentUser;
-    if (!currentUser2) {
-      const raw = await loadRawData();
+  async function loadInsightsData(fromTs, toTs) {
+    const inMemorySms = allSMSMessages || [];
+    const inMemoryCalls = allCallsData || [];
+    if (inMemorySms.length > 0 || inMemoryCalls.length > 0) {
       return {
-        allSms: raw.allSms.filter((m) => {
+        allSms: inMemorySms.filter((m) => {
           const ts = m.timestamp || m.receivedAt || 0;
           return ts >= fromTs && ts <= toTs;
         }),
-        allCalls: raw.allCalls.filter((c) => {
+        allCalls: inMemoryCalls.filter((c) => {
           const ts = c.timestamp || c.callDate || 0;
           return ts >= fromTs && ts <= toTs;
         })
       };
     }
-    let mobileDevices = [];
-    try {
-      const devicesSnap = await getDocs(query(
-        collection(db, "devices"),
-        where("userId", "==", currentUser2.uid)
-      ));
-      devicesSnap.forEach((docSnap) => {
-        const d = docSnap.data();
-        if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
-          let name5 = d.nickname;
-          if (!name5) {
-            const platform = (d.platform || "").toLowerCase();
-            name5 = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-          }
-          mobileDevices.push({ id: d.id, name: name5 });
-        }
-      });
-    } catch (_) {
-      const raw = await loadRawData();
-      return {
-        allSms: raw.allSms.filter((m) => {
-          const ts = m.timestamp || m.receivedAt || 0;
-          return ts >= fromTs && ts <= toTs;
-        }),
-        allCalls: raw.allCalls.filter((c) => {
-          const ts = c.timestamp || c.callDate || 0;
-          return ts >= fromTs && ts <= toTs;
-        })
-      };
-    }
-    const allSms = [];
-    const allCalls = [];
-    await Promise.all(mobileDevices.map(async (device) => {
-      try {
-        const [notifSnap, callsSnap] = await Promise.all([
-          getDocs(query(
-            collection(db, "users", currentUser2.uid, "devices", device.id, "notifications"),
-            where("timestamp", ">=", fromTs),
-            where("timestamp", "<=", toTs),
-            orderBy("timestamp", "desc"),
-            limit(5e3)
-          )),
-          getDocs(query(
-            collection(db, "users", currentUser2.uid, "devices", device.id, "calls"),
-            where("timestamp", ">=", fromTs),
-            where("timestamp", "<=", toTs),
-            orderBy("timestamp", "desc"),
-            limit(5e3)
-          ))
-        ]);
-        notifSnap.docs.forEach((d) => {
-          const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
-          if (item.type === "sms") allSms.push(item);
-        });
-        callsSnap.docs.forEach((d) => {
-          allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
-        });
-      } catch (_) {
-      }
-    }));
-    return { allSms, allCalls };
+    const raw = await loadRawData();
+    return {
+      allSms: raw.allSms.filter((m) => {
+        const ts = m.timestamp || m.receivedAt || 0;
+        return ts >= fromTs && ts <= toTs;
+      }),
+      allCalls: raw.allCalls.filter((c) => {
+        const ts = c.timestamp || c.callDate || 0;
+        return ts >= fromTs && ts <= toTs;
+      })
+    };
   }
   async function loadRawData() {
     const result = await chrome.storage.local.get([
-      CACHE_KEYS.SMS,
-      CACHE_KEYS.CALLS
+      CACHE_KEYS2.SMS,
+      CACHE_KEYS2.CALLS
     ]);
-    const smsData = result[CACHE_KEYS.SMS];
-    const callsData = result[CACHE_KEYS.CALLS];
+    const smsData = result[CACHE_KEYS2.SMS];
+    const callsData = result[CACHE_KEYS2.CALLS];
     const allSms = smsData?.allMessages || [];
     const allCalls = callsData?.allCalls || [];
     return { allSms, allCalls };
@@ -29948,7 +29981,24 @@ ${this.customData.serverResponse}`;
     }
     const fromTs = dayStart(fromVal);
     const toTs = dayEnd(toVal);
-    const { allSms, allCalls } = await loadInsightsDataDirect(fromTs, toTs);
+    const stillSyncing = isSMSSyncing() || isCallsSyncing();
+    const hasAnyInMemory = allSMSMessages && allSMSMessages.length > 0 || allCallsData && allCallsData.length > 0;
+    if (stillSyncing && !hasAnyInMemory) {
+      const lang = getCurrentLanguage();
+      const msg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A\u2026" : "Loading messages and calls\u2026";
+      breakdownList.innerHTML = `
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>${msg}</p>
+      </div>
+    `;
+      const insightsBody = document.getElementById("dashInsightsBody");
+      if (insightsBody) insightsBody.innerHTML = "";
+      if (smsCountEl) smsCountEl.textContent = "\u2014";
+      if (callsCountEl) callsCountEl.textContent = "\u2014";
+      return;
+    }
+    const { allSms, allCalls } = await loadInsightsData(fromTs, toTs);
     const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
     const selectedDevice = insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
     const filteredSms = selectedDevice === "all" ? allSms : allSms.filter((m) => m.deviceId === selectedDevice);
@@ -29982,21 +30032,6 @@ ${this.customData.serverResponse}`;
       <p>${t("dash_no_data")}</p>
     </div>`;
       return;
-    }
-    const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-    if (insightsDeviceSelect) {
-      const mobileDevices = (devices || []).filter((d) => {
-        const platform = (d.platform || "").toLowerCase();
-        const type = (d.type || "").toLowerCase();
-        return !platform.includes("chrome") && type !== "extension";
-      });
-      const prevVal = insightsDeviceSelect.value;
-      insightsDeviceSelect.innerHTML = `<option value="all">${t("dash_insights_all_devices")}</option>` + mobileDevices.map(
-        (d) => `<option value="${escapeHtml2(d.id)}">${escapeHtml2(getFriendlyDeviceName(d))}</option>`
-      ).join("");
-      if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
-        insightsDeviceSelect.value = prevVal;
-      }
     }
     renderSmsInsights(filteredSms);
     const html = sortedDates.map((dateKey) => {
@@ -30227,24 +30262,7 @@ ${this.customData.serverResponse}`;
   }
   async function refreshAndRender() {
     const filterBtn = document.getElementById("dashFilterBtn");
-    const breakdownList = document.getElementById("dashBreakdownList");
-    const smsCountEl = document.getElementById("dashSmsCount");
-    const callsCountEl = document.getElementById("dashCallsCount");
-    const spinnerSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
-    if (filterBtn) {
-      filterBtn.disabled = true;
-      filterBtn.textContent = t("common_loading") || "Loading...";
-    }
-    if (smsCountEl) smsCountEl.innerHTML = spinnerSvg;
-    if (callsCountEl) callsCountEl.innerHTML = spinnerSvg;
-    if (breakdownList) {
-      breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-      </svg>
-      <p style="margin-top:8px">${t("common_loading") || "Loading..."}</p>
-    </div>`;
-    }
+    if (filterBtn) filterBtn.disabled = true;
     await renderDashboard();
     if (filterBtn) {
       filterBtn.disabled = false;
@@ -30277,6 +30295,17 @@ ${this.customData.serverResponse}`;
         tab.addEventListener("click", () => refreshAndRender());
       }
     });
+    if (!window.__iropit_dashSyncListenersWired) {
+      window.__iropit_dashSyncListenersWired = true;
+      const onSyncDone = () => {
+        const dashTab = document.getElementById("dashboardTab");
+        if (dashTab && dashTab.classList.contains("active")) {
+          refreshAndRender();
+        }
+      };
+      window.addEventListener("iropit:sms-sync-done", onSyncDone);
+      window.addEventListener("iropit:calls-sync-done", onSyncDone);
+    }
   }
 
   // src/ui/modals.js
@@ -31560,14 +31589,15 @@ ${this.customData.serverResponse}`;
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
-      settingsIncomingCallPopup: "smartAction_incomingCallPopup"
+      settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+      settingsOutgoingCallPopup: "smartAction_outgoingCallPopup"
     };
     const storageKeys = Object.values(TOGGLE_KEYS);
     chrome.storage.local.get(storageKeys, (result) => {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId);
         if (!el) continue;
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup";
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
         el.checked = storageKey in result ? result[storageKey] : defaultOn;
       }
     });
@@ -31630,14 +31660,15 @@ ${this.customData.serverResponse}`;
         settingsAutoOpenSms: "smartAction_openImages",
         settingsAutoOpenUrl: "smartAction_openUrls",
         settingsUniversalCopy: "smartAction_universalCopy",
-        settingsIncomingCallPopup: "smartAction_incomingCallPopup"
+        settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+        settingsOutgoingCallPopup: "smartAction_outgoingCallPopup"
       };
       const storageKeys = Object.values(TOGGLE_KEYS);
       chrome.storage.local.get(storageKeys, (result) => {
         for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
           const el = document.getElementById(elId);
           if (!el) continue;
-          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup";
+          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
           el.checked = storageKey in result ? result[storageKey] : defaultOn;
         }
         settingsModal.classList.remove("hidden");
@@ -31657,7 +31688,8 @@ ${this.customData.serverResponse}`;
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
-      settingsIncomingCallPopup: "smartAction_incomingCallPopup"
+      settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+      settingsOutgoingCallPopup: "smartAction_outgoingCallPopup"
     };
     for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
       document.getElementById(elId)?.addEventListener("change", (e) => {

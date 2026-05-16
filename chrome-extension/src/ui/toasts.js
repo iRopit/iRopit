@@ -70,11 +70,13 @@ export function hideLoading() {
 /**
  * Show loading indicator in a list element
  * @param {HTMLElement} listElement - List element to show loading in
+ * @param {string} [message] - Optional custom message (defaults to "Loading...")
  */
-export function showListLoading(listElement) {
+export function showListLoading(listElement, message) {
   if (listElement) {
     const lang = getCurrentLanguage();
-    const label = lang === "ar" ? "جارٍ التحميل..." : "Loading...";
+    const label =
+      message || (lang === "ar" ? "جارٍ التحميل..." : "Loading...");
     listElement.innerHTML = `
       <div class="loading-state">
         <div class="loading-spinner"></div>

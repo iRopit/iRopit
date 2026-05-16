@@ -70,14 +70,15 @@ export async function loadUserSettings() {
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",
     settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+    settingsOutgoingCallPopup: "smartAction_outgoingCallPopup",
   }
   const storageKeys = Object.values(TOGGLE_KEYS)
   chrome.storage.local.get(storageKeys, (result) => {
     for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
       const el = document.getElementById(elId)
       if (!el) continue
-      // Default: copyOtp, universalCopy, incomingCallPopup default ON, others OFF
-      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup"
+      // Default: copyOtp, universalCopy, incomingCallPopup, outgoingCallPopup default ON, others OFF
+      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
       el.checked = storageKey in result ? result[storageKey] : defaultOn
     }
   })
@@ -261,13 +262,14 @@ export function initSettingsListeners() {
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
       settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+      settingsOutgoingCallPopup: "smartAction_outgoingCallPopup",
     }
     const storageKeys = Object.values(TOGGLE_KEYS)
     chrome.storage.local.get(storageKeys, (result) => {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId)
         if (!el) continue
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup"
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
         el.checked = storageKey in result ? result[storageKey] : defaultOn
       }
       settingsModal.classList.remove("hidden")
@@ -296,6 +298,7 @@ export function initSettingsListeners() {
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",
     settingsIncomingCallPopup: "smartAction_incomingCallPopup",
+    settingsOutgoingCallPopup: "smartAction_outgoingCallPopup",
   }
   for (const [elId, storageKey] of Object.entries(SMART_TOGGLES)) {
     document.getElementById(elId)?.addEventListener("change", (e) => {

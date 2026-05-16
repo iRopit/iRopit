@@ -50,7 +50,7 @@ class SmsService {
     }
   }
 
-  async getAllSms(limit: number = 100): Promise<SmsMessage[]> {
+  async getAllSms(limit: number = 100000): Promise<SmsMessage[]> {
     if (Platform.OS !== 'android' || !SmsModule) {
       return [];
     }

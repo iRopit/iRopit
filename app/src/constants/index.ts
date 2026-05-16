@@ -1,5 +1,5 @@
 export const APP_NAME = 'iRopit';
-export const APP_VERSION = '1.1.2.3';
+export const APP_VERSION = '1.1.2.23';
 
 // Sync intervals
 export const SYNC_INTERVAL = 30000; // 30 seconds
@@ -7,8 +7,10 @@ export const PRESENCE_INTERVAL = 60000; // 1 minute
 
 // Pagination
 export const PAGE_SIZE = 20;
-export const SMS_PAGE_SIZE = 200;
-export const CALL_PAGE_SIZE = 50;
+// Large page sizes so the UI shows the full device history from initial sync.
+// Pagination still kicks in (loadMoreMessages) if a user has more than this.
+export const SMS_PAGE_SIZE = 10000;
+export const CALL_PAGE_SIZE = 10000;
 
 // Limits
 export const MAX_SMS_LENGTH = 160;

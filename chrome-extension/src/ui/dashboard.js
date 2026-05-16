@@ -6,15 +6,9 @@
 import { translations, getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
 import { getFriendlyDeviceName, getPlatformIcon } from "../utils/helpers.js";
-import {
-  db,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-} from "../config/firebase.js";
+import { isSMSSyncing } from "../services/sms.js";
+import { isCallsSyncing } from "../services/calls.js";
+// Firebase imports removed — Insights reads from in-memory state populated by real-time listeners
 
 /** Shorthand translator */
 function t(key) {
@@ -44,82 +38,29 @@ function formatDateLabel(dateStr) {
   return d.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
-/** Load Insights data directly from Firestore for a specific date range.
- *  Queries Firestore from the popup context using the authenticated user.
- *  This ensures every machine (regardless of local cache age or install date)
- *  gets identical, complete data for the same date range.
+/**
+ * Load Insights data from in-memory state — instant, no Firestore roundtrip.
+ * State is already kept fresh by the real-time Firestore listeners that run
+ * as soon as the user logs in.  Falls back to chrome.storage.local when the
+ * popup has just opened and listeners haven't fired yet.
  */
-async function loadInsightsDataDirect(fromTs, toTs) {
-  const currentUser = state.currentUser;
-  if (!currentUser) {
-    // Not authenticated yet — filter local cache by date range as fallback
-    const raw = await loadRawData();
+async function loadInsightsData(fromTs, toTs) {
+  const inMemorySms   = state.allSMSMessages || [];
+  const inMemoryCalls = state.allCallsData   || [];
+
+  if (inMemorySms.length > 0 || inMemoryCalls.length > 0) {
     return {
-      allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
-      allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
+      allSms:   inMemorySms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+      allCalls: inMemoryCalls.filter((c) => { const ts = c.timestamp || c.callDate  || 0; return ts >= fromTs && ts <= toTs; }),
     };
   }
 
-  // Get all mobile devices for this user
-  let mobileDevices = [];
-  try {
-    const devicesSnap = await getDocs(query(
-      collection(db, "devices"),
-      where("userId", "==", currentUser.uid),
-    ));
-    devicesSnap.forEach((docSnap) => {
-      const d = docSnap.data();
-      if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
-        let name = d.nickname;
-        if (!name) {
-          const platform = (d.platform || "").toLowerCase();
-          name = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-        }
-        mobileDevices.push({ id: d.id, name });
-      }
-    });
-  } catch (_) {
-    // fallback on devices query error — filter local cache by date range
-    const raw = await loadRawData();
-    return {
-      allSms: raw.allSms.filter((m) => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
-      allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate || 0; return ts >= fromTs && ts <= toTs; }),
-    };
-  }
-
-  const allSms = [];
-  const allCalls = [];
-
-  await Promise.all(mobileDevices.map(async (device) => {
-    try {
-      const [notifSnap, callsSnap] = await Promise.all([
-        getDocs(query(
-          collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
-          where("timestamp", ">=", fromTs),
-          where("timestamp", "<=", toTs),
-          orderBy("timestamp", "desc"),
-          limit(5000),
-        )),
-        getDocs(query(
-          collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
-          where("timestamp", ">=", fromTs),
-          where("timestamp", "<=", toTs),
-          orderBy("timestamp", "desc"),
-          limit(5000),
-        )),
-      ]);
-
-      notifSnap.docs.forEach((d) => {
-        const item = { ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name };
-        if (item.type === "sms") allSms.push(item);
-      });
-      callsSnap.docs.forEach((d) => {
-        allCalls.push({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name });
-      });
-    } catch (_) { /* skip devices with permission errors */ }
-  }));
-
-  return { allSms, allCalls };
+  // Fallback: state not yet populated — read from chrome.storage.local cache
+  const raw = await loadRawData();
+  return {
+    allSms:   raw.allSms.filter((m)  => { const ts = m.timestamp || m.receivedAt || 0; return ts >= fromTs && ts <= toTs; }),
+    allCalls: raw.allCalls.filter((c) => { const ts = c.timestamp || c.callDate  || 0; return ts >= fromTs && ts <= toTs; }),
+  };
 }
 
 /** Load all raw data from chrome.storage.local */
@@ -193,8 +134,32 @@ async function renderDashboard() {
   const fromTs = dayStart(fromVal);
   const toTs = dayEnd(toVal);
 
-  // Query Firestore directly for the selected date range — consistent across all machines
-  const { allSms, allCalls } = await loadInsightsDataDirect(fromTs, toTs);
+  // While SMS/Calls are still syncing on first load, show a loading state
+  // instead of "No data" — we genuinely don't know what's in the range yet.
+  const stillSyncing = isSMSSyncing() || isCallsSyncing();
+  const hasAnyInMemory =
+    (state.allSMSMessages && state.allSMSMessages.length > 0) ||
+    (state.allCallsData   && state.allCallsData.length   > 0);
+  if (stillSyncing && !hasAnyInMemory) {
+    const lang = getCurrentLanguage();
+    const msg = lang === "ar"
+      ? "جارٍ تحميل الرسائل والمكالمات…"
+      : "Loading messages and calls…";
+    breakdownList.innerHTML = `
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>${msg}</p>
+      </div>
+    `;
+    const insightsBody = document.getElementById("dashInsightsBody");
+    if (insightsBody) insightsBody.innerHTML = "";
+    if (smsCountEl)   smsCountEl.textContent = "—";
+    if (callsCountEl) callsCountEl.textContent = "—";
+    return;
+  }
+
+  // Read from in-memory state — already populated by real-time listeners
+  const { allSms, allCalls } = await loadInsightsData(fromTs, toTs);
 
   // Determine selected device from the active sidebar tab
   const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
@@ -246,26 +211,6 @@ async function renderDashboard() {
       <p>${t("dash_no_data")}</p>
     </div>`;
     return;
-  }
-
-  // Populate the insights device dropdown (only mobile devices)
-  const insightsDeviceSelect = document.getElementById("dashInsightsDevice");
-  if (insightsDeviceSelect) {
-    const mobileDevices = (state.devices || []).filter((d) => {
-      const platform = (d.platform || "").toLowerCase();
-      const type = (d.type || "").toLowerCase();
-      return !platform.includes("chrome") && type !== "extension";
-    });
-    const prevVal = insightsDeviceSelect.value;
-    insightsDeviceSelect.innerHTML =
-      `<option value="all">${t("dash_insights_all_devices")}</option>` +
-      mobileDevices.map((d) =>
-        `<option value="${escapeHtml(d.id)}">${escapeHtml(getFriendlyDeviceName(d))}</option>`
-      ).join("");
-    // Restore previous selection if still valid
-    if (prevVal && [...insightsDeviceSelect.options].some((o) => o.value === prevVal)) {
-      insightsDeviceSelect.value = prevVal;
-    }
   }
 
   // Render SMS spending insights (filteredSms is already device-filtered above)
@@ -587,33 +532,11 @@ export function updateInsightsDeviceTabs() {
   }
 }
 
-/** Render Insights with a loading indicator while fetching from Firestore */
+/** Render Insights — reads from in-memory state, effectively instant */
 async function refreshAndRender() {
   const filterBtn = document.getElementById("dashFilterBtn");
-  const breakdownList = document.getElementById("dashBreakdownList");
-  const smsCountEl = document.getElementById("dashSmsCount");
-  const callsCountEl = document.getElementById("dashCallsCount");
-
-  const spinnerSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;vertical-align:middle"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
-
-  // Show loading state on stat cards and button
-  if (filterBtn) {
-    filterBtn.disabled = true;
-    filterBtn.textContent = t("common_loading") || "Loading...";
-  }
-  if (smsCountEl) smsCountEl.innerHTML = spinnerSvg;
-  if (callsCountEl) callsCountEl.innerHTML = spinnerSvg;
-  if (breakdownList) {
-    breakdownList.innerHTML = `<div class="empty-state" style="padding:24px">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-      </svg>
-      <p style="margin-top:8px">${t("common_loading") || "Loading..."}</p>
-    </div>`;
-  }
-
+  if (filterBtn) filterBtn.disabled = true;
   await renderDashboard();
-
   if (filterBtn) {
     filterBtn.disabled = false;
     filterBtn.textContent = t("dash_apply") || "Apply";
@@ -654,4 +577,18 @@ export function initDashboard() {
       tab.addEventListener("click", () => refreshAndRender());
     }
   });
+
+  // Re-render when SMS or Calls finish syncing so the loading state
+  // (shown on fresh install) is automatically replaced with real data.
+  if (!window.__iropit_dashSyncListenersWired) {
+    window.__iropit_dashSyncListenersWired = true;
+    const onSyncDone = () => {
+      const dashTab = document.getElementById("dashboardTab");
+      if (dashTab && dashTab.classList.contains("active")) {
+        refreshAndRender();
+      }
+    };
+    window.addEventListener("iropit:sms-sync-done", onSyncDone);
+    window.addEventListener("iropit:calls-sync-done", onSyncDone);
+  }
 }

@@ -72,9 +72,9 @@ function updateNotifSyncIndicator() {
   if (!container) return;
   const indicator = document.createElement("div");
   indicator.id = "notifSyncIndicator";
-  indicator.className = "sms-count-indicator";
+  indicator.className = "sms-count-indicator indicator-top";
   indicator.innerHTML = `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
-  container.appendChild(indicator);
+  container.prepend(indicator);
 }
 
 function notifSnapshotReady() {

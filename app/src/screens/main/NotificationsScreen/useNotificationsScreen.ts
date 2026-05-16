@@ -431,18 +431,28 @@ export const useNotificationsScreen = (
 
   // Load SMS from Firebase on mount
   useEffect(() => {
-    // Cap loading indicator at 500ms regardless of network speed
-    const cap = setTimeout(() => setInitialLoading(false), 500);
-
     if (user && currentDevice) {
-      Promise.resolve(loadSmsMessages(activeDeviceId || undefined)).finally(() => {
-        setInitialLoading(false);
-        clearTimeout(cap);
-      });
+      // Just kick off the listener — DON'T clear initialLoading here.
+      // loadSmsMessages returns synchronously after attaching the Firestore
+      // onSnapshot listener; the data arrives later (especially on a fresh
+      // install where there is no cache and the historical batchSyncNativeSMS
+      // hasn't run yet). The previous code cleared initialLoading in a
+      // .finally() that fires immediately, so the spinner barely flashed.
+      loadSmsMessages(activeDeviceId || undefined);
     }
-
-    return () => clearTimeout(cap);
   }, [user, currentDevice, loadSmsMessages, activeDeviceId]);
+
+  // Clear initialLoading once messages/notifications actually arrive, OR
+  // after a generous safety timeout (covers users with a truly empty inbox).
+  useEffect(() => {
+    if (!initialLoading) return;
+    if (smsMessages.length > 0 || notifications.length > 0) {
+      setInitialLoading(false);
+      return;
+    }
+    const t = setTimeout(() => setInitialLoading(false), 30000);
+    return () => clearTimeout(t);
+  }, [initialLoading, smsMessages.length, notifications.length]);
 
   // Subscribe to notifications from Firebase
   useEffect(() => {

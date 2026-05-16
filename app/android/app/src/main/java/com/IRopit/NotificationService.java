@@ -668,8 +668,89 @@ public class NotificationService extends NotificationListenerService {
                         Log.d(TAG, "📞 Found phone number from contacts for '" + title + "': " + extractedPhoneNumber);
                     }
                 }
-                
+
+                // v1.1.2.22: For unregistered numbers the dialer may put the digits
+                // in `text`/`subText` (e.g. "0501234567 • Mobile") rather than title.
+                // Try extractPhoneFromText on those too — strips formatting and
+                // returns any 7–15 digit sequence with an optional leading '+'.
+                if (extractedPhoneNumber == null && text != null && !text.isEmpty()) {
+                    String p = extractPhoneFromText(text);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted phone from text: " + extractedPhoneNumber);
+                    }
+                }
+                if (extractedPhoneNumber == null && subText != null && !subText.isEmpty()) {
+                    String p = extractPhoneFromText(subText);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted phone from subText: " + extractedPhoneNumber);
+                    }
+                }
+
+                // v1.1.2.22: Inspect Notification.CallStyle extras (API 31+) and the
+                // generic EXTRA_PEOPLE array — these carry tel: URIs even when the
+                // visible title/text show a contact-style label.
+                if (extractedPhoneNumber == null && extras != null) {
+                    String p = extractPhoneFromCallExtras(extras);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted phone from CallStyle/people extras: " + extractedPhoneNumber);
+                    }
+                }
+
+                // v1.1.2.22b: Short-code fallback (3–15 digits). Carriers/IVRs use
+                // short codes like 155, 911, *100# — these are valid dialed numbers
+                // but the standard 7+ digit extractor rejects them. Try the loose
+                // extractor on title/text/subText.
+                if (extractedPhoneNumber == null && title != null && !title.isEmpty()) {
+                    String p = extractDialedNumberFromText(title);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted short-code from title: " + extractedPhoneNumber);
+                    }
+                }
+                if (extractedPhoneNumber == null && text != null && !text.isEmpty()) {
+                    String p = extractDialedNumberFromText(text);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted short-code from text: " + extractedPhoneNumber);
+                    }
+                }
+                if (extractedPhoneNumber == null && subText != null && !subText.isEmpty()) {
+                    String p = extractDialedNumberFromText(subText);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted short-code from subText: " + extractedPhoneNumber);
+                    }
+                }
+
+                // v1.1.2.22: Last-resort sweep — scan every CharSequence extra for a
+                // phone-shaped substring. Custom dialers (Samsung, Xiaomi) sometimes
+                // bury the dialed number in non-standard keys like "android.bigText"
+                // or "android.summaryText".
+                if (extractedPhoneNumber == null && extras != null) {
+                    String p = sweepExtrasForPhone(extras);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Extracted phone from extras sweep: " + extractedPhoneNumber);
+                    }
+                }
+
                 Log.d(TAG, "📞 CALL - Final phoneNumber: " + extractedPhoneNumber + ", contactName: " + title);
+
+                // BUGFIX (v1.1.2.21): On Android 10+ the CallLog row for an active
+                // outgoing call is often not populated until the call ends, so the
+                // CallReceiver retries miss it and the Chrome-extension popup never
+                // opens. Use the dialer's ongoing notification as a reliable source
+                // for the dialed number during an active outgoing call.
+                if (extractedPhoneNumber != null && !extractedPhoneNumber.isEmpty()) {
+                    try {
+                        CallReceiver.onDialerNotificationNumber(this, extractedPhoneNumber);
+                    } catch (Throwable t) {
+                        Log.w(TAG, "onDialerNotificationNumber failed: " + t.getMessage());
+                    }
+                }
             }
         }
 
@@ -1242,6 +1323,131 @@ public class NotificationService extends NotificationListenerService {
         if (text == null || text.isEmpty()) return false;
         String clean = text.replaceAll("[\\s\\-\\(\\)]", "");
         return clean.matches("^\\+?[0-9]{7,15}$");
+    }
+
+    /**
+     * v1.1.2.22: Extract a phone number from {@link Notification.CallStyle} and the
+     * generic {@code android.people}/{@code android.people.list} extras. These carry
+     * canonical {@code tel:} URIs (or {@link android.app.Person} objects whose URI is
+     * {@code tel:…}), which is the most reliable source for unregistered numbers.
+     */
+    private String extractPhoneFromCallExtras(Bundle extras) {
+        if (extras == null) return null;
+        try {
+            // CallStyle (API 31+): EXTRA_CALL_PERSON
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    Object callPerson = extras.getParcelable("android.callPerson");
+                    String p = phoneFromPerson(callPerson);
+                    if (p != null) return p;
+                } catch (Exception ignore) {}
+            }
+            // EXTRA_PEOPLE (legacy string array of URIs)
+            try {
+                String[] people = extras.getStringArray(Notification.EXTRA_PEOPLE);
+                if (people != null) {
+                    for (String uri : people) {
+                        String p = phoneFromUri(uri);
+                        if (p != null) return p;
+                    }
+                }
+            } catch (Exception ignore) {}
+            // EXTRA_PEOPLE_LIST (API 28+, parcelable list of Person)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    java.util.ArrayList<android.os.Parcelable> list =
+                            extras.getParcelableArrayList(Notification.EXTRA_PEOPLE_LIST);
+                    if (list != null) {
+                        for (android.os.Parcelable pcl : list) {
+                            String p = phoneFromPerson(pcl);
+                            if (p != null) return p;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "extractPhoneFromCallExtras failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /** Returns a digit-only number from an {@link android.app.Person}'s URI if it is {@code tel:…}. */
+    private String phoneFromPerson(Object personObj) {
+        if (personObj == null) return null;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null;
+        try {
+            if (personObj instanceof android.app.Person) {
+                android.app.Person p = (android.app.Person) personObj;
+                return phoneFromUri(p.getUri());
+            }
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    /** Returns digits from a {@code tel:+971501234567} or {@code tel:155} URI, or null otherwise.
+     *  Uses the loose extractor so short codes (3+ digits) are preserved — tel: URIs
+     *  are authoritative so there's no false-positive risk here. */
+    private String phoneFromUri(String uri) {
+        if (uri == null || uri.isEmpty()) return null;
+        String lower = uri.toLowerCase();
+        if (!lower.startsWith("tel:")) return null;
+        String raw = uri.substring(4);
+        try { raw = java.net.URLDecoder.decode(raw, "UTF-8"); } catch (Exception ignore) {}
+        return extractDialedNumberFromText(raw);
+    }
+
+    /**
+     * v1.1.2.22b: Looser extractor that accepts 3–15 digits (with optional leading +).
+     * Use ONLY for authoritative sources (tel: URIs, dialer notification title for
+     * outgoing-call style notifications) — NEVER for the sweep, since it would
+     * match too many random digit runs.
+     */
+    private String extractDialedNumberFromText(String text) {
+        if (text == null || text.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        boolean firstPlus = true;
+        for (char c : text.toCharArray()) {
+            if (Character.isDigit(c)) {
+                sb.append(c);
+            } else if (c == '+' && firstPlus && sb.length() == 0) {
+                sb.append(c);
+                firstPlus = false;
+            }
+        }
+        String extracted = sb.toString();
+        int digits = extracted.startsWith("+") ? extracted.length() - 1 : extracted.length();
+        if (digits >= 3 && digits <= 15) {
+            Log.d(TAG, "extractDialedNumberFromText: '" + text + "' -> '" + extracted + "'");
+            return extracted;
+        }
+        return null;
+    }
+
+    /**
+     * v1.1.2.22: Last-resort sweep — scan every CharSequence extra for a phone-shaped
+     * substring. Returns the first 7–15-digit run (optionally with leading '+') found.
+     */
+    private String sweepExtrasForPhone(Bundle extras) {
+        if (extras == null) return null;
+        try {
+            for (String k : extras.keySet()) {
+                try {
+                    Object v = extras.get(k);
+                    if (v instanceof CharSequence) {
+                        String s = v.toString();
+                        if (s == null || s.isEmpty()) continue;
+                        String p = extractPhoneFromText(s);
+                        if (p != null) {
+                            Log.d(TAG, "📞 sweepExtrasForPhone matched key=" + k + " value='" + s + "' -> " + p);
+                            return p;
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "sweepExtrasForPhone failed: " + e.getMessage());
+        }
+        return null;
     }
     
     /**

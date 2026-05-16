@@ -142,7 +142,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   };
 
   // Check if the Next button should be disabled
-  const isNextDisabled = currentStep === 2 && !privacyAccepted;
+  // - Step 2 (Privacy): must accept terms
+  // - Step 4 (Permissions): must grant all required permissions
+  const allRequiredPermissionsGranted = permissions
+    .filter(p => p.required)
+    .every(p => p.granted);
+  const isNextDisabled =
+    (currentStep === 2 && !privacyAccepted) ||
+    (currentStep === 4 && !allRequiredPermissionsGranted);
 
   const isLastStep = currentStep === totalSteps - 1;
 

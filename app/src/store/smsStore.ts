@@ -259,10 +259,18 @@ export const useSMSStore = create<SMSState>()(
                 rawMessages.push({ ...doc.data(), id: doc.id });
               });
 
-              // Decrypt all messages
-              const decryptedMessages = await Promise.all(
-                rawMessages.map(msg => decryptSMS(msg, user.uid)),
-              );
+              // Decrypt in small chunks with a yield between each, so a large
+              // snapshot (e.g. 10k messages on first load) doesn't freeze the UI.
+              const DECRYPT_CHUNK = 100;
+              const decryptedMessages: any[] = [];
+              for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
+                const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
+                const decryptedChunk = await Promise.all(
+                  chunk.map(msg => decryptSMS(msg, user.uid)),
+                );
+                decryptedMessages.push(...decryptedChunk);
+                await new Promise(resolve => setTimeout(resolve, 0));
+              }
 
               const firebaseMessages: SMS[] = decryptedMessages.map(
                 data =>
@@ -347,9 +355,17 @@ export const useSMSStore = create<SMSState>()(
           const rawMessages: any[] = [];
           snapshot.forEach(doc => rawMessages.push({ ...doc.data(), id: doc.id }));
 
-          const decryptedMessages = await Promise.all(
-            rawMessages.map(msg => decryptSMS(msg, user.uid)),
-          );
+          // Chunked decrypt with yields (older messages page)
+          const DECRYPT_CHUNK = 100;
+          const decryptedMessages: any[] = [];
+          for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
+            const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
+            const decryptedChunk = await Promise.all(
+              chunk.map(msg => decryptSMS(msg, user.uid)),
+            );
+            decryptedMessages.push(...decryptedChunk);
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
 
           const olderMessages: SMS[] = decryptedMessages.map(
             data =>
@@ -681,60 +697,78 @@ export const useSMSStore = create<SMSState>()(
         const { currentDevice } = useDeviceStore.getState();
         if (!userId || !currentDevice || !nativeMessages.length) return;
 
+        set({ isSyncing: true });
         try {
-          // Encrypt all messages first (async), then batch-write
-          const encrypted = await Promise.all(
-            nativeMessages.map(async msg => {
-              const phoneNumber = (msg.phoneNumber || msg.address || msg.sender || '').trim() || 'unknown';
-              const messageText = msg.body || msg.text || msg.content || '';
-              const contactName = msg.contactName || msg.name || '';
-              // SmsModule.java returns 'date', fallback to 'timestamp'/'dateTime'
-              const timestamp = parseInt(msg.date || msg.timestamp || msg.dateTime) || Date.now();
-              const smsType = msg.smsType || msg.type || 'inbox';
+          // nativeMessages comes from SmsModule.getAllSms which returns "date DESC"
+          // (newest first). We process in Firestore-batch-sized chunks so that the
+          // first write immediately shows the newest messages in the Firestore
+          // listener — rather than encrypting ALL messages before any write.
+          const BATCH_SIZE = 400; // Firestore batch limit is 500; stay under it
+          const ENCRYPT_CHUNK = 50; // parallel encryption sub-chunk within each batch
 
-              // Same hash formula as BackgroundSmsService.java
-              const messageHash = Math.abs(
-                `${phoneNumber}${messageText}`.split('').reduce((a: number, b: string) => {
-                  a = (a << 5) - a + b.charCodeAt(0);
-                  return a & a;
-                }, 0),
-              );
+          const encryptOne = async (msg: any) => {
+            const phoneNumber = (msg.phoneNumber || msg.address || msg.sender || '').trim() || 'unknown';
+            const messageText = msg.body || msg.text || msg.content || '';
+            const contactName = msg.contactName || msg.name || '';
+            // SmsModule.java returns 'date', fallback to 'timestamp'/'dateTime'
+            const timestamp = parseInt(msg.date || msg.timestamp || msg.dateTime) || Date.now();
+            const smsType = msg.smsType || msg.type || 'inbox';
 
-              const notificationData = {
-                id: msg.id?.toString() || `${timestamp}`,
-                key: `sms_${msg.id || timestamp}`,
-                packageName: 'com.android.mms',
-                title: contactName || phoneNumber,
-                text: messageText,
-                content: messageText,
-                appName: 'SMS',
-                type: 'sms',
-                smsType,
-                direction: smsType === 'sent' ? 'outgoing' : 'incoming',
-                timestamp,
-                receivedAt: timestamp,
-                read: msg.read ?? true,
-                userId,
-                deviceId: currentDevice.id,
-                deviceName: currentDevice.nickname || currentDevice.name || 'Android Device',
-                phoneNumber,
-                contactName,
-                simSlot: msg.simSlot != null ? msg.simSlot : -1,
-                syncedAt: Date.now(),
-              };
+            // Same hash formula as BackgroundSmsService.java
+            const messageHash = Math.abs(
+              `${phoneNumber}${messageText}`.split('').reduce((a: number, b: string) => {
+                a = (a << 5) - a + b.charCodeAt(0);
+                return a & a;
+              }, 0),
+            );
 
-              const docId = `sms_${currentDevice.id}_${timestamp}_${messageHash}`;
-              const encryptedData = await encryptSMS(notificationData, userId);
-              return { docId, encryptedData };
-            }),
-          );
+            const notificationData = {
+              id: msg.id?.toString() || `${timestamp}`,
+              key: `sms_${msg.id || timestamp}`,
+              packageName: 'com.android.mms',
+              title: contactName || phoneNumber,
+              text: messageText,
+              content: messageText,
+              appName: 'SMS',
+              type: 'sms',
+              smsType,
+              direction: smsType === 'sent' ? 'outgoing' : 'incoming',
+              timestamp,
+              receivedAt: timestamp,
+              read: msg.read ?? true,
+              userId,
+              deviceId: currentDevice.id,
+              deviceName: currentDevice.nickname || currentDevice.name || 'Android Device',
+              phoneNumber,
+              contactName,
+              simSlot: msg.simSlot != null ? msg.simSlot : -1,
+              syncedAt: Date.now(),
+            };
 
-          // Firestore batch limit is 500 — write in chunks of 400
-          const BATCH_SIZE = 400;
-          for (let i = 0; i < encrypted.length; i += BATCH_SIZE) {
-            const chunk = encrypted.slice(i, i + BATCH_SIZE);
+            const docId = `sms_${currentDevice.id}_${timestamp}_${messageHash}`;
+            const encryptedData = await encryptSMS(notificationData, userId);
+            return { docId, encryptedData };
+          };
+
+          // Process BATCH_SIZE messages at a time: encrypt then immediately write
+          // to Firestore. Because messages are ordered newest-first, the first
+          // Firestore write makes the newest messages visible in the listener
+          // without waiting for the entire history to be encrypted.
+          for (let i = 0; i < nativeMessages.length; i += BATCH_SIZE) {
+            const batchMsgs = nativeMessages.slice(i, i + BATCH_SIZE);
+
+            // Encrypt this batch in ENCRYPT_CHUNK sub-chunks with JS yields
+            const encrypted: Array<{ docId: string; encryptedData: any }> = [];
+            for (let j = 0; j < batchMsgs.length; j += ENCRYPT_CHUNK) {
+              const subChunk = batchMsgs.slice(j, j + ENCRYPT_CHUNK);
+              const encryptedChunk = await Promise.all(subChunk.map(encryptOne));
+              encrypted.push(...encryptedChunk);
+              await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            // Write this batch to Firestore
             const batch = firestore().batch();
-            for (const { docId, encryptedData } of chunk) {
+            for (const { docId, encryptedData } of encrypted) {
               const docRef = firestore()
                 .collection(COLLECTIONS.USERS)
                 .doc(userId)
@@ -745,9 +779,13 @@ export const useSMSStore = create<SMSState>()(
               batch.set(docRef, encryptedData, { merge: true });
             }
             await batch.commit();
+            // Yield between Firestore commits so the UI/listener can update
+            await new Promise(resolve => setTimeout(resolve, 0));
           }
         } catch (error: any) {
           console.warn('[SMS] Initial batch sync error:', error?.message);
+        } finally {
+          set({ isSyncing: false });
         }
       },
 

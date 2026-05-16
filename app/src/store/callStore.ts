@@ -186,10 +186,18 @@ export const useCallStore = create<CallState>()(
               snapshot.forEach(doc => {
                 rawCalls.push({ id: doc.id, ...doc.data() } as CallLog);
               });
-              // Decrypt calls
-              const calls = (await Promise.all(
-                rawCalls.map(call => decryptCall(call, user.uid)),
-              )) as CallLog[];
+              // Decrypt in chunks with yields so large initial loads don't
+              // freeze the JS thread and cause navigation lag.
+              const DECRYPT_CHUNK = 100;
+              const calls: CallLog[] = [];
+              for (let i = 0; i < rawCalls.length; i += DECRYPT_CHUNK) {
+                const chunk = rawCalls.slice(i, i + DECRYPT_CHUNK);
+                const decryptedChunk = (await Promise.all(
+                  chunk.map(call => decryptCall(call, user.uid)),
+                )) as CallLog[];
+                calls.push(...decryptedChunk);
+                await new Promise(resolve => setTimeout(resolve, 0));
+              }
               set({ calls, isLoading: false });
             },
             error => {
@@ -208,10 +216,11 @@ export const useCallStore = create<CallState>()(
         set({ isSyncing: true, error: null });
 
         try {
-          const batch = firestore().batch();
+          // Build all doc refs + data first
+          const CHUNK_SIZE = 400; // Firestore batch limit is 500; use 400 for safety
+          const docs: Array<{ ref: any; data: Omit<CallLog, 'id'> }> = [];
 
           for (const call of localCalls) {
-            // Map call type
             let callType: CallLog['type'] = 'incoming';
             switch (call.type) {
               case 1:
@@ -260,10 +269,19 @@ export const useCallStore = create<CallState>()(
               .doc(currentDevice.id)
               .collection(COLLECTIONS.CALLS)
               .doc(docId);
-            batch.set(docRef, callData, { merge: true });
+
+            docs.push({ ref: docRef, data: callData });
           }
 
-          await batch.commit();
+          // Write in chunks to stay within Firestore batch limit + yield to JS thread
+          for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+            const chunk = docs.slice(i, i + CHUNK_SIZE);
+            const batch = firestore().batch();
+            chunk.forEach(({ ref, data }) => batch.set(ref, data, { merge: true }));
+            await batch.commit();
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+
           set({ isSyncing: false });
         } catch (error: any) {
           set({ error: error.message, isSyncing: false });

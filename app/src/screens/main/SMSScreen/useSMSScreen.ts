@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, InteractionManager } from 'react-native';
 import { useSMSStore } from '../../../store/smsStore';
 import { SMS } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -9,6 +9,7 @@ import { Conversation } from './types';
 export const useSMSScreen = () => {
   const messages = useSMSStore(state => state.messages);
   const isLoading = useSMSStore(state => state.isLoading);
+  const isSyncing = useSMSStore(state => state.isSyncing);
   const isLoadingMore = useSMSStore(state => state.isLoadingMore);
   const hasMoreMessages = useSMSStore(state => state.hasMoreMessages);
   const loadMoreMessages = useSMSStore(state => state.loadMoreMessages);
@@ -99,17 +100,36 @@ export const useSMSScreen = () => {
         }
       } catch (_error) {
         // Handle error silently
-      } finally {
-        setInitialLoading(false);
       }
-    } else {
-      setInitialLoading(false);
     }
+    // NOTE: initialLoading is intentionally NOT cleared here.
+    // On a fresh install the historical Firestore sync (batchSyncNativeSMS)
+    // runs ~1.5s later via useNativeEvents and the first onSnapshot fires
+    // empty, so clearing here would show "No SMS yet" during that window.
+    // It's cleared by the effect below once messages arrive (or after a
+    // generous timeout so a genuinely empty inbox eventually shows empty).
   }, [addMessage, syncMessages]);
 
   useEffect(() => {
-    loadFromDevice();
+    // Defer heavy native SMS read until after navigation animation completes
+    // so the screen transition stays smooth on fresh installs / first open.
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadFromDevice();
+    });
+    return () => task.cancel();
   }, [loadFromDevice]);
+
+  // Clear initial-loading once we actually have messages, OR after a
+  // generous timeout to cover the case of a genuinely empty SMS inbox.
+  useEffect(() => {
+    if (!initialLoading) return;
+    if (messages.length > 0 || isSyncing) {
+      setInitialLoading(false);
+      return;
+    }
+    const t = setTimeout(() => setInitialLoading(false), 30000);
+    return () => clearTimeout(t);
+  }, [initialLoading, messages.length, isSyncing]);
 
   const handleSendMessage = async () => {
     if (!phoneNumber.trim()) {
@@ -216,6 +236,7 @@ export const useSMSScreen = () => {
     messages,
     conversations,
     isLoading,
+    isSyncing,
     isLoadingMore,
     hasMoreMessages,
     initialLoading,
