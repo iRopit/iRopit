@@ -66,6 +66,7 @@ export async function loadUserSettings() {
   // Load smart action toggle states from local storage
   const TOGGLE_KEYS = {
     settingsAutoCopyOtp: "smartAction_copyOtp",
+    settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
     settingsAutoOpenSms: "smartAction_openImages",
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",
@@ -77,8 +78,8 @@ export async function loadUserSettings() {
     for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
       const el = document.getElementById(elId)
       if (!el) continue
-      // Default: copyOtp, universalCopy, incomingCallPopup, outgoingCallPopup default ON, others OFF
-      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
+      // Default: copyOtp, copyOtpEmail, universalCopy, incomingCallPopup, outgoingCallPopup default ON, others OFF
+      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
       el.checked = storageKey in result ? result[storageKey] : defaultOn
     }
   })
@@ -258,6 +259,7 @@ export function initSettingsListeners() {
     // Load latest toggle states before showing modal to avoid flash of wrong state
     const TOGGLE_KEYS = {
       settingsAutoCopyOtp: "smartAction_copyOtp",
+      settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
       settingsAutoOpenSms: "smartAction_openImages",
       settingsAutoOpenUrl: "smartAction_openUrls",
       settingsUniversalCopy: "smartAction_universalCopy",
@@ -269,7 +271,7 @@ export function initSettingsListeners() {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId)
         if (!el) continue
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
         el.checked = storageKey in result ? result[storageKey] : defaultOn
       }
       settingsModal.classList.remove("hidden")
@@ -294,6 +296,7 @@ export function initSettingsListeners() {
   // Smart action toggles — persist to chrome.storage.local so service worker can read them
   const SMART_TOGGLES = {
     settingsAutoCopyOtp: "smartAction_copyOtp",
+    settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
     settingsAutoOpenSms: "smartAction_openImages",
     settingsAutoOpenUrl: "smartAction_openUrls",
     settingsUniversalCopy: "smartAction_universalCopy",

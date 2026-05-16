@@ -68,16 +68,17 @@ let snoozeUntil = 0;
 
 // Smart action settings (kept in sync with chrome.storage.local)
 const smartActions = {
-  copyOtp: true,        // Copy OTP from SMS (default ON)
-  openImages: false,    // Open received images in new tab (default OFF)
-  openUrls: false,      // Open received URLs in new tab (default OFF)
-  universalCopy: true,  // Universal Copy text from mobile (default ON)
+  copyOtp: true,         // Copy OTP from SMS (default ON)
+  copyOtpEmail: true,    // Copy OTP from email (default ON)
+  openImages: false,     // Open received images in new tab (default OFF)
+  openUrls: false,       // Open received URLs in new tab (default OFF)
+  universalCopy: true,   // Universal Copy text from mobile (default ON)
 };
 
 // Load timestamp from storage
 chrome.storage.local.get(
   ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil",
-   "smartAction_copyOtp", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy",
+   "smartAction_copyOtp", "smartAction_copyOtpEmail", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy",
    "lastChatPollTimestamp", "seenChatMessageIds"],
   (result) => {
     console.log(
@@ -96,8 +97,9 @@ chrome.storage.local.get(
     if (result.snoozeUntil) {
       snoozeUntil = result.snoozeUntil;
     }
-    // Load smart action settings (defaults: copyOtp ON, universalCopy ON, others OFF)
+    // Load smart action settings (defaults: copyOtp ON, copyOtpEmail ON, universalCopy ON, others OFF)
     if ("smartAction_copyOtp" in result) smartActions.copyOtp = result.smartAction_copyOtp !== false;
+    if ("smartAction_copyOtpEmail" in result) smartActions.copyOtpEmail = result.smartAction_copyOtpEmail !== false;
     if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages === true;
     if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls === true;
     if ("smartAction_universalCopy" in result) smartActions.universalCopy = result.smartAction_universalCopy !== false;
@@ -119,6 +121,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
   // Keep smart action settings in sync
   if (changes.smartAction_copyOtp !== undefined) smartActions.copyOtp = changes.smartAction_copyOtp.newValue !== false;
+  if (changes.smartAction_copyOtpEmail !== undefined) smartActions.copyOtpEmail = changes.smartAction_copyOtpEmail.newValue !== false;
   if (changes.smartAction_openImages !== undefined) smartActions.openImages = changes.smartAction_openImages.newValue === true;
   if (changes.smartAction_openUrls !== undefined) smartActions.openUrls = changes.smartAction_openUrls.newValue === true;
   if (changes.smartAction_universalCopy !== undefined) smartActions.universalCopy = changes.smartAction_universalCopy.newValue !== false;
@@ -501,6 +504,8 @@ function listenToUserNotifications() {
                 const appName = notification.appName || notification.app || "";
                 console.log("ZyncIT: 🔑 OTP detected from user notification:", otp, "app:", appName || pkg);
                 const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                // Skip email OTPs when the email OTP setting is disabled
+                if (isEmail && !smartActions.copyOtpEmail) return;
                 const notifId = `iropit_otp_user_${Date.now()}`;
                 createNotificationIfNotSnoozed(notifId, {
                   type: "basic",
@@ -715,6 +720,8 @@ function listenToDevice(deviceId, deviceName) {
                 const appName = notification.appName || notification.app || "";
                 console.log("ZyncIT: 🔑 OTP detected from device notification:", otp, "app:", appName || pkg);
                 const isEmail = /mail|email|gmail|outlook/i.test(pkg) || /mail|email|gmail|outlook/i.test(appName);
+                // Skip email OTPs when the email OTP setting is disabled
+                if (isEmail && !smartActions.copyOtpEmail) return;
                 const notifId = `iropit_otp_dev_${Date.now()}`;
                 createNotificationIfNotSnoozed(notifId, {
                   type: "basic",
