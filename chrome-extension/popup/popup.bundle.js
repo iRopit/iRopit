@@ -24464,6 +24464,9 @@ ${this.customData.serverResponse}`;
           tooltip_select_notif: "Select notifications",
           tooltip_mark_notif_read: "Mark all as read",
           tooltip_export_notif: "Export Notifications to CSV",
+          tooltip_export_insights_summary: "Export SMS & Calls to Excel",
+          tooltip_export_insights_spending: "Export spending data to CSV",
+          tooltip_delete_device: "Delete device",
           tooltip_back: "Back",
           tooltip_send_image: "Send Image",
           tooltip_send_file: "Send File",
@@ -24571,6 +24574,9 @@ ${this.customData.serverResponse}`;
           tooltip_select_notif: "\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
           tooltip_mark_notif_read: "\u062A\u0639\u0644\u064A\u0645 \u0627\u0644\u0643\u0644 \u0643\u0645\u0642\u0631\u0648\u0621",
           tooltip_export_notif: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          tooltip_export_insights_summary: "\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0625\u0644\u0649 Excel",
+          tooltip_export_insights_spending: "\u062A\u0635\u062F\u064A\u0631 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u0646\u0641\u0627\u0642",
+          tooltip_delete_device: "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632",
           tooltip_back: "\u0631\u062C\u0648\u0639",
           tooltip_send_image: "\u0625\u0631\u0633\u0627\u0644 \u0635\u0648\u0631\u0629",
           tooltip_send_file: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u0641",
@@ -31430,7 +31436,7 @@ ${this.customData.serverResponse}`;
         <span class="list-item-time">${formatTime(
         device.lastActiveAt || device.lastSeen
       )}</span>
-        <button class="delete-device-btn" data-device-id="${device.id}" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="Delete device">
+        <button class="delete-device-btn" data-device-id="${device.id}" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632" : "Delete device"}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
           </svg>
