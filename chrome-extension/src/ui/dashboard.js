@@ -248,6 +248,123 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+// ── Minimal XLSX builder (no external library) ──────────────────────────────
+const _enc = new TextEncoder();
+
+/** CRC-32 table */
+const _CRC32 = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[i] = c;
+  }
+  return t;
+})();
+
+function _crc32(b) {
+  let c = 0xFFFFFFFF;
+  for (const v of b) c = _CRC32[(c ^ v) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function _u16(n) { return [n & 0xff, (n >> 8) & 0xff]; }
+function _u32(n) { return [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >> 24) & 0xff]; }
+
+/** Build an uncompressed ZIP archive from an array of {name, data} entries */
+function _buildZip(files) {
+  const parts = [], cd = [];
+  let offset = 0;
+  for (const { name, data } of files) {
+    const nb  = _enc.encode(name);
+    const crc = _crc32(data);
+    const lh  = new Uint8Array([
+      0x50,0x4B,0x03,0x04,
+      ..._u16(20),..._u16(0),..._u16(0),..._u16(0),..._u16(0),
+      ..._u32(crc),..._u32(data.length),..._u32(data.length),
+      ..._u16(nb.length),..._u16(0),...nb,
+    ]);
+    parts.push(lh, data);
+    cd.push({ nb, crc, size: data.length, off: offset });
+    offset += lh.length + data.length;
+  }
+  const cdParts = cd.map(({ nb, crc, size, off }) => new Uint8Array([
+    0x50,0x4B,0x01,0x02,
+    ..._u16(20),..._u16(20),..._u16(0),..._u16(0),..._u16(0),..._u16(0),
+    ..._u32(crc),..._u32(size),..._u32(size),
+    ..._u16(nb.length),..._u16(0),..._u16(0),..._u16(0),..._u16(0),
+    ..._u32(0),..._u32(off),...nb,
+  ]));
+  const cdSize = cdParts.reduce((s, p) => s + p.length, 0);
+  const eocd = new Uint8Array([
+    0x50,0x4B,0x05,0x06,..._u16(0),..._u16(0),
+    ..._u16(cd.length),..._u16(cd.length),
+    ..._u32(cdSize),..._u32(offset),..._u16(0),
+  ]);
+  const all   = [...parts, ...cdParts, eocd];
+  const total = all.reduce((s, p) => s + p.length, 0);
+  const out   = new Uint8Array(total);
+  let pos = 0;
+  for (const p of all) { out.set(p, pos); pos += p.length; }
+  return out;
+}
+
+function _xesc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function _colLetter(i) {
+  return i < 26
+    ? String.fromCharCode(65 + i)
+    : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26));
+}
+
+/**
+ * Build an xlsx Blob containing multiple sheets — no external library.
+ * @param {Array<{name:string, headers:string[], rows:any[][]}>} sheets
+ * @returns {Blob}
+ */
+function buildXLSX(sheets) {
+  const ss = [], ssIdx = new Map();
+  const si = (v) => {
+    const s = String(v ?? "");
+    if (!ssIdx.has(s)) { ssIdx.set(s, ss.length); ss.push(s); }
+    return ssIdx.get(s);
+  };
+
+  const sheetXMLs = sheets.map(({ headers, rows }) => {
+    const all = [headers, ...rows];
+    const body = all.map((row, ri) =>
+      `<row r="${ri+1}">${row.map((v, ci) => {
+        const ref = `${_colLetter(ci)}${ri+1}`;
+        if (v === null || v === undefined || v === "") return `<c r="${ref}"/>`;
+        if (typeof v === "number" && isFinite(v)) return `<c r="${ref}" t="n"><v>${v}</v></c>`;
+        return `<c r="${ref}" t="s"><v>${si(v)}</v></c>`;
+      }).join("")}</row>`
+    ).join("");
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+  });
+
+  const ssXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(s=>`<si><t xml:space="preserve">${_xesc(s)}</t></si>`).join("")}</sst>`;
+  const wbXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map(({name},i)=>`<sheet name="${_xesc(name)}" sheetId="${i+1}" r:id="rId${i+2}"/>`).join("")}</sheets></workbook>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>${sheets.map((_,i)=>`<Relationship Id="rId${i+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}</Relationships>`;
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const sheetCT  = sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
+  const ctXML    = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>${sheetCT}</Types>`;
+  const styXML   = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
+
+  const files = [
+    { name: "[Content_Types].xml",       data: _enc.encode(ctXML) },
+    { name: "_rels/.rels",               data: _enc.encode(rootRels) },
+    { name: "xl/workbook.xml",           data: _enc.encode(wbXML) },
+    { name: "xl/_rels/workbook.xml.rels",data: _enc.encode(wbRels) },
+    { name: "xl/sharedStrings.xml",      data: _enc.encode(ssXML) },
+    { name: "xl/styles.xml",             data: _enc.encode(styXML) },
+    ...sheetXMLs.map((xml, i) => ({ name: `xl/worksheets/sheet${i+1}.xml`, data: _enc.encode(xml) })),
+  ];
+  return new Blob([_buildZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
 // ── SMS Spending Analysis ─────────────────────────────────────────────────────
 
 /**
@@ -602,7 +719,7 @@ async function getCurrentFilteredData() {
 }
 
 /**
- * Export 1 – SMS + Calls data (two CSV files) for the current date/device filter.
+ * Export 1 – SMS + Calls as a single xlsx file with two sheets.
  */
 export async function exportInsightsSummaryToCSV() {
   const { filteredSms, filteredCalls, fromVal, toVal } = await getCurrentFilteredData();
@@ -614,36 +731,46 @@ export async function exportInsightsSummaryToCSV() {
     return;
   }
 
-  if (filteredSms.length > 0) {
-    const header = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
-    const rows = filteredSms.map((m) => {
-      const d         = new Date(m.timestamp || 0);
-      const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
-      const contact   = m.contactName || m.title || "";
-      const phone     = m.phoneNumber || m.sender || "";
-      const body      = m.body || m.text || m.content || "";
-      const sim       = m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "";
-      const device    = resolveDeviceName(m.deviceId) || m.deviceName || "";
-      return [d.toLocaleDateString("en-GB"), d.toLocaleTimeString(), direction, contact, phone, body, sim, device]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
-    });
-    downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Insights-SMS${suffix}_${stamp}.csv`);
-  }
+  const smsHeaders  = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "SIM Card", "Device"];
+  const smsRows     = filteredSms.map((m) => {
+    const d         = new Date(m.timestamp || 0);
+    const direction = m.direction === "outgoing" || m.type === "sent" ? "Sent" : "Received";
+    return [
+      d.toLocaleDateString("en-GB"),
+      d.toLocaleTimeString(),
+      direction,
+      m.contactName || m.title || "",
+      m.phoneNumber || m.sender || "",
+      m.body || m.text || m.content || "",
+      m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "",
+      resolveDeviceName(m.deviceId) || m.deviceName || "",
+    ];
+  });
 
-  if (filteredCalls.length > 0) {
-    const header = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
-    const rows = filteredCalls.map((c) => {
-      const d       = new Date(c.timestamp || 0);
-      const type    = c.type || "";
-      const contact = c.contactName || c.title || "";
-      const phone   = c.phoneNumber || c.number || c.sender || "";
-      const dur     = c.duration || 0;
-      const device  = resolveDeviceName(c.deviceId) || c.deviceName || "";
-      return [d.toLocaleDateString("en-GB"), d.toLocaleTimeString(), type, contact, phone, dur, device]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
-    });
-    downloadCSV([header.join(","), ...rows].join("\n"), `iRopit-Insights-Calls${suffix}_${stamp}.csv`);
-  }
+  const callsHeaders = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+  const callsRows    = filteredCalls.map((c) => {
+    const d = new Date(c.timestamp || 0);
+    return [
+      d.toLocaleDateString("en-GB"),
+      d.toLocaleTimeString(),
+      c.type || "",
+      c.contactName || c.title || "",
+      c.phoneNumber || c.number || c.sender || "",
+      typeof c.duration === "number" ? c.duration : (Number(c.duration) || 0),
+      resolveDeviceName(c.deviceId) || c.deviceName || "",
+    ];
+  });
+
+  const blob = buildXLSX([
+    { name: "SMS",   headers: smsHeaders,   rows: smsRows },
+    { name: "Calls", headers: callsHeaders, rows: callsRows },
+  ]);
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = `iRopit-Insights${suffix}_${stamp}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /**

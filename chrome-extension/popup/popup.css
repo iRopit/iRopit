@@ -3668,30 +3668,34 @@ html.dark .profile-logout-btn-footer {
 /* Stats cards */
 .dashboard-stats {
   display: flex;
-  gap: 10px;
-  padding: 12px 16px;
-  flex-shrink: 0;
-}
-
-.dashboard-insights-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 16px 8px;
   gap: 8px;
+  padding: 10px 16px;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .dash-stat-card {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.dash-stat-export-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dash-stat-card:hover {
