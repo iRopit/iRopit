@@ -318,12 +318,12 @@ export function updateDeviceSelects() {
 
   if (smsDevice) {
     smsDevice.innerHTML =
-      '<option value="">Select device...</option>' + smsOptions;
+      `<option value="">${getCurrentLanguage() === 'ar' ? 'اختر جهاز...' : 'Select device...'}</option>` + smsOptions;
   }
 
   if (callDevice) {
     callDevice.innerHTML =
-      '<option value="">Select device...</option>' + smsOptions;
+      `<option value="">${getCurrentLanguage() === 'ar' ? 'اختر جهاز...' : 'Select device...'}</option>` + smsOptions;
   }
 
   // Update device tabs for all tabs

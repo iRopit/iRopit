@@ -118,6 +118,8 @@ export const translations = {
     dash_no_data: "No data found for selected range",
     new_call: "New Call",
     call_from_device: "Call from device",
+    call_btn: "Call",
+    call_phone_hint: "Or type a number manually",
     toast_refreshing: "Refreshing...",
   },
   ar: {
@@ -234,6 +236,8 @@ export const translations = {
     dash_no_data: "لا توجد بيانات في النطاق المحدد",
     new_call: "مكالمة جديدة",
     call_from_device: "اتصل من جهاز",
+    call_btn: "اتصال",
+    call_phone_hint: "أو اكتب رقمًا يدويًا",
     toast_refreshing: "...جارٍ التحديث",
   },
 }
