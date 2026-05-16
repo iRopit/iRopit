@@ -1,6 +1,14 @@
+// Language
+const lang = localStorage.getItem('appLanguage') || 'en';
+const isAr = lang === 'ar';
+if (isAr) {
+  document.documentElement.setAttribute('dir', 'rtl');
+  document.documentElement.setAttribute('lang', 'ar');
+}
+
 // Parse URL params
 const params = new URLSearchParams(location.search);
-const contact = params.get('contact') || 'Unknown';
+const contact = params.get('contact') || (isAr ? 'غير معروف' : 'Unknown');
 const phone   = params.get('phone')   || '';
 const device  = params.get('device')  || '';
 const sim     = params.get('sim');
@@ -63,6 +71,13 @@ if (sim !== null && sim !== '-1' && sim !== '') {
     ],
     'SIM ' + (parseInt(sim, 10) + 1),
   ));
+}
+
+// Apply translations
+if (isAr) {
+  document.getElementById('callLabel').textContent = 'مكالمة صادرة';
+  document.getElementById('dismissLabel').textContent = 'تجاهل';
+  document.getElementById('dismissBtn').title = 'تجاهل';
 }
 
 // Dismiss closes window

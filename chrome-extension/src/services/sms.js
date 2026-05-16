@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SMS Service
  * Handles SMS loading, rendering, and management
  */
@@ -1387,7 +1387,7 @@ function _goBackFromConversation() {
   const si = document.getElementById("smsSearchInput");
   if (si) {
     si.value = "";
-    si.placeholder = getCurrentLanguage() === "ar" ? "...Ø¨Ø­Ø« ÙÙŠ Ø§Ù„Ø±Ø³Ø§Ø¦Ù„" : "Search messages...";
+    si.placeholder = getCurrentLanguage() === "ar" ? "...بحث في الرسائل" : "Search messages...";
     delete si.dataset.convWired;
     si.dataset.wired = ""; // will be re-wired by renderSMS
     delete si.dataset.wired;
@@ -1720,7 +1720,7 @@ export function showConversation(phoneNumber) {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const msgId = btn.dataset.id;
-      if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø©ØŸ" : "Delete this message?")) {
+      if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "حذف Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø©ØŸ" : "Delete this message?")) {
         deleteSingleSms(msgId);
       }
     });
@@ -2057,7 +2057,7 @@ export async function deleteAllSms() {
     }
 
     if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-      ? `Ø­Ø°Ù Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© (${msgsToDelete.length} Ø±Ø³Ø§Ù„Ø©)ØŸ`
+      ? `حذف Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© (${msgsToDelete.length} Ø±Ø³Ø§Ù„Ø©)ØŸ`
       : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
     ))) return;
 
@@ -2324,7 +2324,7 @@ async function deleteSelectedMessages() {
   if (selectedMessages.size === 0) return;
   const count = selectedMessages.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-    ? `Ø­Ø°Ù ${count} Ø±Ø³Ø§Ù„Ø©ØŸ`
+    ? `حذف ${count} Ø±Ø³Ø§Ù„Ø©ØŸ`
     : `Delete ${count} message${count > 1 ? "s" : ""}?`
   ))) return;
   showLoadingOverlay();
@@ -2368,7 +2368,7 @@ export async function deleteSelectedConversations() {
 
   const count = selectedConversations.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
-    ? `Ø­Ø°Ù ${count} Ù…Ø­Ø§Ø¯Ø«Ø©ØŸ Ø³ÙŠØªÙ… Ø­Ø°Ù Ø¬Ù…ÙŠØ¹ Ø±Ø³Ø§Ø¦Ù„Ù‡Ø§.`
+    ? `حذف ${count} Ù…Ø­Ø§Ø¯Ø«Ø©ØŸ Ø³ÙŠØªÙ… حذف Ø¬Ù…ÙŠØ¹ Ø±Ø³Ø§Ø¦Ù„Ù‡Ø§.`
     : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
   ))) return;
 
