@@ -602,15 +602,9 @@ function updateCallsCountIndicator() {
     indicator.className = "sms-count-indicator";
   }
 
-  // While syncing: pin to top so the badge appears above the first call.
-  // Otherwise: move to bottom as a footer.
-  if (isSyncingCalls) {
-    indicator.classList.add("indicator-top");
-    callsContainer.prepend(indicator);
-  } else {
-    indicator.classList.remove("indicator-top");
-    callsContainer.appendChild(indicator);
-  }
+  // Always place the indicator at the bottom, below all calls.
+  indicator.classList.remove("indicator-top");
+  callsContainer.appendChild(indicator);
 
   if (isSyncingCalls) {
     const countText = total > 0 ? `${total} calls` : "";
