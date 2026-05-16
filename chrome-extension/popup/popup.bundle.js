@@ -28092,7 +28092,7 @@ ${this.customData.serverResponse}`;
     const si = document.getElementById("smsSearchInput");
     if (si) {
       si.value = "";
-      si.placeholder = getCurrentLanguage() === "ar" ? "...\xD8\xA8\xD8\xAD\xD8\xAB \xD9\x81\xD9\u0160 \xD8\xA7\xD9\u201E\xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E" : "Search messages...";
+      si.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Search messages...";
       delete si.dataset.convWired;
       si.dataset.wired = "";
       delete si.dataset.wired;
@@ -28152,7 +28152,7 @@ ${this.customData.serverResponse}`;
     setCurrentConversation(phoneNumber);
     const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
     if (deleteAllBtn) {
-      deleteAllBtn.title = "Delete this conversation";
+      deleteAllBtn.title = getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Delete this conversation";
       deleteAllBtn.disabled = false;
     }
     const smsListElement = document.getElementById("smsList");
@@ -28332,7 +28332,7 @@ ${this.customData.serverResponse}`;
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const msgId = btn.dataset.id;
-        if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\xD8\xAD\xD8\xB0\xD9\x81 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178" : "Delete this message?")) {
+        if (await showConfirmDialog(getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178" : "Delete this message?")) {
           deleteSingleSms(msgId);
         }
       });
@@ -28565,11 +28565,11 @@ ${this.customData.serverResponse}`;
         return key === phoneKey || contactKey === phoneKey;
       });
       if (msgsToDelete.length === 0) {
-        showToast("No messages in this conversation", "info");
+        showToast(getCurrentLanguage() === "ar" ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "No messages in this conversation", "info");
         return;
       }
       if (!await showConfirmDialog(
-        getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9 (${msgsToDelete.length} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9)\xD8\u0178` : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
+        getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 \xD9\u2021\xD8\xB0\xD9\u2021 \xD8\xA7\xD9\u201E\xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9 (${msgsToDelete.length} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9)\xD8\u0178` : `Delete this conversation (${msgsToDelete.length} message${msgsToDelete.length > 1 ? "s" : ""})?`
       )) return;
       showLoadingOverlay();
       try {
@@ -28581,12 +28581,12 @@ ${this.customData.serverResponse}`;
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
         const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
         setAllSMSMessages(updatedMessages);
-        showToast(`${msgsToDelete.length} messages deleted`, "success");
+        showToast(getCurrentLanguage() === "ar" ? `\u062A\u0645 \u062D\u0630\u0641 ${msgsToDelete.length} \u0631\u0633\u0627\u0644\u0629` : `${msgsToDelete.length} messages deleted`, "success");
         setCurrentConversation(null);
         renderSMS(updatedMessages);
       } catch (error) {
         console.error("Delete conversation error:", error);
-        showToast("Failed to delete conversation", "error");
+        showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Failed to delete conversation", "error");
       }
       hideLoading();
       return;
@@ -28594,19 +28594,19 @@ ${this.customData.serverResponse}`;
     if (selectionMode) {
       return deleteSelectedConversations();
     }
-    showToast("Tap the select button to choose messages to delete", "info");
+    showToast(getCurrentLanguage() === "ar" ? "\u0627\u0636\u063A\u0637 \u0639\u0644\u0649 \u0632\u0631 \u0627\u0644\u062A\u062D\u062F\u064A\u062F \u0644\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0644\u0644\u062D\u0630\u0641" : "Tap the select button to choose messages to delete", "info");
   }
   async function deleteSingleSms(msgId) {
     const user = currentUser;
     if (!user) return;
     const msg = allSMSMessages.find((m) => m.id === msgId);
     if (!msg || !msg.docRef) {
-      showToast("Message not found", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" : "Message not found", "error");
       return;
     }
     try {
       await deleteDoc(msg.docRef);
-      showToast("Message deleted", "success");
+      showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "Message deleted", "success");
       const updatedMessages = allSMSMessages.filter((m) => m.id !== msgId);
       setAllSMSMessages(updatedMessages);
       if (currentConversation) {
@@ -28626,7 +28626,7 @@ ${this.customData.serverResponse}`;
       }
     } catch (error) {
       console.error("Delete SMS error:", error);
-      showToast("Failed to delete message", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "Failed to delete message", "error");
     }
   }
   function _enterMessageSelectionMode() {
@@ -28769,7 +28769,7 @@ ${this.customData.serverResponse}`;
     if (selectedMessages.size === 0) return;
     const count = selectedMessages.size;
     if (!await showConfirmDialog(
-      getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 ${count} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178` : `Delete ${count} message${count > 1 ? "s" : ""}?`
+      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178` : `Delete ${count} message${count > 1 ? "s" : ""}?`
     )) return;
     showLoadingOverlay();
     try {
@@ -28806,7 +28806,7 @@ ${this.customData.serverResponse}`;
     if (selectedConversations.size === 0) return;
     const count = selectedConversations.size;
     if (!await showConfirmDialog(
-      getCurrentLanguage() === "ar" ? `\xD8\xAD\xD8\xB0\xD9\x81 ${count} \xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9\xD8\u0178 \xD8\xB3\xD9\u0160\xD8\xAA\xD9\u2026 \xD8\xAD\xD8\xB0\xD9\x81 \xD8\xAC\xD9\u2026\xD9\u0160\xD8\xB9 \xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E\xD9\u2021\xD8\xA7.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
+      getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9\xD8\u0178 \xD8\xB3\xD9\u0160\xD8\xAA\xD9\u2026 \u062D\u0630\u0641 \xD8\xAC\xD9\u2026\xD9\u0160\xD8\xB9 \xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E\xD9\u2021\xD8\xA7.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
     )) return;
     showLoadingOverlay();
     try {
@@ -28828,7 +28828,7 @@ ${this.customData.serverResponse}`;
       }
       if (deletedCount > 0) {
         await batch.commit();
-        showToast(`${deletedCount} messages deleted`, "success");
+        showToast(getCurrentLanguage() === "ar" ? `\u062A\u0645 \u062D\u0630\u0641 ${deletedCount} \u0631\u0633\u0627\u0644\u0629` : `${deletedCount} messages deleted`, "success");
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
         const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
         setAllSMSMessages(updatedMessages);
@@ -28842,7 +28842,7 @@ ${this.customData.serverResponse}`;
       renderSMS(allSMSMessages);
     } catch (error) {
       console.error("Delete selected conversations error:", error);
-      showToast("Failed to delete selected conversations", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u062D\u0630\u0641 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0627\u0644\u0645\u062E\u062A\u0627\u0631\u0629" : "Failed to delete selected conversations", "error");
     }
     hideLoading();
   }
