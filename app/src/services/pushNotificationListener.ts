@@ -30,6 +30,12 @@ export function startPushNotificationListener() {
     currentDevice.id,
   );
 
+  // Capture the time the listener was attached. Any 'added' document whose
+  // createdAt is older than this is a stale notification left over from a
+  // previous session (e.g. app reinstall). We silently mark those as
+  // delivered so they don't flood the notification panel on startup.
+  const listenerStartTime = Date.now();
+
   // Listen for push notifications targeted at this device
   const unsubscribe = firestore()
     .collection('push_notifications')
@@ -41,6 +47,21 @@ export function startPushNotificationListener() {
         for (const change of snapshot.docChanges()) {
           if (change.type === 'added') {
             const notification = change.doc.data();
+
+            // Silently dismiss notifications created before this listener
+            // started — they are stale leftovers from a previous install/session.
+            if (
+              notification.createdAt &&
+              notification.createdAt < listenerStartTime
+            ) {
+              try {
+                await change.doc.ref.update({
+                  status: 'delivered',
+                  deliveredAt: Date.now(),
+                });
+              } catch (_) {}
+              continue;
+            }
             console.log(
               '[PushNotificationListener] New notification:',
               notification,

@@ -136,7 +136,7 @@ exports.sendPushNotification = onDocumentCreated(
     const userId = notification.userId;
     const rawTitle = notification.notification?.title || "New Message";
     const rawBody = notification.notification?.body || "";
-    const notifTitle = safeDecrypt(rawTitle, userId) || rawTitle;
+    const notifTitle = safeDecrypt(rawTitle, userId) || "New Message";
     const notifBody = safeDecrypt(rawBody, userId) || rawBody;
 
     // Build the FCM message
@@ -424,13 +424,21 @@ exports.onNewDeviceNotification = onDocumentCreated(
       return null;
     }
 
+    // Skip notifications for historical messages (older than 1 hour).
+    // This prevents flooding the notification shade during bulk re-sync
+    // that occurs after app reinstall or when a new device is registered.
+    const msgTimestamp = data.timestamp || data.receivedAt || Date.now();
+    if (Date.now() - msgTimestamp > 60 * 60 * 1000) {
+      return null;
+    }
+
     // Decrypt fields if encrypted (safeDecrypt returns "" if decryption fails,
     // preventing raw "ENC:..." strings from leaking into push notification titles)
     let title = safeDecrypt(data.title, userId) || "";
     let text = safeDecrypt(data.text, userId) || "";
     let body = safeDecrypt(data.body, userId) || text;
     let contactName = safeDecrypt(data.contactName, userId) || "";
-    let phoneNumber = data.phoneNumber || "";
+    let phoneNumber = safeDecrypt(data.phoneNumber, userId) || "";
 
     // Build notification content based on type
     let notifTitle, notifBody, channelId;

@@ -29115,9 +29115,9 @@ ${this.customData.serverResponse}`;
     if (!container) return;
     const indicator = document.createElement("div");
     indicator.id = "notifSyncIndicator";
-    indicator.className = "sms-count-indicator indicator-top";
+    indicator.className = "sms-count-indicator";
     indicator.innerHTML = `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
-    container.prepend(indicator);
+    container.appendChild(indicator);
   }
   function notifSnapshotReady() {
     pendingNotifSnapshots--;
