@@ -28575,7 +28575,8 @@ ${this.customData.serverResponse}`;
       try {
         const batch = writeBatch(db);
         for (const msg of msgsToDelete) {
-          if (msg.docRef) batch.delete(msg.docRef);
+          const ref2 = getSMSDocRef(user, msg);
+          if (ref2) batch.delete(ref2);
         }
         await batch.commit();
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
@@ -28596,16 +28597,29 @@ ${this.customData.serverResponse}`;
     }
     showToast(getCurrentLanguage() === "ar" ? "\u0627\u0636\u063A\u0637 \u0639\u0644\u0649 \u0632\u0631 \u0627\u0644\u062A\u062D\u062F\u064A\u062F \u0644\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0644\u0644\u062D\u0630\u0641" : "Tap the select button to choose messages to delete", "info");
   }
+  function getSMSDocRef(user, msg) {
+    if (msg.docRef) return msg.docRef;
+    const id = msg.docId || msg.id;
+    if (id && msg.deviceId) {
+      return doc(db, "users", user.uid, "devices", msg.deviceId, "notifications", id);
+    }
+    return null;
+  }
   async function deleteSingleSms(msgId) {
     const user = currentUser;
     if (!user) return;
     const msg = allSMSMessages.find((m) => m.id === msgId);
-    if (!msg || !msg.docRef) {
+    if (!msg) {
+      showToast(getCurrentLanguage() === "ar" ? "\u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" : "Message not found", "error");
+      return;
+    }
+    const msgRef = getSMSDocRef(user, msg);
+    if (!msgRef) {
       showToast(getCurrentLanguage() === "ar" ? "\u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" : "Message not found", "error");
       return;
     }
     try {
-      await deleteDoc(msg.docRef);
+      await deleteDoc(msgRef);
       showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "Message deleted", "success");
       const updatedMessages = allSMSMessages.filter((m) => m.id !== msgId);
       setAllSMSMessages(updatedMessages);
@@ -28767,6 +28781,8 @@ ${this.customData.serverResponse}`;
   }
   async function deleteSelectedMessages() {
     if (selectedMessages.size === 0) return;
+    const user = currentUser;
+    if (!user) return;
     const count = selectedMessages.size;
     if (!await showConfirmDialog(
       getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \xD8\xB1\xD8\xB3\xD8\xA7\xD9\u201E\xD8\xA9\xD8\u0178` : `Delete ${count} message${count > 1 ? "s" : ""}?`
@@ -28777,8 +28793,9 @@ ${this.customData.serverResponse}`;
       const batch = writeBatch(db);
       let deletedCount = 0;
       for (const msg of msgsToDelete) {
-        if (msg.docRef) {
-          batch.delete(msg.docRef);
+        const ref2 = getSMSDocRef(user, msg);
+        if (ref2) {
+          batch.delete(ref2);
           deletedCount++;
         }
       }
@@ -28804,6 +28821,8 @@ ${this.customData.serverResponse}`;
   async function deleteSelectedConversations() {
     if (messageSelectionMode) return deleteSelectedMessages();
     if (selectedConversations.size === 0) return;
+    const user = currentUser;
+    if (!user) return;
     const count = selectedConversations.size;
     if (!await showConfirmDialog(
       getCurrentLanguage() === "ar" ? `\u062D\u0630\u0641 ${count} \xD9\u2026\xD8\xAD\xD8\xA7\xD8\xAF\xD8\xAB\xD8\xA9\xD8\u0178 \xD8\xB3\xD9\u0160\xD8\xAA\xD9\u2026 \u062D\u0630\u0641 \xD8\xAC\xD9\u2026\xD9\u0160\xD8\xB9 \xD8\xB1\xD8\xB3\xD8\xA7\xD8\xA6\xD9\u201E\xD9\u2021\xD8\xA7.` : `Delete ${count} conversation${count > 1 ? "s" : ""}? All messages in them will be removed.`
@@ -28821,8 +28840,9 @@ ${this.customData.serverResponse}`;
       const batch = writeBatch(db);
       let deletedCount = 0;
       for (const msg of msgsToDelete) {
-        if (msg.docRef) {
-          batch.delete(msg.docRef);
+        const ref2 = getSMSDocRef(user, msg);
+        if (ref2) {
+          batch.delete(ref2);
           deletedCount++;
         }
       }

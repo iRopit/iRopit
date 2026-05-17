@@ -2065,7 +2065,8 @@ export async function deleteAllSms() {
     try {
       const batch = writeBatch(db);
       for (const msg of msgsToDelete) {
-        if (msg.docRef) batch.delete(msg.docRef);
+        const ref = getSMSDocRef(user, msg);
+        if (ref) batch.delete(ref);
       }
       await batch.commit();
 
@@ -2093,6 +2094,23 @@ export async function deleteAllSms() {
 }
 
 /**
+ * Reconstruct a Firestore DocumentReference for an SMS message.
+ * Messages loaded from cache don't have a live docRef (it can't be JSON-serialised),
+ * so we rebuild it from docId + deviceId when needed.
+ * @param {Object} user - current Firebase user
+ * @param {Object} msg  - SMS message object
+ * @returns {DocumentReference|null}
+ */
+function getSMSDocRef(user, msg) {
+  if (msg.docRef) return msg.docRef;
+  const id = msg.docId || msg.id;
+  if (id && msg.deviceId) {
+    return doc(db, "users", user.uid, "devices", msg.deviceId, "notifications", id);
+  }
+  return null;
+}
+
+/**
  * Delete single SMS
  * @param {string} msgId - Message ID to delete
  */
@@ -2101,13 +2119,19 @@ async function deleteSingleSms(msgId) {
   if (!user) return;
 
   const msg = state.allSMSMessages.find((m) => m.id === msgId);
-  if (!msg || !msg.docRef) {
+  if (!msg) {
+    showToast(getCurrentLanguage() === "ar" ? "الرسالة غير موجودة" : "Message not found", "error");
+    return;
+  }
+
+  const msgRef = getSMSDocRef(user, msg);
+  if (!msgRef) {
     showToast(getCurrentLanguage() === "ar" ? "الرسالة غير موجودة" : "Message not found", "error");
     return;
   }
 
   try {
-    await deleteDoc(msg.docRef);
+    await deleteDoc(msgRef);
     showToast(getCurrentLanguage() === "ar" ? "تم حذف الرسالة" : "Message deleted", "success");
 
     const updatedMessages = state.allSMSMessages.filter((m) => m.id !== msgId);
@@ -2322,6 +2346,8 @@ export function setSelectAll(checked) {
  */
 async function deleteSelectedMessages() {
   if (selectedMessages.size === 0) return;
+  const user = state.currentUser;
+  if (!user) return;
   const count = selectedMessages.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
     ? `حذف ${count} Ø±Ø³Ø§Ù„Ø©ØŸ`
@@ -2333,8 +2359,9 @@ async function deleteSelectedMessages() {
     const batch = writeBatch(db);
     let deletedCount = 0;
     for (const msg of msgsToDelete) {
-      if (msg.docRef) {
-        batch.delete(msg.docRef);
+      const ref = getSMSDocRef(user, msg);
+      if (ref) {
+        batch.delete(ref);
         deletedCount++;
       }
     }
@@ -2366,6 +2393,9 @@ export async function deleteSelectedConversations() {
   if (messageSelectionMode) return deleteSelectedMessages();
   if (selectedConversations.size === 0) return;
 
+  const user = state.currentUser;
+  if (!user) return;
+
   const count = selectedConversations.size;
   if (!(await showConfirmDialog(getCurrentLanguage() === "ar"
     ? `حذف ${count} Ù…Ø­Ø§Ø¯Ø«Ø©ØŸ Ø³ÙŠØªÙ… حذف Ø¬Ù…ÙŠØ¹ Ø±Ø³Ø§Ø¦Ù„Ù‡Ø§.`
@@ -2389,8 +2419,9 @@ export async function deleteSelectedConversations() {
     const batch = writeBatch(db);
     let deletedCount = 0;
     for (const msg of msgsToDelete) {
-      if (msg.docRef) {
-        batch.delete(msg.docRef);
+      const ref = getSMSDocRef(user, msg);
+      if (ref) {
+        batch.delete(ref);
         deletedCount++;
       }
     }
