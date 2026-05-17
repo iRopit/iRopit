@@ -1258,6 +1258,9 @@ function listenForCallsFromDevice(deviceId, deviceName) {
             return;
           }
 
+          // Update local cache immediately so the popup sees the new call without waiting
+          updateCallsCache(deviceId, deviceName, { ...call, id: docId });
+
           // Only show recent calls (last 5 minutes)
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
           if (callTime > fiveMinutesAgo) {
@@ -1499,7 +1502,12 @@ function listenForSMSFromDevice(deviceId, deviceName) {
         seenSMSIds.add(docId);
 
         const sms = change.doc.data();
-        // Only process incoming (received) SMS — skip outgoing/sent messages
+
+        // Update local cache immediately for ALL new SMS (sent and received)
+        // so the popup sees the message without waiting for the 5-minute cache refresh
+        updateSMSCache(deviceId, deviceName, { ...sms, id: docId });
+
+        // Only process incoming (received) SMS for OTP/smart-actions
         if (sms.smsType === "sent" || sms.direction === "outgoing") return;
         const rawBody = sms.body || sms.message || sms.content || sms.text || "";
         const rawSender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
@@ -1536,6 +1544,53 @@ function listenForSMSFromDevice(deviceId, deviceName) {
   );
 
   unsubscribeNotifications.push(unsub);
+}
+
+// ─── Background Cache Helpers ────────────────────────────────────────────────
+
+/**
+ * Merge a single new SMS message into chrome.storage.local immediately.
+ * Called by the real-time SMS listener so the popup cache is always fresh.
+ */
+async function updateSMSCache(deviceId, deviceName, newMsg) {
+  try {
+    const result = await chrome.storage.local.get(["cached_sms_data"]);
+    const smsByDevice = result.cached_sms_data?.byDevice || {};
+    const existing = smsByDevice[deviceId] || [];
+    if (existing.some((m) => m.id === newMsg.id)) return; // already cached
+    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, 500);
+    const allMessages = Object.values(smsByDevice).flat()
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 500);
+    await chrome.storage.local.set({
+      cached_sms_data: { byDevice: smsByDevice, allMessages },
+      cache_timestamp: Date.now(),
+    });
+  } catch (e) {
+    console.warn("ZyncIT: Failed to update SMS cache:", e);
+  }
+}
+
+/**
+ * Merge a single new call into chrome.storage.local immediately.
+ * Called by the real-time calls listener so the popup cache is always fresh.
+ */
+async function updateCallsCache(deviceId, deviceName, newCall) {
+  try {
+    const result = await chrome.storage.local.get(["cached_calls_data"]);
+    const callsByDevice = result.cached_calls_data?.byDevice || {};
+    const existing = callsByDevice[deviceId] || [];
+    if (existing.some((c) => c.id === newCall.id)) return; // already cached
+    callsByDevice[deviceId] = [{ ...newCall, deviceId, deviceName }, ...existing].slice(0, 200);
+    const allCalls = Object.values(callsByDevice).flat()
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 200);
+    await chrome.storage.local.set({
+      cached_calls_data: { byDevice: callsByDevice, allCalls },
+    });
+  } catch (e) {
+    console.warn("ZyncIT: Failed to update calls cache:", e);
+  }
 }
 
 // ─── Chrome Notification Display ─────────────────────────────────────────────

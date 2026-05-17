@@ -28198,7 +28198,7 @@ ${this.customData.serverResponse}`;
               <div class="message-text">${linkifyText2(msg.body || "")}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
-                ${resolveSMSDeviceName(msg) ? `<span class="message-device">\xF0\u0178\u201C\xB1 ${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
+                ${resolveSMSDeviceName(msg) ? `<span class="message-device"><svg width="11" height="11" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><rect x="128" y="16" width="256" height="480" rx="48" ry="48"/><line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48"/></svg>${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
                 ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
                 <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641" : "Delete"}">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -28220,7 +28220,7 @@ ${this.customData.serverResponse}`;
     ).join("")}
       </div>
       <div class="conversation-input">
-        <input type="text" id="conversationMessageInput" placeholder="Type a message..." />
+        <input type="text" id="conversationMessageInput" placeholder="${getCurrentLanguage() === "ar" ? "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u0629" : "Type a message..."}" />
         <button class="send-btn" id="sendConversationSms">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -28279,7 +28279,7 @@ ${this.customData.serverResponse}`;
     const convSearch = document.getElementById("smsSearchInput");
     if (convSearch) {
       convSearch.value = "";
-      convSearch.placeholder = "Search in conversation...";
+      convSearch.placeholder = getCurrentLanguage() === "ar" ? "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Search in conversation...";
       delete convSearch.dataset.wired;
       if (!convSearch.dataset.convWired) {
         convSearch.dataset.convWired = "1";
@@ -28358,7 +28358,7 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     let actualPhoneNumber;
     if (phoneNumber.startsWith("sender_")) {
-      showToast("Cannot send SMS to this type of sender", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629 \u0625\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0646\u0648\u0639 \u0645\u0646 \u0627\u0644\u0645\u0631\u0633\u0644\u064A\u0646" : "Cannot send SMS to this type of sender", "error");
       return;
     } else if (phoneNumber.startsWith("contact_")) {
       const contactName = phoneNumber.replace("contact_", "");
@@ -28370,7 +28370,7 @@ ${this.customData.serverResponse}`;
       ) : null;
       actualPhoneNumber = recentMsg ? recentMsg.phoneNumber || recentMsg.sender || "" : "";
       if (!actualPhoneNumber || !isPhoneNumberLike2(actualPhoneNumber)) {
-        showToast("Cannot determine phone number for this contact", "error");
+        showToast(getCurrentLanguage() === "ar" ? "\u062A\u0639\u0630\u0651\u0631 \u062A\u062D\u062F\u064A\u062F \u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0644\u0647\u0630\u0627 \u0627\u0644\u0627\u062A\u0635\u0627\u0644" : "Cannot determine phone number for this contact", "error");
         return;
       }
     } else {
@@ -28387,7 +28387,7 @@ ${this.customData.serverResponse}`;
     const devicesSnapshot = await getDocs(devicesQuery);
     const androidDevices = devicesSnapshot.docs.filter((doc2) => !doc2.data().id.startsWith("ext_")).sort((a, b) => (b.data().lastSeen || 0) - (a.data().lastSeen || 0));
     if (androidDevices.length === 0) {
-      showToast("No Android device available to send SMS", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0644\u0627 \u064A\u0648\u062C\u062F \u062C\u0647\u0627\u0632 \u0623\u0646\u062F\u0631\u0648\u064A\u062F \u0645\u062A\u0627\u062D \u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "No Android device available to send SMS", "error");
       return;
     }
     const normalizedActual = normalizePhoneNumber3(actualPhoneNumber);
@@ -28438,17 +28438,17 @@ ${this.customData.serverResponse}`;
         showConversation(phoneNumber);
       }
       inputElement.value = "";
-      showToast("SMS sent!", "success");
+      showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629!" : "SMS sent!", "success");
       const unsubStatus = onSnapshot(
         doc(db, "sms_requests", docRef.id),
         (snapshot) => {
           const data = snapshot.data();
           if (!data) return;
           if (data.status === "sent") {
-            showToast("SMS delivered to carrier", "success");
+            showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u062A\u0633\u0644\u064A\u0645 \u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u0644\u0644\u0634\u0628\u0643\u0629" : "SMS delivered to carrier", "success");
             unsubStatus();
           } else if (data.status === "failed") {
-            showToast("SMS failed to send from phone", "error");
+            showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0627\u0644\u0647\u0627\u062A\u0641" : "SMS failed to send from phone", "error");
             unsubStatus();
           }
         }
@@ -28456,7 +28456,7 @@ ${this.customData.serverResponse}`;
       setTimeout(() => unsubStatus(), 3e4);
     } catch (error) {
       console.error("SMS send error:", error);
-      showToast("Failed to send SMS", "error");
+      showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "Failed to send SMS", "error");
     }
   }
   async function markAllSmsAsRead() {
@@ -30110,6 +30110,7 @@ ${this.customData.serverResponse}`;
       </svg>
       <p>${t("dash_no_data")}</p>
     </div>`;
+      renderSmsInsights(filteredSms);
       return;
     }
     renderSmsInsights(filteredSms);
@@ -31459,7 +31460,7 @@ ${this.customData.serverResponse}`;
         <div class="list-item-subtitle">
           ${escapeHtml(device.model || device.platform || "Phone")} \u2022 ${escapeHtml(
         device.platform || ""
-      )} \u2022 ${device.isOnline ? "Online" : "Offline"}
+      )} \u2022 ${device.isOnline ? "Online" : "Offline"}${device.appVersion ? ` \u2022 v${escapeHtml(device.appVersion)}` : ""}
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>

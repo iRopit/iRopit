@@ -10,7 +10,9 @@ export default function DownloadButtons({
     <div className={`flex flex-wrap gap-4 ${className}`}>
       {/* Google Play Button */}
       <Link
-        href="#"
+        href="https://play.google.com/store/apps/details?id=com.IRopit"
+        target="_blank"
+        rel="noopener noreferrer"
         className="group flex items-center gap-3 bg-txt dark:bg-surface-secondary text-txt-inverse dark:text-txt px-5 py-3 rounded-[var(--radius)] hover:bg-txt/90 dark:hover:bg-surface-tertiary transition-all hover:scale-105 dark:border dark:border-border"
       >
         <svg

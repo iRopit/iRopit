@@ -19633,6 +19633,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
           if (seenNotifications.has(callKey)) {
             return;
           }
+          updateCallsCache(deviceId, deviceName, { ...call, id: docId });
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1e3;
           if (callTime > fiveMinutesAgo) {
             seenNotifications.add(callKey);
@@ -19798,6 +19799,7 @@ function listenForSMSFromDevice(deviceId, deviceName) {
         if (seenSMSIds.has(docId)) return;
         seenSMSIds.add(docId);
         const sms = change.doc.data();
+        updateSMSCache(deviceId, deviceName, { ...sms, id: docId });
         if (sms.smsType === "sent" || sms.direction === "outgoing") return;
         const rawBody = sms.body || sms.message || sms.content || sms.text || "";
         const rawSender = sms.sender || sms.address || sms.phoneNumber || sms.title || "";
@@ -19830,6 +19832,37 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     }
   );
   unsubscribeNotifications.push(unsub);
+}
+async function updateSMSCache(deviceId, deviceName, newMsg) {
+  try {
+    const result = await chrome.storage.local.get(["cached_sms_data"]);
+    const smsByDevice = result.cached_sms_data?.byDevice || {};
+    const existing = smsByDevice[deviceId] || [];
+    if (existing.some((m) => m.id === newMsg.id)) return;
+    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, 500);
+    const allMessages = Object.values(smsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
+    await chrome.storage.local.set({
+      cached_sms_data: { byDevice: smsByDevice, allMessages },
+      cache_timestamp: Date.now()
+    });
+  } catch (e) {
+    console.warn("ZyncIT: Failed to update SMS cache:", e);
+  }
+}
+async function updateCallsCache(deviceId, deviceName, newCall) {
+  try {
+    const result = await chrome.storage.local.get(["cached_calls_data"]);
+    const callsByDevice = result.cached_calls_data?.byDevice || {};
+    const existing = callsByDevice[deviceId] || [];
+    if (existing.some((c) => c.id === newCall.id)) return;
+    callsByDevice[deviceId] = [{ ...newCall, deviceId, deviceName }, ...existing].slice(0, 200);
+    const allCalls = Object.values(callsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
+    await chrome.storage.local.set({
+      cached_calls_data: { byDevice: callsByDevice, allCalls }
+    });
+  } catch (e) {
+    console.warn("ZyncIT: Failed to update calls cache:", e);
+  }
 }
 async function showNotification(data) {
   const uid = currentUser?.uid;

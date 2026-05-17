@@ -210,6 +210,7 @@ async function renderDashboard() {
       </svg>
       <p>${t("dash_no_data")}</p>
     </div>`;
+    renderSmsInsights(filteredSms);
     return;
   }
 

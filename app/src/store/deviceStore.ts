@@ -27,6 +27,7 @@ interface Device {
   batteryLevel?: number;
   batteryLastUpdatedAt?: number;
   isCharging?: boolean;
+  appVersion?: string;
 }
 
 interface DeviceState {
@@ -192,6 +193,12 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         isCharging = await DeviceInfo.isBatteryCharging();
       } catch (_) {}
 
+      // Get app version
+      let appVersion: string | undefined;
+      try {
+        appVersion = DeviceInfo.getVersion();
+      } catch (_) {}
+
       // Build device object with no undefined values (Firebase rejects undefined)
       const device: Device = {
         id: finalDeviceId,
@@ -219,6 +226,9 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       if (batteryLevel !== undefined) device.batteryLevel = batteryLevel;
       if (batteryLevel !== undefined) device.batteryLastUpdatedAt = Date.now();
       if (isCharging !== undefined) device.isCharging = isCharging;
+
+      // Add app version if available
+      if (appVersion) device.appVersion = appVersion;
 
       // Save to Firestore - always use set with merge to avoid not-found errors
       await firestore()

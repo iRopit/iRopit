@@ -20,6 +20,8 @@ import android.os.Looper;
 import android.provider.ContactsContract;
 import android.service.notification.NotificationListenerService;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -213,6 +215,9 @@ public class SmsRequestService extends Service {
 
             Log.d(TAG, "SMS sent to: " + phoneNumber);
 
+            // Detect which SIM slot the default SMS subscription uses
+            int simSlot = getDefaultSmsSimSlot();
+
             // Mark this SMS so SentSmsObserver doesn't double-save it
             SentSmsObserver.markExtensionSms(phoneNumber, message);
             
@@ -226,7 +231,7 @@ public class SmsRequestService extends Service {
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to update status: " + e));
 
             // Save sent message to notifications collection
-            saveSentMessage(phoneNumber, message);
+            saveSentMessage(phoneNumber, message, simSlot);
 
         } catch (Exception e) {
             Log.e(TAG, "Failed to send SMS: " + e.getMessage());
@@ -237,11 +242,31 @@ public class SmsRequestService extends Service {
                 .addOnFailureListener(err -> Log.e(TAG, "Failed to update status: " + err));
 
             // Still save the message so it persists in the extension after refresh
-            saveSentMessage(phoneNumber, message);
+            saveSentMessage(phoneNumber, message, getDefaultSmsSimSlot());
         }
     }
 
-    private void saveSentMessage(String phoneNumber, String message) {
+    private int getDefaultSmsSimSlot() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+                if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    SubscriptionManager sm = (SubscriptionManager) getSystemService(TELEPHONY_SUBSCRIPTION_SERVICE);
+                    if (sm != null) {
+                        SubscriptionInfo info = sm.getActiveSubscriptionInfo(subId);
+                        if (info != null) {
+                            return info.getSimSlotIndex();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get default SMS SIM slot: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    private void saveSentMessage(String phoneNumber, String message, int simSlot) {
         // Use the same docId formula as all other SMS services
         // so that if SentSmsObserver or NotificationService also captures this,
         // they write to the SAME Firestore document (merge), avoiding duplicates
@@ -277,6 +302,7 @@ public class SmsRequestService extends Service {
         sentMessage.put("direction", "outgoing");
         sentMessage.put("deviceId", deviceId);
         sentMessage.put("deviceName", deviceName);
+        sentMessage.put("simSlot", simSlot);
         sentMessage.put("syncedAt", System.currentTimeMillis());
 
         db.collection("users")

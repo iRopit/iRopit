@@ -241,7 +241,7 @@ export function renderDevices() {
         <div class="list-item-subtitle">
           ${escapeHtml(device.model || device.platform || "Phone")} • ${escapeHtml(
             device.platform || "",
-          )} • ${device.isOnline ? "Online" : "Offline"}
+          )} • ${device.isOnline ? "Online" : "Offline"}${device.appVersion ? ` • v${escapeHtml(device.appVersion)}` : ""}
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>

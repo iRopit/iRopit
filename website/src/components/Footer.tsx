@@ -15,7 +15,7 @@ const footerLinks = {
     { href: "/privacy-policy#your-rights", label: "Your Rights" },
   ],
   download: [
-    { href: "#", label: "Google Play Store", external: true },
+    { href: "https://play.google.com/store/apps/details?id=com.IRopit", label: "Google Play Store", external: true },
     { href: "https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar", label: "Chrome Web Store", external: true },
   ],
 };
