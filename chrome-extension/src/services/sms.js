@@ -297,6 +297,28 @@ export async function loadSMS() {
           `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
         );
         hasCachedData = true;
+        // Sanitize any lingering ENC: values that slipped through decryption on the cached items
+        const sanitizeMsg = (m) => {
+          const hasEnc =
+            (m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:")) ||
+            (m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:")) ||
+            (m.title && typeof m.title === "string" && m.title.startsWith("ENC:")) ||
+            (m.body && typeof m.body === "string" && m.body.startsWith("ENC:")) ||
+            (m.text && typeof m.text === "string" && m.text.startsWith("ENC:")) ||
+            (m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:")) ||
+            (m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:"));
+          if (!hasEnc) return m;
+          return {
+            ...m,
+            contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
+            phoneNumber: (m.phoneNumber && m.phoneNumber.startsWith("ENC:")) ? "" : (m.phoneNumber || ""),
+            title: (m.title && m.title.startsWith("ENC:")) ? "" : (m.title || ""),
+            body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || ""),
+            text: (m.text && m.text.startsWith("ENC:")) ? "" : (m.text || ""),
+            sender: (m.sender && m.sender.startsWith("ENC:")) ? "" : (m.sender || ""),
+            displayName: (m.displayName && m.displayName.startsWith("ENC:")) ? "" : (m.displayName || ""),
+          };
+        };
         // Restore state from cache (both the flat list AND the per-device map).
         // The delta-fetch path below reads cachedMessages from `state.getSMSData(device.id)`
         // and merges them with newly-arrived messages. If we don't seed the per-device map,
@@ -309,12 +331,13 @@ export async function loadSMS() {
               cachedNewestTimestamps[deviceId] = Math.max(
                 ...msgs.map((m) => m.timestamp || 0),
               );
-              state.setSMSData(deviceId, msgs);
+              state.setSMSData(deviceId, msgs.map(sanitizeMsg));
             }
           }
         }
-        state.setAllSMSMessages(cached.allMessages);
-        renderSMS(cached.allMessages);
+        const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
+        state.setAllSMSMessages(sanitizedCachedMessages);
+        renderSMS(sanitizedCachedMessages);
         updateTabBadges();
       }
     }

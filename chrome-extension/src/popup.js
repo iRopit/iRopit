@@ -105,8 +105,31 @@ async function showCachedDataBeforeAuth() {
       // + stale-cached dev2 → polluted state.allSMSMessages and a polluted
       // cache write that persists the bad data into the next session.
       // Only populate the flat list for instant rendering.
-      state.setAllSMSMessages(smsCache.allMessages);
-      renderSMS(smsCache.allMessages);
+      // Sanitize any ENC: values that slipped into the cache before display.
+      const sanitizeSmsMsg = (m) => {
+        const hasEnc =
+          (m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:")) ||
+          (m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:")) ||
+          (m.title && typeof m.title === "string" && m.title.startsWith("ENC:")) ||
+          (m.body && typeof m.body === "string" && m.body.startsWith("ENC:")) ||
+          (m.text && typeof m.text === "string" && m.text.startsWith("ENC:")) ||
+          (m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:")) ||
+          (m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:"));
+        if (!hasEnc) return m;
+        return {
+          ...m,
+          contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
+          phoneNumber: (m.phoneNumber && m.phoneNumber.startsWith("ENC:")) ? "" : (m.phoneNumber || ""),
+          title: (m.title && m.title.startsWith("ENC:")) ? "" : (m.title || ""),
+          body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || ""),
+          text: (m.text && m.text.startsWith("ENC:")) ? "" : (m.text || ""),
+          sender: (m.sender && m.sender.startsWith("ENC:")) ? "" : (m.sender || ""),
+          displayName: (m.displayName && m.displayName.startsWith("ENC:")) ? "" : (m.displayName || ""),
+        };
+      };
+      const sanitizedSmsMessages = smsCache.allMessages.map(sanitizeSmsMsg);
+      state.setAllSMSMessages(sanitizedSmsMessages);
+      renderSMS(sanitizedSmsMessages);
     }
 
     if (callsCache?.allCalls?.length > 0) {

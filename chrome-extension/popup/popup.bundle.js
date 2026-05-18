@@ -27282,18 +27282,33 @@ ${this.customData.serverResponse}`;
             `[SMS] \xF0\u0178\u201C\xA6 Showing ${cached.allMessages.length} cached messages instantly`
           );
           hasCachedData = true;
+          const sanitizeMsg = (m) => {
+            const hasEnc = m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:") || m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:") || m.title && typeof m.title === "string" && m.title.startsWith("ENC:") || m.body && typeof m.body === "string" && m.body.startsWith("ENC:") || m.text && typeof m.text === "string" && m.text.startsWith("ENC:") || m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:") || m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:");
+            if (!hasEnc) return m;
+            return {
+              ...m,
+              contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
+              phoneNumber: m.phoneNumber && m.phoneNumber.startsWith("ENC:") ? "" : m.phoneNumber || "",
+              title: m.title && m.title.startsWith("ENC:") ? "" : m.title || "",
+              body: m.body && m.body.startsWith("ENC:") ? "" : m.body || "",
+              text: m.text && m.text.startsWith("ENC:") ? "" : m.text || "",
+              sender: m.sender && m.sender.startsWith("ENC:") ? "" : m.sender || "",
+              displayName: m.displayName && m.displayName.startsWith("ENC:") ? "" : m.displayName || ""
+            };
+          };
           if (cached.byDevice) {
             for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
               if (msgs && msgs.length > 0) {
                 cachedNewestTimestamps[deviceId] = Math.max(
                   ...msgs.map((m) => m.timestamp || 0)
                 );
-                setSMSData(deviceId, msgs);
+                setSMSData(deviceId, msgs.map(sanitizeMsg));
               }
             }
           }
-          setAllSMSMessages(cached.allMessages);
-          renderSMS(cached.allMessages);
+          const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
+          setAllSMSMessages(sanitizedCachedMessages);
+          renderSMS(sanitizedCachedMessages);
           updateTabBadges();
         }
       }
@@ -32147,8 +32162,23 @@ ${this.customData.serverResponse}`;
       if (authContainer) authContainer.classList.add("hidden");
       if (mainContainer) mainContainer.classList.remove("hidden");
       if (smsCache?.allMessages?.length > 0) {
-        setAllSMSMessages(smsCache.allMessages);
-        renderSMS(smsCache.allMessages);
+        const sanitizeSmsMsg = (m) => {
+          const hasEnc = m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:") || m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:") || m.title && typeof m.title === "string" && m.title.startsWith("ENC:") || m.body && typeof m.body === "string" && m.body.startsWith("ENC:") || m.text && typeof m.text === "string" && m.text.startsWith("ENC:") || m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:") || m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:");
+          if (!hasEnc) return m;
+          return {
+            ...m,
+            contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
+            phoneNumber: m.phoneNumber && m.phoneNumber.startsWith("ENC:") ? "" : m.phoneNumber || "",
+            title: m.title && m.title.startsWith("ENC:") ? "" : m.title || "",
+            body: m.body && m.body.startsWith("ENC:") ? "" : m.body || "",
+            text: m.text && m.text.startsWith("ENC:") ? "" : m.text || "",
+            sender: m.sender && m.sender.startsWith("ENC:") ? "" : m.sender || "",
+            displayName: m.displayName && m.displayName.startsWith("ENC:") ? "" : m.displayName || ""
+          };
+        };
+        const sanitizedSmsMessages = smsCache.allMessages.map(sanitizeSmsMsg);
+        setAllSMSMessages(sanitizedSmsMessages);
+        renderSMS(sanitizedSmsMessages);
       }
       if (callsCache?.allCalls?.length > 0) {
         if (callsCache.byDevice) {
