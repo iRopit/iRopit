@@ -15,6 +15,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   onSnapshot,
 } from "../config/firebase.js";
 
@@ -29,7 +30,7 @@ import { renderAppIcon } from "../utils/appIcons.js";
 import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
-import { getCachedNotifications, cacheNotificationsData } from "./cache.js";
+import { getCachedNotifications, cacheNotificationsData, flushNotificationsCache } from "./cache.js";
 import { decryptNotification } from "./cryptoService.js";
 
 // Convert any timestamp shape (number, Firestore Timestamp, plain
@@ -61,6 +62,13 @@ function linkifyText(text) {
 // ── Sync state ───────────────────────────────────────────────────────────────
 let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
+
+// ── Pagination state ──────────────────────────────────────────────────────────
+const NOTIF_INITIAL_LIMIT = 500; // first load per device (matches legacy)
+const NOTIF_PAGE_SIZE = 200; // subsequent "load more" page size
+let notifPaginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
+let isLoadingMoreNotif = false;
+let notifScrollHandlerAttached = false;
 
 function updateNotifSyncIndicator() {
   // Remove stale indicator first (renderNotifications replaces innerHTML)
@@ -95,6 +103,26 @@ function notifSnapshotReady() {
 // ── Selection mode state ──────────────────────────────────────────────────────
 let notifSelectionMode = false;
 let selectedNotifApps = new Set(); // keyed by app key (packageName or appName)
+
+// Returns a human-friendly app label. If appName looks like a package id
+// (e.g. "com.pushbullet.android"), derive a pretty name from the last segment
+// of the packageName instead. Falls back to whichever value is least ugly.
+function _looksLikePackageId(s) {
+  return typeof s === "string" && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,}$/i.test(s);
+}
+function _prettifyPackage(pkg) {
+  if (!pkg) return "";
+  const last = String(pkg).split(".").pop() || "";
+  const spaced = last.replace(/[-_]+/g, " ").trim();
+  return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function prettyAppName(appName, packageName) {
+  if (appName && !_looksLikePackageId(appName)) return appName;
+  const pretty = _prettifyPackage(packageName);
+  if (pretty) return pretty;
+  if (appName) return appName;
+  return "Unknown App";
+}
 
 function _updateNotifSelectionToolbar(totalApps) {
   const deleteBtn = document.getElementById("deleteAllNotifBtn");
@@ -160,7 +188,7 @@ export async function loadNotifications() {
             if (notifs.length > 0) state.setNotificationsData(deviceId, notifs);
           }
           const merged = getMergedNotifications();
-          renderNotifications(merged.slice(0, 200));
+          renderNotifications(merged);
           updateTabBadges();
           console.log("[Notifications] 📦 Showed cached notifications instantly");
         }
@@ -213,7 +241,14 @@ export async function loadNotifications() {
   isSyncingNotif = true;
   updateNotifSyncIndicator();
 
+  // Reset pagination state for this load cycle
+  notifPaginationState = {};
+  notifScrollHandlerAttached = false;
+
   const notifFetchPromises = devicesList.map(async (device) => {
+    // Initialize pagination state for this device
+    notifPaginationState[device.id] = { lastTimestamp: null, hasMore: true, loading: false };
+
     const cachedNewestTs = cachedNewestTimestamps[device.id];
     const isDelta = !!cachedNewestTs;
 
@@ -223,13 +258,13 @@ export async function loadNotifications() {
         collection(db, "users", user.uid, "devices", device.id, "notifications"),
         where("timestamp", ">", cachedNewestTs),
         orderBy("timestamp", "desc"),
-        limit(500),
+        limit(NOTIF_INITIAL_LIMIT),
       );
     } else {
       q = query(
         collection(db, "users", user.uid, "devices", device.id, "notifications"),
         orderBy("timestamp", "desc"),
-        limit(500),
+        limit(NOTIF_INITIAL_LIMIT),
       );
     }
 
@@ -262,8 +297,44 @@ export async function loadNotifications() {
           console.log(`[Notifications] 🔄 Delta: ${brandNew.length} new for device ${device.id}`);
           updateNotificationsList(device.id, [...brandNew, ...cached]);
         }
-      } else if (!isDelta && notifications.length > 0) {
-        updateNotificationsList(device.id, notifications);
+      } else if (!isDelta) {
+        if (notifications.length > 0) {
+          updateNotificationsList(device.id, notifications);
+        }
+      }
+
+      // Pagination cursor — ALWAYS set, regardless of whether delta found new
+      // items. Previously this lived inside the `isDelta && notifications.length>0`
+      // branch, so when a reopened popup had up-to-date cache the delta query
+      // returned 0 items and the cursor never got initialized → loadMoreNotifications
+      // saw `lastTimestamp === null` and immediately disabled pagination, making it
+      // impossible to fetch anything older than what was already in cache.
+      //
+      // Strategy: use the oldest item currently in state as the cursor and assume
+      // there may be more older items on the server. loadMoreNotifications will
+      // flip hasMore=false when its own paginated query actually comes back empty.
+      if (notifPaginationState[device.id]) {
+        const all = state.allNotifications[device.id] || [];
+        if (all.length > 0) {
+          // IMPORTANT: store the RAW timestamp value (Firestore Timestamp /
+          // whatever shape the doc has), not a converted millisecond number.
+          // Firestore's startAfter() requires the same type as the orderBy
+          // field — passing a number when the field is a Timestamp returns
+          // 0 results and pagination silently stops. Same pattern as SMS.
+          let oldestRaw = null;
+          let oldestMs = null;
+          for (const n of all) {
+            const t = tsMs(n.timestamp) || n.receivedAt || 0;
+            if (t > 0 && (oldestMs === null || t < oldestMs)) {
+              oldestMs = t;
+              oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
+            }
+          }
+          notifPaginationState[device.id].lastTimestamp = oldestRaw;
+          notifPaginationState[device.id].hasMore = true;
+        } else {
+          notifPaginationState[device.id].hasMore = false;
+        }
       }
     } catch (error) {
       if (error?.code !== "permission-denied") {
@@ -277,6 +348,15 @@ export async function loadNotifications() {
     cacheNotificationsData(state.allNotifications).catch(() => {});
     isSyncingNotif = false;
     updateNotifSyncIndicator();
+    // Pagination state is now fully configured. Kick off autoFill explicitly:
+    // if delta returned 0 new items there was no render and autoFill never ran,
+    // so older pages would never be pulled. attachNotifScrollHandler+autoFill
+    // are safe to call repeatedly (both are idempotent / guarded).
+    try {
+      attachNotifScrollHandler();
+    } catch (e) {
+      console.warn("[Notifications] post-fetch autofill kickoff failed:", e);
+    }
   });
 
   // === STEP 4: Set total pending snapshots BEFORE registering any listeners ===
@@ -397,16 +477,44 @@ function resolveDeviceName(notif) {
 }
 
 function getMergedNotifications() {
-  let merged = [];
-  Object.values(state.allNotifications).forEach((notifs) => {
-    merged = merged.concat(notifs);
+  // Dedup strategy:
+  //   * Real-device entries are keyed by `${deviceId}:${id}` so two devices
+  //     that received the same logical notification both keep their own copy
+  //     (the per-device tab filter `n.deviceId === selectedDevice` would
+  //     otherwise hide notifications from devices whose copy lost the dedup
+  //     race, while the per-device badge — which reads
+  //     `state.allNotifications[deviceId]` directly — still counts them).
+  //   * User-level entries (deviceId === "user" / "_user_notifications" /
+  //     anything not in state.devices) are merged by `id` alone, but only
+  //     accepted when no real-device entry already exists for that id, so
+  //     the device tab can still show them.
+  const realDeviceIds = new Set(state.devices.map((d) => d.id));
+  const realIds = new Set(); // ids that have at least one real-device entry
+  const byKey = new Map();
+
+  // Pass 1 — real-device entries first.
+  Object.entries(state.allNotifications).forEach(([, notifs]) => {
+    notifs.forEach((n) => {
+      if (!realDeviceIds.has(n.deviceId)) return;
+      const key = `${n.deviceId}:${n.id}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, n);
+        realIds.add(n.id);
+      }
+    });
   });
-  const seen = new Set();
-  merged = merged.filter((n) => {
-    if (seen.has(n.id)) return false;
-    seen.add(n.id);
-    return true;
+
+  // Pass 2 — user-level entries only if no real-device copy exists.
+  Object.entries(state.allNotifications).forEach(([, notifs]) => {
+    notifs.forEach((n) => {
+      if (realDeviceIds.has(n.deviceId)) return;
+      if (realIds.has(n.id)) return;
+      const key = `user:${n.id}`;
+      if (!byKey.has(key)) byKey.set(key, n);
+    });
   });
+
+  const merged = Array.from(byKey.values());
   merged.sort((a, b) => {
     const timeA = a.receivedAt || a.timestamp || 0;
     const timeB = b.receivedAt || b.timestamp || 0;
@@ -423,7 +531,175 @@ export function reRenderNotifications() {
     selectedDevice === "all"
       ? merged
       : merged.filter((n) => n.deviceId === selectedDevice);
-  renderNotifications(filtered.slice(0, 200));
+  renderNotifications(filtered);
+}
+
+// ── Infinite scroll – load older notifications ─────────────────────────────────
+function hasMoreNotifications() {
+  return Object.values(notifPaginationState).some((s) => s.hasMore && !s.loading);
+}
+
+async function loadMoreNotifications() {
+  const user = state.currentUser;
+  if (!user || isLoadingMoreNotif) return;
+
+  const devicesWithMore = Object.entries(notifPaginationState).filter(
+    ([, s]) => s.hasMore && !s.loading,
+  );
+  if (devicesWithMore.length === 0) return;
+
+  isLoadingMoreNotif = true;
+  console.log(`[Notifications] 📜 Loading more from ${devicesWithMore.length} device(s)...`);
+
+  try {
+    for (const [deviceId, deviceState] of devicesWithMore) {
+      if (!deviceState.lastTimestamp) {
+        deviceState.hasMore = false;
+        continue;
+      }
+      deviceState.loading = true;
+
+      const q = query(
+        collection(db, "users", user.uid, "devices", deviceId, "notifications"),
+        orderBy("timestamp", "desc"),
+        startAfter(deviceState.lastTimestamp),
+        limit(NOTIF_PAGE_SIZE),
+      );
+
+      try {
+        const snapshot = await getDocs(q);
+        console.log(`[Notifications] 📜 Loaded ${snapshot.size} more from device ${deviceId}`);
+
+        if (snapshot.empty) {
+          deviceState.hasMore = false;
+          deviceState.loading = false;
+          continue;
+        }
+
+        const existing = state.allNotifications[deviceId] || [];
+        const existingIds = new Set(existing.map((n) => n.id));
+
+        const newNotifs = await Promise.all(
+          snapshot.docs
+            .filter((docSnap) => !existingIds.has(docSnap.id))
+            .map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, user.uid);
+              return {
+                ...data,
+                id: docSnap.id,
+                deviceId,
+                deviceName: existing[0]?.deviceName || "",
+                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
+              };
+            }),
+        );
+
+        // Update pagination cursor — use the oldest RAW timestamp from this
+        // page (Firestore Timestamp shape), not a converted ms number, so
+        // that startAfter() against orderBy("timestamp") works correctly.
+        if (newNotifs.length > 0) {
+          let oldestRaw = null;
+          let oldestMs = null;
+          for (const n of newNotifs) {
+            const t = tsMs(n.timestamp) || n.receivedAt || 0;
+            if (t > 0 && (oldestMs === null || t < oldestMs)) {
+              oldestMs = t;
+              oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
+            }
+          }
+          if (oldestRaw != null) deviceState.lastTimestamp = oldestRaw;
+        }
+        deviceState.hasMore = snapshot.size >= NOTIF_PAGE_SIZE;
+        deviceState.loading = false;
+
+        if (newNotifs.length > 0) {
+          updateNotificationsList(deviceId, [...existing, ...newNotifs]);
+        }
+      } catch (err) {
+        console.error(`[Notifications] loadMore error for device ${deviceId}:`, err);
+        deviceState.loading = false;
+      }
+    }
+  } finally {
+    isLoadingMoreNotif = false;
+    // Persist older items to cache IMMEDIATELY (bypassing the 3 s debounce) so
+    // they survive cleanupSubscriptions() on the next refresh/popup-open.
+    // The debounced cacheNotificationsData would lose this write if the user
+    // clicked Refresh or closed the popup within 3 s.
+    flushNotificationsCache(state.allNotifications).catch(() => {});
+  }
+}
+
+function attachNotifScrollHandler() {
+  const container = document.getElementById("notificationsList");
+  if (!container) return;
+  if (!notifScrollHandlerAttached) {
+    notifScrollHandlerAttached = true;
+    container.addEventListener("scroll", () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollHeight - scrollTop - clientHeight < 150 && hasMoreNotifications() && !isLoadingMoreNotif) {
+        console.log("[Notifications] 📜 Infinite scroll triggered");
+        showNotifScrollLoader();
+        loadMoreNotifications().then(() => hideNotifScrollLoader());
+      }
+    });
+  }
+
+  // Auto-fill: notifications are grouped by app, so 500 raw items can collapse
+  // into <20 rows that fit without scrolling — meaning the scroll handler can
+  // never fire. Keep pulling pages until the container actually overflows OR
+  // pagination is exhausted (bounded to a few iterations to avoid runaway loops).
+  autoFillNotifications().catch((e) =>
+    console.warn("[Notifications] auto-fill error:", e),
+  );
+}
+
+let isAutoFilling = false;
+async function autoFillNotifications() {
+  if (isAutoFilling) return;
+  const container = document.getElementById("notificationsList");
+  if (!container) return;
+  isAutoFilling = true;
+  try {
+    let safety = 10; // cap so we never loop forever
+    while (
+      safety-- > 0 &&
+      hasMoreNotifications() &&
+      !isLoadingMoreNotif &&
+      container.scrollHeight <= container.clientHeight + 20
+    ) {
+      // Stop runaway: grouping collapses N raw items into ~M group rows.
+      // Once we have a healthy raw count (≥1000) OR plenty of groups (≥30),
+      // bail even if scrollHeight hasn't exceeded clientHeight — pulling more
+      // raw items will just inflate unread counts, not add new group rows.
+      const rawCount = Object.values(state.allNotifications).reduce(
+        (n, arr) => n + (arr?.length || 0), 0);
+      const groupCount = container.querySelectorAll(".notification-item").length;
+      if (rawCount >= 1000 || groupCount >= 30) break;
+      showNotifScrollLoader();
+      await loadMoreNotifications();
+      hideNotifScrollLoader();
+      // Yield so the next render can update scrollHeight before we re-check
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  } finally {
+    isAutoFilling = false;
+  }
+}
+
+function showNotifScrollLoader() {
+  const container = document.getElementById("notificationsList");
+  if (!container || document.getElementById("notifScrollLoader")) return;
+  const loader = document.createElement("div");
+  loader.id = "notifScrollLoader";
+  loader.className = "scroll-loader";
+  loader.innerHTML = '<div class="spinner-small"></div> Loading more...';
+  container.appendChild(loader);
+}
+
+function hideNotifScrollLoader() {
+  document.getElementById("notifScrollLoader")?.remove();
 }
 
 // ─── Search & Detail wiring (runs once after DOM is ready) ────────────────────
@@ -570,7 +846,66 @@ function scheduleRender() {
       selectedDevice === "all"
         ? merged
         : merged.filter((n) => n.deviceId === selectedDevice);
-    renderNotifications(filtered.slice(0, 200));
+    // === DIAG (v1.2.2.10): expose render state to console ===
+    try {
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const todayTs = todayStart.getTime();
+      const perSlot = {};
+      Object.entries(state.allNotifications).forEach(([slot, arr]) => {
+        const todays = (arr || []).filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+        const newest = (arr || []).reduce((m, n) => Math.max(m, n.receivedAt || n.timestamp || 0), 0);
+        perSlot[slot] = {
+          total: arr?.length || 0,
+          todayCount: todays.length,
+          newestIso: newest ? new Date(newest).toISOString() : "—",
+          todaySample: todays.slice(0, 3).map((n) => ({
+            id: n.id, app: n.appName || n.packageName, title: n.title,
+            deviceId: n.deviceId, ts: new Date(n.receivedAt || n.timestamp || 0).toISOString(),
+          })),
+        };
+      });
+      const mergedToday = merged.filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+      const filteredToday = filtered.filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+      const diag = {
+        selectedDevice,
+        knownDevices: state.devices.map((d) => ({ id: d.id, nickname: d.nickname, name: d.name })),
+        perSlot,
+        mergedTotal: merged.length,
+        mergedToday: mergedToday.length,
+        filteredTotal: filtered.length,
+        filteredToday: filteredToday.length,
+        filteredTodayTop5: filteredToday.slice(0, 5).map((n) => ({
+          app: n.appName || n.packageName, title: n.title,
+          deviceId: n.deviceId, ts: new Date(n.receivedAt || n.timestamp || 0).toISOString(),
+        })),
+        mergedTodayTop5: mergedToday.slice(0, 5).map((n) => ({
+          app: n.appName || n.packageName, title: n.title,
+          deviceId: n.deviceId, ts: new Date(n.receivedAt || n.timestamp || 0).toISOString(),
+        })),
+      };
+      window.__iropitNotifDiag = diag;
+      // No-paste DOM inspector: type `__iropitDomCheck()` in console.
+      window.__iropitDomCheck = function () {
+        const items = document.querySelectorAll("#notificationsList .notification-item");
+        const out = {
+          domItemCount: items.length,
+          firstTitles: [...items].slice(0, 10).map((el) => el.querySelector(".list-item-title")?.innerText?.trim()),
+          firstTimes: [...items].slice(0, 10).map((el) => el.querySelector(".list-item-time")?.innerText?.trim()),
+          firstDevices: [...items].slice(0, 10).map((el) => el.querySelector(".notification-device")?.innerText?.trim() || ""),
+          tabActive: document.getElementById("notificationsTab")?.classList.contains("active"),
+          notifListVisible: !!document.getElementById("notificationsList")?.offsetParent,
+          notifListHeight: document.getElementById("notificationsList")?.clientHeight,
+          notifListScrollHeight: document.getElementById("notificationsList")?.scrollHeight,
+          showUnread: document.getElementById("notifShowUnread")?.checked,
+          searchVal: document.getElementById("notifSearch")?.value || "",
+          selectedDeviceTab: document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device,
+        };
+        console.log("[DOM-CHECK]\n" + JSON.stringify(out, null, 2));
+        return out;
+      };
+      console.log("[NOTIF-DIAG-JSON]\n" + JSON.stringify(diag, null, 2));
+    } catch (e) { console.warn("[NOTIF-DIAG] failed", e); }
+    renderNotifications(filtered);
   }, 80);
 }
 
@@ -612,8 +947,18 @@ function renderNotifications(notifications) {
   const groups = {};
   notifications.forEach(n => {
     const key = n.packageName || n.appName || "unknown";
-    if (!groups[key]) groups[key] = { appName: n.appName || "Unknown App", packageName: n.packageName, appIcon: n.appIcon, items: [] };
+    if (!groups[key]) groups[key] = { appName: null, packageName: n.packageName, appIcon: n.appIcon, items: [] };
     groups[key].items.push(n);
+    // Track the best (non-package-looking) appName seen across all items.
+    if (!groups[key].appName && n.appName && !_looksLikePackageId(n.appName)) {
+      groups[key].appName = n.appName;
+    }
+    if (!groups[key].appIcon && n.appIcon) groups[key].appIcon = n.appIcon;
+    if (!groups[key].packageName && n.packageName) groups[key].packageName = n.packageName;
+  });
+  // Finalize display name per group (after scanning all items).
+  Object.values(groups).forEach((g) => {
+    g.appName = prettyAppName(g.appName, g.packageName || (g.items[0] && g.items[0].appName));
   });
 
   // Apply unread filter
@@ -732,6 +1077,9 @@ function renderNotifications(notifications) {
 
   updateTabBadges();
   updateNotifSyncIndicator();
+
+  // Attach infinite-scroll handler (no-op if already attached)
+  attachNotifScrollHandler();
 }
 
 async function markNotificationAsRead(deviceId, notifId) {
@@ -1006,6 +1354,8 @@ export async function deleteSelectedNotifications() {
       });
       state.setNotificationsData(deviceKey, filtered);
     });
+    // Immediately persist the deletion so items don't reappear on next refresh
+    flushNotificationsCache(state.allNotifications).catch(() => {});
     showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
   } catch (error) {
     console.error("[Notifications] deleteSelectedNotifications error:", error);
@@ -1037,10 +1387,11 @@ export function exportNotificationsToCSV() {
     const d = new Date(n.receivedAt || n.timestamp || 0);
     const date = d.toLocaleDateString("en-GB");
     const time = d.toLocaleTimeString();
-    const app = n.appName || n.packageName || "";
+    const app = prettyAppName(n.appName, n.packageName);
     const title = n.title || "";
     const body = n.text || n.body || "";
-    const device = resolveDeviceName(n) || "";
+    const isUserLevel = !n.deviceId || n.deviceId === "user" || n.deviceId === "_user_notifications";
+    const device = resolveDeviceName(n) || (isUserLevel ? "(User)" : "");
     return [date, time, app, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
   });
   const now = new Date();

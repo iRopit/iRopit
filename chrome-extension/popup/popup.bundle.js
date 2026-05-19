@@ -25913,6 +25913,18 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to save calls cache:", error);
     }
   }
+  function _serializeNotifs(notifsByDevice) {
+    const out = {};
+    for (const [key, notifs] of Object.entries(notifsByDevice)) {
+      const sorted = [...notifs].sort((a, b) => {
+        const ta = a.timestamp || a.receivedAt || 0;
+        const tb = b.timestamp || b.receivedAt || 0;
+        return tb - ta;
+      });
+      out[key] = sorted.slice(0, NOTIF_CACHE_CAP_PER_DEVICE);
+    }
+    return out;
+  }
   async function cacheNotificationsData(notifsByDevice) {
     notifCachePending = notifsByDevice;
     if (notifCacheWriteTimer) clearTimeout(notifCacheWriteTimer);
@@ -25922,10 +25934,7 @@ ${this.customData.serverResponse}`;
       notifCachePending = null;
       if (!payload) return;
       try {
-        const serializable = {};
-        for (const [key, notifs] of Object.entries(payload)) {
-          serializable[key] = notifs.slice(0, 500);
-        }
+        const serializable = _serializeNotifs(payload);
         await chrome.storage.local.set({
           [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() }
         });
@@ -25933,6 +25942,22 @@ ${this.customData.serverResponse}`;
         console.warn("[Cache] Failed to save notifications cache:", error);
       }
     }, 3e3);
+  }
+  async function flushNotificationsCache(notifsByDevice) {
+    if (notifCacheWriteTimer) {
+      clearTimeout(notifCacheWriteTimer);
+      notifCacheWriteTimer = null;
+    }
+    notifCachePending = null;
+    if (!notifsByDevice) return;
+    try {
+      const serializable = _serializeNotifs(notifsByDevice);
+      await chrome.storage.local.set({
+        [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() }
+      });
+    } catch (error) {
+      console.warn("[Cache] Failed to flush notifications cache:", error);
+    }
   }
   async function getCachedNotifications() {
     try {
@@ -25997,7 +26022,7 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to clear cache:", error);
     }
   }
-  var CACHE_KEYS, MAX_CACHE_AGE_MS, smsCacheWriteTimer, smsCachePending, notifCacheWriteTimer, notifCachePending;
+  var CACHE_KEYS, MAX_CACHE_AGE_MS, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
   var init_cache = __esm({
     "src/services/cache.js"() {
       CACHE_KEYS = {
@@ -26009,6 +26034,7 @@ ${this.customData.serverResponse}`;
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
+      NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
       notifCacheWriteTimer = null;
       notifCachePending = null;
     }
@@ -26147,17 +26173,20 @@ ${this.customData.serverResponse}`;
     const rawPhoneNumber = data.phoneNumber && typeof data.phoneNumber === "string" && data.phoneNumber.startsWith("ENC:") ? "" : data.phoneNumber || "";
     const rawNumber = data.number && typeof data.number === "string" && data.number.startsWith("ENC:") ? "" : data.number || "";
     const rawAddress = data.address && typeof data.address === "string" && data.address.startsWith("ENC:") ? "" : data.address || "";
-    const resolvedPhone = rawPhoneNumber || rawNumber || rawAddress || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
+    const cleanPhone = (val) => typeof val === "string" && val.trim().toLowerCase() === "unknown" ? "" : val;
+    const resolvedPhone = cleanPhone(rawPhoneNumber) || cleanPhone(rawNumber) || cleanPhone(rawAddress) || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
     const resolvedContact = rawContactName || (data.title && !isTitleCallDescription && !isPhoneNumberLike(data.title) ? data.title : "") || getContactName(resolvedPhone) || "";
     return {
       ...data,
       id: firestoreId,
       deviceId,
       deviceName,
-      phoneNumber: resolvedPhone || rawPhoneNumber || "",
+      phoneNumber: resolvedPhone || cleanPhone(rawPhoneNumber) || "",
       contactName: resolvedContact,
       type: data.type || data.callType || "incoming",
       simSlot: data.simSlot != null ? data.simSlot : -1,
+      // App name for VoIP / 3rd-party app calls (Messenger, Teams, Meet, etc.)
+      appName: data.appName && typeof data.appName === "string" && !data.appName.startsWith("ENC:") ? data.appName : "",
       // Strip any remaining encrypted fields so they don't persist in cache
       name: data.name && typeof data.name === "string" && data.name.startsWith("ENC:") ? "" : data.name || "",
       displayName: data.displayName && typeof data.displayName === "string" && data.displayName.startsWith("ENC:") ? "" : data.displayName || ""
@@ -26480,18 +26509,22 @@ ${this.customData.serverResponse}`;
       const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
       const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
       const normalizedPhone = normalizePhoneNumber(safePhone);
-      const key = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "Unknown";
+      const key = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
       if (!grouped[key]) {
         grouped[key] = {
           key,
-          phoneNumber: safePhone || "Unknown",
+          phoneNumber: safePhone,
+          // raw value — empty for VoIP/unknown
           contactName: safeContact || getContactName(normalizedPhone) || "",
+          appName: call.appName || "",
+          // populated for VoIP app calls
           calls: [],
           lastCall: call,
           missedCount: 0,
           unviewedMissedCount: 0
         };
       }
+      if (!grouped[key].appName && call.appName) grouped[key].appName = call.appName;
       grouped[key].calls.push(call);
       if (call.type === "missed") {
         grouped[key].missedCount++;
@@ -26521,20 +26554,30 @@ ${this.customData.serverResponse}`;
       return;
     }
     callsList.innerHTML = callGroups.map(
-      (group) => `
-    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.phoneNumber) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.phoneNumber}">
-      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.phoneNumber) ? "checked" : ""} tabindex="-1" /></div>` : ""}
+      (group) => {
+        const phoneStr = (group.phoneNumber || "").toString().trim();
+        const isVoIP = !phoneStr || phoneStr.toLowerCase() === "unknown" || !normalizePhoneNumber(phoneStr);
+        const unknownLabel = getCurrentLanguage() === "ar" ? "\u0645\u062C\u0647\u0648\u0644" : "Unknown";
+        const displayName = group.contactName || (isVoIP ? group.appName || unknownLabel : phoneStr) || unknownLabel;
+        const lastSim = group.lastCall.simSlot;
+        const isAr = getCurrentLanguage() === "ar";
+        const phoneLabel = isAr ? "\u0647\u0627\u062A\u0641" : "Phone";
+        const simLabel = lastSim != null && lastSim >= 0 ? ` \xB7 ${isAr ? "\u0634\u0631\u064A\u062D\u0629" : "SIM"} ${lastSim + 1}` : "";
+        const methodLabel = isVoIP ? group.appName || (isAr ? "\u062A\u0637\u0628\u064A\u0642" : "VoIP") : `${phoneLabel}${simLabel}`;
+        return `
+    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.key}">
+      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.key) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
-        ${getInitials(group.contactName || group.phoneNumber)}
+        ${getInitials(displayName)}
       </div>
       <div class="list-item-content">
         <div class="list-item-title">
-          <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
+          <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)}</div>
+        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
-      <div class="call-list-hover-actions">
+      ${!isVoIP ? `<div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -26545,34 +26588,35 @@ ${this.customData.serverResponse}`;
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
           </svg>
         </button>
-      </div>
+      </div>` : ""}
       <div class="list-item-meta">
         <span class="list-item-time">${formatTime(
-        group.lastCall.timestamp
-      )}</span>
+          group.lastCall.timestamp
+        )}</span>
         ${group.unviewedMissedCount > 0 ? `<div class="list-item-badge missed">${group.unviewedMissedCount}</div>` : ""}
       </div>
     </div>
-  `
+  `;
+      }
     ).join("");
     document.querySelectorAll(".call-group").forEach((el) => {
       el.addEventListener("click", (e) => {
-        const phoneNumber2 = el.dataset.phone;
+        const groupKey = el.dataset.groupKey;
         if (callsSelectionMode) {
           const cb = el.querySelector(".call-checkbox");
-          if (selectedCallGroups.has(phoneNumber2)) {
-            selectedCallGroups.delete(phoneNumber2);
+          if (selectedCallGroups.has(groupKey)) {
+            selectedCallGroups.delete(groupKey);
             el.classList.remove("selected");
             if (cb) cb.checked = false;
           } else {
-            selectedCallGroups.add(phoneNumber2);
+            selectedCallGroups.add(groupKey);
             el.classList.add("selected");
             if (cb) cb.checked = true;
           }
           _updateCallsSelectionToolbar(callGroups.length);
           return;
         }
-        showCallHistory(phoneNumber2);
+        showCallHistory(groupKey);
       });
       const phoneNumber = el.dataset.phone;
       el.querySelector(".call-list-hover-call")?.addEventListener("click", (e) => {
@@ -26595,7 +26639,6 @@ ${this.customData.serverResponse}`;
       if (!group || callsSelectionMode) return;
       callLongPressTimer = setTimeout(() => {
         callLongPressTimer = null;
-        const phoneNumber = group.dataset.phone;
         callsSelectionMode = true;
         selectedCallGroups.clear();
         document.getElementById("callsSelectBtn")?.classList.add("active");
@@ -26603,13 +26646,14 @@ ${this.customData.serverResponse}`;
         if (toolbar) toolbar.style.display = "flex";
         renderCalls(allCallsData);
         setTimeout(() => {
-          const el = document.querySelector(`.call-group[data-phone="${CSS.escape(phoneNumber)}"]`);
+          const groupKey = group.dataset.groupKey;
+          const el = document.querySelector(`.call-group[data-group-key="${CSS.escape(groupKey)}"]`);
           if (el) {
-            selectedCallGroups.add(phoneNumber);
+            selectedCallGroups.add(groupKey);
             el.classList.add("selected");
             const cb = el.querySelector(".call-checkbox");
             if (cb) cb.checked = true;
-            _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-phone]").length);
+            _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-group-key]").length);
           }
         }, 0);
       }, 500);
@@ -26634,22 +26678,38 @@ ${this.customData.serverResponse}`;
     });
     updateTabBadges();
   }
-  async function showCallHistory(phoneNumber) {
-    const calls = allCallsData.filter((call) => call.phoneNumber === phoneNumber).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  async function showCallHistory(groupKey) {
+    const matchesByGroupKey = (call) => {
+      const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+      const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+      const normalizedPhone = normalizePhoneNumber(safePhone);
+      if (groupKey === "unknown") {
+        return !normalizedPhone && !safeContact;
+      } else if (groupKey.startsWith("contact_")) {
+        return safeContact === groupKey.slice(8);
+      } else {
+        return normalizePhoneNumber(safePhone) === groupKey;
+      }
+    };
+    const calls = allCallsData.filter(matchesByGroupKey).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     if (calls.length === 0) return;
-    const contactName = calls[0].contactName || phoneNumber;
-    setCurrentCallConversation(phoneNumber);
+    const rawPhone = (calls[0].phoneNumber || "").toString().trim();
+    const isVoIP = !rawPhone || rawPhone.toLowerCase() === "unknown" || !normalizePhoneNumber(rawPhone);
+    const phoneNumber = isVoIP ? "" : rawPhone;
+    const contactName = calls[0].contactName || (isVoIP ? calls[0].appName || (getCurrentLanguage() === "ar" ? "\u0645\u062C\u0647\u0648\u0644" : "Unknown") : phoneNumber);
+    setCurrentCallConversation(groupKey);
     const missedToMark = calls.filter(
       (call) => call.type === "missed" && !call.viewed
     );
     if (missedToMark.length > 0) {
+      const missedIds = new Set(missedToMark.map((c) => c.id));
       const updatedCalls = allCallsData.map(
-        (call) => call.phoneNumber === phoneNumber && call.type === "missed" ? { ...call, viewed: true } : call
+        (call) => missedIds.has(call.id) ? { ...call, viewed: true } : call
       );
       setAllCallsData(updatedCalls);
       Object.keys(allCallsByDevice).forEach((deviceId) => {
         const updated = allCallsByDevice[deviceId].map(
-          (call) => call.phoneNumber === phoneNumber && call.type === "missed" && !call.viewed ? { ...call, viewed: true } : call
+          (call) => missedIds.has(call.id) ? { ...call, viewed: true } : call
         );
         setCallsByDevice(deviceId, updated);
       });
@@ -26692,15 +26752,15 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}</div>
         <div class="conversation-info">
           <div class="conversation-name">${contactName}</div>
-          ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
+          ${!isVoIP && phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
-        <button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0631\u0642\u0645" : "Copy number"}">
+        ${!isVoIP ? `<button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0631\u0642\u0645" : "Copy number"}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
           </svg>
-        </button>
-        <div class="call-action-buttons">
+        </button>` : ""}
+        ${!isVoIP ? `<div class="call-action-buttons">
           <button class="call-action-btn" id="dialPhoneBtn" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call on phone"}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -26713,7 +26773,7 @@ ${this.customData.serverResponse}`;
             </svg>
             <span>WhatsApp</span>
           </button>
-        </div>
+        </div>` : ""}
       </div>
       <div class="conversation-messages call-history">
         ${calls.map(
@@ -26738,23 +26798,25 @@ ${this.customData.serverResponse}`;
       setCurrentCallConversation(null);
       renderCalls(allCallsData);
     });
-    document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
-      navigator.clipboard.writeText(phoneNumber).then(() => {
-        showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
-      }).catch(() => {
-        showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+    if (!isVoIP) {
+      document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
+        navigator.clipboard.writeText(phoneNumber).then(() => {
+          showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
+        }).catch(() => {
+          showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+        });
       });
-    });
-    document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
-      initiateDialRequest(phoneNumber, null);
-    });
-    document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
-      let clean = phoneNumber.replace(/[^\d+]/g, "");
-      if (clean.startsWith("+")) clean = clean.slice(1);
-      else if (clean.startsWith("00")) clean = clean.slice(2);
-      else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
-      window.open(`https://wa.me/${clean}`, "_blank");
-    });
+      document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
+        initiateDialRequest(phoneNumber, null);
+      });
+      document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
+        let clean = phoneNumber.replace(/[^\d+]/g, "");
+        if (clean.startsWith("+")) clean = clean.slice(1);
+        else if (clean.startsWith("00")) clean = clean.slice(2);
+        else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+        window.open(`https://wa.me/${clean}`, "_blank");
+      });
+    }
   }
   function toggleCallsSelectionMode() {
     callsSelectionMode = !callsSelectionMode;
@@ -26771,16 +26833,16 @@ ${this.customData.serverResponse}`;
     renderCalls(allCallsData);
   }
   function setCallsSelectAll(checked) {
-    const groups = document.querySelectorAll(".call-group[data-phone]");
+    const groups = document.querySelectorAll(".call-group[data-group-key]");
     groups.forEach((el) => {
-      const phone = el.dataset.phone;
+      const key = el.dataset.groupKey;
       const cb = el.querySelector(".call-checkbox");
       if (checked) {
-        selectedCallGroups.add(phone);
+        selectedCallGroups.add(key);
         el.classList.add("selected");
         if (cb) cb.checked = true;
       } else {
-        selectedCallGroups.delete(phone);
+        selectedCallGroups.delete(key);
         el.classList.remove("selected");
         if (cb) cb.checked = false;
       }
@@ -26800,19 +26862,37 @@ ${this.customData.serverResponse}`;
       const batch = writeBatch(db);
       let deletedCount = 0;
       allCallsData.forEach((call) => {
-        if (selectedCallGroups.has(call.phoneNumber) && call.deviceId && call.id) {
+        const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+        const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+        const normalizedPhone = normalizePhoneNumber(safePhone);
+        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        if (selectedCallGroups.has(callKey) && call.deviceId && call.id) {
           const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
           batch.delete(callRef);
           deletedCount++;
         }
       });
       if (deletedCount > 0) await batch.commit();
-      const remaining = allCallsData.filter((c) => !selectedCallGroups.has(c.phoneNumber));
+      const remaining = allCallsData.filter((call) => {
+        const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+        const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+        const normalizedPhone = normalizePhoneNumber(safePhone);
+        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        return !selectedCallGroups.has(callKey);
+      });
       Object.keys(allCallsByDevice).forEach((deviceId) => {
-        const updated = (allCallsByDevice[deviceId] || []).filter((c) => !selectedCallGroups.has(c.phoneNumber));
+        const updated = (allCallsByDevice[deviceId] || []).filter((call) => {
+          const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+          const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+          const normalizedPhone = normalizePhoneNumber(safePhone);
+          const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+          return !selectedCallGroups.has(callKey);
+        });
         setCallsByDevice(deviceId, updated);
       });
       setAllCallsData(remaining);
+      cacheCallsData(allCallsByDevice, remaining).catch(() => {
+      });
       showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
     } catch (error) {
       console.error("[Calls] deleteSelectedCallGroups error:", error);
@@ -26864,6 +26944,8 @@ ${this.customData.serverResponse}`;
     });
     remaining.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     setAllCallsData(remaining);
+    cacheCallsData(allCallsByDevice, remaining).catch(() => {
+    });
     renderCalls(remaining);
     updateTabBadges();
   }
@@ -28567,6 +28649,16 @@ ${this.customData.serverResponse}`;
       console.error("Mark conversation read error:", error);
     }
   }
+  function _purgeSMSFromCache(deletedIds, updatedMessages) {
+    for (const deviceId of Object.keys(allSMS)) {
+      const filtered = (allSMS[deviceId] || []).filter((m) => !deletedIds.has(m.id));
+      setSMSData(deviceId, filtered);
+    }
+    cacheSMSData(allSMS, updatedMessages).catch(() => {
+    });
+    flushSMSCache().catch(() => {
+    });
+  }
   async function deleteAllSms() {
     const user = currentUser;
     if (!user) return;
@@ -28597,6 +28689,7 @@ ${this.customData.serverResponse}`;
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
         const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
         setAllSMSMessages(updatedMessages);
+        _purgeSMSFromCache(deletedIds, updatedMessages);
         showToast(getCurrentLanguage() === "ar" ? `\u062A\u0645 \u062D\u0630\u0641 ${msgsToDelete.length} \u0631\u0633\u0627\u0644\u0629` : `${msgsToDelete.length} messages deleted`, "success");
         setCurrentConversation(null);
         renderSMS(updatedMessages);
@@ -28638,6 +28731,7 @@ ${this.customData.serverResponse}`;
       showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "Message deleted", "success");
       const updatedMessages = allSMSMessages.filter((m) => m.id !== msgId);
       setAllSMSMessages(updatedMessages);
+      _purgeSMSFromCache(/* @__PURE__ */ new Set([msgId]), updatedMessages);
       if (currentConversation) {
         const remaining = updatedMessages.filter((m) => {
           const msgPhone = (m.phoneNumber || m.sender || "").replace(/[\s\-\(\)\.]/g, "").trim();
@@ -28820,6 +28914,7 @@ ${this.customData.serverResponse}`;
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
         const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
         setAllSMSMessages(updatedMessages);
+        _purgeSMSFromCache(deletedIds, updatedMessages);
       }
       messageSelectionMode = false;
       selectedMessages.clear();
@@ -28867,6 +28962,7 @@ ${this.customData.serverResponse}`;
         const deletedIds = new Set(msgsToDelete.map((m) => m.id));
         const updatedMessages = allSMSMessages.filter((m) => !deletedIds.has(m.id));
         setAllSMSMessages(updatedMessages);
+        _purgeSMSFromCache(deletedIds, updatedMessages);
       }
       selectionMode = false;
       selectedConversations.clear();
@@ -29164,6 +29260,22 @@ ${this.customData.serverResponse}`;
       document.dispatchEvent(new CustomEvent("notificationsDataUpdated"));
     }
   }
+  function _looksLikePackageId(s) {
+    return typeof s === "string" && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,}$/i.test(s);
+  }
+  function _prettifyPackage(pkg) {
+    if (!pkg) return "";
+    const last = String(pkg).split(".").pop() || "";
+    const spaced = last.replace(/[-_]+/g, " ").trim();
+    return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  function prettyAppName(appName, packageName) {
+    if (appName && !_looksLikePackageId(appName)) return appName;
+    const pretty = _prettifyPackage(packageName);
+    if (pretty) return pretty;
+    if (appName) return appName;
+    return "Unknown App";
+  }
   function _updateNotifSelectionToolbar(totalApps) {
     const deleteBtn = document.getElementById("deleteAllNotifBtn");
     const countSpan = document.getElementById("notifSelectedCount");
@@ -29204,7 +29316,7 @@ ${this.customData.serverResponse}`;
               if (notifs.length > 0) setNotificationsData(deviceId, notifs);
             }
             const merged = getMergedNotifications();
-            renderNotifications(merged.slice(0, 200));
+            renderNotifications(merged);
             updateTabBadges();
             console.log("[Notifications] \u{1F4E6} Showed cached notifications instantly");
           }
@@ -29238,7 +29350,10 @@ ${this.customData.serverResponse}`;
     });
     isSyncingNotif = true;
     updateNotifSyncIndicator();
+    notifPaginationState = {};
+    notifScrollHandlerAttached = false;
     const notifFetchPromises = devicesList2.map(async (device) => {
+      notifPaginationState[device.id] = { lastTimestamp: null, hasMore: true, loading: false };
       const cachedNewestTs = cachedNewestTimestamps[device.id];
       const isDelta = !!cachedNewestTs;
       let q2;
@@ -29247,13 +29362,13 @@ ${this.customData.serverResponse}`;
           collection(db, "users", user.uid, "devices", device.id, "notifications"),
           where("timestamp", ">", cachedNewestTs),
           orderBy("timestamp", "desc"),
-          limit(500)
+          limit(NOTIF_INITIAL_LIMIT)
         );
       } else {
         q2 = query(
           collection(db, "users", user.uid, "devices", device.id, "notifications"),
           orderBy("timestamp", "desc"),
-          limit(500)
+          limit(NOTIF_INITIAL_LIMIT)
         );
       }
       try {
@@ -29282,8 +29397,28 @@ ${this.customData.serverResponse}`;
             console.log(`[Notifications] \u{1F504} Delta: ${brandNew.length} new for device ${device.id}`);
             updateNotificationsList(device.id, [...brandNew, ...cached]);
           }
-        } else if (!isDelta && notifications.length > 0) {
-          updateNotificationsList(device.id, notifications);
+        } else if (!isDelta) {
+          if (notifications.length > 0) {
+            updateNotificationsList(device.id, notifications);
+          }
+        }
+        if (notifPaginationState[device.id]) {
+          const all = allNotifications[device.id] || [];
+          if (all.length > 0) {
+            let oldestRaw = null;
+            let oldestMs = null;
+            for (const n of all) {
+              const t2 = tsMs(n.timestamp) || n.receivedAt || 0;
+              if (t2 > 0 && (oldestMs === null || t2 < oldestMs)) {
+                oldestMs = t2;
+                oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
+              }
+            }
+            notifPaginationState[device.id].lastTimestamp = oldestRaw;
+            notifPaginationState[device.id].hasMore = true;
+          } else {
+            notifPaginationState[device.id].hasMore = false;
+          }
         }
       } catch (error) {
         if (error?.code !== "permission-denied") {
@@ -29296,6 +29431,11 @@ ${this.customData.serverResponse}`;
       });
       isSyncingNotif = false;
       updateNotifSyncIndicator();
+      try {
+        attachNotifScrollHandler();
+      } catch (e) {
+        console.warn("[Notifications] post-fetch autofill kickoff failed:", e);
+      }
     });
     pendingNotifSnapshots = 1 + devicesList2.length;
     isSyncingNotif = true;
@@ -29401,16 +29541,28 @@ ${this.customData.serverResponse}`;
     return notif.deviceName || null;
   }
   function getMergedNotifications() {
-    let merged = [];
-    Object.values(allNotifications).forEach((notifs) => {
-      merged = merged.concat(notifs);
+    const realDeviceIds = new Set(devices.map((d) => d.id));
+    const realIds = /* @__PURE__ */ new Set();
+    const byKey = /* @__PURE__ */ new Map();
+    Object.entries(allNotifications).forEach(([, notifs]) => {
+      notifs.forEach((n) => {
+        if (!realDeviceIds.has(n.deviceId)) return;
+        const key = `${n.deviceId}:${n.id}`;
+        if (!byKey.has(key)) {
+          byKey.set(key, n);
+          realIds.add(n.id);
+        }
+      });
     });
-    const seen = /* @__PURE__ */ new Set();
-    merged = merged.filter((n) => {
-      if (seen.has(n.id)) return false;
-      seen.add(n.id);
-      return true;
+    Object.entries(allNotifications).forEach(([, notifs]) => {
+      notifs.forEach((n) => {
+        if (realDeviceIds.has(n.deviceId)) return;
+        if (realIds.has(n.id)) return;
+        const key = `user:${n.id}`;
+        if (!byKey.has(key)) byKey.set(key, n);
+      });
     });
+    const merged = Array.from(byKey.values());
     merged.sort((a, b) => {
       const timeA = a.receivedAt || a.timestamp || 0;
       const timeB = b.receivedAt || b.timestamp || 0;
@@ -29422,7 +29574,136 @@ ${this.customData.serverResponse}`;
     const merged = getMergedNotifications();
     const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
     const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
-    renderNotifications(filtered.slice(0, 200));
+    renderNotifications(filtered);
+  }
+  function hasMoreNotifications() {
+    return Object.values(notifPaginationState).some((s) => s.hasMore && !s.loading);
+  }
+  async function loadMoreNotifications() {
+    const user = currentUser;
+    if (!user || isLoadingMoreNotif) return;
+    const devicesWithMore = Object.entries(notifPaginationState).filter(
+      ([, s]) => s.hasMore && !s.loading
+    );
+    if (devicesWithMore.length === 0) return;
+    isLoadingMoreNotif = true;
+    console.log(`[Notifications] \u{1F4DC} Loading more from ${devicesWithMore.length} device(s)...`);
+    try {
+      for (const [deviceId, deviceState] of devicesWithMore) {
+        if (!deviceState.lastTimestamp) {
+          deviceState.hasMore = false;
+          continue;
+        }
+        deviceState.loading = true;
+        const q2 = query(
+          collection(db, "users", user.uid, "devices", deviceId, "notifications"),
+          orderBy("timestamp", "desc"),
+          startAfter(deviceState.lastTimestamp),
+          limit(NOTIF_PAGE_SIZE)
+        );
+        try {
+          const snapshot = await getDocs(q2);
+          console.log(`[Notifications] \u{1F4DC} Loaded ${snapshot.size} more from device ${deviceId}`);
+          if (snapshot.empty) {
+            deviceState.hasMore = false;
+            deviceState.loading = false;
+            continue;
+          }
+          const existing = allNotifications[deviceId] || [];
+          const existingIds = new Set(existing.map((n) => n.id));
+          const newNotifs = await Promise.all(
+            snapshot.docs.filter((docSnap) => !existingIds.has(docSnap.id)).map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, user.uid);
+              return {
+                ...data,
+                id: docSnap.id,
+                deviceId,
+                deviceName: existing[0]?.deviceName || "",
+                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now()
+              };
+            })
+          );
+          if (newNotifs.length > 0) {
+            let oldestRaw = null;
+            let oldestMs = null;
+            for (const n of newNotifs) {
+              const t2 = tsMs(n.timestamp) || n.receivedAt || 0;
+              if (t2 > 0 && (oldestMs === null || t2 < oldestMs)) {
+                oldestMs = t2;
+                oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
+              }
+            }
+            if (oldestRaw != null) deviceState.lastTimestamp = oldestRaw;
+          }
+          deviceState.hasMore = snapshot.size >= NOTIF_PAGE_SIZE;
+          deviceState.loading = false;
+          if (newNotifs.length > 0) {
+            updateNotificationsList(deviceId, [...existing, ...newNotifs]);
+          }
+        } catch (err) {
+          console.error(`[Notifications] loadMore error for device ${deviceId}:`, err);
+          deviceState.loading = false;
+        }
+      }
+    } finally {
+      isLoadingMoreNotif = false;
+      flushNotificationsCache(allNotifications).catch(() => {
+      });
+    }
+  }
+  function attachNotifScrollHandler() {
+    const container = document.getElementById("notificationsList");
+    if (!container) return;
+    if (!notifScrollHandlerAttached) {
+      notifScrollHandlerAttached = true;
+      container.addEventListener("scroll", () => {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        if (scrollHeight - scrollTop - clientHeight < 150 && hasMoreNotifications() && !isLoadingMoreNotif) {
+          console.log("[Notifications] \u{1F4DC} Infinite scroll triggered");
+          showNotifScrollLoader();
+          loadMoreNotifications().then(() => hideNotifScrollLoader());
+        }
+      });
+    }
+    autoFillNotifications().catch(
+      (e) => console.warn("[Notifications] auto-fill error:", e)
+    );
+  }
+  async function autoFillNotifications() {
+    if (isAutoFilling) return;
+    const container = document.getElementById("notificationsList");
+    if (!container) return;
+    isAutoFilling = true;
+    try {
+      let safety = 10;
+      while (safety-- > 0 && hasMoreNotifications() && !isLoadingMoreNotif && container.scrollHeight <= container.clientHeight + 20) {
+        const rawCount = Object.values(allNotifications).reduce(
+          (n, arr) => n + (arr?.length || 0),
+          0
+        );
+        const groupCount = container.querySelectorAll(".notification-item").length;
+        if (rawCount >= 1e3 || groupCount >= 30) break;
+        showNotifScrollLoader();
+        await loadMoreNotifications();
+        hideNotifScrollLoader();
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    } finally {
+      isAutoFilling = false;
+    }
+  }
+  function showNotifScrollLoader() {
+    const container = document.getElementById("notificationsList");
+    if (!container || document.getElementById("notifScrollLoader")) return;
+    const loader = document.createElement("div");
+    loader.id = "notifScrollLoader";
+    loader.className = "scroll-loader";
+    loader.innerHTML = '<div class="spinner-small"></div> Loading more...';
+    container.appendChild(loader);
+  }
+  function hideNotifScrollLoader() {
+    document.getElementById("notifScrollLoader")?.remove();
   }
   function wireSearchAndDetail() {
     if (_searchWired) return;
@@ -29537,7 +29818,74 @@ ${this.customData.serverResponse}`;
       const merged = getMergedNotifications();
       const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
       const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
-      renderNotifications(filtered.slice(0, 200));
+      try {
+        const todayStart = /* @__PURE__ */ new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayTs = todayStart.getTime();
+        const perSlot = {};
+        Object.entries(allNotifications).forEach(([slot, arr]) => {
+          const todays = (arr || []).filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+          const newest = (arr || []).reduce((m, n) => Math.max(m, n.receivedAt || n.timestamp || 0), 0);
+          perSlot[slot] = {
+            total: arr?.length || 0,
+            todayCount: todays.length,
+            newestIso: newest ? new Date(newest).toISOString() : "\u2014",
+            todaySample: todays.slice(0, 3).map((n) => ({
+              id: n.id,
+              app: n.appName || n.packageName,
+              title: n.title,
+              deviceId: n.deviceId,
+              ts: new Date(n.receivedAt || n.timestamp || 0).toISOString()
+            }))
+          };
+        });
+        const mergedToday = merged.filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+        const filteredToday = filtered.filter((n) => (n.receivedAt || n.timestamp || 0) >= todayTs);
+        const diag = {
+          selectedDevice,
+          knownDevices: devices.map((d) => ({ id: d.id, nickname: d.nickname, name: d.name })),
+          perSlot,
+          mergedTotal: merged.length,
+          mergedToday: mergedToday.length,
+          filteredTotal: filtered.length,
+          filteredToday: filteredToday.length,
+          filteredTodayTop5: filteredToday.slice(0, 5).map((n) => ({
+            app: n.appName || n.packageName,
+            title: n.title,
+            deviceId: n.deviceId,
+            ts: new Date(n.receivedAt || n.timestamp || 0).toISOString()
+          })),
+          mergedTodayTop5: mergedToday.slice(0, 5).map((n) => ({
+            app: n.appName || n.packageName,
+            title: n.title,
+            deviceId: n.deviceId,
+            ts: new Date(n.receivedAt || n.timestamp || 0).toISOString()
+          }))
+        };
+        window.__iropitNotifDiag = diag;
+        window.__iropitDomCheck = function() {
+          const items = document.querySelectorAll("#notificationsList .notification-item");
+          const out = {
+            domItemCount: items.length,
+            firstTitles: [...items].slice(0, 10).map((el) => el.querySelector(".list-item-title")?.innerText?.trim()),
+            firstTimes: [...items].slice(0, 10).map((el) => el.querySelector(".list-item-time")?.innerText?.trim()),
+            firstDevices: [...items].slice(0, 10).map((el) => el.querySelector(".notification-device")?.innerText?.trim() || ""),
+            tabActive: document.getElementById("notificationsTab")?.classList.contains("active"),
+            notifListVisible: !!document.getElementById("notificationsList")?.offsetParent,
+            notifListHeight: document.getElementById("notificationsList")?.clientHeight,
+            notifListScrollHeight: document.getElementById("notificationsList")?.scrollHeight,
+            showUnread: document.getElementById("notifShowUnread")?.checked,
+            searchVal: document.getElementById("notifSearch")?.value || "",
+            selectedDeviceTab: document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device
+          };
+          console.log("[DOM-CHECK]\n" + JSON.stringify(out, null, 2));
+          return out;
+        };
+        console.log("[NOTIF-DIAG-JSON]\n" + JSON.stringify(diag, null, 2));
+      } catch (e) {
+        console.warn("[NOTIF-DIAG] failed", e);
+      }
+      renderNotifications(filtered);
     }, 80);
   }
   function renderNotifications(notifications) {
@@ -29566,8 +29914,16 @@ ${this.customData.serverResponse}`;
     const groups = {};
     notifications.forEach((n) => {
       const key = n.packageName || n.appName || "unknown";
-      if (!groups[key]) groups[key] = { appName: n.appName || "Unknown App", packageName: n.packageName, appIcon: n.appIcon, items: [] };
+      if (!groups[key]) groups[key] = { appName: null, packageName: n.packageName, appIcon: n.appIcon, items: [] };
       groups[key].items.push(n);
+      if (!groups[key].appName && n.appName && !_looksLikePackageId(n.appName)) {
+        groups[key].appName = n.appName;
+      }
+      if (!groups[key].appIcon && n.appIcon) groups[key].appIcon = n.appIcon;
+      if (!groups[key].packageName && n.packageName) groups[key].packageName = n.packageName;
+    });
+    Object.values(groups).forEach((g) => {
+      g.appName = prettyAppName(g.appName, g.packageName || g.items[0] && g.items[0].appName);
     });
     let groupEntries = Object.entries(groups);
     if (document.getElementById("notifShowUnread")?.checked) {
@@ -29689,6 +30045,7 @@ ${this.customData.serverResponse}`;
     });
     updateTabBadges();
     updateNotifSyncIndicator();
+    attachNotifScrollHandler();
   }
   async function markNotificationAsRead(deviceId, notifId) {
     const user = currentUser;
@@ -29899,6 +30256,8 @@ ${this.customData.serverResponse}`;
         });
         setNotificationsData(deviceKey, filtered);
       });
+      flushNotificationsCache(allNotifications).catch(() => {
+      });
       showToast(`Deleted notifications for ${count} app${count > 1 ? "s" : ""}`, "success");
     } catch (error) {
       console.error("[Notifications] deleteSelectedNotifications error:", error);
@@ -29924,10 +30283,11 @@ ${this.customData.serverResponse}`;
       const d = new Date(n.receivedAt || n.timestamp || 0);
       const date = d.toLocaleDateString("en-GB");
       const time = d.toLocaleTimeString();
-      const app2 = n.appName || n.packageName || "";
+      const app2 = prettyAppName(n.appName, n.packageName);
       const title = n.title || "";
       const body = n.text || n.body || "";
-      const device = resolveDeviceName2(n) || "";
+      const isUserLevel = !n.deviceId || n.deviceId === "user" || n.deviceId === "_user_notifications";
+      const device = resolveDeviceName2(n) || (isUserLevel ? "(User)" : "");
       return [date, time, app2, title, body, device].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
     const now = /* @__PURE__ */ new Date();
@@ -29941,7 +30301,7 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
-  var isSyncingNotif, pendingNotifSnapshots, notifSelectionMode, selectedNotifApps, _searchWired, _renderTimer;
+  var isSyncingNotif, pendingNotifSnapshots, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -29956,8 +30316,14 @@ ${this.customData.serverResponse}`;
       init_cryptoService();
       isSyncingNotif = false;
       pendingNotifSnapshots = 0;
+      NOTIF_INITIAL_LIMIT = 500;
+      NOTIF_PAGE_SIZE = 200;
+      notifPaginationState = {};
+      isLoadingMoreNotif = false;
+      notifScrollHandlerAttached = false;
       notifSelectionMode = false;
       selectedNotifApps = /* @__PURE__ */ new Set();
+      isAutoFilling = false;
       _searchWired = false;
       _renderTimer = null;
     }

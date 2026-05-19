@@ -2053,6 +2053,25 @@ async function markConversationAsRead(conversation) {
 }
 
 /**
+ * Remove a set of deleted message IDs from the per-device state map and
+ * immediately flush the SMS cache so deleted items never reappear on the
+ * next popup open (the delta query only fetches *new* items, not removals).
+ *
+ * @param {Set<string>} deletedIds  - IDs that were just removed from Firestore
+ * @param {Array}       updatedMessages - the already-filtered allSMSMessages array
+ */
+function _purgeSMSFromCache(deletedIds, updatedMessages) {
+  // Strip deleted items from every per-device bucket
+  for (const deviceId of Object.keys(state.allSMS)) {
+    const filtered = (state.allSMS[deviceId] || []).filter((m) => !deletedIds.has(m.id));
+    state.setSMSData(deviceId, filtered);
+  }
+  // Queue the new data and force an immediate write (bypasses the 3 s debounce)
+  cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
+  flushSMSCache().catch(() => {});
+}
+
+/**
  * Delete: conversation messages (if in conversation), selected conversations
  * (if in selection mode), or prompt user to select first.
  */
@@ -2096,6 +2115,7 @@ export async function deleteAllSms() {
       const deletedIds = new Set(msgsToDelete.map((m) => m.id));
       const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
       state.setAllSMSMessages(updatedMessages);
+      _purgeSMSFromCache(deletedIds, updatedMessages);
       showToast(getCurrentLanguage() === "ar" ? `تم حذف ${msgsToDelete.length} رسالة` : `${msgsToDelete.length} messages deleted`, "success");
       state.setCurrentConversation(null);
       renderSMS(updatedMessages);
@@ -2159,6 +2179,7 @@ async function deleteSingleSms(msgId) {
 
     const updatedMessages = state.allSMSMessages.filter((m) => m.id !== msgId);
     state.setAllSMSMessages(updatedMessages);
+    _purgeSMSFromCache(new Set([msgId]), updatedMessages);
 
     if (state.currentConversation) {
       const remaining = updatedMessages.filter((m) => {
@@ -2394,6 +2415,7 @@ async function deleteSelectedMessages() {
       const deletedIds = new Set(msgsToDelete.map((m) => m.id));
       const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
       state.setAllSMSMessages(updatedMessages);
+      _purgeSMSFromCache(deletedIds, updatedMessages);
     }
     // Exit message selection mode
     messageSelectionMode = false;
@@ -2456,6 +2478,7 @@ export async function deleteSelectedConversations() {
       const deletedIds = new Set(msgsToDelete.map((m) => m.id));
       const updatedMessages = state.allSMSMessages.filter((m) => !deletedIds.has(m.id));
       state.setAllSMSMessages(updatedMessages);
+      _purgeSMSFromCache(deletedIds, updatedMessages);
     }
 
     // Exit selection mode

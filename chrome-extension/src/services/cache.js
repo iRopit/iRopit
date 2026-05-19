@@ -125,8 +125,28 @@ export async function cacheCallsData(callsByDevice, allCalls) {
 /**
  * Save notifications data to local cache. Debounced 3 s so partial per-device
  * updates don't pollute the cache before all listeners have settled.
+ *
+ * Sort newest-first and keep a generous cap (5000/device). The previous 500
+ * cap silently dropped older items pulled by pagination — so every cache write
+ * after autoFill threw away the older history, making it impossible to
+ * accumulate notifications older than the newest 500.
+ *
  * @param {Object} notifsByDevice - Notifications keyed by deviceId
  */
+const NOTIF_CACHE_CAP_PER_DEVICE = 2000;
+function _serializeNotifs(notifsByDevice) {
+  const out = {};
+  for (const [key, notifs] of Object.entries(notifsByDevice)) {
+    const sorted = [...notifs].sort((a, b) => {
+      const ta = a.timestamp || a.receivedAt || 0;
+      const tb = b.timestamp || b.receivedAt || 0;
+      return tb - ta;
+    });
+    out[key] = sorted.slice(0, NOTIF_CACHE_CAP_PER_DEVICE);
+  }
+  return out;
+}
+
 let notifCacheWriteTimer = null;
 let notifCachePending = null;
 export async function cacheNotificationsData(notifsByDevice) {
@@ -138,10 +158,7 @@ export async function cacheNotificationsData(notifsByDevice) {
     notifCachePending = null;
     if (!payload) return;
     try {
-      const serializable = {};
-      for (const [key, notifs] of Object.entries(payload)) {
-        serializable[key] = notifs.slice(0, 500);
-      }
+      const serializable = _serializeNotifs(payload);
       await chrome.storage.local.set({
         [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() },
       });
@@ -149,6 +166,28 @@ export async function cacheNotificationsData(notifsByDevice) {
       console.warn("[Cache] Failed to save notifications cache:", error);
     }
   }, 3000);
+}
+
+/**
+ * Force an immediate write of any pending notification cache, bypassing the
+ * debounce. Call after loadMoreNotifications so paginated older items survive
+ * a fast refresh / popup close.
+ */
+export async function flushNotificationsCache(notifsByDevice) {
+  if (notifCacheWriteTimer) {
+    clearTimeout(notifCacheWriteTimer);
+    notifCacheWriteTimer = null;
+  }
+  notifCachePending = null;
+  if (!notifsByDevice) return;
+  try {
+    const serializable = _serializeNotifs(notifsByDevice);
+    await chrome.storage.local.set({
+      [CACHE_KEYS.NOTIFICATIONS]: { byDevice: serializable, savedAt: Date.now() },
+    });
+  } catch (error) {
+    console.warn("[Cache] Failed to flush notifications cache:", error);
+  }
 }
 
 /**

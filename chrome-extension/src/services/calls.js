@@ -242,10 +242,14 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
   const rawPhoneNumber = (data.phoneNumber && typeof data.phoneNumber === "string" && data.phoneNumber.startsWith("ENC:")) ? "" : (data.phoneNumber || "");
   const rawNumber = (data.number && typeof data.number === "string" && data.number.startsWith("ENC:")) ? "" : (data.number || "");
   const rawAddress = (data.address && typeof data.address === "string" && data.address.startsWith("ENC:")) ? "" : (data.address || "");
+  // The Android/RN side falls back to the literal string "unknown" when a VoIP
+  // call (Messenger / Teams / Meet / etc.) has no real phone number. Treat it
+  // as empty so the rest of the pipeline routes it through the "unknown" group.
+  const cleanPhone = (val) => (typeof val === "string" && val.trim().toLowerCase() === "unknown") ? "" : val;
   const resolvedPhone =
-    rawPhoneNumber ||
-    rawNumber ||
-    rawAddress ||
+    cleanPhone(rawPhoneNumber) ||
+    cleanPhone(rawNumber) ||
+    cleanPhone(rawAddress) ||
     (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title)
       ? data.title
       : "") ||
@@ -263,10 +267,14 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
     id: firestoreId,
     deviceId: deviceId,
     deviceName: deviceName,
-    phoneNumber: resolvedPhone || rawPhoneNumber || "",
+    phoneNumber: resolvedPhone || cleanPhone(rawPhoneNumber) || "",
     contactName: resolvedContact,
     type: data.type || data.callType || "incoming",
     simSlot: data.simSlot != null ? data.simSlot : -1,
+    // App name for VoIP / 3rd-party app calls (Messenger, Teams, Meet, etc.)
+    appName: (data.appName && typeof data.appName === "string" && !data.appName.startsWith("ENC:"))
+      ? data.appName
+      : "",
     // Strip any remaining encrypted fields so they don't persist in cache
     name: (data.name && typeof data.name === "string" && data.name.startsWith("ENC:")) ? "" : (data.name || ""),
     displayName: (data.displayName && typeof data.displayName === "string" && data.displayName.startsWith("ENC:")) ? "" : (data.displayName || ""),
@@ -718,18 +726,21 @@ export function renderCalls(calls) {
       ? normalizedPhone
       : safeContact
         ? `contact_${safeContact}`
-        : "Unknown";
+        : "unknown";
     if (!grouped[key]) {
       grouped[key] = {
         key: key,
-        phoneNumber: safePhone || "Unknown",
+        phoneNumber: safePhone,           // raw value — empty for VoIP/unknown
         contactName: safeContact || getContactName(normalizedPhone) || "",
+        appName: call.appName || "",      // populated for VoIP app calls
         calls: [],
         lastCall: call,
         missedCount: 0,
         unviewedMissedCount: 0,
       };
     }
+    // Keep the best appName seen across calls in this group
+    if (!grouped[key].appName && call.appName) grouped[key].appName = call.appName;
     grouped[key].calls.push(call);
     if (call.type === "missed") {
       grouped[key].missedCount++;
@@ -766,22 +777,41 @@ export function renderCalls(calls) {
 
   callsList.innerHTML = callGroups
     .map(
-      (group) => `
-    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.phoneNumber) ? " selected" : ""}" data-phone="${
+      (group) => {
+        const phoneStr = (group.phoneNumber || "").toString().trim();
+        const isVoIP = !phoneStr || phoneStr.toLowerCase() === "unknown" || !normalizePhoneNumber(phoneStr);
+        const unknownLabel = getCurrentLanguage() === "ar" ? "مجهول" : "Unknown";
+        const displayName = group.contactName
+          || (isVoIP ? (group.appName || unknownLabel) : phoneStr)
+          || unknownLabel;
+        // Calling method — shown on the subtitle so the user can tell at a
+        // glance whether the call went through the regular phone line (and
+        // which SIM) or via a VoIP app (WhatsApp / Messenger / Teams / …).
+        const lastSim = group.lastCall.simSlot;
+        const isAr = getCurrentLanguage() === "ar";
+        const phoneLabel = isAr ? "هاتف" : "Phone";
+        const simLabel = (lastSim != null && lastSim >= 0)
+          ? ` · ${isAr ? "شريحة" : "SIM"} ${lastSim + 1}`
+          : "";
+        const methodLabel = isVoIP
+          ? (group.appName || (isAr ? "تطبيق" : "VoIP"))
+          : `${phoneLabel}${simLabel}`;
+        return `
+    <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${
       group.phoneNumber
-    }" data-group-key="${group.phoneNumber}">
-      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.phoneNumber) ? "checked" : ""} tabindex="-1" /></div>` : ""}
+    }" data-group-key="${group.key}">
+      ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.key) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
-        ${getInitials(group.contactName || group.phoneNumber)}
+        ${getInitials(displayName)}
       </div>
       <div class="list-item-content">
         <div class="list-item-title">
-          <span class="call-contact-name">${group.contactName || group.phoneNumber}</span>
+          <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)}</div>
+        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)} · ${String(methodLabel).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
-      <div class="call-list-hover-actions">
+      ${!isVoIP ? `<div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-call" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -792,7 +822,7 @@ export function renderCalls(calls) {
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
           </svg>
         </button>
-      </div>
+      </div>` : ""}
       <div class="list-item-meta">
         <span class="list-item-time">${formatTime(
           group.lastCall.timestamp,
@@ -804,30 +834,29 @@ export function renderCalls(calls) {
         }
       </div>
     </div>
-  `,
-    )
+  `; })
     .join("");
 
   // Add click handlers for call groups
   document.querySelectorAll(".call-group").forEach((el) => {
     el.addEventListener("click", (e) => {
-      const phoneNumber = el.dataset.phone;
+      const groupKey = el.dataset.groupKey;
       if (callsSelectionMode) {
         // Toggle selection
         const cb = el.querySelector(".call-checkbox");
-        if (selectedCallGroups.has(phoneNumber)) {
-          selectedCallGroups.delete(phoneNumber);
+        if (selectedCallGroups.has(groupKey)) {
+          selectedCallGroups.delete(groupKey);
           el.classList.remove("selected");
           if (cb) cb.checked = false;
         } else {
-          selectedCallGroups.add(phoneNumber);
+          selectedCallGroups.add(groupKey);
           el.classList.add("selected");
           if (cb) cb.checked = true;
         }
         _updateCallsSelectionToolbar(callGroups.length);
         return;
       }
-      showCallHistory(phoneNumber);
+      showCallHistory(groupKey);
     });
 
     const phoneNumber = el.dataset.phone;
@@ -856,7 +885,6 @@ export function renderCalls(calls) {
     if (!group || callsSelectionMode) return;
     callLongPressTimer = setTimeout(() => {
       callLongPressTimer = null;
-      const phoneNumber = group.dataset.phone;
       callsSelectionMode = true;
       selectedCallGroups.clear();
       document.getElementById("callsSelectBtn")?.classList.add("active");
@@ -864,13 +892,14 @@ export function renderCalls(calls) {
       if (toolbar) toolbar.style.display = "flex";
       renderCalls(state.allCallsData);
       setTimeout(() => {
-        const el = document.querySelector(`.call-group[data-phone="${CSS.escape(phoneNumber)}"]`);
+        const groupKey = group.dataset.groupKey;
+        const el = document.querySelector(`.call-group[data-group-key="${CSS.escape(groupKey)}"]`);
         if (el) {
-          selectedCallGroups.add(phoneNumber);
+          selectedCallGroups.add(groupKey);
           el.classList.add("selected");
           const cb = el.querySelector(".call-checkbox");
           if (cb) cb.checked = true;
-          _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-phone]").length);
+          _updateCallsSelectionToolbar(document.querySelectorAll(".call-group[data-group-key]").length);
         }
       }, 0);
     }, 500);
@@ -883,30 +912,48 @@ export function renderCalls(calls) {
 }
 
 /**
- * Show call history for a specific phone number
- * @param {string} phoneNumber - Phone number to show history for
+ * Show call history for a specific call group
+ * @param {string} groupKey - Group key (normalised phone, "contact_name", or "unknown")
  */
-async function showCallHistory(phoneNumber) {
+async function showCallHistory(groupKey) {
+  // Build the matching filter based on the group key type
+  const matchesByGroupKey = (call) => {
+    const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+    const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+    const normalizedPhone = normalizePhoneNumber(safePhone);
+    if (groupKey === "unknown") {
+      return !normalizedPhone && !safeContact;
+    } else if (groupKey.startsWith("contact_")) {
+      return safeContact === groupKey.slice(8);
+    } else {
+      return normalizePhoneNumber(safePhone) === groupKey;
+    }
+  };
+
   const calls = state.allCallsData
-    .filter((call) => call.phoneNumber === phoneNumber)
+    .filter(matchesByGroupKey)
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   if (calls.length === 0) return;
 
-  const contactName = calls[0].contactName || phoneNumber;
-  state.setCurrentCallConversation(phoneNumber);
+  // Determine display name and phone number from the first (most recent) call
+  const rawPhone = (calls[0].phoneNumber || "").toString().trim();
+  const isVoIP = !rawPhone || rawPhone.toLowerCase() === "unknown" || !normalizePhoneNumber(rawPhone);
+  const phoneNumber = isVoIP ? "" : rawPhone;
+  const contactName = calls[0].contactName ||
+    (isVoIP ? (calls[0].appName || (getCurrentLanguage() === "ar" ? "مجهول" : "Unknown")) : phoneNumber);
+  state.setCurrentCallConversation(groupKey);
 
-  // Mark missed calls for this number as viewed
+  // Mark missed calls for this group as viewed
   const missedToMark = calls.filter(
     (call) => call.type === "missed" && !call.viewed,
   );
 
   if (missedToMark.length > 0) {
+    const missedIds = new Set(missedToMark.map((c) => c.id));
     // Update local state immediately
     const updatedCalls = state.allCallsData.map((call) =>
-      call.phoneNumber === phoneNumber && call.type === "missed"
-        ? { ...call, viewed: true }
-        : call,
+      missedIds.has(call.id) ? { ...call, viewed: true } : call,
     );
     state.setAllCallsData(updatedCalls);
 
@@ -914,9 +961,7 @@ async function showCallHistory(phoneNumber) {
     // keeps viewed:true when Firestore re-fires with stale viewed:false data.
     Object.keys(state.allCallsByDevice).forEach((deviceId) => {
       const updated = state.allCallsByDevice[deviceId].map((call) =>
-        call.phoneNumber === phoneNumber && call.type === "missed" && !call.viewed
-          ? { ...call, viewed: true }
-          : call,
+        missedIds.has(call.id) ? { ...call, viewed: true } : call,
       );
       state.setCallsByDevice(deviceId, updated);
     });
@@ -963,15 +1008,15 @@ async function showCallHistory(phoneNumber) {
           ${getInitials(contactName)}</div>
         <div class="conversation-info">
           <div class="conversation-name">${contactName}</div>
-          ${phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
+          ${!isVoIP && phoneNumber !== contactName ? `<div class="conversation-phone">${phoneNumber}</div>` : ""}
         </div>
-        <button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ الرقم' : 'Copy number'}">
+        ${!isVoIP ? `<button class="chat-action-btn copy-phone-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ الرقم' : 'Copy number'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
           </svg>
-        </button>
-        <div class="call-action-buttons">
+        </button>` : ""}
+        ${!isVoIP ? `<div class="call-action-buttons">
           <button class="call-action-btn" id="dialPhoneBtn" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call on phone'}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -984,7 +1029,7 @@ async function showCallHistory(phoneNumber) {
             </svg>
             <span>WhatsApp</span>
           </button>
-        </div>
+        </div>` : ""}
       </div>
       <div class="conversation-messages call-history">
         ${calls
@@ -1014,28 +1059,30 @@ async function showCallHistory(phoneNumber) {
     renderCalls(state.allCallsData);
   });
 
-  // Copy phone number handler
-  document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
-    navigator.clipboard.writeText(phoneNumber).then(() => {
-      showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
-    }).catch(() => {
-      showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+  if (!isVoIP) {
+    // Copy phone number handler
+    document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
+      navigator.clipboard.writeText(phoneNumber).then(() => {
+        showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
+      }).catch(() => {
+        showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+      });
     });
-  });
 
-  // Dial button handler
-  document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
-    initiateDialRequest(phoneNumber, null);
-  });
+    // Dial button handler
+    document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
+      initiateDialRequest(phoneNumber, null);
+    });
 
-  // WhatsApp button handler
-  document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
-    let clean = phoneNumber.replace(/[^\d+]/g, "");
-    if (clean.startsWith("+")) clean = clean.slice(1);
-    else if (clean.startsWith("00")) clean = clean.slice(2);
-    else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
-    window.open(`https://wa.me/${clean}`, "_blank");
-  });
+    // WhatsApp button handler
+    document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
+      let clean = phoneNumber.replace(/[^\d+]/g, "");
+      if (clean.startsWith("+")) clean = clean.slice(1);
+      else if (clean.startsWith("00")) clean = clean.slice(2);
+      else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+      window.open(`https://wa.me/${clean}`, "_blank");
+    });
+  }
 }
 
 // ── Selection mode exports ────────────────────────────────────────────────────
@@ -1060,16 +1107,16 @@ export function toggleCallsSelectionMode() {
 
 /** Toggle select-all for visible call groups */
 export function setCallsSelectAll(checked) {
-  const groups = document.querySelectorAll(".call-group[data-phone]");
+  const groups = document.querySelectorAll(".call-group[data-group-key]");
   groups.forEach((el) => {
-    const phone = el.dataset.phone;
+    const key = el.dataset.groupKey;
     const cb = el.querySelector(".call-checkbox");
     if (checked) {
-      selectedCallGroups.add(phone);
+      selectedCallGroups.add(key);
       el.classList.add("selected");
       if (cb) cb.checked = true;
     } else {
-      selectedCallGroups.delete(phone);
+      selectedCallGroups.delete(key);
       el.classList.remove("selected");
       if (cb) cb.checked = false;
     }
@@ -1093,9 +1140,17 @@ export async function deleteSelectedCallGroups() {
   try {
     const batch = writeBatch(db);
     let deletedCount = 0;
-    // Find all calls matching the selected phone numbers
+    // Find all calls matching the selected group keys
     state.allCallsData.forEach((call) => {
-      if (selectedCallGroups.has(call.phoneNumber) && call.deviceId && call.id) {
+      const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+      const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+      const normalizedPhone = normalizePhoneNumber(safePhone);
+      const callKey = normalizedPhone
+        ? normalizedPhone
+        : safeContact
+          ? `contact_${safeContact}`
+          : "unknown";
+      if (selectedCallGroups.has(callKey) && call.deviceId && call.id) {
         const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
         batch.delete(callRef);
         deletedCount++;
@@ -1104,12 +1159,25 @@ export async function deleteSelectedCallGroups() {
     if (deletedCount > 0) await batch.commit();
 
     // Update local state
-    const remaining = state.allCallsData.filter((c) => !selectedCallGroups.has(c.phoneNumber));
+    const remaining = state.allCallsData.filter((call) => {
+      const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+      const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+      const normalizedPhone = normalizePhoneNumber(safePhone);
+      const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+      return !selectedCallGroups.has(callKey);
+    });
     Object.keys(state.allCallsByDevice).forEach((deviceId) => {
-      const updated = (state.allCallsByDevice[deviceId] || []).filter((c) => !selectedCallGroups.has(c.phoneNumber));
+      const updated = (state.allCallsByDevice[deviceId] || []).filter((call) => {
+        const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+        const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+        const normalizedPhone = normalizePhoneNumber(safePhone);
+        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        return !selectedCallGroups.has(callKey);
+      });
       state.setCallsByDevice(deviceId, updated);
     });
     state.setAllCallsData(remaining);
+    cacheCallsData(state.allCallsByDevice, remaining).catch(() => {});
     showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
   } catch (error) {
     console.error("[Calls] deleteSelectedCallGroups error:", error);
@@ -1177,6 +1245,7 @@ export async function clearAllCalls() {
   Object.values(state.allCallsByDevice).forEach((calls) => { remaining = remaining.concat(calls); });
   remaining.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   state.setAllCallsData(remaining);
+  cacheCallsData(state.allCallsByDevice, remaining).catch(() => {});
   renderCalls(remaining);
   updateTabBadges();
 }

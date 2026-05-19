@@ -553,11 +553,6 @@ body[dir="rtl"] {
   align-items: stretch;
 }
 
-#smsDeviceTabs::-webkit-scrollbar,
-#callsDeviceTabs::-webkit-scrollbar {
-  width: 4px;
-  height: 0;
-}
 
 #smsDeviceTabs .device-tab,
 #callsDeviceTabs .device-tab {
@@ -603,10 +598,6 @@ body[dir="rtl"] {
   align-items: stretch;
 }
 
-#notificationsDeviceTabs::-webkit-scrollbar {
-  width: 4px;
-  height: 0;
-}
 
 #notificationsDeviceTabs .device-tab {
   padding: 8px 6px;
@@ -1925,14 +1916,38 @@ body[dir="rtl"] .device-tag {
   display: none !important;
 }
 
-/* Scrollbar - hidden */
+/* Scrollbar - thin, always visible for scrollable containers */
 ::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-secondary, #1e2130);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #718096;
 }
 
 * {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #4a5568 var(--surface-secondary, #1e2130);
+}
+
+/* Keep device-tab side panels with minimal scrollbar */
+#smsDeviceTabs::-webkit-scrollbar,
+#callsDeviceTabs::-webkit-scrollbar,
+#notificationsDeviceTabs::-webkit-scrollbar,
+#chatDeviceTabs::-webkit-scrollbar {
+  width: 3px;
+  height: 0;
 }
 
 /* Notifications */
