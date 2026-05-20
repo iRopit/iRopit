@@ -218,7 +218,12 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                 </Text>
               </View>
             ) : (
-              <View style={styles.deviceList}>
+              <ScrollView
+                style={styles.deviceListScroll}
+                contentContainerStyle={styles.deviceList}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
                 {/* All devices option */}
                 <TouchableOpacity
                   style={[
@@ -264,7 +269,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                     )}
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             )}
 
             {!!error && <Text style={styles.errorText}>{error}</Text>}
@@ -364,8 +369,11 @@ const styles = StyleSheet.create({
     minHeight: 60,
     maxHeight: 120,
   },
-  deviceList: {
+  deviceListScroll: {
+    maxHeight: 200,
     marginBottom: 20,
+  },
+  deviceList: {
     gap: 8,
   },
   deviceRow: {
