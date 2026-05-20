@@ -393,7 +393,10 @@ const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+bee
 // Pending/future-tense signals — if present alongside a credit keyword, the transaction hasn't happened yet
 const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
 
-// Mask balance figures — keyword BEFORE amount: "balance: AED 5,000" OR "limit is AED 5,000"
+// Mask rate/pricing amounts — e.g. "EGP 20 per Min", "AED 0.5 per SMS"
+const RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
+
+
 const BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
 // Mask balance figures — amount BEFORE keyword: "AED 5,000 balance" / "AED 5,000 is your available balance"
 const BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
@@ -414,7 +417,7 @@ function isBankingSMS(body) {
   if (!body || typeof body !== "string") return false;
 
   // Strong signals — any one of these is enough
-  const STRONG = /\b(debited|credited|charged|charge|reversed|reversal|transaction|txn|purchase|withdrawal|has been used|used for|credit card|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
+  const STRONG = /\b(debited|credited|reversed|reversal|transaction|txn|purchase|withdrawal|has been used|used for|credit card|debit card|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|direct debit|standing order|emi|instalment|installment|cashback|refund)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
 
   return STRONG.test(body);
 }
@@ -432,6 +435,7 @@ function extractTransactions(body) {
 
   // Step 1: Mask balance/informational amounts in both directions
   const masked = body
+    .replace(RATE_MASK_RE, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_A, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_B, (m) => " ".repeat(m.length))
     .replace(BALANCE_MASK_RE_AR, (m) => " ".repeat(m.length))
