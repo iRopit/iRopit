@@ -453,8 +453,10 @@ export async function loadSMS() {
 
       try {
         // One-time fetch - much faster than onSnapshot for bulk data
-        // Use fetchDocs (getDocsFromServer when no custom cache) to bypass stale Firestore IndexedDB cache
-        const snapshot = await fetchDocs(q);
+        // Delta queries MUST hit the server — the whole point is to find messages
+        // newer than the cache, which Firestore's local IndexedDB won't have yet.
+        // Full fetches use fetchDocs (getDocsFromServer when no custom cache).
+        const snapshot = await (isDelta ? getDocsFromServer : fetchDocs)(q);
         console.log(
           `[SMS] ${isDelta ? "ðŸ”„ Delta" : "ðŸ“¥ Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
@@ -1151,7 +1153,13 @@ export function renderSMS(messages) {
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${escapeHtml((conv.lastMessage.body || "").substring(0, 80))}</div>
+        <div class="list-item-subtitle">${
+          conv.lastMessage.body
+            ? escapeHtml(conv.lastMessage.body.substring(0, 80))
+            : (isSyncing || (Date.now() - (conv.lastMessage.timestamp || 0)) < 30000)
+              ? '<span class="sms-body-loading"></span>'
+              : ""
+        }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">

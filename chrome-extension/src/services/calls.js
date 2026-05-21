@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
   addDoc,
   deleteDoc,
   query,
@@ -445,7 +446,10 @@ export async function loadCalls() {
     }
 
     try {
-      const snapshot = await getDocs(q);
+      // Delta queries must hit the server — new calls won't be in Firestore's
+      // local IndexedDB cache yet, causing a multi-second delay before the
+      // realtime listener eventually delivers them.
+      const snapshot = await (isDelta ? getDocsFromServer : getDocs)(q);
       console.log(
         `[Calls] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} calls from device ${device.id}`,
       );
@@ -808,7 +812,13 @@ export function renderCalls(calls) {
         <div class="list-item-title">
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle">${getCallTypeLabel(group.lastCall.type)} · ${String(methodLabel).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}</div>
+        <div class="list-item-subtitle">${
+          group.lastCall.type
+            ? `${getCallTypeLabel(group.lastCall.type)} · ${String(methodLabel).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}`
+            : isSyncingCalls
+              ? '<span class="sms-body-loading"></span>'
+              : ""
+        }</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">

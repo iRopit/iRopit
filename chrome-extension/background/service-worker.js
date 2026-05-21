@@ -19670,9 +19670,19 @@ function extractOTP(text) {
   if (nearby) return nearby[1];
   const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
   const beforeMatch = before.match(/\b(\d{4,8})\b/);
-  if (beforeMatch) return beforeMatch[1];
-  const any = clean.match(/\b(\d{4,8})\b/);
-  return any ? any[1] : null;
+  if (beforeMatch) {
+    const maskedCardRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
+    if (!maskedCardRe.test(before.slice(0, beforeMatch.index + beforeMatch[0].length))) {
+      return beforeMatch[1];
+    }
+  }
+  const anyMatch = clean.match(/\b(\d{4,8})\b/);
+  if (anyMatch) {
+    const precedingText = clean.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
+    const maskedCardFallbackRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
+    if (!maskedCardFallbackRe.test(precedingText)) return anyMatch[1];
+  }
+  return null;
 }
 async function sendOTPToActiveTab(otp, sender, body) {
   try {

@@ -798,6 +798,21 @@ public class NotificationService extends NotificationListenerService {
         // Skip SMS notifications already captured by SmsReceiver/BackgroundSmsService
         // or by SentSmsObserver (outgoing SMS). This prevents duplicate Firestore documents.
         if (type.equals("sms")) {
+            // Check 0: empty body. Google Messages frequently posts the SMS notification
+            // BEFORE EXTRA_TEXT is populated — title is set, body is "" — then updates the
+            // same notification a few seconds later with the real text. If we write the empty
+            // doc now, the extension shows the header instantly but the body only appears 5–8s
+            // later (when SmsReceiver/BackgroundSmsService writes the full PDU body and merges
+            // into the same docId). Skipping the empty-body write lets BackgroundSmsService be
+            // the single writer with the full body from the start.
+            String trimmedText = text != null ? text.trim() : "";
+            String trimmedBig = bigText != null ? bigText.trim() : "";
+            if (trimmedText.isEmpty() && trimmedBig.isEmpty()) {
+                Log.i(TAG, "📱 SMS skip: empty body (Google Messages not ready yet) — BackgroundSmsService will write");
+                lastNotificationTime.put(key, now);
+                return;
+            }
+
             boolean alreadyCaptured = false;
             
             // Check 1: sender-based dedup for incoming SMS (if phone number available)

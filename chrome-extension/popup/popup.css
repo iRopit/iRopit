@@ -831,6 +831,21 @@ body[dir="rtl"] {
   display: block;
 }
 
+.sms-body-loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  animation: sms-spinner 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes sms-spinner {
+  to { transform: rotate(360deg); }
+}
+
 .device-tag {
   display: inline-block;
   font-size: 10px;

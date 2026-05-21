@@ -1326,11 +1326,23 @@ function extractOTP(text) {
   // Also check 40 chars BEFORE the keyword (e.g. "123456 is your OTP")
   const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
   const beforeMatch = before.match(/\b(\d{4,8})\b/);
-  if (beforeMatch) return beforeMatch[1];
+  if (beforeMatch) {
+    // Exclude card/account masking numbers — e.g. "ending 7396", "last 4 digits 1234",
+    // "card (ending 7396)", "account no. 1234" — these are identifiers, not OTPs.
+    const maskedCardRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
+    if (!maskedCardRe.test(before.slice(0, beforeMatch.index + beforeMatch[0].length))) {
+      return beforeMatch[1];
+    }
+  }
 
-  // Fallback: first 4-8 digit number in the whole text
-  const any = clean.match(/\b(\d{4,8})\b/);
-  return any ? any[1] : null;
+  // Fallback: first 4-8 digit number in the whole text, but not a masked card/account number
+  const anyMatch = clean.match(/\b(\d{4,8})\b/);
+  if (anyMatch) {
+    const precedingText = clean.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
+    const maskedCardFallbackRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
+    if (!maskedCardFallbackRe.test(precedingText)) return anyMatch[1];
+  }
+  return null;
 }
 
 /**
