@@ -24300,7 +24300,7 @@ ${this.customData.serverResponse}`;
   });
 
   // src/ui/dom.js
-  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, smsModal, newSmsBtn, closeSmsModal, cancelSmsBtn, sendSmsBtn, smsDevice, smsPhone, smsMessage, charCount, callModal, newCallBtn, closeCallModal, cancelCallBtn, sendCallBtn, callDevice, callPhone, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark, langToggleBtn, langToggleLabel;
+  var authContainer, mainContainer, loginForm, signupForm, loadingOverlay, toastContainer, loginEmail, loginPassword, loginBtn, googleLoginBtn, showSignup, signupName, signupEmail, signupPassword, signupBtn, googleSignupBtn, showLogin, logoutBtn, userAvatarChat, userNameChat, userEmailChat, logoutBtnChat, tabs, tabContents, chatInput, sendChatBtn, chatMessages, markAllReadBtn, deleteAllSmsBtn, settingsBtn, settingsModal, closeSettingsBtn, smsList, callsList, devicesList, notificationsList, themeToggleBtn, themeIconLight, themeIconDark, langToggleBtn, langToggleLabel;
   var init_dom = __esm({
     "src/ui/dom.js"() {
       authContainer = document.getElementById("authContainer");
@@ -24327,22 +24327,6 @@ ${this.customData.serverResponse}`;
       logoutBtnChat = document.getElementById("logoutBtnChat");
       tabs = document.querySelectorAll(".tab");
       tabContents = document.querySelectorAll(".tab-content");
-      smsModal = document.getElementById("smsModal");
-      newSmsBtn = document.getElementById("newSmsBtn");
-      closeSmsModal = document.getElementById("closeSmsModal");
-      cancelSmsBtn = document.getElementById("cancelSmsBtn");
-      sendSmsBtn = document.getElementById("sendSmsBtn");
-      smsDevice = document.getElementById("smsDevice");
-      smsPhone = document.getElementById("smsPhone");
-      smsMessage = document.getElementById("smsMessage");
-      charCount = document.getElementById("charCount");
-      callModal = document.getElementById("callModal");
-      newCallBtn = document.getElementById("newCallBtn");
-      closeCallModal = document.getElementById("closeCallModal");
-      cancelCallBtn = document.getElementById("cancelCallBtn");
-      sendCallBtn = document.getElementById("sendCallBtn");
-      callDevice = document.getElementById("callDevice");
-      callPhone = document.getElementById("callPhone");
       chatInput = document.getElementById("chatInput");
       sendChatBtn = document.getElementById("sendChatBtn");
       chatMessages = document.getElementById("chatMessages");
@@ -26578,11 +26562,6 @@ ${this.customData.serverResponse}`;
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
-        <button class="call-list-hover-btn call-list-hover-call" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-          </svg>
-        </button>
         <button class="call-list-hover-btn call-list-hover-wa" title="WhatsApp">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -26619,10 +26598,6 @@ ${this.customData.serverResponse}`;
         showCallHistory(groupKey);
       });
       const phoneNumber = el.dataset.phone;
-      el.querySelector(".call-list-hover-call")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        initiateDialRequest(phoneNumber, null);
-      });
       el.querySelector(".call-list-hover-wa")?.addEventListener("click", (e) => {
         e.stopPropagation();
         let clean = phoneNumber.replace(/[^\d+]/g, "");
@@ -26761,12 +26736,6 @@ ${this.customData.serverResponse}`;
           </svg>
         </button>` : ""}
         ${!isVoIP ? `<div class="call-action-buttons">
-          <button class="call-action-btn" id="dialPhoneBtn" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call on phone"}">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-            <span>${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}</span>
-          </button>
           <button class="call-action-btn call-action-whatsapp" id="whatsappPhoneBtn" title="Open in WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -26805,9 +26774,6 @@ ${this.customData.serverResponse}`;
         }).catch(() => {
           showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
         });
-      });
-      document.getElementById("dialPhoneBtn")?.addEventListener("click", () => {
-        initiateDialRequest(phoneNumber, null);
       });
       document.getElementById("whatsappPhoneBtn")?.addEventListener("click", () => {
         let clean = phoneNumber.replace(/[^\d+]/g, "");
@@ -27144,8 +27110,8 @@ ${this.customData.serverResponse}`;
             currentAllContacts[device.id] = updatedContacts;
             setAllContacts(currentAllContacts);
             const newPhoneMap = {};
-            Object.values(currentAllContacts).forEach((deviceContacts2) => {
-              deviceContacts2.forEach((contact) => {
+            Object.values(currentAllContacts).forEach((deviceContacts) => {
+              deviceContacts.forEach((contact) => {
                 const phones = contact.phoneNumbers || [contact.phoneNumber];
                 phones.forEach((phone) => {
                   if (phone) {
@@ -27197,13 +27163,6 @@ ${this.customData.serverResponse}`;
     if (!phoneNumber) return "";
     const normalized = normalizePhoneNumber2(phoneNumber);
     return phoneToContactMap[normalized] || "";
-  }
-  function searchContacts(contacts, searchTerm) {
-    if (!searchTerm || !contacts) return contacts;
-    const term = searchTerm.toLowerCase();
-    return contacts.filter(
-      (contact) => contact.name.toLowerCase().includes(term) || contact.phoneNumber.includes(term) || contact.phoneNumbers && contact.phoneNumbers.some((p) => p.includes(term))
-    );
   }
   var contactsUnsubscribeFunctions;
   var init_contacts = __esm({
@@ -27338,7 +27297,8 @@ ${this.customData.serverResponse}`;
       return;
     }
     stopSMSListener();
-    if (smsList) {
+    const listHasContent = smsList && !smsList.querySelector(".loading-state") && smsList.children.length > 0 && !smsList.querySelector(".empty-state");
+    if (smsList && !listHasContent) {
       const lang = getCurrentLanguage();
       const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing messages from your phone\u2026";
       showListLoading(smsList, syncingMsg);
@@ -27482,36 +27442,73 @@ ${this.customData.serverResponse}`;
           console.log(
             `[SMS] ${isDelta ? "\xF0\u0178\u201D\u201E Delta" : "\xF0\u0178\u201C\xA5 Full"}: ${snapshot.size} messages from device ${device.id}`
           );
-          const messages = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
-              let data = docSnap.data();
-              const messageId = docSnap.id;
-              data = await decryptSMSCached(data, user.uid, messageId);
-              const resolvedPhone = resolvePhoneNumber(data);
-              const resolvedContact = resolveContactName(data, resolvedPhone);
-              return {
-                ...data,
-                id: messageId,
-                docId: messageId,
-                docRef: docSnap.ref,
-                deviceId: device.id,
-                deviceName: device.name,
-                phoneNumber: resolvedPhone,
-                contactName: resolvedContact,
-                title: stripEnc(data.title),
-                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
-                timestamp: data.timestamp || data.receivedAt || Date.now(),
-                read: data.read === true,
-                type: data.type || "sms"
-              };
-            })
-          );
+          const FIRST_BATCH = 20;
+          const BATCH_SIZE = 50;
+          const docs = snapshot.docs;
+          const allMessages = [];
+          const decryptDoc = async (docSnap) => {
+            let data = docSnap.data();
+            const messageId = docSnap.id;
+            data = await decryptSMSCached(data, user.uid, messageId);
+            const resolvedPhone = resolvePhoneNumber(data);
+            const resolvedContact = resolveContactName(data, resolvedPhone);
+            return {
+              ...data,
+              id: messageId,
+              docId: messageId,
+              docRef: docSnap.ref,
+              deviceId: device.id,
+              deviceName: device.name,
+              phoneNumber: resolvedPhone,
+              contactName: resolvedContact,
+              title: stripEnc(data.title),
+              body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
+              timestamp: data.timestamp || data.receivedAt || Date.now(),
+              read: data.read === true,
+              type: data.type || "sms"
+            };
+          };
+          const firstBatch = await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc));
+          allMessages.push(...firstBatch);
+          const mergeWithRealtime = (bulk) => {
+            const bulkIds = new Set(bulk.map((m) => m.id));
+            const realtimeOnly = (getSMSData(device.id) || []).filter(
+              (m) => !bulkIds.has(m.id)
+            );
+            return [...realtimeOnly, ...bulk];
+          };
+          if (!isDelta && firstBatch.length > 0) {
+            devicePagState.lastTimestamp = firstBatch[firstBatch.length - 1].timestamp;
+            if (paginationState[device.id])
+              paginationState[device.id].lastTimestamp = devicePagState.lastTimestamp;
+            devicePagState.hasMore = docs.length >= PAGE_SIZE || docs.length > FIRST_BATCH;
+            if (paginationState[device.id])
+              paginationState[device.id].hasMore = devicePagState.hasMore;
+            updateSMSList(device.id, mergeWithRealtime(allMessages));
+          }
+          let offset = FIRST_BATCH;
+          while (offset < docs.length) {
+            await new Promise((r) => setTimeout(r, 0));
+            const batch = await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc));
+            allMessages.push(...batch);
+            offset += BATCH_SIZE;
+            if (!isDelta) {
+              devicePagState.lastTimestamp = allMessages[allMessages.length - 1].timestamp;
+              if (paginationState[device.id])
+                paginationState[device.id].lastTimestamp = devicePagState.lastTimestamp;
+              devicePagState.hasMore = docs.length >= PAGE_SIZE || offset < docs.length;
+              if (paginationState[device.id])
+                paginationState[device.id].hasMore = devicePagState.hasMore;
+              updateSMSList(device.id, mergeWithRealtime(allMessages));
+            }
+          }
+          const messages = allMessages;
           if (isDelta) {
             const cachedMessages = getSMSData(device.id) || [];
             const cachedIds = new Set(cachedMessages.map((m) => m.id));
             const brandNew = messages.filter((m) => !cachedIds.has(m.id));
             console.log(
-              `[SMS] \xF0\u0178\u201D\u201E Delta: ${brandNew.length} new messages since cache for device ${device.id}`
+              `[SMS] Delta: ${brandNew.length} new messages since cache for device ${device.id}`
             );
             const merged = [...brandNew, ...cachedMessages];
             if (cachedMessages.length > 0) {
@@ -27985,7 +27982,7 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${conv.lastMessage.body ? escapeHtml(conv.lastMessage.body.substring(0, 80)) : isSyncing || Date.now() - (conv.lastMessage.timestamp || 0) < 3e4 ? '<span class="sms-body-loading"></span>' : ""}</div>
+        <div class="list-item-subtitle">${conv.lastMessage.body ? escapeHtml(conv.lastMessage.body.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
@@ -28272,12 +28269,6 @@ ${this.customData.serverResponse}`;
         ${(() => {
       const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike2(phoneNumber) ? phoneNumber : "");
       return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
-          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-            <span>${getCurrentLanguage() === "ar" ? "\u0627\u062A\u0635\u0627\u0644" : "Call"}</span>
-          </button>
           <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -28292,7 +28283,7 @@ ${this.customData.serverResponse}`;
       (msg) => `
           <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
             <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
-              <div class="message-text">${linkifyText2(msg.body || "")}</div>
+              <div class="message-text">${msg.body ? linkifyText2(msg.body) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg) ? `<span class="message-device"><svg width="11" height="11" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><rect x="128" y="16" width="256" height="480" rx="48" ry="48"/><line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48"/></svg>${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
@@ -28316,15 +28307,6 @@ ${this.customData.serverResponse}`;
         `
     ).join("")}
       </div>
-      <div class="conversation-input">
-        <input type="text" id="conversationMessageInput" placeholder="${getCurrentLanguage() === "ar" ? "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u0629" : "Type a message..."}" />
-        <button class="send-btn" id="sendConversationSms">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
-    </div>
   `;
     const messagesContainer = document.querySelector(".conversation-messages");
     if (messagesContainer) {
@@ -28354,13 +28336,6 @@ ${this.customData.serverResponse}`;
     }
     document.getElementById("backToSMS")?.addEventListener("click", () => {
       _goBackFromConversation();
-    });
-    document.getElementById("smsConvCallBtn")?.addEventListener("click", () => {
-      const actionsDiv = document.querySelector(".conv-header-actions");
-      const phone = actionsDiv?.dataset.actionPhone;
-      if (phone) {
-        Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.initiateDialRequest(phone, null));
-      }
     });
     document.getElementById("smsConvWaBtn")?.addEventListener("click", () => {
       const actionsDiv = document.querySelector(".conv-header-actions");
@@ -28450,6 +28425,8 @@ ${this.customData.serverResponse}`;
     });
   }
   async function sendConversationMessage(phoneNumber, inputElement) {
+    showToast(getCurrentLanguage() === "ar" ? "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0646\u0635\u064A\u0629 \u0645\u0639\u0637\u0644" : "SMS sending is disabled", "error");
+    return;
     const message = inputElement.value.trim();
     if (!message) return;
     const user = currentUser;
@@ -30704,11 +30681,13 @@ ${this.customData.serverResponse}`;
   var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+  var CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
+  var MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
-  var BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+  var BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى|المتوفر))?|الحد(?:\s*(?:المتاح|الأدنى\s*لل(?:دفع|سداد)))?|المتاح|المتبقي|المتبقى|المتوفر|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى|اخر\s*دفعة\s*مستلمة)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
   var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
@@ -30719,6 +30698,8 @@ ${this.customData.serverResponse}`;
   function extractTransactions(body) {
     if (!body || typeof body !== "string") return [];
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
+    if (CARD_STATEMENT_RE_AR.test(body)) return [];
+    if (MERCHANT_CONFIRM_RE.test(body)) return [];
     const masked = body.replace(RATE_MASK_RE, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
@@ -30908,7 +30889,7 @@ ${this.customData.serverResponse}`;
   function resolveDeviceName(id) {
     if (!id) return "";
     const dev = (devices || []).find((d) => d.id === id);
-    return dev ? getFriendlyDeviceName(dev) : id;
+    return dev ? getFriendlyDeviceName(dev) : "";
   }
   async function getCurrentFilteredData() {
     const fromInput = document.getElementById("dashFromDate");
@@ -30950,7 +30931,7 @@ ${this.customData.serverResponse}`;
         m.phoneNumber || m.sender || "",
         m.body || m.text || m.content || "",
         m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "",
-        resolveDeviceName(m.deviceId) || m.deviceName || ""
+        resolveDeviceName(m.deviceId) || m.deviceName || m.deviceId || ""
       ];
     });
     const callsHeaders = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
@@ -30963,7 +30944,7 @@ ${this.customData.serverResponse}`;
         c.contactName || c.title || "",
         c.phoneNumber || c.number || c.sender || "",
         typeof c.duration === "number" ? c.duration : Number(c.duration) || 0,
-        resolveDeviceName(c.deviceId) || c.deviceName || ""
+        resolveDeviceName(c.deviceId) || c.deviceName || c.deviceId || ""
       ];
     });
     const blob = buildXLSX([
@@ -30996,7 +30977,7 @@ ${this.customData.serverResponse}`;
       const date = d.toLocaleDateString("en-GB");
       const time = d.toLocaleTimeString();
       const sender = msg.sender || msg.address || msg.phoneNumber || "";
-      const device = resolveDeviceName(msg.deviceId) || msg.deviceName || "";
+      const device = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
       const snippet = body.slice(0, 100).replace(/\n/g, " ");
       for (const txn of txns) {
         rows.push(
@@ -31052,375 +31033,6 @@ ${this.customData.serverResponse}`;
   }
 
   // src/ui/modals.js
-  init_dom();
-  init_firebase();
-  init_toasts();
-  init_helpers();
-  init_state();
-  init_sms();
-  init_contacts();
-  var deviceContacts = [];
-  var isContactsLoading = false;
-  var lastContactsDeviceId = null;
-  var lastContactsLoadedAt = 0;
-  async function refreshContactsForSelectedDevice(force = false) {
-    const deviceId = smsDevice?.value;
-    if (!deviceId) return;
-    const contactsGroup = document.getElementById("contactsGroup");
-    const contactsSearch = document.getElementById("contactsSearch");
-    const phoneHint = document.getElementById("phoneHint");
-    const isRecentLoad = lastContactsDeviceId === deviceId && Date.now() - lastContactsLoadedAt < 3e3;
-    if (!force && isRecentLoad) return;
-    if (contactsGroup) contactsGroup.style.display = "block";
-    if (phoneHint) phoneHint.style.display = "block";
-    if (contactsSearch) contactsSearch.value = "";
-    deviceContacts = [];
-    renderContacts([]);
-    isContactsLoading = true;
-    if (contactsSearch) contactsSearch.placeholder = "\u23F3 Loading contacts...";
-    const cached = allContacts?.[deviceId];
-    deviceContacts = cached && cached.length > 0 ? cached : await loadContactsForDevice(deviceId);
-    isContactsLoading = false;
-    lastContactsDeviceId = deviceId;
-    lastContactsLoadedAt = Date.now();
-    if (deviceContacts.length > 0) {
-      if (contactsSearch) contactsSearch.placeholder = `Search ${deviceContacts.length} contacts...`;
-      renderContacts(deviceContacts);
-    } else {
-      if (contactsSearch) contactsSearch.placeholder = "No contacts found";
-    }
-  }
-  function initSmsModal() {
-    const contactsGroup = document.getElementById("contactsGroup");
-    const contactsDropdown = document.getElementById("contactsDropdown");
-    const contactsSearch = document.getElementById("contactsSearch");
-    const contactsList = document.getElementById("contactsList");
-    const phoneHint = document.getElementById("phoneHint");
-    newSmsBtn?.addEventListener("click", () => {
-      smsModal.classList.remove("hidden");
-      if (smsDevice.value) {
-        contactsGroup.style.display = "block";
-        phoneHint.style.display = "block";
-        refreshContactsForSelectedDevice(true);
-      }
-    });
-    closeSmsModal?.addEventListener("click", () => {
-      smsModal.classList.add("hidden");
-      contactsDropdown?.classList.add("hidden");
-      resetContactsUI();
-    });
-    cancelSmsBtn?.addEventListener("click", () => {
-      smsModal.classList.add("hidden");
-      contactsDropdown?.classList.add("hidden");
-      resetContactsUI();
-    });
-    smsMessage?.addEventListener("input", () => {
-      charCount.textContent = smsMessage.value.length;
-    });
-    sendSmsBtn?.addEventListener("click", sendNewSms);
-    smsDevice?.addEventListener("change", async () => {
-      const deviceId = smsDevice.value;
-      if (deviceId) {
-        await refreshContactsForSelectedDevice(true);
-        console.log(
-          `[Modal] Loaded ${deviceContacts.length} contacts for device`
-        );
-      } else {
-        contactsGroup.style.display = "none";
-        phoneHint.style.display = "none";
-        deviceContacts = [];
-        renderContacts([]);
-      }
-    });
-    contactsSearch?.addEventListener("focus", () => {
-      refreshContactsForSelectedDevice();
-    });
-    contactsSearch?.addEventListener("click", () => {
-      refreshContactsForSelectedDevice();
-    });
-    contactsSearch?.addEventListener("focus", () => {
-      if (deviceContacts.length > 0 && !isContactsLoading) {
-        contactsDropdown?.classList.remove("hidden");
-      }
-    });
-    contactsSearch?.addEventListener("input", () => {
-      const term = contactsSearch.value;
-      const filtered = searchContacts(deviceContacts, term);
-      renderContacts(filtered);
-      if (filtered.length > 0) {
-        contactsDropdown?.classList.remove("hidden");
-      }
-    });
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest(".contacts-select-wrapper") && !e.target.closest("#contactsSearch")) {
-        contactsDropdown?.classList.add("hidden");
-      }
-    });
-  }
-  function resetContactsUI() {
-    const contactsGroup = document.getElementById("contactsGroup");
-    const contactsSearch = document.getElementById("contactsSearch");
-    const phoneHint = document.getElementById("phoneHint");
-    if (contactsGroup) contactsGroup.style.display = "none";
-    if (contactsSearch) {
-      contactsSearch.value = "";
-      contactsSearch.placeholder = "Search contacts by name or number...";
-    }
-    if (phoneHint) phoneHint.style.display = "none";
-    deviceContacts = [];
-  }
-  function renderContacts(contacts) {
-    const contactsList = document.getElementById("contactsList");
-    if (!contactsList) return;
-    if (contacts.length === 0) {
-      contactsList.innerHTML = '<div class="no-contacts">No contacts found</div>';
-      return;
-    }
-    const rows = [];
-    contacts.forEach((contact) => {
-      const phones = contact.phoneNumbers && contact.phoneNumbers.length > 0 ? contact.phoneNumbers : [contact.phoneNumber];
-      const uniquePhones = [...new Set(phones.filter(Boolean))];
-      uniquePhones.forEach((phone) => {
-        rows.push({ contact, phone });
-      });
-    });
-    contactsList.innerHTML = rows.map(
-      ({ contact, phone }) => `
-    <div class="contact-item" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(contact.name)}">
-      <div class="contact-avatar">${getInitials2(contact.name)}</div>
-      <div class="contact-info">
-        <div class="contact-name">${escapeHtml(contact.name)}</div>
-        <div class="contact-phone">${escapeHtml(phone)}</div>
-      </div>
-    </div>
-  `
-    ).join("");
-    contactsList.querySelectorAll(".contact-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        const phone = item.dataset.phone;
-        const name5 = item.dataset.name;
-        smsPhone.value = phone;
-        const contactsSearch = document.getElementById("contactsSearch");
-        if (contactsSearch) {
-          contactsSearch.value = `${name5} (${phone})`;
-        }
-        document.getElementById("contactsDropdown")?.classList.add("hidden");
-      });
-    });
-  }
-  function getInitials2(name5) {
-    if (!name5) return "?";
-    const parts = name5.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name5.substring(0, 2).toUpperCase();
-  }
-  async function sendNewSms() {
-    const user = currentUser;
-    const deviceId = smsDevice.value;
-    const phone = smsPhone.value.trim();
-    const message = smsMessage.value.trim();
-    if (!deviceId) {
-      showToast("Please select a device", "error");
-      return;
-    }
-    if (!phone) {
-      showToast("Please enter a phone number", "error");
-      return;
-    }
-    if (!message) {
-      showToast("Please enter a message", "error");
-      return;
-    }
-    showLoadingOverlay();
-    try {
-      const timestamp = Date.now();
-      const selectedDevice = devices.find((d) => d.id === deviceId);
-      const deviceName = selectedDevice?.nickname || selectedDevice?.name || "Android";
-      const docRef = await addDoc(collection(db, "sms_requests"), {
-        userId: user.uid,
-        fromDeviceId: await getDeviceId(),
-        toDeviceId: deviceId,
-        phoneNumber: phone,
-        message,
-        status: "pending",
-        timestamp
-      });
-      const newSmsMessage = {
-        id: docRef.id,
-        phoneNumber: phone,
-        body: message,
-        type: "sent",
-        direction: "outgoing",
-        timestamp,
-        read: true,
-        deviceId,
-        deviceName
-      };
-      const currentDeviceSMS = getSMSData(deviceId) || [];
-      setSMSData(deviceId, [...currentDeviceSMS, newSmsMessage]);
-      const updatedMessages = [...allSMSMessages, newSmsMessage];
-      setAllSMSMessages(updatedMessages);
-      renderSMS(updatedMessages);
-      showToast("SMS request sent to device", "success");
-      smsModal.classList.add("hidden");
-      smsPhone.value = "";
-      smsMessage.value = "";
-      charCount.textContent = "0";
-    } catch (error) {
-      showToast("Failed to send SMS request", "error");
-    }
-    hideLoading();
-  }
-  function initCallModal() {
-    const contactsGroup = document.getElementById("callContactsGroup");
-    const contactsDropdown = document.getElementById("callContactsDropdown");
-    const contactsSearch = document.getElementById("callContactsSearch");
-    const contactsList = document.getElementById("callContactsList");
-    const phoneHint = document.getElementById("callPhoneHint");
-    let callDeviceContacts = [];
-    let isCallContactsLoading = false;
-    let lastCallContactsDeviceId = null;
-    let lastCallContactsLoadedAt = 0;
-    async function refreshCallContacts(force = false) {
-      const deviceId = callDevice?.value;
-      if (!deviceId) return;
-      const isRecent = lastCallContactsDeviceId === deviceId && Date.now() - lastCallContactsLoadedAt < 3e3;
-      if (!force && isRecent) return;
-      contactsGroup.style.display = "block";
-      phoneHint.style.display = "block";
-      contactsSearch.value = "";
-      callDeviceContacts = [];
-      renderCallContacts([]);
-      isCallContactsLoading = true;
-      contactsSearch.placeholder = "\u23F3 Loading contacts...";
-      callDeviceContacts = await loadContactsForDevice(deviceId);
-      isCallContactsLoading = false;
-      lastCallContactsDeviceId = deviceId;
-      lastCallContactsLoadedAt = Date.now();
-      if (callDeviceContacts.length > 0) {
-        contactsSearch.placeholder = `Search ${callDeviceContacts.length} contacts...`;
-        renderCallContacts(callDeviceContacts);
-      } else {
-        contactsSearch.placeholder = "No contacts found";
-      }
-    }
-    function renderCallContacts(contacts) {
-      if (!contactsList) return;
-      if (contacts.length === 0) {
-        contactsList.innerHTML = '<div class="no-contacts">No contacts found</div>';
-        return;
-      }
-      const rows = [];
-      contacts.forEach((contact) => {
-        const phones = contact.phoneNumbers && contact.phoneNumbers.length > 0 ? contact.phoneNumbers : [contact.phoneNumber];
-        const uniquePhones = [...new Set(phones.filter(Boolean))];
-        uniquePhones.forEach((phone) => rows.push({ contact, phone }));
-      });
-      contactsList.innerHTML = rows.map(
-        ({ contact, phone }) => `
-      <div class="contact-item" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(contact.name)}">
-        <div class="contact-avatar">${getInitials2(contact.name)}</div>
-        <div class="contact-info">
-          <div class="contact-name">${escapeHtml(contact.name)}</div>
-          <div class="contact-phone">${escapeHtml(phone)}</div>
-        </div>
-      </div>
-    `
-      ).join("");
-      contactsList.querySelectorAll(".contact-item").forEach((item) => {
-        item.addEventListener("click", () => {
-          const phone = item.dataset.phone;
-          const name5 = item.dataset.name;
-          if (callPhone) callPhone.value = phone;
-          if (contactsSearch) contactsSearch.value = `${name5} (${phone})`;
-          contactsDropdown?.classList.add("hidden");
-        });
-      });
-    }
-    function resetCallContactsUI() {
-      if (contactsGroup) contactsGroup.style.display = "none";
-      if (contactsSearch) {
-        contactsSearch.value = "";
-        contactsSearch.placeholder = "Search contacts by name or number...";
-      }
-      if (phoneHint) phoneHint.style.display = "none";
-      callDeviceContacts = [];
-    }
-    function closeModal() {
-      callModal?.classList.add("hidden");
-      contactsDropdown?.classList.add("hidden");
-      resetCallContactsUI();
-    }
-    newCallBtn?.addEventListener("click", () => {
-      callModal?.classList.remove("hidden");
-      if (callDevice?.value) {
-        contactsGroup.style.display = "block";
-        phoneHint.style.display = "block";
-        refreshCallContacts(true);
-      }
-    });
-    closeCallModal?.addEventListener("click", closeModal);
-    cancelCallBtn?.addEventListener("click", closeModal);
-    callDevice?.addEventListener("change", async () => {
-      if (callDevice.value) {
-        await refreshCallContacts(true);
-      } else {
-        contactsGroup.style.display = "none";
-        phoneHint.style.display = "none";
-        callDeviceContacts = [];
-        renderCallContacts([]);
-      }
-    });
-    contactsSearch?.addEventListener("focus", () => refreshCallContacts());
-    contactsSearch?.addEventListener("click", () => refreshCallContacts());
-    contactsSearch?.addEventListener("focus", () => {
-      if (callDeviceContacts.length > 0 && !isCallContactsLoading) {
-        contactsDropdown?.classList.remove("hidden");
-      }
-    });
-    contactsSearch?.addEventListener("input", () => {
-      const filtered = searchContacts(callDeviceContacts, contactsSearch.value);
-      renderCallContacts(filtered);
-      if (filtered.length > 0) contactsDropdown?.classList.remove("hidden");
-    });
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest("#callContactsGroup") && !e.target.closest("#callContactsSearch")) {
-        contactsDropdown?.classList.add("hidden");
-      }
-    });
-    sendCallBtn?.addEventListener("click", async () => {
-      const user = currentUser;
-      const deviceId = callDevice?.value;
-      const phone = callPhone?.value.trim();
-      if (!deviceId) {
-        showToast("Please select a device", "error");
-        return;
-      }
-      if (!phone) {
-        showToast("Please enter a phone number", "error");
-        return;
-      }
-      showLoadingOverlay();
-      try {
-        await addDoc(collection(db, "call_requests"), {
-          userId: user.uid,
-          fromDeviceId: await getDeviceId(),
-          toDeviceId: deviceId,
-          phoneNumber: phone,
-          status: "pending",
-          timestamp: Date.now()
-        });
-        showToast("Call request sent to device", "success");
-        closeModal();
-        if (callPhone) callPhone.value = "";
-      } catch (error) {
-        showToast("Failed to send call request", "error");
-      }
-      hideLoading();
-    });
-  }
   function initProfileFooter() {
     const manifest = chrome.runtime.getManifest();
     const versionStr = `v${manifest.version}`;
@@ -31457,9 +31069,9 @@ ${this.customData.serverResponse}`;
       filePreview.classList.add("hidden");
       return true;
     }
-    const smsModal2 = document.getElementById("smsModal");
-    if (smsModal2 && !smsModal2.classList.contains("hidden")) {
-      smsModal2.classList.add("hidden");
+    const smsModal = document.getElementById("smsModal");
+    if (smsModal && !smsModal.classList.contains("hidden")) {
+      smsModal.classList.add("hidden");
       return true;
     }
     const settingsModal2 = document.getElementById("settingsModal");
@@ -31726,6 +31338,22 @@ ${this.customData.serverResponse}`;
   init_notifications();
   init_calls();
   init_sms();
+  var _deviceVersionCache = {};
+  async function _loadVersionCache() {
+    try {
+      const result = await chrome.storage.local.get("deviceVersionCache");
+      if (result.deviceVersionCache && typeof result.deviceVersionCache === "object") {
+        Object.assign(_deviceVersionCache, result.deviceVersionCache);
+      }
+    } catch (_) {
+    }
+  }
+  function _saveVersionCache() {
+    try {
+      chrome.storage.local.set({ deviceVersionCache: { ..._deviceVersionCache } });
+    } catch (_) {
+    }
+  }
   async function registerDevice() {
     const user = currentUser;
     if (!user) return;
@@ -31789,17 +31417,22 @@ ${this.customData.serverResponse}`;
   async function loadDevices() {
     const user = currentUser;
     if (!user) return;
+    await _loadVersionCache();
     const q2 = query(collection(db, "devices"), where("userId", "==", user.uid));
     const unsub = onSnapshot(
       q2,
       (snapshot) => {
         const newDevices = [];
+        let cacheUpdated = false;
         snapshot.forEach((doc2) => {
-          newDevices.push({
-            ...doc2.data(),
-            docId: doc2.id
-          });
+          const data = doc2.data();
+          newDevices.push({ ...data, docId: doc2.id });
+          if (data.appVersion && data.id && _deviceVersionCache[data.id] !== data.appVersion) {
+            _deviceVersionCache[data.id] = data.appVersion;
+            cacheUpdated = true;
+          }
         });
+        if (cacheUpdated) _saveVersionCache();
         setDevices(newDevices);
         renderDevices();
         updateDeviceSelects();
@@ -31862,7 +31495,7 @@ ${this.customData.serverResponse}`;
         <div class="list-item-subtitle">
           ${escapeHtml(device.model || device.platform || "Phone")} \u2022 ${escapeHtml(
         device.platform || ""
-      )} \u2022 ${device.isOnline ? "Online" : "Offline"}${device.appVersion ? ` \u2022 v${escapeHtml(device.appVersion)}` : ""}
+      )} \u2022 ${device.isOnline ? "Online" : "Offline"}${device.appVersion || _deviceVersionCache[device.id] ? ` \u2022 v${escapeHtml(device.appVersion || _deviceVersionCache[device.id])}` : ""}
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
@@ -31906,6 +31539,8 @@ ${this.customData.serverResponse}`;
   }
   function updateDeviceSelects() {
     const devices2 = devices;
+    const smsDevice = document.getElementById("smsDevice");
+    const callDevice = document.getElementById("callDevice");
     const mobileDevices = devices2.filter(
       (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
     );
@@ -32633,8 +32268,6 @@ ${this.customData.serverResponse}`;
     applyTranslations();
     initTabs();
     initDashboard();
-    initSmsModal();
-    initCallModal();
     initProfileFooter();
     initChatListeners();
     initSettingsListeners();

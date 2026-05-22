@@ -19,7 +19,7 @@ import {
   signOut,
 } from "../config/firebase.js";
 
-import { devicesList, smsDevice, callDevice } from "../ui/dom.js";
+import { devicesList } from "../ui/dom.js";
 import { showToast, showLoadingOverlay, hideLoading, showConfirmDialog } from "../ui/toasts.js";
 import {
   formatTime,
@@ -30,6 +30,26 @@ import {
 } from "../utils/helpers.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import * as state from "../state/index.js";
+
+// ── Per-device version cache ──────────────────────────────────────────────────
+// Persists the last known appVersion for each device so it can be shown even
+// when the device is offline or the field is missing from the Firestore doc.
+const _deviceVersionCache = {};
+
+async function _loadVersionCache() {
+  try {
+    const result = await chrome.storage.local.get("deviceVersionCache");
+    if (result.deviceVersionCache && typeof result.deviceVersionCache === "object") {
+      Object.assign(_deviceVersionCache, result.deviceVersionCache);
+    }
+  } catch (_) {}
+}
+
+function _saveVersionCache() {
+  try {
+    chrome.storage.local.set({ deviceVersionCache: { ..._deviceVersionCache } });
+  } catch (_) {}
+}
 import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
 import { reRenderNotifications } from "./notifications.js";
 import { renderCalls } from "./calls.js";
@@ -134,18 +154,25 @@ export async function loadDevices() {
   const user = state.currentUser;
   if (!user) return;
 
+  await _loadVersionCache();
+
   const q = query(collection(db, "devices"), where("userId", "==", user.uid));
 
   const unsub = onSnapshot(
     q,
     (snapshot) => {
       const newDevices = [];
+      let cacheUpdated = false;
       snapshot.forEach((doc) => {
-        newDevices.push({
-          ...doc.data(),
-          docId: doc.id,
-        });
+        const data = doc.data();
+        newDevices.push({ ...data, docId: doc.id });
+        // Cache appVersion whenever it is present so offline devices still show it
+        if (data.appVersion && data.id && _deviceVersionCache[data.id] !== data.appVersion) {
+          _deviceVersionCache[data.id] = data.appVersion;
+          cacheUpdated = true;
+        }
       });
+      if (cacheUpdated) _saveVersionCache();
 
       state.setDevices(newDevices);
       renderDevices();
@@ -241,7 +268,7 @@ export function renderDevices() {
         <div class="list-item-subtitle">
           ${escapeHtml(device.model || device.platform || "Phone")} • ${escapeHtml(
             device.platform || "",
-          )} • ${device.isOnline ? "Online" : "Offline"}${device.appVersion ? ` • v${escapeHtml(device.appVersion)}` : ""}
+          )} • ${device.isOnline ? "Online" : "Offline"}${(device.appVersion || _deviceVersionCache[device.id]) ? ` • v${escapeHtml(device.appVersion || _deviceVersionCache[device.id])}` : ""}
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
@@ -298,6 +325,11 @@ export function renderDevices() {
  */
 export function updateDeviceSelects() {
   const devices = state.devices;
+
+  // These select elements may not exist in the current popup layout (replaced by device tabs).
+  // Resolving them locally ensures we never reference an undeclared variable.
+  const smsDevice = document.getElementById("smsDevice");
+  const callDevice = document.getElementById("callDevice");
 
   // For SMS, only show mobile devices
   const mobileDevices = devices.filter(

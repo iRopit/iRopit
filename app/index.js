@@ -22,10 +22,14 @@ notifee.setNotificationCategories([
 // Always create the channel here — NotificationContext hasn't mounted yet in this state.
 messaging().setBackgroundMessageHandler(async remoteMessage => {
   const title   = remoteMessage.notification?.title || remoteMessage.data?.senderName || 'New Message';
-  const msgBody = remoteMessage.notification?.body  || remoteMessage.data?.messagePreview || '';
+  const msgBody = (remoteMessage.notification?.body || remoteMessage.data?.messagePreview || '').trim();
 
-  // Nothing to display
-  if (!title && !msgBody) return;
+  // Skip if there is no real text content — Android would otherwise show a
+  // notification with only the title ("list of new messages without content").
+  if (!msgBody) {
+    console.log('[FCM-BG] Skipping notification with empty body', remoteMessage?.messageId);
+    return;
+  }
 
   // Ensure channel exists (idempotent — safe to call every time)
   await notifee.createChannel({
@@ -39,7 +43,12 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
   const chatId    = remoteMessage.data?.chatId    || remoteMessage.data?.messageId || '';
   const pushDocId = remoteMessage.data?.pushDocId || '';
 
+  // Stable id so FCM redeliveries / app cold-start replays replace the
+  // existing notification instead of piling up empty-looking duplicates.
+  const notifId = pushDocId || chatId || remoteMessage.messageId || undefined;
+
   await notifee.displayNotification({
+    id: notifId,
     title,
     body: msgBody,
     data: { messageBody: msgBody, pushDocId, chatId },

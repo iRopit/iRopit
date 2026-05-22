@@ -241,13 +241,6 @@ export default function PrivacyPolicyPage() {
                   compliance with Google Play policies.
                 </li>
                 <li>
-                  <strong className="text-txt">SMS Permission:</strong> The
-                  SEND_SMS permission is used exclusively to enable the
-                  &quot;Send SMS from Browser&quot; feature, which allows you to
-                  compose and send SMS messages from the Chrome Extension
-                  through your phone.
-                </li>
-                <li>
                   <strong className="text-txt">Read SMS Permission:</strong> The
                   READ_SMS and RECEIVE_SMS permissions are used as a fallback to
                   read incoming SMS content when notification access
@@ -262,8 +255,7 @@ export default function PrivacyPolicyPage() {
                 The Chrome Extension collects data through Firebase real-time
                 listeners and periodic background sync using Chrome Alarms API.
                 The extension reads synchronized data from Firebase to display
-                on your desktop and sends SMS requests back to your phone when
-                you compose messages from the browser.
+                on your desktop.
               </p>
             </div>
 
@@ -490,11 +482,6 @@ export default function PrivacyPolicyPage() {
                   {
                     perm: "Notification Access (NotificationListenerService)",
                     why: "This is the primary mechanism used to capture incoming SMS messages and app notifications (WhatsApp, Telegram, etc.) for synchronization. It allows iRopit to read notification content as it appears on your phone and sync it to your other devices.",
-                    required: true,
-                  },
-                  {
-                    perm: "Send SMS (SEND_SMS)",
-                    why: 'This permission enables the "Send SMS from Browser" feature. When you compose an SMS in the Chrome Extension, the request is sent to your phone, which uses this permission to send the actual SMS message through your mobile carrier.',
                     required: true,
                   },
                   {

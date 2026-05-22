@@ -141,14 +141,23 @@ const AppContent = () => {
 
       const msgType  = remoteMessage.data?.type;
       const title    = remoteMessage.notification?.title || remoteMessage.data?.senderName || 'New Message';
-      const msgBody  = remoteMessage.notification?.body  || remoteMessage.data?.messagePreview || '';
+      const msgBody  = (remoteMessage.notification?.body  || remoteMessage.data?.messagePreview || '').trim();
       const chatId   = remoteMessage.data?.chatId   || remoteMessage.data?.messageId || '';
       const pushDocId = remoteMessage.data?.pushDocId || '';
 
       if (msgType === 'chat') {
+        // Skip empty-body chat notifications — they show as a content-less
+        // entry in the Android notification panel.
+        if (!msgBody) {
+          console.log('[FCM] Skipping foreground chat notification with empty body');
+          return;
+        }
+        // Stable id dedupes FCM redeliveries.
+        const notifId = pushDocId || chatId || (remoteMessage as any).messageId || undefined;
         // Show notifee notification with action buttons for chat messages
         try {
           await notifee.displayNotification({
+            id: notifId,
             title,
             body: msgBody,
             data: { messageBody: msgBody, pushDocId, chatId },

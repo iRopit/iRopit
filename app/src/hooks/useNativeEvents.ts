@@ -227,12 +227,11 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     if (Platform.OS !== 'android') return false;
 
     try {
-      // Request contacts, SEND_SMS, and call-related permissions
-      // SEND_SMS is for sending SMS from Chrome Extension (core feature)
+      // Request contacts and call-related permissions
+      // SEND_SMS removed - SMS sending is disabled per Google Play policy
       // READ_PHONE_STATE and READ_CALL_LOG are required for call history capture
       const permissions: string[] = [
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-        PermissionsAndroid.PERMISSIONS.SEND_SMS,
         PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
         PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       ];
@@ -249,15 +248,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         result => result === PermissionsAndroid.RESULTS.GRANTED,
       );
 
-      // Start SMS Request Service if SEND_SMS is granted
-      if (
-        results[PermissionsAndroid.PERMISSIONS.SEND_SMS] ===
-        PermissionsAndroid.RESULTS.GRANTED
-      ) {
-        if (SmsModule?.startSmsRequestService) {
-          SmsModule.startSmsRequestService().catch(() => {});
-        }
-      }
+      // SMS sending disabled - SmsRequestService no longer started
 
       return allGranted;
     } catch (error) {

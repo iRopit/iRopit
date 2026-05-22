@@ -52,16 +52,6 @@ export const useOnboarding = () => {
       granted: false,
     },
     {
-      id: 'sendSms',
-      name: 'Send SMS',
-      nameAr: 'إرسال الرسائل',
-      description: 'Send SMS from Chrome Extension using your phone number',
-      descriptionAr: 'إرسال رسائل SMS من الإكستنشن باستخدام رقم هاتفك',
-      icon: 'chatbubble-outline',
-      required: true,
-      granted: false,
-    },
-    {
       id: 'readSms',
       name: 'Read SMS',
       nameAr: 'قراءة الرسائل',
@@ -173,7 +163,6 @@ export const useOnboarding = () => {
               PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
             )
           : Promise.resolve(true),
-        PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.SEND_SMS),
         // readSms: check both READ_SMS and RECEIVE_SMS
         Promise.all([
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
@@ -197,7 +186,7 @@ export const useOnboarding = () => {
 
       // Check if required permissions are granted
       const requiredGranted =
-        checks[0] && checks[1] && checks[2] && checks[3] && checks[4]; // notificationListener, notifications, sendSms, readSms, phone are required
+        checks[0] && checks[1] && checks[2] && checks[3]; // notificationListener, notifications, readSms, phone are required
       const allGranted = checks.every(c => c);
 
       setAllPermissionsGranted(allGranted);
@@ -323,9 +312,6 @@ export const useOnboarding = () => {
             );
             return;
           }
-          break;
-        case 'sendSms':
-          permission = PermissionsAndroid.PERMISSIONS.SEND_SMS;
           break;
         case 'readSms':
           // Request both READ_SMS and RECEIVE_SMS together

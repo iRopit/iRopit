@@ -80,8 +80,19 @@ export function startPushNotificationListener() {
 
             // Show native Android notification with action buttons
             try {
-              const msgBody = notification.notification?.body || '';
+              const msgBody = (notification.notification?.body || '').trim();
               const chatId  = notification.data?.chatId || notification.data?.messageId || '';
+
+              // Skip empty-body notifications so we don't clutter the panel
+              // with content-less entries.
+              if (!msgBody) {
+                console.log('[PushNotificationListener] Skipping notification with empty body:', change.doc.id);
+                await change.doc.ref.update({
+                  status: 'delivered',
+                  deliveredAt: Date.now(),
+                });
+                continue;
+              }
 
               // Ensure channel exists before displaying — NotificationContext may not have
               // run yet if this fires early in the app lifecycle or from a background wake

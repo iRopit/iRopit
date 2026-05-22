@@ -5,10 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Platform,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
 import { EmptyState } from '../../../components/shared';
@@ -27,22 +23,13 @@ const SMSScreen = () => {
     hasMoreMessages,
     initialLoading,
     permissionGranted,
-    showCompose,
-    phoneNumber,
-    messageText,
-    isSending,
     colors,
     isDarkMode,
     isRTL,
     bgColor,
     secondaryTextColor,
-    setPhoneNumber,
-    setMessageText,
-    openCompose,
-    closeCompose,
     loadFromDevice,
     loadMoreMessages,
-    handleSendMessage,
     handleMarkAllAsRead,
     handleDeleteAll,
   } = useSMSScreen();
@@ -222,90 +209,6 @@ const SMSScreen = () => {
           />
         }
       />
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={openCompose}
-      >
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
-
-      <Modal
-        visible={showCompose}
-        animationType="slide"
-        transparent
-        onRequestClose={closeCompose}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View
-            style={[styles.modalContent, { backgroundColor: colors.surface }]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {isRTL ? 'رسالة جديدة' : 'New Message'}
-              </Text>
-              <TouchableOpacity onPress={closeCompose}>
-                <Text style={[styles.closeButton, { color: colors.error }]}>
-                  ✕
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View
-              style={[styles.inputContainer, { borderColor: colors.border }]}
-            >
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder={isRTL ? 'رقم الهاتف' : 'Phone Number'}
-                placeholderTextColor={colors.textSecondary}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-              />
-            </View>
-            <View
-              style={[
-                styles.messageInputContainer,
-                { borderColor: colors.border },
-              ]}
-            >
-              <TextInput
-                style={[styles.messageInput, { color: colors.text }]}
-                placeholder={isRTL ? 'اكتب رسالتك...' : 'Type your message...'}
-                placeholderTextColor={colors.textSecondary}
-                value={messageText}
-                onChangeText={setMessageText}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-            <Text style={[styles.charCount, { color: colors.textSecondary }]}>
-              {messageText.length} / 160
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                { backgroundColor: colors.primary },
-                isSending && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSendMessage}
-              disabled={isSending}
-            >
-              <Text style={styles.sendButtonText}>
-                {isSending
-                  ? isRTL
-                    ? 'جاري الإرسال...'
-                    : 'Sending...'
-                  : isRTL
-                  ? 'إرسال'
-                  : 'Send'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </Container>
   );
 };

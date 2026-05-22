@@ -14,8 +14,7 @@
     <!-- Boot completed permission to restart services after device restart -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- SMS Permissions -->
-    <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- SMS Permissions (SEND_SMS removed - sending disabled per Google Play policy) -->
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     
@@ -23,16 +22,12 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
-    <uses-permission android:name="android.permission.CALL_PHONE" />
     
     <!-- Notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <!-- Battery optimization exemption -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <!-- Required for setFullScreenIntent on Android 14+ (auto-launch dialer) -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
       android:name=".MainApplication"
@@ -86,15 +81,6 @@
         android:exported="false"
         android:showWhenLocked="true"
         android:turnScreenOn="false" />
-
-      <!-- Transparent trampoline activity that opens the system dialer (launched via setFullScreenIntent) -->
-      <activity
-        android:name=".DialerActivity"
-        android:theme="@android:style/Theme.Translucent.NoTitleBar"
-        android:excludeFromRecents="true"
-        android:exported="false"
-        android:showWhenLocked="true"
-        android:turnScreenOn="true" />
 
       <!-- SMS Receiver - Fallback for when SMS notifications are disabled -->
       <receiver

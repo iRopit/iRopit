@@ -390,6 +390,12 @@ const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+// Arabic monthly card-statement / account-summary notifications.
+// Contain informational fields like minimum-due and last-payment-received — NOT individual transactions.
+const CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
+// Merchant/utility payment confirmation — "payment of AED X against A/C YYYY"
+// These duplicate the bank debit SMS for the same transaction and must not be double-counted.
+const MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
 // Pending/future-tense signals — if present alongside a credit keyword, the transaction hasn't happened yet
 const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
 
@@ -401,7 +407,7 @@ const BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|
 // Mask balance figures — amount BEFORE keyword: "AED 5,000 balance" / "AED 5,000 is your available balance"
 const BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
 // Arabic balance figures — keyword BEFORE amount, e.g. "الرصيد المتاح 13195.21 EGP" or "المتاح 1568.76"
-const BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
+const BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى|المتوفر))?|الحد(?:\s*(?:المتاح|الأدنى\s*لل(?:دفع|سداد)))?|المتاح|المتبقي|المتبقى|المتوفر|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى|اخر\s*دفعة\s*مستلمة)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
 // Arabic balance figures — amount BEFORE keyword, e.g. "1568.76 المتاح" / "13195.21 EGP الرصيد"
 const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
 // Unified regex to find all currency+amount candidates with their text position
@@ -432,6 +438,10 @@ function extractTransactions(body) {
 
   // Skip credit card bill payment confirmations — these are not purchases/spending
   if (CARD_BILL_PAYMENT_RE.test(body)) return [];
+  // Skip Arabic card-statement / account-summary SMSes (كشف حساب, الحد الأدنى للدفع, etc.)
+  if (CARD_STATEMENT_RE_AR.test(body)) return [];
+  // Skip merchant/utility payment confirmations ("against A/C") — bank SMS already covers this debit
+  if (MERCHANT_CONFIRM_RE.test(body)) return [];
 
   // Step 1: Mask balance/informational amounts in both directions
   const masked = body
@@ -692,7 +702,7 @@ function localStampNow() {
 function resolveDeviceName(id) {
   if (!id) return "";
   const dev = (state.devices || []).find((d) => d.id === id);
-  return dev ? getFriendlyDeviceName(dev) : id;
+  return dev ? getFriendlyDeviceName(dev) : "";
 }
 
 /** Return the current date-filtered, device-filtered SMS and Calls data */
@@ -748,7 +758,7 @@ export async function exportInsightsSummaryToCSV() {
       m.phoneNumber || m.sender || "",
       m.body || m.text || m.content || "",
       m.simSlot != null && m.simSlot >= 0 ? `SIM ${m.simSlot + 1}` : "",
-      resolveDeviceName(m.deviceId) || m.deviceName || "",
+      resolveDeviceName(m.deviceId) || m.deviceName || m.deviceId || "",
     ];
   });
 
@@ -762,7 +772,7 @@ export async function exportInsightsSummaryToCSV() {
       c.contactName || c.title || "",
       c.phoneNumber || c.number || c.sender || "",
       typeof c.duration === "number" ? c.duration : (Number(c.duration) || 0),
-      resolveDeviceName(c.deviceId) || c.deviceName || "",
+      resolveDeviceName(c.deviceId) || c.deviceName || c.deviceId || "",
     ];
   });
 
@@ -805,7 +815,7 @@ export async function exportInsightsSpendingToCSV() {
     const date    = d.toLocaleDateString("en-GB");
     const time    = d.toLocaleTimeString();
     const sender  = msg.sender || msg.address || msg.phoneNumber || "";
-    const device  = resolveDeviceName(msg.deviceId) || msg.deviceName || "";
+    const device  = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
     const snippet = body.slice(0, 100).replace(/\n/g, " ");
 
     for (const txn of txns) {

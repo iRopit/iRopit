@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, I18nManager, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, I18nManager, BackHandler, AppState, AppStateStatus } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../types';
@@ -56,6 +56,28 @@ const MainNavigator = () => {
     useCallStore.getState().loadCalls();
     useSMSStore.getState().loadMessages();
     useNotificationStore.getState().syncFromFirebase(user.uid);
+  }, [user, currentDevice]);
+
+  // Re-establish Firestore listeners when app comes back to foreground.
+  // Firestore connections can go stale when the OS throttles background
+  // processes, causing new SMS/calls to not appear until a manual refresh.
+  useEffect(() => {
+    if (!user || !currentDevice) return;
+    const appStateRef = { current: AppState.currentState };
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState: AppStateStatus) => {
+        if (
+          appStateRef.current !== 'active' &&
+          nextState === 'active'
+        ) {
+          useCallStore.getState().loadCalls();
+          useSMSStore.getState().loadMessages();
+        }
+        appStateRef.current = nextState;
+      },
+    );
+    return () => subscription.remove();
   }, [user, currentDevice]);
 
   // Define tabs in order - will be reversed for LTR

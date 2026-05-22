@@ -172,6 +172,11 @@ export const useCallStore = create<CallState>()(
 
         set({ isLoading: true });
 
+        // Track whether the initial full snapshot has been processed.
+        // Subsequent snapshots only carry changed documents (docChanges),
+        // so we can merge them incrementally without re-decrypting everything.
+        let isInitialSnapshot = true;
+
         const unsubscribe = firestore()
           .collection(COLLECTIONS.USERS)
           .doc(user.uid)
@@ -182,23 +187,52 @@ export const useCallStore = create<CallState>()(
           .limit(CALL_PAGE_SIZE)
           .onSnapshot(
             async snapshot => {
-              const rawCalls: CallLog[] = [];
-              snapshot.forEach(doc => {
-                rawCalls.push({ id: doc.id, ...doc.data() } as CallLog);
-              });
-              // Decrypt in chunks with yields so large initial loads don't
-              // freeze the JS thread and cause navigation lag.
-              const DECRYPT_CHUNK = 100;
-              const calls: CallLog[] = [];
-              for (let i = 0; i < rawCalls.length; i += DECRYPT_CHUNK) {
-                const chunk = rawCalls.slice(i, i + DECRYPT_CHUNK);
-                const decryptedChunk = (await Promise.all(
-                  chunk.map(call => decryptCall(call, user.uid)),
-                )) as CallLog[];
-                calls.push(...decryptedChunk);
-                await new Promise(resolve => setTimeout(resolve, 0));
+              if (isInitialSnapshot) {
+                isInitialSnapshot = false;
+
+                // Initial load: process all documents with chunked decryption
+                const rawCalls: CallLog[] = [];
+                snapshot.forEach(doc => {
+                  rawCalls.push({ id: doc.id, ...doc.data() } as CallLog);
+                });
+                // Decrypt in chunks with yields so large initial loads don't
+                // freeze the JS thread and cause navigation lag.
+                const DECRYPT_CHUNK = 100;
+                const calls: CallLog[] = [];
+                for (let i = 0; i < rawCalls.length; i += DECRYPT_CHUNK) {
+                  const chunk = rawCalls.slice(i, i + DECRYPT_CHUNK);
+                  const decryptedChunk = (await Promise.all(
+                    chunk.map(call => decryptCall(call, user.uid)),
+                  )) as CallLog[];
+                  calls.push(...decryptedChunk);
+                  await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                set({ calls, isLoading: false });
+                return;
               }
-              set({ calls, isLoading: false });
+
+              // Subsequent snapshots: only process added/modified documents so
+              // a new call appears immediately without re-decrypting everything.
+              const changes = snapshot
+                .docChanges()
+                .filter(c => c.type === 'added' || c.type === 'modified');
+              if (changes.length === 0) return;
+
+              const rawNew = changes.map(
+                c => ({ id: c.doc.id, ...c.doc.data() } as CallLog),
+              );
+              const newCalls = (await Promise.all(
+                rawNew.map(call => decryptCall(call, user.uid)),
+              )) as CallLog[];
+
+              const { calls: currentCalls } = get();
+              const callsMap = new Map(currentCalls.map(c => [c.id, c]));
+              for (const call of newCalls) {
+                callsMap.set(call.id, call);
+              }
+              const merged = Array.from(callsMap.values());
+              merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+              set({ calls: merged });
             },
             error => {
               set({ error: error.message, isLoading: false });

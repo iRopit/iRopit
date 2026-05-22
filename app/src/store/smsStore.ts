@@ -240,6 +240,29 @@ export const useSMSStore = create<SMSState>()(
 
         set({ isLoading: true });
 
+        // Helper to map a decrypted data object to a typed SMS
+        const toSMS = (data: any): SMS =>
+          ({
+            id: data.id,
+            threadId: data.threadId || '',
+            userId: data.userId || user.uid,
+            deviceId: data.deviceId || currentDevice.id,
+            body: data.text || data.content || data.body || '',
+            text: data.text || data.content || data.body || '',
+            phoneNumber: data.phoneNumber || '',
+            sender: data.phoneNumber || '',
+            contactName: data.contactName || '',
+            timestamp: data.timestamp || data.receivedAt || Date.now(),
+            read: data.read || false,
+            type: data.smsType || 'inbox',
+            syncedAt: data.syncedAt || Date.now(),
+          } as SMS);
+
+        // Track whether the initial full snapshot has been processed.
+        // Subsequent snapshots only carry changed documents (docChanges),
+        // so we can merge them incrementally without re-decrypting everything.
+        let isInitialSnapshot = true;
+
         const unsubscribe = firestore()
           .collection(COLLECTIONS.USERS)
           .doc(user.uid)
@@ -251,75 +274,83 @@ export const useSMSStore = create<SMSState>()(
           .limit(SMS_PAGE_SIZE)
           .onSnapshot(
             async snapshot => {
-              const rawMessages: any[] = [];
-              snapshot.forEach(doc => {
-                // Spread doc.data() FIRST, then override id with doc.id
-                // data.id is notification ID ("0" for Google Messages) - NOT unique!
-                // doc.id is the Firestore document ID - always unique
-                rawMessages.push({ ...doc.data(), id: doc.id });
-              });
+              if (isInitialSnapshot) {
+                isInitialSnapshot = false;
 
-              // Decrypt in small chunks with a yield between each, so a large
-              // snapshot (e.g. 10k messages on first load) doesn't freeze the UI.
-              const DECRYPT_CHUNK = 100;
-              const decryptedMessages: any[] = [];
-              for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
-                const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
-                const decryptedChunk = await Promise.all(
-                  chunk.map(msg => decryptSMS(msg, user.uid)),
+                // Initial load: process all documents with chunked decryption
+                const rawMessages: any[] = [];
+                snapshot.forEach(doc => {
+                  // Spread doc.data() FIRST, then override id with doc.id
+                  // data.id is notification ID ("0" for Google Messages) - NOT unique!
+                  // doc.id is the Firestore document ID - always unique
+                  rawMessages.push({ ...doc.data(), id: doc.id });
+                });
+
+                // Decrypt in small chunks with a yield between each, so a large
+                // snapshot (e.g. 10k messages on first load) doesn't freeze the UI.
+                const DECRYPT_CHUNK = 100;
+                const decryptedMessages: any[] = [];
+                for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
+                  const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
+                  const decryptedChunk = await Promise.all(
+                    chunk.map(msg => decryptSMS(msg, user.uid)),
+                  );
+                  decryptedMessages.push(...decryptedChunk);
+                  await new Promise(resolve => setTimeout(resolve, 0));
+                }
+
+                const firebaseMessages: SMS[] = decryptedMessages.map(toSMS);
+
+                // Content-based dedup: remove duplicate SMS written by different services
+                // (NotificationService vs BackgroundSmsService create different docIds for same SMS)
+                const seenContent = new Set<string>();
+                const dedupedMessages = firebaseMessages.filter(m => {
+                  const phone = normalizePhoneNumber(
+                    m.phoneNumber || m.sender || '',
+                  );
+                  const body = (m.body || m.text || '').trim().substring(0, 100);
+                  // Round timestamp to 60-second window
+                  const timeWindow = Math.floor((m.timestamp || 0) / 60000);
+                  const contentKey = `${phone}_${timeWindow}_${body}`;
+                  if (seenContent.has(contentKey)) return false;
+                  seenContent.add(contentKey);
+                  return true;
+                });
+
+                dedupedMessages.sort(
+                  (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
                 );
-                decryptedMessages.push(...decryptedChunk);
-                await new Promise(resolve => setTimeout(resolve, 0));
+                const oldestTs =
+                  dedupedMessages.length > 0
+                    ? Math.min(...dedupedMessages.map(m => m.timestamp || Infinity))
+                    : null;
+                set({
+                  messages: dedupedMessages,
+                  isLoading: false,
+                  hasMoreMessages: snapshot.size >= SMS_PAGE_SIZE,
+                  oldestMessageTimestamp: oldestTs,
+                });
+                return;
               }
 
-              const firebaseMessages: SMS[] = decryptedMessages.map(
-                data =>
-                  ({
-                    id: data.id,
-                    threadId: data.threadId || '',
-                    userId: data.userId || user.uid,
-                    deviceId: data.deviceId || currentDevice.id,
-                    body: data.text || data.content || data.body || '',
-                    text: data.text || data.content || data.body || '',
-                    phoneNumber: data.phoneNumber || '',
-                    sender: data.phoneNumber || '',
-                    contactName: data.contactName || '',
-                    timestamp: data.timestamp || data.receivedAt || Date.now(),
-                    read: data.read || false,
-                    type: data.smsType || 'inbox',
-                    syncedAt: data.syncedAt || Date.now(),
-                  } as SMS),
-              );
+              // Subsequent snapshots: only process added/modified documents so
+              // a single incoming SMS updates the UI immediately instead of
+              // re-decrypting the entire collection.
+              const changes = snapshot
+                .docChanges()
+                .filter(c => c.type === 'added' || c.type === 'modified');
+              if (changes.length === 0) return;
 
-              // Content-based dedup: remove duplicate SMS written by different services
-              // (NotificationService vs BackgroundSmsService create different docIds for same SMS)
-              const seenContent = new Set<string>();
-              const dedupedMessages = firebaseMessages.filter(m => {
-                const phone = normalizePhoneNumber(
-                  m.phoneNumber || m.sender || '',
-                );
-                const body = (m.body || m.text || '').trim().substring(0, 100);
-                // Round timestamp to 60-second window
-                const timeWindow = Math.floor((m.timestamp || 0) / 60000);
-                const contentKey = `${phone}_${timeWindow}_${body}`;
-                if (seenContent.has(contentKey)) return false;
-                seenContent.add(contentKey);
-                return true;
-              });
-
-              dedupedMessages.sort(
-                (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+              const rawNew = changes.map(c => ({ ...c.doc.data(), id: c.doc.id }));
+              const decrypted = await Promise.all(
+                rawNew.map(msg => decryptSMS(msg, user.uid)),
               );
-              const oldestTs =
-                dedupedMessages.length > 0
-                  ? Math.min(...dedupedMessages.map(m => m.timestamp || Infinity))
-                  : null;
-              set({
-                messages: dedupedMessages,
-                isLoading: false,
-                hasMoreMessages: snapshot.size >= SMS_PAGE_SIZE,
-                oldestMessageTimestamp: oldestTs,
-              });
+              const newMessages: SMS[] = decrypted.map(toSMS);
+
+              const { messages: currentMessages } = get();
+              const merged = mergeByIdKeepNewest([...newMessages, ...currentMessages]);
+              merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+              set({ messages: merged });
             },
             error => {
               set({ error: error.message, isLoading: false });

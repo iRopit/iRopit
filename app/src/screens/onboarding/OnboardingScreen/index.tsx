@@ -197,33 +197,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
           {currentStep > 0 &&
             currentStep < totalSteps - 1 &&
             currentStep !== 2 && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  gap: 12,
-                  marginTop: 12,
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title={translate('common.previous')}
-                    variant="outline"
-                    size="md"
-                    fullWidth
-                    isDark={actualTheme === 'dark'}
-                    onPress={goBack}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title={translate('onboarding.skip')}
-                    variant="ghost"
-                    size="md"
-                    fullWidth
-                    isDark={actualTheme === 'dark'}
-                    onPress={skip}
-                  />
-                </View>
+              <View style={{ marginTop: 12 }}>
+                <Button
+                  title={translate('common.previous')}
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  isDark={actualTheme === 'dark'}
+                  onPress={goBack}
+                />
               </View>
             )}
 

@@ -63,17 +63,6 @@ const PERMISSIONS_LIST: PermissionItem[] = [
     purposeAr: 'تنبيهك بالرسائل الجديدة والمكالمات الفائتة والتحديثات المهمة',
   },
   {
-    icon: 'chatbubble-outline',
-    titleEn: 'Send SMS',
-    titleAr: 'إرسال الرسائل القصيرة',
-    descEn: 'Send text messages from your phone',
-    descAr: 'إرسال رسائل نصية من هاتفك',
-    purposeEn:
-      'Allow you to send SMS directly from Chrome Extension using your phone number',
-    purposeAr:
-      'السماح لك بإرسال رسائل SMS مباشرة من إضافة Chrome باستخدام رقم هاتفك',
-  },
-  {
     icon: 'mail-open-outline',
     titleEn: 'Read SMS',
     titleAr: 'قراءة الرسائل القصيرة',

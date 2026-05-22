@@ -14,16 +14,10 @@ export const useSMSScreen = () => {
   const hasMoreMessages = useSMSStore(state => state.hasMoreMessages);
   const loadMoreMessages = useSMSStore(state => state.loadMoreMessages);
   const addMessage = useSMSStore(state => state.addMessage);
-  const setMessages = useSMSStore(state => state.setMessages);
   const syncMessages = useSMSStore(state => state.syncMessages);
   const markAllAsRead = useSMSStore(state => state.markAllAsRead);
   const deleteAllMessages = useSMSStore(state => state.deleteAllMessages);
-  const deleteMessage = useSMSStore(state => state.deleteMessage);
 
-  const [showCompose, setShowCompose] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [messageText, setMessageText] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -131,66 +125,6 @@ export const useSMSScreen = () => {
     return () => clearTimeout(t);
   }, [initialLoading, messages.length, isSyncing]);
 
-  const handleSendMessage = async () => {
-    if (!phoneNumber.trim()) {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        isRTL ? 'أدخل رقم الهاتف' : 'Enter phone number',
-      );
-      return;
-    }
-    if (!messageText.trim()) {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        isRTL ? 'أدخل الرسالة' : 'Enter message',
-      );
-      return;
-    }
-    setIsSending(true);
-    try {
-      if (smsService) {
-        const success = await smsService.sendSms(
-          phoneNumber.trim(),
-          messageText.trim(),
-        );
-        if (success) {
-          const newMessage: SMS = {
-            id: Date.now().toString(),
-            threadId: '',
-            userId: '',
-            deviceId: 'android',
-            phoneNumber: phoneNumber.trim(),
-            contactName: undefined,
-            body: messageText.trim(),
-            timestamp: Date.now(),
-            type: 'sent',
-            read: true,
-            syncedAt: Date.now(),
-          };
-          addMessage(newMessage);
-          setShowCompose(false);
-          setPhoneNumber('');
-          setMessageText('');
-          Alert.alert(
-            isRTL ? 'تم' : 'Success',
-            isRTL ? 'تم إرسال الرسالة' : 'Message sent',
-          );
-        } else {
-          Alert.alert(
-            isRTL ? 'خطأ' : 'Error',
-            isRTL ? 'فشل في الإرسال' : 'Failed to send',
-          );
-        }
-      }
-    } catch (error: any) {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        error.message || (isRTL ? 'فشل في الإرسال' : 'Failed to send'),
-      );
-    }
-    setIsSending(false);
-  };
-
   const handleMarkAllAsRead = () => {
     Alert.alert(
       isRTL ? 'تعليم الكل كمقروء' : 'Mark All as Read',
@@ -228,9 +162,6 @@ export const useSMSScreen = () => {
     );
   };
 
-  const openCompose = () => setShowCompose(true);
-  const closeCompose = () => setShowCompose(false);
-
   return {
     // State
     messages,
@@ -241,11 +172,6 @@ export const useSMSScreen = () => {
     hasMoreMessages,
     initialLoading,
     permissionGranted,
-    showCompose,
-    phoneNumber,
-    messageText,
-    isSending,
-    showActions,
 
     // Theme
     colors,
@@ -256,14 +182,8 @@ export const useSMSScreen = () => {
     secondaryTextColor,
 
     // Actions
-    setPhoneNumber,
-    setMessageText,
-    setShowActions,
-    openCompose,
-    closeCompose,
     loadFromDevice,
     loadMoreMessages,
-    handleSendMessage,
     handleMarkAllAsRead,
     handleDeleteAll,
   };

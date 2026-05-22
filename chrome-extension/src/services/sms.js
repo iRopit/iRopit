@@ -253,8 +253,16 @@ export async function loadSMS() {
   // Stop any previous listeners first
   stopSMSListener();
 
-  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
-  if (smsList) {
+  // Only show the loading spinner if the list is genuinely empty.
+  // The pre-auth cache path (popup.js → displayPreAuthCache) may have already
+  // rendered cached SMS items before we get here. Wiping them with a spinner
+  // causes a visible flicker that makes the load feel slower than it is.
+  const listHasContent =
+    smsList &&
+    !smsList.querySelector(".loading-state") &&
+    smsList.children.length > 0 &&
+    !smsList.querySelector(".empty-state");
+  if (smsList && !listHasContent) {
     const lang = getCurrentLanguage();
     const syncingMsg =
       lang === "ar"
@@ -461,34 +469,86 @@ export async function loadSMS() {
           `[SMS] ${isDelta ? "ðŸ”„ Delta" : "ðŸ“¥ Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
 
-        // Decrypt all messages in parallel with caching
-        const messages = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            let data = docSnap.data();
-            const messageId = docSnap.id;
+        // Decrypt and render messages in small batches so the UI stays responsive.
+        // First batch of 20 renders immediately; remaining in groups of 50 with a
+        // setTimeout(0) yield between each so the browser can paint + handle events.
+        const FIRST_BATCH = 20;
+        const BATCH_SIZE = 50;
+        const docs = snapshot.docs;
+        const allMessages = [];
 
-            // Use cached decryption
-            data = await decryptSMSCached(data, user.uid, messageId);
+        const decryptDoc = async (docSnap) => {
+          let data = docSnap.data();
+          const messageId = docSnap.id;
 
-            const resolvedPhone = resolvePhoneNumber(data);
-            const resolvedContact = resolveContactName(data, resolvedPhone);
+          // Use cached decryption
+          data = await decryptSMSCached(data, user.uid, messageId);
 
-            return {
-              ...data,
-              id: messageId,
-              docId: messageId,
-              docRef: docSnap.ref,
-              deviceId: device.id,
-              deviceName: device.name,
-              phoneNumber: resolvedPhone,
-              contactName: resolvedContact,
-              title: stripEnc(data.title),              body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
-              timestamp: data.timestamp || data.receivedAt || Date.now(),
-              read: data.read === true,
-              type: data.type || "sms",
-            };
-          }),
-        );
+          const resolvedPhone = resolvePhoneNumber(data);
+          const resolvedContact = resolveContactName(data, resolvedPhone);
+
+          return {
+            ...data,
+            id: messageId,
+            docId: messageId,
+            docRef: docSnap.ref,
+            deviceId: device.id,
+            deviceName: device.name,
+            phoneNumber: resolvedPhone,
+            contactName: resolvedContact,
+            title: stripEnc(data.title),
+            body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
+            timestamp: data.timestamp || data.receivedAt || Date.now(),
+            read: data.read === true,
+            type: data.type || "sms",
+          };
+        };
+
+        // Process first batch and render immediately so the list appears fast
+        const firstBatch = await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc));
+        allMessages.push(...firstBatch);
+
+        // Helper: merge bulk-loaded messages with any messages the realtime listener
+        // already added to state (e.g. a new SMS that arrived while getDocs was in
+        // flight). Without this, each progressive render would wipe realtime updates.
+        const mergeWithRealtime = (bulk) => {
+          const bulkIds = new Set(bulk.map((m) => m.id));
+          const realtimeOnly = (state.getSMSData(device.id) || []).filter(
+            (m) => !bulkIds.has(m.id),
+          );
+          return [...realtimeOnly, ...bulk];
+        };
+
+        if (!isDelta && firstBatch.length > 0) {
+          devicePagState.lastTimestamp = firstBatch[firstBatch.length - 1].timestamp;
+          if (paginationState[device.id])
+            paginationState[device.id].lastTimestamp = devicePagState.lastTimestamp;
+          devicePagState.hasMore = docs.length >= PAGE_SIZE || docs.length > FIRST_BATCH;
+          if (paginationState[device.id])
+            paginationState[device.id].hasMore = devicePagState.hasMore;
+          updateSMSList(device.id, mergeWithRealtime(allMessages));
+        }
+
+        // Remaining docs in batches, yielding between each to stay responsive
+        let offset = FIRST_BATCH;
+        while (offset < docs.length) {
+          await new Promise((r) => setTimeout(r, 0));
+          const batch = await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc));
+          allMessages.push(...batch);
+          offset += BATCH_SIZE;
+
+          if (!isDelta) {
+            devicePagState.lastTimestamp = allMessages[allMessages.length - 1].timestamp;
+            if (paginationState[device.id])
+              paginationState[device.id].lastTimestamp = devicePagState.lastTimestamp;
+            devicePagState.hasMore = docs.length >= PAGE_SIZE || offset < docs.length;
+            if (paginationState[device.id])
+              paginationState[device.id].hasMore = devicePagState.hasMore;
+            updateSMSList(device.id, mergeWithRealtime(allMessages));
+          }
+        }
+
+        const messages = allMessages;
 
         if (isDelta) {
           // Delta merge: combine new messages with cached ones
@@ -496,11 +556,10 @@ export async function loadSMS() {
           const cachedIds = new Set(cachedMessages.map((m) => m.id));
           const brandNew = messages.filter((m) => !cachedIds.has(m.id));
           console.log(
-            `[SMS] ðŸ”„ Delta: ${brandNew.length} new messages since cache for device ${device.id}`,
+            `[SMS] Delta: ${brandNew.length} new messages since cache for device ${device.id}`,
           );
           const merged = [...brandNew, ...cachedMessages];
 
-          // Pagination cursor: use oldest from cached data (bottom boundary unchanged)
           if (cachedMessages.length > 0) {
             const oldestCached = cachedMessages[cachedMessages.length - 1];
             devicePagState.lastTimestamp = oldestCached.timestamp;
@@ -509,13 +568,11 @@ export async function loadSMS() {
           }
           devicePagState.hasMore = cachedMessages.length >= PAGE_SIZE;
           if (paginationState[device.id])
-            paginationState[device.id].hasMore =
-              cachedMessages.length >= PAGE_SIZE;
+            paginationState[device.id].hasMore = cachedMessages.length >= PAGE_SIZE;
 
           updateSMSList(device.id, merged);
         } else {
-          // Full load path
-          // Track pagination cursor
+          // Final cursor and hasMore after all batches
           if (messages.length > 0) {
             const oldestMsg = messages[messages.length - 1];
             devicePagState.lastTimestamp = oldestMsg.timestamp;
@@ -1156,9 +1213,7 @@ export function renderSMS(messages) {
         <div class="list-item-subtitle">${
           conv.lastMessage.body
             ? escapeHtml(conv.lastMessage.body.substring(0, 80))
-            : (isSyncing || (Date.now() - (conv.lastMessage.timestamp || 0)) < 30000)
-              ? '<span class="sms-body-loading"></span>'
-              : ""
+            : '<span class="sms-body-loading" aria-label="Loading message…"></span>'
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
@@ -1552,12 +1607,6 @@ export function showConversation(phoneNumber) {
         ${(() => {
           const actionPhone = displayPhone || (!phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") && isPhoneNumberLike(phoneNumber) ? phoneNumber : "");
           return actionPhone ? `<div class="conv-header-actions" data-action-phone="${escapeHtml(actionPhone)}">
-          <button class="call-action-btn call-action-call" id="smsConvCallBtn" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 12.72 19.79 19.79 0 01.15 4.1 2 2 0 012 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-            <span>${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}</span>
-          </button>
           <button class="call-action-btn call-action-whatsapp" id="smsConvWaBtn" title="WhatsApp">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -1581,7 +1630,7 @@ export function showConversation(phoneNumber) {
                 ? "sent"
                 : "received"
             }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
-              <div class="message-text">${linkifyText(msg.body || "")}</div>
+              <div class="message-text">${msg.body ? linkifyText(msg.body) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg)
@@ -1608,15 +1657,6 @@ export function showConversation(phoneNumber) {
           )
           .join("")}
       </div>
-      <div class="conversation-input">
-        <input type="text" id="conversationMessageInput" placeholder="${getCurrentLanguage() === 'ar' ? '...اكتب رسالة' : 'Type a message...'}" />
-        <button class="send-btn" id="sendConversationSms">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
-    </div>
   `;
 
   // Scroll to bottom
@@ -1661,15 +1701,6 @@ export function showConversation(phoneNumber) {
   // Add back button handler (also covered by the permanent delegation in initSMSNavigation)
   document.getElementById("backToSMS")?.addEventListener("click", () => {
     _goBackFromConversation();
-  });
-
-  // Call button handler in conversation header
-  document.getElementById("smsConvCallBtn")?.addEventListener("click", () => {
-    const actionsDiv = document.querySelector(".conv-header-actions");
-    const phone = actionsDiv?.dataset.actionPhone;
-    if (phone) {
-      import("./calls.js").then(m => m.initiateDialRequest(phone, null));
-    }
   });
 
   // WhatsApp button handler in conversation header
@@ -1780,6 +1811,10 @@ export function showConversation(phoneNumber) {
  * @param {HTMLInputElement} inputElement - Input element
  */
 async function sendConversationMessage(phoneNumber, inputElement) {
+  // SMS sending disabled per Google Play policy
+  showToast(getCurrentLanguage() === "ar" ? "إرسال الرسائل النصية معطل" : "SMS sending is disabled", "error");
+  return;
+  // eslint-disable-next-line no-unreachable
   const message = inputElement.value.trim();
   if (!message) return;
 
