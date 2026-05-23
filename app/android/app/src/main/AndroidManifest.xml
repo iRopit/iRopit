@@ -14,20 +14,28 @@
     <!-- Boot completed permission to restart services after device restart -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- SMS Permissions (SEND_SMS removed - sending disabled per Google Play policy) -->
+    <!-- SMS Permissions -->
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     
     <!-- Phone & Call Log Permissions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
-    
-    <!-- Notification permission (Android 13+) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- PROCESS_OUTGOING_CALLS removed: deprecated in API 29+, not needed for read-only call log sync -->
     
     <!-- Battery optimization exemption -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Package visibility (Android 11+): declare intent to interact with SMS and Phone apps -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"
@@ -93,12 +101,12 @@
       </receiver>
 
       <!-- Call Receiver - Captures incoming/outgoing calls and saves to Firebase -->
+      <!-- Uses PHONE_STATE only; NEW_OUTGOING_CALL removed (required deprecated PROCESS_OUTGOING_CALLS) -->
       <receiver
         android:name=".CallReceiver"
         android:exported="true">
         <intent-filter>
           <action android:name="android.intent.action.PHONE_STATE" />
-          <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
         </intent-filter>
       </receiver>
 
