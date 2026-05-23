@@ -10,6 +10,7 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import androidx.activity.enableEdgeToEdge
 
 class MainActivity : ReactActivity() {
 
@@ -32,6 +33,8 @@ class MainActivity : ReactActivity() {
     }
 
     super.onCreate(savedInstanceState)
+    
+    enableEdgeToEdge() // Android 15 edge-to-edge compliance
     
     // Register SMS receiver dynamically
     val smsFilter = IntentFilter()
