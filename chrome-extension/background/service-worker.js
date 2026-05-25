@@ -19877,8 +19877,10 @@ async function updateCallsCache(deviceId, deviceName, newCall) {
 async function showNotification(data) {
   const uid = currentUser?.uid;
   const appName = data.appName || data.packageName || "App";
-  const title = await decrypt(data.title || data.contactName || "New Notification", uid);
-  const message = await decrypt(data.body || data.text || data.content || "", uid);
+  const [title, message] = await Promise.all([
+    decrypt(data.title || data.contactName || "New Notification", uid),
+    decrypt(data.body || data.text || data.content || "", uid)
+  ]);
   const iconUrl = chrome.runtime.getURL("assets/icon128.png");
   const notificationType = data.type || "notification";
   const notificationId = `zyncit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;

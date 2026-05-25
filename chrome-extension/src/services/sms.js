@@ -305,7 +305,12 @@ export async function loadSMS() {
           `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
         );
         hasCachedData = true;
-        // Sanitize any lingering ENC: values that slipped through decryption on the cached items
+        // Sanitize any lingering ENC: values that slipped through decryption on the cached items.
+        // Messages with ENC: fields (typically body) get their encrypted bits collected so we can
+        // re-decrypt them in the BACKGROUND right after the cached list is painted — this fixes
+        // the UX where a row shows the contact name (header) but the body stays blank until the
+        // server delta fetch completes (which can be several seconds when there are many devices).
+        const encMessagesToRedecrypt = []; // { id, original } pairs (original still has ENC: values)
         const sanitizeMsg = (m) => {
           const hasEnc =
             (m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:")) ||
@@ -316,6 +321,7 @@ export async function loadSMS() {
             (m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:")) ||
             (m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:"));
           if (!hasEnc) return m;
+          if (m.id) encMessagesToRedecrypt.push(m);
           return {
             ...m,
             contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
@@ -347,6 +353,66 @@ export async function loadSMS() {
         state.setAllSMSMessages(sanitizedCachedMessages);
         renderSMS(sanitizedCachedMessages);
         updateTabBadges();
+
+        // === Background re-decryption of cached ENC: items ===
+        // The list above renders instantly with empty bodies for any cached message whose
+        // body/title is still in ENC: form. Kick off decryption now (off the render path)
+        // so those rows fill in within a few hundred ms — well before the Firestore delta
+        // fetch returns. We don't await; the IIFE updates state + re-renders when done.
+        if (encMessagesToRedecrypt.length > 0) {
+          (async () => {
+            try {
+              const uid = user.uid;
+              const fixed = await Promise.all(
+                encMessagesToRedecrypt.map(async (m) => {
+                  try {
+                    const d = await decryptSMS(m, uid);
+                    return {
+                      ...m,
+                      contactName: stripEnc(d.contactName) || m.contactName,
+                      phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
+                      title: stripEnc(d.title) || m.title,
+                      body: stripEnc(d.body) || stripEnc(d.text) || "",
+                      text: stripEnc(d.text) || "",
+                      sender: stripEnc(d.sender) || m.sender,
+                      displayName: stripEnc(d.displayName) || m.displayName,
+                    };
+                  } catch {
+                    return null;
+                  }
+                }),
+              );
+              const byId = new Map();
+              for (const m of fixed) {
+                if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
+              }
+              if (byId.size === 0) return;
+
+              // Merge decrypted versions into per-device state and the flat list
+              const deviceIds = Object.keys(state.allSMS || {});
+              for (const deviceId of deviceIds) {
+                const list = state.getSMSData(deviceId) || [];
+                let changed = false;
+                const merged = list.map((m) => {
+                  const fix = byId.get(m.id);
+                  if (!fix) return m;
+                  changed = true;
+                  return { ...m, ...fix };
+                });
+                if (changed) state.setSMSData(deviceId, merged);
+              }
+              const flat = (state.allSMSMessages || sanitizedCachedMessages).map((m) => {
+                const fix = byId.get(m.id);
+                return fix ? { ...m, ...fix } : m;
+              });
+              state.setAllSMSMessages(flat);
+              renderSMS(flat);
+              console.log(`[SMS] 🔓 Background re-decrypted ${byId.size} cached message(s)`);
+            } catch (err) {
+              console.warn("[SMS] Background re-decrypt failed:", err);
+            }
+          })();
+        }
       }
     }
   } catch (e) {

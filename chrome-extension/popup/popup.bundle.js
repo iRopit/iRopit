@@ -27324,9 +27324,11 @@ ${this.customData.serverResponse}`;
             `[SMS] \xF0\u0178\u201C\xA6 Showing ${cached.allMessages.length} cached messages instantly`
           );
           hasCachedData = true;
+          const encMessagesToRedecrypt = [];
           const sanitizeMsg = (m) => {
             const hasEnc = m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:") || m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:") || m.title && typeof m.title === "string" && m.title.startsWith("ENC:") || m.body && typeof m.body === "string" && m.body.startsWith("ENC:") || m.text && typeof m.text === "string" && m.text.startsWith("ENC:") || m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:") || m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:");
             if (!hasEnc) return m;
+            if (m.id) encMessagesToRedecrypt.push(m);
             return {
               ...m,
               contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
@@ -27352,6 +27354,58 @@ ${this.customData.serverResponse}`;
           setAllSMSMessages(sanitizedCachedMessages);
           renderSMS(sanitizedCachedMessages);
           updateTabBadges();
+          if (encMessagesToRedecrypt.length > 0) {
+            (async () => {
+              try {
+                const uid = user.uid;
+                const fixed = await Promise.all(
+                  encMessagesToRedecrypt.map(async (m) => {
+                    try {
+                      const d = await decryptSMS(m, uid);
+                      return {
+                        ...m,
+                        contactName: stripEnc(d.contactName) || m.contactName,
+                        phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
+                        title: stripEnc(d.title) || m.title,
+                        body: stripEnc(d.body) || stripEnc(d.text) || "",
+                        text: stripEnc(d.text) || "",
+                        sender: stripEnc(d.sender) || m.sender,
+                        displayName: stripEnc(d.displayName) || m.displayName
+                      };
+                    } catch {
+                      return null;
+                    }
+                  })
+                );
+                const byId = /* @__PURE__ */ new Map();
+                for (const m of fixed) {
+                  if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
+                }
+                if (byId.size === 0) return;
+                const deviceIds = Object.keys(allSMS || {});
+                for (const deviceId of deviceIds) {
+                  const list = getSMSData(deviceId) || [];
+                  let changed = false;
+                  const merged = list.map((m) => {
+                    const fix = byId.get(m.id);
+                    if (!fix) return m;
+                    changed = true;
+                    return { ...m, ...fix };
+                  });
+                  if (changed) setSMSData(deviceId, merged);
+                }
+                const flat = (allSMSMessages || sanitizedCachedMessages).map((m) => {
+                  const fix = byId.get(m.id);
+                  return fix ? { ...m, ...fix } : m;
+                });
+                setAllSMSMessages(flat);
+                renderSMS(flat);
+                console.log(`[SMS] \u{1F513} Background re-decrypted ${byId.size} cached message(s)`);
+              } catch (err) {
+                console.warn("[SMS] Background re-decrypt failed:", err);
+              }
+            })();
+          }
         }
       }
     } catch (e) {
