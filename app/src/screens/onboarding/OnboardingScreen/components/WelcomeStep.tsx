@@ -30,7 +30,7 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ colors, translate }) => {
       </View>
 
       <View style={styles.titleSection}>
-        <Text style={[styles.appName, { color: colors.primaryText }]}>
+        <Text style={[styles.appName, { color: colors.text }]}>
           iRopit
         </Text>
         <Text style={[styles.tagline, { color: colors.textSecondary }]}>
