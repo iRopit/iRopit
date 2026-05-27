@@ -97,7 +97,7 @@ export const isProduction = () => ENV === 'production';
 export const APP_INFO = {
   name: 'iRopit',
   bundleId: 'com.iropit.app',
-  version: '1.1.4',
+  version: '1.1.6',
   buildNumber: '1',
 };
 

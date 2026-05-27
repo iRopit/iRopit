@@ -661,7 +661,11 @@ public class NotificationService extends NotificationListenerService {
                 }
                 
                 // إذا لم نجد رقم، جرب البحث في جهات الاتصال بالاسم
-                if (extractedPhoneNumber == null && title != null && !title.isEmpty()) {
+                // SKIP for outgoing calls: this turns a dialed short code (e.g. "110")
+                // into a contact's full saved number when Google Dialer T9-matches the
+                // notification title to a contact (e.g. "Springs 2 $110k").
+                if (extractedPhoneNumber == null && title != null && !title.isEmpty()
+                        && !CallReceiver.isOutgoingCallActive()) {
                     String phoneFromContacts = getPhoneNumberFromContactName(title);
                     if (phoneFromContacts != null) {
                         extractedPhoneNumber = phoneFromContacts;
@@ -691,7 +695,12 @@ public class NotificationService extends NotificationListenerService {
                 // v1.1.2.22: Inspect Notification.CallStyle extras (API 31+) and the
                 // generic EXTRA_PEOPLE array — these carry tel: URIs even when the
                 // visible title/text show a contact-style label.
-                if (extractedPhoneNumber == null && extras != null) {
+                // SKIP for outgoing calls: the CallStyle person URI carries the
+                // CONTACT'S saved number, not the digits the user actually typed.
+                // For T9 auto-matches (e.g. "110" → "Springs 2 $110k"), this would
+                // wrongly write the contact's full number to outgoing_call.
+                if (extractedPhoneNumber == null && extras != null
+                        && !CallReceiver.isOutgoingCallActive()) {
                     String p = extractPhoneFromCallExtras(extras);
                     if (p != null) {
                         extractedPhoneNumber = p;

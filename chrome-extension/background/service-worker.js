@@ -19234,6 +19234,7 @@ async function lookupContactNameByPhone(deviceId, phone) {
   if (!phone || !currentUser) return "";
   const target = normalizePhoneForMatch(phone);
   if (!target) return "";
+  if (target.length <= 4) return "";
   try {
     const contactsRef = collection(
       db,
@@ -19260,35 +19261,6 @@ async function lookupContactNameByPhone(deviceId, phone) {
       }
     });
     if (match) return match;
-  } catch (e) {
-  }
-  try {
-    const { cached_calls_data } = await chrome.storage.local.get("cached_calls_data");
-    const allCalls = cached_calls_data?.allCalls || [];
-    for (const c of allCalls) {
-      if (!c?.contactName || !c?.phoneNumber) continue;
-      if (typeof c.contactName !== "string") continue;
-      if (c.contactName.startsWith("ENC:")) continue;
-      if (normalizePhoneForMatch(c.phoneNumber) === target) {
-        if (normalizePhoneForMatch(c.contactName) === target) continue;
-        return c.contactName;
-      }
-    }
-  } catch (e) {
-  }
-  try {
-    const { cached_sms_data } = await chrome.storage.local.get("cached_sms_data");
-    const allMessages = cached_sms_data?.allMessages || [];
-    for (const m of allMessages) {
-      const name4 = m?.contactName || m?.senderName || "";
-      const num = m?.phoneNumber || m?.address || m?.sender || "";
-      if (!name4 || !num) continue;
-      if (typeof name4 !== "string" || name4.startsWith("ENC:")) continue;
-      if (normalizePhoneForMatch(num) === target) {
-        if (normalizePhoneForMatch(name4) === target) continue;
-        return name4;
-      }
-    }
   } catch (e) {
   }
   return "";
@@ -19338,6 +19310,10 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
             } catch (e) {
               console.warn("ZyncIT: \u{1F4DE} Contact lookup failed:", e);
             }
+          }
+          if (!phone) {
+            console.log("ZyncIT: \u{1F4DE} Skipping popup \u2014 no phone number in ringing_call doc");
+            return;
           }
           const deviceLabel = deviceName || data.deviceName || "Android Device";
           const simSlot = data.simSlot;
@@ -19512,6 +19488,10 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
               if (resolved && resolved !== phone) contact = resolved;
             } catch (_) {
             }
+          }
+          if (!phone) {
+            console.log("ZyncIT: \u{1F4F2} Skipping popup \u2014 no phone number in outgoing_call doc");
+            return;
           }
           const deviceLabel = deviceName || data.deviceName || "Android Device";
           const simSlot = data.simSlot;

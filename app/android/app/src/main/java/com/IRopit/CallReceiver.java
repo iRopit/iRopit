@@ -54,6 +54,7 @@ public class CallReceiver extends BroadcastReceiver {
     // can fill in the dialed number on devices where CallLog is not populated
     // during an active call.
     private static volatile boolean outgoingCallActive = false;
+    static boolean isOutgoingCallActive() { return outgoingCallActive; }
     private static volatile boolean outgoingDocWritten = false;
     private static volatile long outgoingBaselineCallLogId = -1L;
     private static volatile long outgoingOffhookTime = 0L;
@@ -95,7 +96,7 @@ public class CallReceiver extends BroadcastReceiver {
             dbg.put("baselineCallLogId", outgoingBaselineCallLogId);
             dbg.put("offhookTime", outgoingOffhookTime);
             dbg.put("matchedNumber", number);
-            dbg.put("appVersion", "1.1.5");
+            dbg.put("appVersion", "1.1.6");
             fb.writeOutgoingCall(number, cn, -1, dbg);
             Log.d(TAG, "✅ outgoing_call written (" + source + ") number=" + number);
         } catch (Exception e) {

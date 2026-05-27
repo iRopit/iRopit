@@ -806,6 +806,9 @@ async function lookupContactNameByPhone(deviceId, phone) {
   if (!phone || !currentUser) return "";
   const target = normalizePhoneForMatch(phone);
   if (!target) return "";
+  // Short codes / emergency numbers (≤ 4 digits) are not real contacts —
+  // skip lookup to avoid false matches from call/SMS history.
+  if (target.length <= 4) return "";
 
   // 1) Device's contacts subcollection
   try {
@@ -833,45 +836,11 @@ async function lookupContactNameByPhone(deviceId, phone) {
     });
     if (match) return match;
   } catch (e) {
-    // ignore — fall through to cache lookups
-  }
-
-  // 2) Cached calls
-  try {
-    const { cached_calls_data } = await chrome.storage.local.get("cached_calls_data");
-    const allCalls = cached_calls_data?.allCalls || [];
-    for (const c of allCalls) {
-      if (!c?.contactName || !c?.phoneNumber) continue;
-      if (typeof c.contactName !== "string") continue;
-      if (c.contactName.startsWith("ENC:")) continue;
-      if (normalizePhoneForMatch(c.phoneNumber) === target) {
-        // Skip "contact names" that are really just the phone number itself
-        if (normalizePhoneForMatch(c.contactName) === target) continue;
-        return c.contactName;
-      }
-    }
-  } catch (e) {
     // ignore
   }
 
-  // 3) Cached SMS
-  try {
-    const { cached_sms_data } = await chrome.storage.local.get("cached_sms_data");
-    const allMessages = cached_sms_data?.allMessages || [];
-    for (const m of allMessages) {
-      const name = m?.contactName || m?.senderName || "";
-      const num = m?.phoneNumber || m?.address || m?.sender || "";
-      if (!name || !num) continue;
-      if (typeof name !== "string" || name.startsWith("ENC:")) continue;
-      if (normalizePhoneForMatch(num) === target) {
-        if (normalizePhoneForMatch(name) === target) continue;
-        return name;
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-
+  // Only Firestore contacts are authoritative — cached call/SMS history can
+  // contain stale or wrong name associations, so we do not fall back to them.
   return "";
 }
 
@@ -933,6 +902,12 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
             } catch (e) {
               console.warn("ZyncIT: 📞 Contact lookup failed:", e);
             }
+          }
+
+          // Don't show popup if mobile didn't send a phone number
+          if (!phone) {
+            console.log("ZyncIT: 📞 Skipping popup — no phone number in ringing_call doc");
+            return;
           }
 
           const deviceLabel = deviceName || data.deviceName || "Android Device";
@@ -1132,6 +1107,12 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
               const resolved = await lookupContactNameByPhone(deviceId, phone);
               if (resolved && resolved !== phone) contact = resolved;
             } catch (_) {}
+          }
+
+          // Don't show popup if mobile didn't send a phone number
+          if (!phone) {
+            console.log("ZyncIT: 📲 Skipping popup — no phone number in outgoing_call doc");
+            return;
           }
 
           const deviceLabel = deviceName || data.deviceName || "Android Device";
