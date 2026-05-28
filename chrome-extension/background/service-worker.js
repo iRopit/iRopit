@@ -19321,7 +19321,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
-          const popupEnabled = smartAction_incomingCallPopup !== false;
+          const popupEnabled = smartAction_incomingCallPopup === true;
           const callKey = `${phone}|${contact}`;
           if (incomingCallLastKey.get(deviceId) === callKey) {
             console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 skipping duplicate popup");
@@ -19499,7 +19499,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_outgoingCallPopup } = await chrome.storage.local.get("smartAction_outgoingCallPopup");
-          const popupEnabled = smartAction_outgoingCallPopup !== false;
+          const popupEnabled = smartAction_outgoingCallPopup === true;
           if (outgoingCallLastTs.get(deviceId) === docTs) return;
           outgoingCallLastTs.set(deviceId, docTs);
           const existingWindowId = outgoingCallWindowIds.get(deviceId);

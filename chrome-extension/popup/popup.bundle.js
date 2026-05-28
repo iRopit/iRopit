@@ -32030,7 +32030,7 @@ ${this.customData.serverResponse}`;
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId);
         if (!el) continue;
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
+        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy";
         el.checked = storageKey in result ? result[storageKey] : defaultOn;
       }
     });

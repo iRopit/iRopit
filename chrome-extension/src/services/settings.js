@@ -78,8 +78,8 @@ export async function loadUserSettings() {
     for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
       const el = document.getElementById(elId)
       if (!el) continue
-      // Default: copyOtp, copyOtpEmail, universalCopy, incomingCallPopup, outgoingCallPopup default ON, others OFF
-      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
+      // Default: copyOtp, copyOtpEmail, universalCopy default ON; incomingCallPopup, outgoingCallPopup default OFF
+      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy"
       el.checked = storageKey in result ? result[storageKey] : defaultOn
     }
   })

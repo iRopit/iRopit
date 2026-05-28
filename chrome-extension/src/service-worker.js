@@ -919,7 +919,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 
           // ── Open / update the popup window (only if toggle is enabled) ─────
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
-          const popupEnabled = smartAction_incomingCallPopup !== false; // default ON
+          const popupEnabled = smartAction_incomingCallPopup === true; // default OFF
 
           // Skip if this is the same ringing event we already handled (snapshots
           // can fire multiple times for the same Firestore doc — e.g. when the
@@ -1122,7 +1122,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           const subtitle = `${deviceLabel} • ${simLabel}`;
 
           const { smartAction_outgoingCallPopup } = await chrome.storage.local.get("smartAction_outgoingCallPopup");
-          const popupEnabled = smartAction_outgoingCallPopup !== false; // default ON
+          const popupEnabled = smartAction_outgoingCallPopup === true; // default OFF
 
           // Dedup by doc timestamp instead of phone|contact — on Android 10+
           // outgoing calls often have empty phone, so two consecutive calls
