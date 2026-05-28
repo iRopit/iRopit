@@ -20275,6 +20275,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 chrome.runtime.onInstalled.addListener((details) => {
   buildContextMenus();
+  const callPopupKeys = ["smartAction_incomingCallPopup", "smartAction_outgoingCallPopup"];
+  if (details.reason === "install") {
+    const defaults = {};
+    callPopupKeys.forEach((k2) => defaults[k2] = false);
+    chrome.storage.local.set(defaults);
+  } else if (details.reason === "update") {
+    chrome.storage.local.get(callPopupKeys, (result) => {
+      const migration = {};
+      callPopupKeys.forEach((k2) => {
+        if (!(k2 in result)) migration[k2] = true;
+      });
+      if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
+    });
+  }
 });
 chrome.runtime.onStartup.addListener(() => {
   buildContextMenus();

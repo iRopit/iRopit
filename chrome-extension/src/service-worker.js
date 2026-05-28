@@ -2128,6 +2128,25 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onInstalled.addListener((details) => {
   // Full menu build on install/update — guaranteed to run synchronously in this event
   buildContextMenus();
+
+  const callPopupKeys = ["smartAction_incomingCallPopup", "smartAction_outgoingCallPopup"];
+
+  if (details.reason === "install") {
+    // Fresh install: explicitly set call popups OFF (new default)
+    const defaults = {};
+    callPopupKeys.forEach((k) => (defaults[k] = false));
+    chrome.storage.local.set(defaults);
+  } else if (details.reason === "update") {
+    // Extension update: if user never explicitly set these keys (old default was ON),
+    // write true so they remain enabled after the update.
+    chrome.storage.local.get(callPopupKeys, (result) => {
+      const migration = {};
+      callPopupKeys.forEach((k) => {
+        if (!(k in result)) migration[k] = true;
+      });
+      if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
+    });
+  }
 });
 
 // Rebuild context menus on browser startup (menus should persist but this is a
