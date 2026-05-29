@@ -28,7 +28,12 @@ import {
   getFriendlyDeviceName,
   escapeHtml,
 } from "../utils/helpers.js";
-import { getCurrentLanguage } from "../utils/i18n.js";
+import { getCurrentLanguage, translations } from "../utils/i18n.js";
+
+function t(key) {
+  const lang = getCurrentLanguage();
+  return translations[lang]?.[key] || translations["en"][key] || key;
+}
 import * as state from "../state/index.js";
 
 // ── Per-device version cache ──────────────────────────────────────────────────
@@ -295,18 +300,18 @@ export function renderDevices() {
         <div class="device-id-info">${escapeHtml(device.id)}</div>
         ${isMobileDevice ? `
         <div class="device-sync-prefs">
-          <span class="sync-pref-title">Sync:</span>
+          <span class="sync-pref-title">${t("device_sync_label")}</span>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="sms" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "sms") ? " checked" : ""}>
-            <span>SMS</span>
+            <span>${t("device_sync_sms")}</span>
           </label>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="calls" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "calls") ? " checked" : ""}>
-            <span>Calls</span>
+            <span>${t("device_sync_calls")}</span>
           </label>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="notifications" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "notifications") ? " checked" : ""}>
-            <span>Notifications</span>
+            <span>${t("device_sync_notifications")}</span>
           </label>
         </div>` : ""}
       </div>

@@ -121,6 +121,10 @@ export const translations = {
     call_btn: "Call",
     call_phone_hint: "Or type a number manually",
     toast_refreshing: "Refreshing...",
+    device_sync_label: "Sync:",
+    device_sync_sms: "SMS",
+    device_sync_calls: "Calls",
+    device_sync_notifications: "Notifications",
   },
   ar: {
     nav_sms: "الرسائل",
@@ -238,6 +242,10 @@ export const translations = {
     call_from_device: "اتصل من جهاز",
     call_btn: "اتصال",
     call_phone_hint: "أو اكتب رقمًا يدويًا",
+    device_sync_label: "مزامنة:",
+    device_sync_sms: "الرسائل",
+    device_sync_calls: "المكالمات",
+    device_sync_notifications: "الإشعارات",
     toast_refreshing: "...جارٍ التحديث",
   },
 }

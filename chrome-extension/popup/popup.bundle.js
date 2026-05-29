@@ -6648,7 +6648,7 @@
           var c = q2;
           return Object.prototype.hasOwnProperty.call(c, d) ? c[d] : c[d] = a(d);
         }
-        function t2(d, a) {
+        function t3(d, a) {
           this.h = a;
           const c = [];
           let f = true;
@@ -6661,8 +6661,8 @@
         var q2 = {};
         function u(d) {
           return -128 <= d && d < 128 ? p(d, function(a) {
-            return new t2([a | 0], a < 0 ? -1 : 0);
-          }) : new t2([d | 0], d < 0 ? -1 : 0);
+            return new t3([a | 0], a < 0 ? -1 : 0);
+          }) : new t3([d | 0], d < 0 ? -1 : 0);
         }
         function v(d) {
           if (isNaN(d) || !isFinite(d)) return w;
@@ -6670,7 +6670,7 @@
           const a = [];
           let c = 1;
           for (let f = 0; d >= c; f++) a[f] = d / c | 0, c *= 4294967296;
-          return new t2(a, 0);
+          return new t3(a, 0);
         }
         function y(d, a) {
           if (d.length == 0) throw Error("number format error: empty string");
@@ -6688,7 +6688,7 @@
           return f;
         }
         var w = u(0), z2 = u(1), A = u(16777216);
-        h = t2.prototype;
+        h = t3.prototype;
         h.m = function() {
           if (B2(this)) return -x2(this).m();
           let d = 0, a = 1;
@@ -6735,7 +6735,7 @@
         function x2(d) {
           const a = d.g.length, c = [];
           for (let f = 0; f < a; f++) c[f] = ~d.g[f];
-          return new t2(c, ~d.h).add(z2);
+          return new t3(c, ~d.h).add(z2);
         }
         h.abs = function() {
           return B2(this) ? x2(this) : this;
@@ -6750,7 +6750,7 @@
             b &= 65535;
             c[e] = b << 16 | g;
           }
-          return new t2(c, c[c.length - 1] & -2147483648 ? -1 : 0);
+          return new t3(c, c[c.length - 1] & -2147483648 ? -1 : 0);
         };
         function F2(d, a) {
           return d.add(x2(a));
@@ -6775,7 +6775,7 @@
           }
           for (d = 0; d < a; d++) c[d] = c[2 * d + 1] << 16 | c[2 * d];
           for (d = a; d < 2 * a; d++) c[d] = 0;
-          return new t2(c, 0);
+          return new t3(c, 0);
         };
         function G2(d, a) {
           for (; (d[a] & 65535) != d[a]; ) d[a + 1] += d[a] >>> 16, d[a] &= 65535, a++;
@@ -6821,44 +6821,44 @@
         h.and = function(d) {
           const a = Math.max(this.g.length, d.g.length), c = [];
           for (let f = 0; f < a; f++) c[f] = this.i(f) & d.i(f);
-          return new t2(c, this.h & d.h);
+          return new t3(c, this.h & d.h);
         };
         h.or = function(d) {
           const a = Math.max(this.g.length, d.g.length), c = [];
           for (let f = 0; f < a; f++) c[f] = this.i(f) | d.i(f);
-          return new t2(c, this.h | d.h);
+          return new t3(c, this.h | d.h);
         };
         h.xor = function(d) {
           const a = Math.max(this.g.length, d.g.length), c = [];
           for (let f = 0; f < a; f++) c[f] = this.i(f) ^ d.i(f);
-          return new t2(c, this.h ^ d.h);
+          return new t3(c, this.h ^ d.h);
         };
         function I(d) {
           const a = d.g.length + 1, c = [];
           for (let f = 0; f < a; f++) c[f] = d.i(f) << 1 | d.i(f - 1) >>> 31;
-          return new t2(c, d.h);
+          return new t3(c, d.h);
         }
         function J2(d, a) {
           const c = a >> 5;
           a %= 32;
           const f = d.g.length - c, e = [];
           for (let g = 0; g < f; g++) e[g] = a > 0 ? d.i(g + c) >>> a | d.i(g + c + 1) << 32 - a : d.i(g + c);
-          return new t2(e, d.h);
+          return new t3(e, d.h);
         }
         m.prototype.digest = m.prototype.A;
         m.prototype.reset = m.prototype.u;
         m.prototype.update = m.prototype.v;
         Md5 = bloom_blob_es2018.Md5 = m;
-        t2.prototype.add = t2.prototype.add;
-        t2.prototype.multiply = t2.prototype.j;
-        t2.prototype.modulo = t2.prototype.B;
-        t2.prototype.compare = t2.prototype.l;
-        t2.prototype.toNumber = t2.prototype.m;
-        t2.prototype.toString = t2.prototype.toString;
-        t2.prototype.getBits = t2.prototype.i;
-        t2.fromNumber = v;
-        t2.fromString = y;
-        Integer = bloom_blob_es2018.Integer = t2;
+        t3.prototype.add = t3.prototype.add;
+        t3.prototype.multiply = t3.prototype.j;
+        t3.prototype.modulo = t3.prototype.B;
+        t3.prototype.compare = t3.prototype.l;
+        t3.prototype.toNumber = t3.prototype.m;
+        t3.prototype.toString = t3.prototype.toString;
+        t3.prototype.getBits = t3.prototype.i;
+        t3.fromNumber = v;
+        t3.fromString = y;
+        Integer = bloom_blob_es2018.Integer = t3;
       }).apply(typeof commonjsGlobal !== "undefined" ? commonjsGlobal : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {});
     }
   });
@@ -6930,7 +6930,7 @@
             return a.apply(this, d);
           };
         }
-        function t2(a, b) {
+        function t3(a, b) {
           function c() {
           }
           c.prototype = b.prototype;
@@ -7084,7 +7084,7 @@
           this.i = null;
           a && this.init(a, b);
         }
-        t2(z2, x2);
+        t3(z2, x2);
         z2.prototype.init = function(a, b) {
           const c = this.type = a.type, d = a.changedTouches && a.changedTouches.length ? a.changedTouches[0] : null;
           this.target = a.target || a.srcElement;
@@ -7265,7 +7265,7 @@
           this.M = this;
           this.G = null;
         }
-        t2(C, w);
+        t3(C, w);
         C.prototype[B2] = true;
         C.prototype.removeEventListener = function(a, b, c, d) {
           Sa(this, a, b, c, d);
@@ -7361,7 +7361,7 @@
           this.h = a;
           this.g = {};
         }
-        t2(E, w);
+        t3(E, w);
         var Za = [];
         function $a(a) {
           ya(a.g, function(b, c) {
@@ -7394,11 +7394,11 @@
         function gb() {
           x2.call(this, "d");
         }
-        t2(gb, x2);
+        t3(gb, x2);
         function hb() {
           x2.call(this, "c");
         }
-        t2(hb, x2);
+        t3(hb, x2);
         var I = {}, ib = null;
         function jb() {
           return ib = ib || new C();
@@ -7407,7 +7407,7 @@
         function kb(a) {
           x2.call(this, I.Ia, a);
         }
-        t2(kb, x2);
+        t3(kb, x2);
         function lb(a) {
           const b = jb();
           D(b, new kb(b));
@@ -7417,7 +7417,7 @@
           x2.call(this, I.STAT_EVENT, a);
           this.stat = b;
         }
-        t2(mb, x2);
+        t3(mb, x2);
         function J2(a) {
           const b = jb();
           D(b, new mb(b, a));
@@ -7427,7 +7427,7 @@
           x2.call(this, I.Ja, a);
           this.size = b;
         }
-        t2(nb, x2);
+        t3(nb, x2);
         function ob(a, b) {
           if (typeof a !== "function") throw Error("Fn must not be null and must be a function");
           return l.setTimeout(function() {
@@ -7503,7 +7503,7 @@
         var wb;
         function xb() {
         }
-        t2(xb, eb);
+        t3(xb, eb);
         xb.prototype.g = function() {
           return new XMLHttpRequest();
         };
@@ -8076,7 +8076,7 @@
           this.i = a.Sb || null;
           this.h = a.ab || false;
         }
-        t2(Ec, eb);
+        t3(Ec, eb);
         Ec.prototype.g = function() {
           return new Fc(this.i, this.h);
         };
@@ -8096,7 +8096,7 @@
           this.B = this.j = this.l = null;
           this.v = new AbortController();
         }
-        t2(Fc, C);
+        t3(Fc, C);
         h = Fc.prototype;
         h.open = function(a, b) {
           if (this.readyState != 0) throw this.abort(), Error("Error reopening a connection");
@@ -8218,7 +8218,7 @@
           this.F = "";
           this.H = false;
         }
-        t2(X2, C);
+        t3(X2, C);
         var Lc = /^https?$/i, Mc = ["POST", "PUT"];
         h = X2.prototype;
         h.Fa = function(a) {
@@ -8820,7 +8820,7 @@
           (b = b && b.httpSessionIdParam) && !y(b) && (this.g.G = b, a = this.h, a !== null && b in a && (a = this.h, b in a && delete a[b]));
           this.j = new Z2(this);
         }
-        t2(Y2, C);
+        t3(Y2, C);
         Y2.prototype.m = function() {
           this.g.l = this.j;
           this.A && (this.g.L = true);
@@ -8862,16 +8862,16 @@
             this.data = b;
           } else this.data = a;
         }
-        t2(cd, gb);
+        t3(cd, gb);
         function dd() {
           hb.call(this);
           this.status = 1;
         }
-        t2(dd, hb);
+        t3(dd, hb);
         function Z2(a) {
           this.g = a;
         }
-        t2(Z2, ad);
+        t3(Z2, ad);
         Z2.prototype.ra = function() {
           D(this.g, "a");
         };
@@ -8927,21 +8927,21 @@
   function __PRIVATE_getLogLevel() {
     return O.logLevel;
   }
-  function __PRIVATE_logDebug(e, ...t2) {
+  function __PRIVATE_logDebug(e, ...t3) {
     if (O.logLevel <= LogLevel.DEBUG) {
-      const n = t2.map(__PRIVATE_argToString);
+      const n = t3.map(__PRIVATE_argToString);
       O.debug(`Firestore (${x}): ${e}`, ...n);
     }
   }
-  function __PRIVATE_logError(e, ...t2) {
+  function __PRIVATE_logError(e, ...t3) {
     if (O.logLevel <= LogLevel.ERROR) {
-      const n = t2.map(__PRIVATE_argToString);
+      const n = t3.map(__PRIVATE_argToString);
       O.error(`Firestore (${x}): ${e}`, ...n);
     }
   }
-  function __PRIVATE_logWarn(e, ...t2) {
+  function __PRIVATE_logWarn(e, ...t3) {
     if (O.logLevel <= LogLevel.WARN) {
-      const n = t2.map(__PRIVATE_argToString);
+      const n = t3.map(__PRIVATE_argToString);
       O.warn(`Firestore (${x}): ${e}`, ...n);
     }
   }
@@ -8951,16 +8951,16 @@
       return (function __PRIVATE_formatJSON(e2) {
         return JSON.stringify(e2);
       })(e);
-    } catch (t2) {
+    } catch (t3) {
       return e;
     }
   }
-  function fail(e, t2, n) {
+  function fail(e, t3, n) {
     let r = "Unexpected state";
-    "string" == typeof t2 ? r = t2 : n = t2, __PRIVATE__fail(e, r, n);
+    "string" == typeof t3 ? r = t3 : n = t3, __PRIVATE__fail(e, r, n);
   }
-  function __PRIVATE__fail(e, t2, n) {
-    let r = `FIRESTORE (${x}) INTERNAL ASSERTION FAILED: ${t2} (ID: ${e.toString(16)})`;
+  function __PRIVATE__fail(e, t3, n) {
+    let r = `FIRESTORE (${x}) INTERNAL ASSERTION FAILED: ${t3} (ID: ${e.toString(16)})`;
     if (void 0 !== n) try {
       r += " CONTEXT: " + JSON.stringify(n);
     } catch (e2) {
@@ -8968,49 +8968,49 @@
     }
     throw __PRIVATE_logError(r), new Error(r);
   }
-  function __PRIVATE_hardAssert(e, t2, n, r) {
+  function __PRIVATE_hardAssert(e, t3, n, r) {
     let i = "Unexpected state";
-    "string" == typeof n ? i = n : r = n, e || __PRIVATE__fail(t2, i, r);
+    "string" == typeof n ? i = n : r = n, e || __PRIVATE__fail(t3, i, r);
   }
-  function __PRIVATE_debugCast(e, t2) {
+  function __PRIVATE_debugCast(e, t3) {
     return e;
   }
   function __PRIVATE_randomBytes(e) {
-    const t2 = (
+    const t3 = (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       "undefined" != typeof self && (self.crypto || self.msCrypto)
     ), n = new Uint8Array(e);
-    if (t2 && "function" == typeof t2.getRandomValues) t2.getRandomValues(n);
+    if (t3 && "function" == typeof t3.getRandomValues) t3.getRandomValues(n);
     else
-      for (let t3 = 0; t3 < e; t3++) n[t3] = Math.floor(256 * Math.random());
+      for (let t4 = 0; t4 < e; t4++) n[t4] = Math.floor(256 * Math.random());
     return n;
   }
-  function __PRIVATE_primitiveComparator(e, t2) {
-    return e < t2 ? -1 : e > t2 ? 1 : 0;
+  function __PRIVATE_primitiveComparator(e, t3) {
+    return e < t3 ? -1 : e > t3 ? 1 : 0;
   }
-  function __PRIVATE_compareUtf8Strings(e, t2) {
-    const n = Math.min(e.length, t2.length);
+  function __PRIVATE_compareUtf8Strings(e, t3) {
+    const n = Math.min(e.length, t3.length);
     for (let r = 0; r < n; r++) {
-      const n2 = e.charAt(r), i = t2.charAt(r);
+      const n2 = e.charAt(r), i = t3.charAt(r);
       if (n2 !== i) return __PRIVATE_isSurrogate(n2) === __PRIVATE_isSurrogate(i) ? __PRIVATE_primitiveComparator(n2, i) : __PRIVATE_isSurrogate(n2) ? 1 : -1;
     }
-    return __PRIVATE_primitiveComparator(e.length, t2.length);
+    return __PRIVATE_primitiveComparator(e.length, t3.length);
   }
   function __PRIVATE_isSurrogate(e) {
-    const t2 = e.charCodeAt(0);
-    return t2 >= B && t2 <= L;
+    const t3 = e.charCodeAt(0);
+    return t3 >= B && t3 <= L;
   }
-  function __PRIVATE_arrayEquals(e, t2, n) {
-    return e.length === t2.length && e.every(((e2, r) => n(e2, t2[r])));
+  function __PRIVATE_arrayEquals(e, t3, n) {
+    return e.length === t3.length && e.every(((e2, r) => n(e2, t3[r])));
   }
   function __PRIVATE_immediateSuccessor(e) {
     return e + "\0";
   }
-  function __PRIVATE_validateNonEmptyArgument(e, t2, n) {
-    if (!n) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${e}() cannot be called with an empty ${t2}.`);
+  function __PRIVATE_validateNonEmptyArgument(e, t3, n) {
+    if (!n) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${e}() cannot be called with an empty ${t3}.`);
   }
-  function __PRIVATE_validateIsNotUsedTogether(e, t2, n, r) {
-    if (true === t2 && true === r) throw new FirestoreError(N.INVALID_ARGUMENT, `${e} and ${n} cannot be used together.`);
+  function __PRIVATE_validateIsNotUsedTogether(e, t3, n, r) {
+    if (true === t3 && true === r) throw new FirestoreError(N.INVALID_ARGUMENT, `${e} and ${n} cannot be used together.`);
   }
   function __PRIVATE_validateDocumentPath(e) {
     if (!DocumentKey.isDocumentKey(e)) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid document reference. Document references must have an even number of segments, but ${e} has ${e.length}.`);
@@ -9029,47 +9029,47 @@
     if ("object" == typeof e) {
       if (e instanceof Array) return "an array";
       {
-        const t2 = (
+        const t3 = (
           /** try to get the constructor name for an object. */
           (function __PRIVATE_tryGetCustomObjectType(e2) {
             if (e2.constructor) return e2.constructor.name;
             return null;
           })(e)
         );
-        return t2 ? `a custom ${t2} object` : "an object";
+        return t3 ? `a custom ${t3} object` : "an object";
       }
     }
     return "function" == typeof e ? "a function" : fail(12329, {
       type: typeof e
     });
   }
-  function __PRIVATE_cast(e, t2) {
+  function __PRIVATE_cast(e, t3) {
     if ("_delegate" in e && // Unwrap Compat types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e = e._delegate), !(e instanceof t2)) {
-      if (t2.name === e.constructor.name) throw new FirestoreError(N.INVALID_ARGUMENT, "Type does not match the expected instance. Did you pass a reference from a different Firestore SDK?");
+    (e = e._delegate), !(e instanceof t3)) {
+      if (t3.name === e.constructor.name) throw new FirestoreError(N.INVALID_ARGUMENT, "Type does not match the expected instance. Did you pass a reference from a different Firestore SDK?");
       {
         const n = __PRIVATE_valueDescription(e);
-        throw new FirestoreError(N.INVALID_ARGUMENT, `Expected type '${t2.name}', but it was: ${n}`);
+        throw new FirestoreError(N.INVALID_ARGUMENT, `Expected type '${t3.name}', but it was: ${n}`);
       }
     }
     return e;
   }
-  function __PRIVATE_validatePositiveNumber(e, t2) {
-    if (t2 <= 0) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${e}() requires a positive number, but it was: ${t2}.`);
+  function __PRIVATE_validatePositiveNumber(e, t3) {
+    if (t3 <= 0) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${e}() requires a positive number, but it was: ${t3}.`);
   }
-  function property(e, t2) {
+  function property(e, t3) {
     const n = {
       typeString: e
     };
-    return t2 && (n.value = t2), n;
+    return t3 && (n.value = t3), n;
   }
-  function __PRIVATE_validateJSON(e, t2) {
+  function __PRIVATE_validateJSON(e, t3) {
     if (!__PRIVATE_isPlainObject(e)) throw new FirestoreError(N.INVALID_ARGUMENT, "JSON must be an object");
     let n;
-    for (const r in t2) if (t2[r]) {
-      const i = t2[r].typeString, s = "value" in t2[r] ? {
-        value: t2[r].value
+    for (const r in t3) if (t3[r]) {
+      const i = t3[r].typeString, s = "value" in t3[r] ? {
+        value: t3[r].value
       } : void 0;
       if (!(r in e)) {
         n = `JSON missing required field: '${r}'`;
@@ -9094,45 +9094,45 @@
   function __PRIVATE_fieldIndexGetDirectionalSegments(e) {
     return e.fields.filter(((e2) => 2 !== e2.kind));
   }
-  function __PRIVATE_newIndexOffsetSuccessorFromReadTime(e, t2) {
+  function __PRIVATE_newIndexOffsetSuccessorFromReadTime(e, t3) {
     const n = e.toTimestamp().seconds, r = e.toTimestamp().nanoseconds + 1, i = SnapshotVersion.fromTimestamp(1e9 === r ? new Timestamp(n + 1, 0) : new Timestamp(n, r));
-    return new IndexOffset(i, DocumentKey.empty(), t2);
+    return new IndexOffset(i, DocumentKey.empty(), t3);
   }
   function __PRIVATE_newIndexOffsetFromDocument(e) {
     return new IndexOffset(e.readTime, e.key, U);
   }
-  function __PRIVATE_indexOffsetComparator(e, t2) {
-    let n = e.readTime.compareTo(t2.readTime);
-    return 0 !== n ? n : (n = DocumentKey.comparator(e.documentKey, t2.documentKey), 0 !== n ? n : __PRIVATE_primitiveComparator(e.largestBatchId, t2.largestBatchId));
+  function __PRIVATE_indexOffsetComparator(e, t3) {
+    let n = e.readTime.compareTo(t3.readTime);
+    return 0 !== n ? n : (n = DocumentKey.comparator(e.documentKey, t3.documentKey), 0 !== n ? n : __PRIVATE_primitiveComparator(e.largestBatchId, t3.largestBatchId));
   }
   async function __PRIVATE_ignoreIfPrimaryLeaseLoss(e) {
     if (e.code !== N.FAILED_PRECONDITION || e.message !== K) throw e;
     __PRIVATE_logDebug("LocalStore", "Unexpectedly lost primary lease");
   }
   function __PRIVATE_getAndroidVersion(e) {
-    const t2 = e.match(/Android ([\d.]+)/i), n = t2 ? t2[1].split(".").slice(0, 2).join(".") : "-1";
+    const t3 = e.match(/Android ([\d.]+)/i), n = t3 ? t3[1].split(".").slice(0, 2).join(".") : "-1";
     return Number(n);
   }
   function __PRIVATE_isIndexedDbTransactionError(e) {
     return "IndexedDbTransactionError" === e.name;
   }
   function __PRIVATE_wrapRequest(e) {
-    return new PersistencePromise(((t2, n) => {
+    return new PersistencePromise(((t3, n) => {
       e.onsuccess = (e2) => {
         const n2 = e2.target.result;
-        t2(n2);
+        t3(n2);
       }, e.onerror = (e2) => {
-        const t3 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
-        n(t3);
+        const t4 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+        n(t4);
       };
     }));
   }
   function __PRIVATE_checkForAndReportiOSError(e) {
-    const t2 = __PRIVATE_SimpleDb.M(getUA());
-    if (t2 >= 12.2 && t2 < 13) {
-      const t3 = "An internal error was encountered in the Indexed Database server";
-      if (e.message.indexOf(t3) >= 0) {
-        const e2 = new FirestoreError("internal", `IOS_INDEXEDDB_BUG1: IndexedDb has thrown '${t3}'. This is likely due to an unavoidable bug in iOS. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.`);
+    const t3 = __PRIVATE_SimpleDb.M(getUA());
+    if (t3 >= 12.2 && t3 < 13) {
+      const t4 = "An internal error was encountered in the Indexed Database server";
+      if (e.message.indexOf(t4) >= 0) {
+        const e2 = new FirestoreError("internal", `IOS_INDEXEDDB_BUG1: IndexedDb has thrown '${t4}'. This is likely due to an unavoidable bug in iOS. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.`);
         return G || (G = true, // Throw a global exception outside of this promise chain, for the user to
         // potentially catch.
         setTimeout((() => {
@@ -9152,15 +9152,15 @@
     return "number" == typeof e && Number.isInteger(e) && !__PRIVATE_isNegativeZero(e) && e <= Number.MAX_SAFE_INTEGER && e >= Number.MIN_SAFE_INTEGER;
   }
   function __PRIVATE_encodeResourcePath(e) {
-    let t2 = "";
-    for (let n = 0; n < e.length; n++) t2.length > 0 && (t2 = __PRIVATE_encodeSeparator(t2)), t2 = __PRIVATE_encodeSegment(e.get(n), t2);
-    return __PRIVATE_encodeSeparator(t2);
+    let t3 = "";
+    for (let n = 0; n < e.length; n++) t3.length > 0 && (t3 = __PRIVATE_encodeSeparator(t3)), t3 = __PRIVATE_encodeSegment(e.get(n), t3);
+    return __PRIVATE_encodeSeparator(t3);
   }
-  function __PRIVATE_encodeSegment(e, t2) {
-    let n = t2;
+  function __PRIVATE_encodeSegment(e, t3) {
+    let n = t3;
     const r = e.length;
-    for (let t3 = 0; t3 < r; t3++) {
-      const r2 = e.charAt(t3);
+    for (let t4 = 0; t4 < r; t4++) {
+      const r2 = e.charAt(t4);
       switch (r2) {
         case "\0":
           n += "";
@@ -9178,22 +9178,22 @@
     return e + J + "";
   }
   function __PRIVATE_decodeResourcePath(e) {
-    const t2 = e.length;
-    if (__PRIVATE_hardAssert(t2 >= 2, 64408, {
+    const t3 = e.length;
+    if (__PRIVATE_hardAssert(t3 >= 2, 64408, {
       path: e
-    }), 2 === t2) return __PRIVATE_hardAssert(e.charAt(0) === J && "" === e.charAt(1), 56145, {
+    }), 2 === t3) return __PRIVATE_hardAssert(e.charAt(0) === J && "" === e.charAt(1), 56145, {
       path: e
     }), ResourcePath.emptyPath();
-    const __PRIVATE_lastReasonableEscapeIndex = t2 - 2, n = [];
+    const __PRIVATE_lastReasonableEscapeIndex = t3 - 2, n = [];
     let r = "";
-    for (let i = 0; i < t2; ) {
-      const t3 = e.indexOf(J, i);
-      (t3 < 0 || t3 > __PRIVATE_lastReasonableEscapeIndex) && fail(50515, {
+    for (let i = 0; i < t3; ) {
+      const t4 = e.indexOf(J, i);
+      (t4 < 0 || t4 > __PRIVATE_lastReasonableEscapeIndex) && fail(50515, {
         path: e
       });
-      switch (e.charAt(t3 + 1)) {
+      switch (e.charAt(t4 + 1)) {
         case "":
-          const s = e.substring(i, t3);
+          const s = e.substring(i, t4);
           let o;
           0 === r.length ? (
             // Avoid copying for the common case of a segment that excludes \0
@@ -9202,40 +9202,40 @@
           ) : (r += s, o = r, r = ""), n.push(o);
           break;
         case "":
-          r += e.substring(i, t3), r += "\0";
+          r += e.substring(i, t4), r += "\0";
           break;
         case "":
-          r += e.substring(i, t3 + 1);
+          r += e.substring(i, t4 + 1);
           break;
         default:
           fail(61167, {
             path: e
           });
       }
-      i = t3 + 2;
+      i = t4 + 2;
     }
     return new ResourcePath(n);
   }
-  function __PRIVATE_newDbDocumentMutationPrefixForPath(e, t2) {
-    return [e, __PRIVATE_encodeResourcePath(t2)];
+  function __PRIVATE_newDbDocumentMutationPrefixForPath(e, t3) {
+    return [e, __PRIVATE_encodeResourcePath(t3)];
   }
-  function __PRIVATE_newDbDocumentMutationKey(e, t2, n) {
-    return [e, __PRIVATE_encodeResourcePath(t2), n];
+  function __PRIVATE_newDbDocumentMutationKey(e, t3, n) {
+    return [e, __PRIVATE_encodeResourcePath(t3), n];
   }
-  function __PRIVATE_getStore(e, t2) {
+  function __PRIVATE_getStore(e, t3) {
     const n = __PRIVATE_debugCast(e);
-    return __PRIVATE_SimpleDb.O(n.le, t2);
+    return __PRIVATE_SimpleDb.O(n.le, t3);
   }
   function __PRIVATE_objectSize(e) {
-    let t2 = 0;
-    for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t2++;
-    return t2;
+    let t3 = 0;
+    for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t3++;
+    return t3;
   }
-  function forEach(e, t2) {
-    for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t2(n, e[n]);
+  function forEach(e, t3) {
+    for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t3(n, e[n]);
   }
   function isEmpty(e) {
-    for (const t2 in e) if (Object.prototype.hasOwnProperty.call(e, t2)) return false;
+    for (const t3 in e) if (Object.prototype.hasOwnProperty.call(e, t3)) return false;
     return true;
   }
   function __PRIVATE_advanceIterator(e) {
@@ -9243,18 +9243,18 @@
   }
   function __PRIVATE_normalizeTimestamp(e) {
     if (__PRIVATE_hardAssert(!!e, 39018), "string" == typeof e) {
-      let t2 = 0;
+      let t3 = 0;
       const n = ot.exec(e);
       if (__PRIVATE_hardAssert(!!n, 46558, {
         timestamp: e
       }), n[1]) {
         let e2 = n[1];
-        e2 = (e2 + "000000000").substr(0, 9), t2 = Number(e2);
+        e2 = (e2 + "000000000").substr(0, 9), t3 = Number(e2);
       }
       const r = new Date(e);
       return {
         seconds: Math.floor(r.getTime() / 1e3),
-        nanos: t2
+        nanos: t3
       };
     }
     return {
@@ -9269,164 +9269,164 @@
     return "string" == typeof e ? ByteString.fromBase64String(e) : ByteString.fromUint8Array(e);
   }
   function __PRIVATE_isServerTimestamp(e) {
-    const t2 = (e?.mapValue?.fields || {})[at]?.stringValue;
-    return t2 === _t;
+    const t3 = (e?.mapValue?.fields || {})[at]?.stringValue;
+    return t3 === _t;
   }
   function __PRIVATE_getPreviousValue(e) {
-    const t2 = e.mapValue.fields[ut];
-    return __PRIVATE_isServerTimestamp(t2) ? __PRIVATE_getPreviousValue(t2) : t2;
+    const t3 = e.mapValue.fields[ut];
+    return __PRIVATE_isServerTimestamp(t3) ? __PRIVATE_getPreviousValue(t3) : t3;
   }
   function __PRIVATE_getLocalWriteTime(e) {
-    const t2 = __PRIVATE_normalizeTimestamp(e.mapValue.fields[ct].timestampValue);
-    return new Timestamp(t2.seconds, t2.nanos);
+    const t3 = __PRIVATE_normalizeTimestamp(e.mapValue.fields[ct].timestampValue);
+    return new Timestamp(t3.seconds, t3.nanos);
   }
   function __PRIVATE_typeOrder(e) {
     return "nullValue" in e ? 0 : "booleanValue" in e ? 1 : "integerValue" in e || "doubleValue" in e ? 2 : "timestampValue" in e ? 3 : "stringValue" in e ? 5 : "bytesValue" in e ? 6 : "referenceValue" in e ? 7 : "geoPointValue" in e ? 8 : "arrayValue" in e ? 9 : "mapValue" in e ? __PRIVATE_isServerTimestamp(e) ? 4 : __PRIVATE_isMaxValue(e) ? 9007199254740991 : __PRIVATE_isVectorValue(e) ? 10 : 11 : fail(28295, {
       value: e
     });
   }
-  function __PRIVATE_valueEquals(e, t2) {
-    if (e === t2) return true;
+  function __PRIVATE_valueEquals(e, t3) {
+    if (e === t3) return true;
     const n = __PRIVATE_typeOrder(e);
-    if (n !== __PRIVATE_typeOrder(t2)) return false;
+    if (n !== __PRIVATE_typeOrder(t3)) return false;
     switch (n) {
       case 0:
       case 9007199254740991:
         return true;
       case 1:
-        return e.booleanValue === t2.booleanValue;
+        return e.booleanValue === t3.booleanValue;
       case 4:
-        return __PRIVATE_getLocalWriteTime(e).isEqual(__PRIVATE_getLocalWriteTime(t2));
+        return __PRIVATE_getLocalWriteTime(e).isEqual(__PRIVATE_getLocalWriteTime(t3));
       case 3:
-        return (function __PRIVATE_timestampEquals(e2, t3) {
-          if ("string" == typeof e2.timestampValue && "string" == typeof t3.timestampValue && e2.timestampValue.length === t3.timestampValue.length)
-            return e2.timestampValue === t3.timestampValue;
-          const n2 = __PRIVATE_normalizeTimestamp(e2.timestampValue), r = __PRIVATE_normalizeTimestamp(t3.timestampValue);
+        return (function __PRIVATE_timestampEquals(e2, t4) {
+          if ("string" == typeof e2.timestampValue && "string" == typeof t4.timestampValue && e2.timestampValue.length === t4.timestampValue.length)
+            return e2.timestampValue === t4.timestampValue;
+          const n2 = __PRIVATE_normalizeTimestamp(e2.timestampValue), r = __PRIVATE_normalizeTimestamp(t4.timestampValue);
           return n2.seconds === r.seconds && n2.nanos === r.nanos;
-        })(e, t2);
+        })(e, t3);
       case 5:
-        return e.stringValue === t2.stringValue;
+        return e.stringValue === t3.stringValue;
       case 6:
-        return (function __PRIVATE_blobEquals(e2, t3) {
-          return __PRIVATE_normalizeByteString(e2.bytesValue).isEqual(__PRIVATE_normalizeByteString(t3.bytesValue));
-        })(e, t2);
+        return (function __PRIVATE_blobEquals(e2, t4) {
+          return __PRIVATE_normalizeByteString(e2.bytesValue).isEqual(__PRIVATE_normalizeByteString(t4.bytesValue));
+        })(e, t3);
       case 7:
-        return e.referenceValue === t2.referenceValue;
+        return e.referenceValue === t3.referenceValue;
       case 8:
-        return (function __PRIVATE_geoPointEquals(e2, t3) {
-          return __PRIVATE_normalizeNumber(e2.geoPointValue.latitude) === __PRIVATE_normalizeNumber(t3.geoPointValue.latitude) && __PRIVATE_normalizeNumber(e2.geoPointValue.longitude) === __PRIVATE_normalizeNumber(t3.geoPointValue.longitude);
-        })(e, t2);
+        return (function __PRIVATE_geoPointEquals(e2, t4) {
+          return __PRIVATE_normalizeNumber(e2.geoPointValue.latitude) === __PRIVATE_normalizeNumber(t4.geoPointValue.latitude) && __PRIVATE_normalizeNumber(e2.geoPointValue.longitude) === __PRIVATE_normalizeNumber(t4.geoPointValue.longitude);
+        })(e, t3);
       case 2:
-        return (function __PRIVATE_numberEquals(e2, t3) {
-          if ("integerValue" in e2 && "integerValue" in t3) return __PRIVATE_normalizeNumber(e2.integerValue) === __PRIVATE_normalizeNumber(t3.integerValue);
-          if ("doubleValue" in e2 && "doubleValue" in t3) {
-            const n2 = __PRIVATE_normalizeNumber(e2.doubleValue), r = __PRIVATE_normalizeNumber(t3.doubleValue);
+        return (function __PRIVATE_numberEquals(e2, t4) {
+          if ("integerValue" in e2 && "integerValue" in t4) return __PRIVATE_normalizeNumber(e2.integerValue) === __PRIVATE_normalizeNumber(t4.integerValue);
+          if ("doubleValue" in e2 && "doubleValue" in t4) {
+            const n2 = __PRIVATE_normalizeNumber(e2.doubleValue), r = __PRIVATE_normalizeNumber(t4.doubleValue);
             return n2 === r ? __PRIVATE_isNegativeZero(n2) === __PRIVATE_isNegativeZero(r) : isNaN(n2) && isNaN(r);
           }
           return false;
-        })(e, t2);
+        })(e, t3);
       case 9:
-        return __PRIVATE_arrayEquals(e.arrayValue.values || [], t2.arrayValue.values || [], __PRIVATE_valueEquals);
+        return __PRIVATE_arrayEquals(e.arrayValue.values || [], t3.arrayValue.values || [], __PRIVATE_valueEquals);
       case 10:
       case 11:
-        return (function __PRIVATE_objectEquals(e2, t3) {
-          const n2 = e2.mapValue.fields || {}, r = t3.mapValue.fields || {};
+        return (function __PRIVATE_objectEquals(e2, t4) {
+          const n2 = e2.mapValue.fields || {}, r = t4.mapValue.fields || {};
           if (__PRIVATE_objectSize(n2) !== __PRIVATE_objectSize(r)) return false;
           for (const e3 in n2) if (n2.hasOwnProperty(e3) && (void 0 === r[e3] || !__PRIVATE_valueEquals(n2[e3], r[e3]))) return false;
           return true;
-        })(e, t2);
+        })(e, t3);
       default:
         return fail(52216, {
           left: e
         });
     }
   }
-  function __PRIVATE_arrayValueContains(e, t2) {
-    return void 0 !== (e.values || []).find(((e2) => __PRIVATE_valueEquals(e2, t2)));
+  function __PRIVATE_arrayValueContains(e, t3) {
+    return void 0 !== (e.values || []).find(((e2) => __PRIVATE_valueEquals(e2, t3)));
   }
-  function __PRIVATE_valueCompare(e, t2) {
-    if (e === t2) return 0;
-    const n = __PRIVATE_typeOrder(e), r = __PRIVATE_typeOrder(t2);
+  function __PRIVATE_valueCompare(e, t3) {
+    if (e === t3) return 0;
+    const n = __PRIVATE_typeOrder(e), r = __PRIVATE_typeOrder(t3);
     if (n !== r) return __PRIVATE_primitiveComparator(n, r);
     switch (n) {
       case 0:
       case 9007199254740991:
         return 0;
       case 1:
-        return __PRIVATE_primitiveComparator(e.booleanValue, t2.booleanValue);
+        return __PRIVATE_primitiveComparator(e.booleanValue, t3.booleanValue);
       case 2:
-        return (function __PRIVATE_compareNumbers(e2, t3) {
-          const n2 = __PRIVATE_normalizeNumber(e2.integerValue || e2.doubleValue), r2 = __PRIVATE_normalizeNumber(t3.integerValue || t3.doubleValue);
+        return (function __PRIVATE_compareNumbers(e2, t4) {
+          const n2 = __PRIVATE_normalizeNumber(e2.integerValue || e2.doubleValue), r2 = __PRIVATE_normalizeNumber(t4.integerValue || t4.doubleValue);
           return n2 < r2 ? -1 : n2 > r2 ? 1 : n2 === r2 ? 0 : (
             // one or both are NaN.
             isNaN(n2) ? isNaN(r2) ? 0 : -1 : 1
           );
-        })(e, t2);
+        })(e, t3);
       case 3:
-        return __PRIVATE_compareTimestamps(e.timestampValue, t2.timestampValue);
+        return __PRIVATE_compareTimestamps(e.timestampValue, t3.timestampValue);
       case 4:
-        return __PRIVATE_compareTimestamps(__PRIVATE_getLocalWriteTime(e), __PRIVATE_getLocalWriteTime(t2));
+        return __PRIVATE_compareTimestamps(__PRIVATE_getLocalWriteTime(e), __PRIVATE_getLocalWriteTime(t3));
       case 5:
-        return __PRIVATE_compareUtf8Strings(e.stringValue, t2.stringValue);
+        return __PRIVATE_compareUtf8Strings(e.stringValue, t3.stringValue);
       case 6:
-        return (function __PRIVATE_compareBlobs(e2, t3) {
-          const n2 = __PRIVATE_normalizeByteString(e2), r2 = __PRIVATE_normalizeByteString(t3);
+        return (function __PRIVATE_compareBlobs(e2, t4) {
+          const n2 = __PRIVATE_normalizeByteString(e2), r2 = __PRIVATE_normalizeByteString(t4);
           return n2.compareTo(r2);
-        })(e.bytesValue, t2.bytesValue);
+        })(e.bytesValue, t3.bytesValue);
       case 7:
-        return (function __PRIVATE_compareReferences(e2, t3) {
-          const n2 = e2.split("/"), r2 = t3.split("/");
+        return (function __PRIVATE_compareReferences(e2, t4) {
+          const n2 = e2.split("/"), r2 = t4.split("/");
           for (let e3 = 0; e3 < n2.length && e3 < r2.length; e3++) {
-            const t4 = __PRIVATE_primitiveComparator(n2[e3], r2[e3]);
-            if (0 !== t4) return t4;
+            const t5 = __PRIVATE_primitiveComparator(n2[e3], r2[e3]);
+            if (0 !== t5) return t5;
           }
           return __PRIVATE_primitiveComparator(n2.length, r2.length);
-        })(e.referenceValue, t2.referenceValue);
+        })(e.referenceValue, t3.referenceValue);
       case 8:
-        return (function __PRIVATE_compareGeoPoints(e2, t3) {
-          const n2 = __PRIVATE_primitiveComparator(__PRIVATE_normalizeNumber(e2.latitude), __PRIVATE_normalizeNumber(t3.latitude));
+        return (function __PRIVATE_compareGeoPoints(e2, t4) {
+          const n2 = __PRIVATE_primitiveComparator(__PRIVATE_normalizeNumber(e2.latitude), __PRIVATE_normalizeNumber(t4.latitude));
           if (0 !== n2) return n2;
-          return __PRIVATE_primitiveComparator(__PRIVATE_normalizeNumber(e2.longitude), __PRIVATE_normalizeNumber(t3.longitude));
-        })(e.geoPointValue, t2.geoPointValue);
+          return __PRIVATE_primitiveComparator(__PRIVATE_normalizeNumber(e2.longitude), __PRIVATE_normalizeNumber(t4.longitude));
+        })(e.geoPointValue, t3.geoPointValue);
       case 9:
-        return __PRIVATE_compareArrays(e.arrayValue, t2.arrayValue);
+        return __PRIVATE_compareArrays(e.arrayValue, t3.arrayValue);
       case 10:
-        return (function __PRIVATE_compareVectors(e2, t3) {
-          const n2 = e2.fields || {}, r2 = t3.fields || {}, i = n2[Et]?.arrayValue, s = r2[Et]?.arrayValue, o = __PRIVATE_primitiveComparator(i?.values?.length || 0, s?.values?.length || 0);
+        return (function __PRIVATE_compareVectors(e2, t4) {
+          const n2 = e2.fields || {}, r2 = t4.fields || {}, i = n2[Et]?.arrayValue, s = r2[Et]?.arrayValue, o = __PRIVATE_primitiveComparator(i?.values?.length || 0, s?.values?.length || 0);
           if (0 !== o) return o;
           return __PRIVATE_compareArrays(i, s);
-        })(e.mapValue, t2.mapValue);
+        })(e.mapValue, t3.mapValue);
       case 11:
-        return (function __PRIVATE_compareMaps(e2, t3) {
-          if (e2 === Tt.mapValue && t3 === Tt.mapValue) return 0;
+        return (function __PRIVATE_compareMaps(e2, t4) {
+          if (e2 === Tt.mapValue && t4 === Tt.mapValue) return 0;
           if (e2 === Tt.mapValue) return 1;
-          if (t3 === Tt.mapValue) return -1;
-          const n2 = e2.fields || {}, r2 = Object.keys(n2), i = t3.fields || {}, s = Object.keys(i);
+          if (t4 === Tt.mapValue) return -1;
+          const n2 = e2.fields || {}, r2 = Object.keys(n2), i = t4.fields || {}, s = Object.keys(i);
           r2.sort(), s.sort();
           for (let e3 = 0; e3 < r2.length && e3 < s.length; ++e3) {
-            const t4 = __PRIVATE_compareUtf8Strings(r2[e3], s[e3]);
-            if (0 !== t4) return t4;
+            const t5 = __PRIVATE_compareUtf8Strings(r2[e3], s[e3]);
+            if (0 !== t5) return t5;
             const o = __PRIVATE_valueCompare(n2[r2[e3]], i[s[e3]]);
             if (0 !== o) return o;
           }
           return __PRIVATE_primitiveComparator(r2.length, s.length);
-        })(e.mapValue, t2.mapValue);
+        })(e.mapValue, t3.mapValue);
       default:
         throw fail(23264, {
           he: n
         });
     }
   }
-  function __PRIVATE_compareTimestamps(e, t2) {
-    if ("string" == typeof e && "string" == typeof t2 && e.length === t2.length) return __PRIVATE_primitiveComparator(e, t2);
-    const n = __PRIVATE_normalizeTimestamp(e), r = __PRIVATE_normalizeTimestamp(t2), i = __PRIVATE_primitiveComparator(n.seconds, r.seconds);
+  function __PRIVATE_compareTimestamps(e, t3) {
+    if ("string" == typeof e && "string" == typeof t3 && e.length === t3.length) return __PRIVATE_primitiveComparator(e, t3);
+    const n = __PRIVATE_normalizeTimestamp(e), r = __PRIVATE_normalizeTimestamp(t3), i = __PRIVATE_primitiveComparator(n.seconds, r.seconds);
     return 0 !== i ? i : __PRIVATE_primitiveComparator(n.nanos, r.nanos);
   }
-  function __PRIVATE_compareArrays(e, t2) {
-    const n = e.values || [], r = t2.values || [];
+  function __PRIVATE_compareArrays(e, t3) {
+    const n = e.values || [], r = t3.values || [];
     for (let e2 = 0; e2 < n.length && e2 < r.length; ++e2) {
-      const t3 = __PRIVATE_valueCompare(n[e2], r[e2]);
-      if (t3) return t3;
+      const t4 = __PRIVATE_valueCompare(n[e2], r[e2]);
+      if (t4) return t4;
     }
     return __PRIVATE_primitiveComparator(n.length, r.length);
   }
@@ -9435,8 +9435,8 @@
   }
   function __PRIVATE_canonifyValue(e) {
     return "nullValue" in e ? "null" : "booleanValue" in e ? "" + e.booleanValue : "integerValue" in e ? "" + e.integerValue : "doubleValue" in e ? "" + e.doubleValue : "timestampValue" in e ? (function __PRIVATE_canonifyTimestamp(e2) {
-      const t2 = __PRIVATE_normalizeTimestamp(e2);
-      return `time(${t2.seconds},${t2.nanos})`;
+      const t3 = __PRIVATE_normalizeTimestamp(e2);
+      return `time(${t3.seconds},${t3.nanos})`;
     })(e.timestampValue) : "stringValue" in e ? e.stringValue : "bytesValue" in e ? (function __PRIVATE_canonifyByteString(e2) {
       return __PRIVATE_normalizeByteString(e2).toBase64();
     })(e.bytesValue) : "referenceValue" in e ? (function __PRIVATE_canonifyReference(e2) {
@@ -9444,13 +9444,13 @@
     })(e.referenceValue) : "geoPointValue" in e ? (function __PRIVATE_canonifyGeoPoint(e2) {
       return `geo(${e2.latitude},${e2.longitude})`;
     })(e.geoPointValue) : "arrayValue" in e ? (function __PRIVATE_canonifyArray(e2) {
-      let t2 = "[", n = true;
-      for (const r of e2.values || []) n ? n = false : t2 += ",", t2 += __PRIVATE_canonifyValue(r);
-      return t2 + "]";
+      let t3 = "[", n = true;
+      for (const r of e2.values || []) n ? n = false : t3 += ",", t3 += __PRIVATE_canonifyValue(r);
+      return t3 + "]";
     })(e.arrayValue) : "mapValue" in e ? (function __PRIVATE_canonifyMap(e2) {
-      const t2 = Object.keys(e2.fields || {}).sort();
+      const t3 = Object.keys(e2.fields || {}).sort();
       let n = "{", r = true;
-      for (const i of t2) r ? r = false : n += ",", n += `${i}:${__PRIVATE_canonifyValue(e2.fields[i])}`;
+      for (const i of t3) r ? r = false : n += ",", n += `${i}:${__PRIVATE_canonifyValue(e2.fields[i])}`;
       return n + "}";
     })(e.mapValue) : fail(61005, {
       value: e
@@ -9467,8 +9467,8 @@
       case 8:
         return 16;
       case 4:
-        const t2 = __PRIVATE_getPreviousValue(e);
-        return t2 ? 16 + __PRIVATE_estimateByteSize(t2) : 16;
+        const t3 = __PRIVATE_getPreviousValue(e);
+        return t3 ? 16 + __PRIVATE_estimateByteSize(t3) : 16;
       case 5:
         return 2 * e.stringValue.length;
       case 6:
@@ -9477,15 +9477,15 @@
         return e.referenceValue.length;
       case 9:
         return (function __PRIVATE_estimateArrayByteSize(e2) {
-          return (e2.values || []).reduce(((e3, t3) => e3 + __PRIVATE_estimateByteSize(t3)), 0);
+          return (e2.values || []).reduce(((e3, t4) => e3 + __PRIVATE_estimateByteSize(t4)), 0);
         })(e.arrayValue);
       case 10:
       case 11:
         return (function __PRIVATE_estimateMapByteSize(e2) {
-          let t3 = 0;
+          let t4 = 0;
           return forEach(e2.fields, ((e3, n) => {
-            t3 += e3.length + __PRIVATE_estimateByteSize(n);
-          })), t3;
+            t4 += e3.length + __PRIVATE_estimateByteSize(n);
+          })), t4;
         })(e.mapValue);
       default:
         throw fail(13486, {
@@ -9493,9 +9493,9 @@
         });
     }
   }
-  function __PRIVATE_refValue(e, t2) {
+  function __PRIVATE_refValue(e, t3) {
     return {
-      referenceValue: `projects/${e.projectId}/databases/${e.database}/documents/${t2.path.canonicalString()}`
+      referenceValue: `projects/${e.projectId}/databases/${e.database}/documents/${t3.path.canonicalString()}`
     };
   }
   function isInteger(e) {
@@ -9514,8 +9514,8 @@
     return !!e && "mapValue" in e;
   }
   function __PRIVATE_isVectorValue(e) {
-    const t2 = (e?.mapValue?.fields || {})[ht]?.stringValue;
-    return t2 === It;
+    const t3 = (e?.mapValue?.fields || {})[ht]?.stringValue;
+    return t3 === It;
   }
   function __PRIVATE_deepClone(e) {
     if (e.geoPointValue) return {
@@ -9529,21 +9529,21 @@
       }
     };
     if (e.mapValue) {
-      const t2 = {
+      const t3 = {
         mapValue: {
           fields: {}
         }
       };
-      return forEach(e.mapValue.fields, ((e2, n) => t2.mapValue.fields[e2] = __PRIVATE_deepClone(n))), t2;
+      return forEach(e.mapValue.fields, ((e2, n) => t3.mapValue.fields[e2] = __PRIVATE_deepClone(n))), t3;
     }
     if (e.arrayValue) {
-      const t2 = {
+      const t3 = {
         arrayValue: {
           values: []
         }
       };
-      for (let n = 0; n < (e.arrayValue.values || []).length; ++n) t2.arrayValue.values[n] = __PRIVATE_deepClone(e.arrayValue.values[n]);
-      return t2;
+      for (let n = 0; n < (e.arrayValue.values || []).length; ++n) t3.arrayValue.values[n] = __PRIVATE_deepClone(e.arrayValue.values[n]);
+      return t3;
     }
     return {
       ...e
@@ -9604,32 +9604,32 @@
       value: e
     });
   }
-  function __PRIVATE_lowerBoundCompare(e, t2) {
-    const n = __PRIVATE_valueCompare(e.value, t2.value);
-    return 0 !== n ? n : e.inclusive && !t2.inclusive ? -1 : !e.inclusive && t2.inclusive ? 1 : 0;
+  function __PRIVATE_lowerBoundCompare(e, t3) {
+    const n = __PRIVATE_valueCompare(e.value, t3.value);
+    return 0 !== n ? n : e.inclusive && !t3.inclusive ? -1 : !e.inclusive && t3.inclusive ? 1 : 0;
   }
-  function __PRIVATE_upperBoundCompare(e, t2) {
-    const n = __PRIVATE_valueCompare(e.value, t2.value);
-    return 0 !== n ? n : e.inclusive && !t2.inclusive ? 1 : !e.inclusive && t2.inclusive ? -1 : 0;
+  function __PRIVATE_upperBoundCompare(e, t3) {
+    const n = __PRIVATE_valueCompare(e.value, t3.value);
+    return 0 !== n ? n : e.inclusive && !t3.inclusive ? 1 : !e.inclusive && t3.inclusive ? -1 : 0;
   }
   function __PRIVATE_extractFieldMask(e) {
-    const t2 = [];
+    const t3 = [];
     return forEach(e.fields, ((e2, n) => {
       const r = new FieldPath$1([e2]);
       if (__PRIVATE_isMapValue(n)) {
         const e3 = __PRIVATE_extractFieldMask(n.mapValue).fields;
         if (0 === e3.length)
-          t2.push(r);
+          t3.push(r);
         else
-          for (const n2 of e3) t2.push(r.child(n2));
+          for (const n2 of e3) t3.push(r.child(n2));
       } else
-        t2.push(r);
-    })), new FieldMask(t2);
+        t3.push(r);
+    })), new FieldMask(t3);
   }
-  function __PRIVATE_boundCompareToDocument(e, t2, n) {
+  function __PRIVATE_boundCompareToDocument(e, t3, n) {
     let r = 0;
     for (let i = 0; i < e.position.length; i++) {
-      const s = t2[i], o = e.position[i];
+      const s = t3[i], o = e.position[i];
       if (s.field.isKeyField()) r = DocumentKey.comparator(DocumentKey.fromName(o.referenceValue), n.key);
       else {
         r = __PRIVATE_valueCompare(o, n.data.field(s.field));
@@ -9638,17 +9638,17 @@
     }
     return r;
   }
-  function __PRIVATE_boundEquals(e, t2) {
-    if (null === e) return null === t2;
-    if (null === t2) return false;
-    if (e.inclusive !== t2.inclusive || e.position.length !== t2.position.length) return false;
+  function __PRIVATE_boundEquals(e, t3) {
+    if (null === e) return null === t3;
+    if (null === t3) return false;
+    if (e.inclusive !== t3.inclusive || e.position.length !== t3.position.length) return false;
     for (let n = 0; n < e.position.length; n++) {
-      if (!__PRIVATE_valueEquals(e.position[n], t2.position[n])) return false;
+      if (!__PRIVATE_valueEquals(e.position[n], t3.position[n])) return false;
     }
     return true;
   }
-  function __PRIVATE_orderByEquals(e, t2) {
-    return e.dir === t2.dir && e.field.isEqual(t2.field);
+  function __PRIVATE_orderByEquals(e, t3) {
+    return e.dir === t3.dir && e.field.isEqual(t3.field);
   }
   function __PRIVATE_compositeFilterIsConjunction(e) {
     return "and" === e.op;
@@ -9660,7 +9660,7 @@
     return __PRIVATE_compositeFilterIsFlat(e) && __PRIVATE_compositeFilterIsConjunction(e);
   }
   function __PRIVATE_compositeFilterIsFlat(e) {
-    for (const t2 of e.filters) if (t2 instanceof CompositeFilter) return false;
+    for (const t3 of e.filters) if (t3 instanceof CompositeFilter) return false;
     return true;
   }
   function __PRIVATE_canonifyFilter(e) {
@@ -9669,22 +9669,22 @@
     if (__PRIVATE_compositeFilterIsFlatConjunction(e))
       return e.filters.map(((e2) => __PRIVATE_canonifyFilter(e2))).join(",");
     {
-      const t2 = e.filters.map(((e2) => __PRIVATE_canonifyFilter(e2))).join(",");
-      return `${e.op}(${t2})`;
+      const t3 = e.filters.map(((e2) => __PRIVATE_canonifyFilter(e2))).join(",");
+      return `${e.op}(${t3})`;
     }
   }
-  function __PRIVATE_filterEquals(e, t2) {
-    return e instanceof FieldFilter ? (function __PRIVATE_fieldFilterEquals(e2, t3) {
-      return t3 instanceof FieldFilter && e2.op === t3.op && e2.field.isEqual(t3.field) && __PRIVATE_valueEquals(e2.value, t3.value);
-    })(e, t2) : e instanceof CompositeFilter ? (function __PRIVATE_compositeFilterEquals(e2, t3) {
-      if (t3 instanceof CompositeFilter && e2.op === t3.op && e2.filters.length === t3.filters.length) {
-        return e2.filters.reduce(((e3, n, r) => e3 && __PRIVATE_filterEquals(n, t3.filters[r])), true);
+  function __PRIVATE_filterEquals(e, t3) {
+    return e instanceof FieldFilter ? (function __PRIVATE_fieldFilterEquals(e2, t4) {
+      return t4 instanceof FieldFilter && e2.op === t4.op && e2.field.isEqual(t4.field) && __PRIVATE_valueEquals(e2.value, t4.value);
+    })(e, t3) : e instanceof CompositeFilter ? (function __PRIVATE_compositeFilterEquals(e2, t4) {
+      if (t4 instanceof CompositeFilter && e2.op === t4.op && e2.filters.length === t4.filters.length) {
+        return e2.filters.reduce(((e3, n, r) => e3 && __PRIVATE_filterEquals(n, t4.filters[r])), true);
       }
       return false;
-    })(e, t2) : void fail(19439);
+    })(e, t3) : void fail(19439);
   }
-  function __PRIVATE_compositeFilterWithAddedFilters(e, t2) {
-    const n = e.filters.concat(t2);
+  function __PRIVATE_compositeFilterWithAddedFilters(e, t3) {
+    const n = e.filters.concat(t3);
     return CompositeFilter.create(n, e.op);
   }
   function __PRIVATE_stringifyFilter(e) {
@@ -9694,40 +9694,40 @@
       return e2.op.toString() + " {" + e2.getFilters().map(__PRIVATE_stringifyFilter).join(" ,") + "}";
     })(e) : "Filter";
   }
-  function __PRIVATE_extractDocumentKeysFromArrayValue(e, t2) {
-    return (t2.arrayValue?.values || []).map(((e2) => DocumentKey.fromName(e2.referenceValue)));
+  function __PRIVATE_extractDocumentKeysFromArrayValue(e, t3) {
+    return (t3.arrayValue?.values || []).map(((e2) => DocumentKey.fromName(e2.referenceValue)));
   }
-  function __PRIVATE_newTarget(e, t2 = null, n = [], r = [], i = null, s = null, o = null) {
-    return new __PRIVATE_TargetImpl(e, t2, n, r, i, s, o);
+  function __PRIVATE_newTarget(e, t3 = null, n = [], r = [], i = null, s = null, o = null) {
+    return new __PRIVATE_TargetImpl(e, t3, n, r, i, s, o);
   }
   function __PRIVATE_canonifyTarget(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    if (null === t2.Te) {
-      let e2 = t2.path.canonicalString();
-      null !== t2.collectionGroup && (e2 += "|cg:" + t2.collectionGroup), e2 += "|f:", e2 += t2.filters.map(((e3) => __PRIVATE_canonifyFilter(e3))).join(","), e2 += "|ob:", e2 += t2.orderBy.map(((e3) => (function __PRIVATE_canonifyOrderBy(e4) {
+    const t3 = __PRIVATE_debugCast(e);
+    if (null === t3.Te) {
+      let e2 = t3.path.canonicalString();
+      null !== t3.collectionGroup && (e2 += "|cg:" + t3.collectionGroup), e2 += "|f:", e2 += t3.filters.map(((e3) => __PRIVATE_canonifyFilter(e3))).join(","), e2 += "|ob:", e2 += t3.orderBy.map(((e3) => (function __PRIVATE_canonifyOrderBy(e4) {
         return e4.field.canonicalString() + e4.dir;
-      })(e3))).join(","), __PRIVATE_isNullOrUndefined(t2.limit) || (e2 += "|l:", e2 += t2.limit), t2.startAt && (e2 += "|lb:", e2 += t2.startAt.inclusive ? "b:" : "a:", e2 += t2.startAt.position.map(((e3) => canonicalId(e3))).join(",")), t2.endAt && (e2 += "|ub:", e2 += t2.endAt.inclusive ? "a:" : "b:", e2 += t2.endAt.position.map(((e3) => canonicalId(e3))).join(",")), t2.Te = e2;
+      })(e3))).join(","), __PRIVATE_isNullOrUndefined(t3.limit) || (e2 += "|l:", e2 += t3.limit), t3.startAt && (e2 += "|lb:", e2 += t3.startAt.inclusive ? "b:" : "a:", e2 += t3.startAt.position.map(((e3) => canonicalId(e3))).join(",")), t3.endAt && (e2 += "|ub:", e2 += t3.endAt.inclusive ? "a:" : "b:", e2 += t3.endAt.position.map(((e3) => canonicalId(e3))).join(",")), t3.Te = e2;
     }
-    return t2.Te;
+    return t3.Te;
   }
-  function __PRIVATE_targetEquals(e, t2) {
-    if (e.limit !== t2.limit) return false;
-    if (e.orderBy.length !== t2.orderBy.length) return false;
-    for (let n = 0; n < e.orderBy.length; n++) if (!__PRIVATE_orderByEquals(e.orderBy[n], t2.orderBy[n])) return false;
-    if (e.filters.length !== t2.filters.length) return false;
-    for (let n = 0; n < e.filters.length; n++) if (!__PRIVATE_filterEquals(e.filters[n], t2.filters[n])) return false;
-    return e.collectionGroup === t2.collectionGroup && (!!e.path.isEqual(t2.path) && (!!__PRIVATE_boundEquals(e.startAt, t2.startAt) && __PRIVATE_boundEquals(e.endAt, t2.endAt)));
+  function __PRIVATE_targetEquals(e, t3) {
+    if (e.limit !== t3.limit) return false;
+    if (e.orderBy.length !== t3.orderBy.length) return false;
+    for (let n = 0; n < e.orderBy.length; n++) if (!__PRIVATE_orderByEquals(e.orderBy[n], t3.orderBy[n])) return false;
+    if (e.filters.length !== t3.filters.length) return false;
+    for (let n = 0; n < e.filters.length; n++) if (!__PRIVATE_filterEquals(e.filters[n], t3.filters[n])) return false;
+    return e.collectionGroup === t3.collectionGroup && (!!e.path.isEqual(t3.path) && (!!__PRIVATE_boundEquals(e.startAt, t3.startAt) && __PRIVATE_boundEquals(e.endAt, t3.endAt)));
   }
   function __PRIVATE_targetIsDocumentTarget(e) {
     return DocumentKey.isDocumentKey(e.path) && null === e.collectionGroup && 0 === e.filters.length;
   }
-  function __PRIVATE_targetGetFieldFiltersForPath(e, t2) {
-    return e.filters.filter(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t2)));
+  function __PRIVATE_targetGetFieldFiltersForPath(e, t3) {
+    return e.filters.filter(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t3)));
   }
-  function __PRIVATE_targetGetAscendingBound(e, t2, n) {
+  function __PRIVATE_targetGetAscendingBound(e, t3, n) {
     let r = dt, i = true;
-    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t2)) {
-      let e2 = dt, t3 = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t3)) {
+      let e2 = dt, t4 = true;
       switch (n2.op) {
         case "<":
         case "<=":
@@ -9739,7 +9739,7 @@
           e2 = n2.value;
           break;
         case ">":
-          e2 = n2.value, t3 = false;
+          e2 = n2.value, t4 = false;
           break;
         case "!=":
         case "not-in":
@@ -9750,11 +9750,11 @@
         inclusive: i
       }, {
         value: e2,
-        inclusive: t3
-      }) < 0 && (r = e2, i = t3);
+        inclusive: t4
+      }) < 0 && (r = e2, i = t4);
     }
     if (null !== n) for (let s = 0; s < e.orderBy.length; ++s) {
-      if (e.orderBy[s].field.isEqual(t2)) {
+      if (e.orderBy[s].field.isEqual(t3)) {
         const e2 = n.position[s];
         __PRIVATE_lowerBoundCompare({
           value: r,
@@ -9771,14 +9771,14 @@
       inclusive: i
     };
   }
-  function __PRIVATE_targetGetDescendingBound(e, t2, n) {
+  function __PRIVATE_targetGetDescendingBound(e, t3, n) {
     let r = Tt, i = true;
-    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t2)) {
-      let e2 = Tt, t3 = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t3)) {
+      let e2 = Tt, t4 = true;
       switch (n2.op) {
         case ">=":
         case ">":
-          e2 = __PRIVATE_valuesGetUpperBound(n2.value), t3 = false;
+          e2 = __PRIVATE_valuesGetUpperBound(n2.value), t4 = false;
           break;
         case "==":
         case "in":
@@ -9786,7 +9786,7 @@
           e2 = n2.value;
           break;
         case "<":
-          e2 = n2.value, t3 = false;
+          e2 = n2.value, t4 = false;
           break;
         case "!=":
         case "not-in":
@@ -9797,11 +9797,11 @@
         inclusive: i
       }, {
         value: e2,
-        inclusive: t3
-      }) > 0 && (r = e2, i = t3);
+        inclusive: t4
+      }) > 0 && (r = e2, i = t4);
     }
     if (null !== n) for (let s = 0; s < e.orderBy.length; ++s) {
-      if (e.orderBy[s].field.isEqual(t2)) {
+      if (e.orderBy[s].field.isEqual(t3)) {
         const e2 = n.position[s];
         __PRIVATE_upperBoundCompare({
           value: r,
@@ -9818,8 +9818,8 @@
       inclusive: i
     };
   }
-  function __PRIVATE_newQuery(e, t2, n, r, i, s, o, _) {
-    return new __PRIVATE_QueryImpl(e, t2, n, r, i, s, o, _);
+  function __PRIVATE_newQuery(e, t3, n, r, i, s, o, _) {
+    return new __PRIVATE_QueryImpl(e, t3, n, r, i, s, o, _);
   }
   function __PRIVATE_newQueryForPath(e) {
     return new __PRIVATE_QueryImpl(e);
@@ -9831,108 +9831,108 @@
     return null !== e.collectionGroup;
   }
   function __PRIVATE_queryNormalizedOrderBy(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    if (null === t2.Ie) {
-      t2.Ie = [];
+    const t3 = __PRIVATE_debugCast(e);
+    if (null === t3.Ie) {
+      t3.Ie = [];
       const e2 = /* @__PURE__ */ new Set();
-      for (const n2 of t2.explicitOrderBy) t2.Ie.push(n2), e2.add(n2.field.canonicalString());
-      const n = t2.explicitOrderBy.length > 0 ? t2.explicitOrderBy[t2.explicitOrderBy.length - 1].dir : "asc", r = (function __PRIVATE_getInequalityFilterFields(e3) {
-        let t3 = new SortedSet(FieldPath$1.comparator);
+      for (const n2 of t3.explicitOrderBy) t3.Ie.push(n2), e2.add(n2.field.canonicalString());
+      const n = t3.explicitOrderBy.length > 0 ? t3.explicitOrderBy[t3.explicitOrderBy.length - 1].dir : "asc", r = (function __PRIVATE_getInequalityFilterFields(e3) {
+        let t4 = new SortedSet(FieldPath$1.comparator);
         return e3.filters.forEach(((e4) => {
           e4.getFlattenedFilters().forEach(((e5) => {
-            e5.isInequality() && (t3 = t3.add(e5.field));
+            e5.isInequality() && (t4 = t4.add(e5.field));
           }));
-        })), t3;
-      })(t2);
+        })), t4;
+      })(t3);
       r.forEach(((r2) => {
-        e2.has(r2.canonicalString()) || r2.isKeyField() || t2.Ie.push(new OrderBy(r2, n));
+        e2.has(r2.canonicalString()) || r2.isKeyField() || t3.Ie.push(new OrderBy(r2, n));
       })), // Add the document key field to the last if it is not explicitly ordered.
-      e2.has(FieldPath$1.keyField().canonicalString()) || t2.Ie.push(new OrderBy(FieldPath$1.keyField(), n));
+      e2.has(FieldPath$1.keyField().canonicalString()) || t3.Ie.push(new OrderBy(FieldPath$1.keyField(), n));
     }
-    return t2.Ie;
+    return t3.Ie;
   }
   function __PRIVATE_queryToTarget(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    return t2.Ee || (t2.Ee = __PRIVATE__queryToTarget(t2, __PRIVATE_queryNormalizedOrderBy(e))), t2.Ee;
+    const t3 = __PRIVATE_debugCast(e);
+    return t3.Ee || (t3.Ee = __PRIVATE__queryToTarget(t3, __PRIVATE_queryNormalizedOrderBy(e))), t3.Ee;
   }
-  function __PRIVATE__queryToTarget(e, t2) {
-    if ("F" === e.limitType) return __PRIVATE_newTarget(e.path, e.collectionGroup, t2, e.filters, e.limit, e.startAt, e.endAt);
+  function __PRIVATE__queryToTarget(e, t3) {
+    if ("F" === e.limitType) return __PRIVATE_newTarget(e.path, e.collectionGroup, t3, e.filters, e.limit, e.startAt, e.endAt);
     {
-      t2 = t2.map(((e2) => {
-        const t3 = "desc" === e2.dir ? "asc" : "desc";
-        return new OrderBy(e2.field, t3);
+      t3 = t3.map(((e2) => {
+        const t4 = "desc" === e2.dir ? "asc" : "desc";
+        return new OrderBy(e2.field, t4);
       }));
       const n = e.endAt ? new Bound(e.endAt.position, e.endAt.inclusive) : null, r = e.startAt ? new Bound(e.startAt.position, e.startAt.inclusive) : null;
-      return __PRIVATE_newTarget(e.path, e.collectionGroup, t2, e.filters, e.limit, n, r);
+      return __PRIVATE_newTarget(e.path, e.collectionGroup, t3, e.filters, e.limit, n, r);
     }
   }
-  function __PRIVATE_queryWithAddedFilter(e, t2) {
-    const n = e.filters.concat([t2]);
+  function __PRIVATE_queryWithAddedFilter(e, t3) {
+    const n = e.filters.concat([t3]);
     return new __PRIVATE_QueryImpl(e.path, e.collectionGroup, e.explicitOrderBy.slice(), n, e.limit, e.limitType, e.startAt, e.endAt);
   }
-  function __PRIVATE_queryWithLimit(e, t2, n) {
-    return new __PRIVATE_QueryImpl(e.path, e.collectionGroup, e.explicitOrderBy.slice(), e.filters.slice(), t2, n, e.startAt, e.endAt);
+  function __PRIVATE_queryWithLimit(e, t3, n) {
+    return new __PRIVATE_QueryImpl(e.path, e.collectionGroup, e.explicitOrderBy.slice(), e.filters.slice(), t3, n, e.startAt, e.endAt);
   }
-  function __PRIVATE_queryEquals(e, t2) {
-    return __PRIVATE_targetEquals(__PRIVATE_queryToTarget(e), __PRIVATE_queryToTarget(t2)) && e.limitType === t2.limitType;
+  function __PRIVATE_queryEquals(e, t3) {
+    return __PRIVATE_targetEquals(__PRIVATE_queryToTarget(e), __PRIVATE_queryToTarget(t3)) && e.limitType === t3.limitType;
   }
   function __PRIVATE_canonifyQuery(e) {
     return `${__PRIVATE_canonifyTarget(__PRIVATE_queryToTarget(e))}|lt:${e.limitType}`;
   }
   function __PRIVATE_stringifyQuery(e) {
     return `Query(target=${(function __PRIVATE_stringifyTarget(e2) {
-      let t2 = e2.path.canonicalString();
-      return null !== e2.collectionGroup && (t2 += " collectionGroup=" + e2.collectionGroup), e2.filters.length > 0 && (t2 += `, filters: [${e2.filters.map(((e3) => __PRIVATE_stringifyFilter(e3))).join(", ")}]`), __PRIVATE_isNullOrUndefined(e2.limit) || (t2 += ", limit: " + e2.limit), e2.orderBy.length > 0 && (t2 += `, orderBy: [${e2.orderBy.map(((e3) => (function __PRIVATE_stringifyOrderBy(e4) {
+      let t3 = e2.path.canonicalString();
+      return null !== e2.collectionGroup && (t3 += " collectionGroup=" + e2.collectionGroup), e2.filters.length > 0 && (t3 += `, filters: [${e2.filters.map(((e3) => __PRIVATE_stringifyFilter(e3))).join(", ")}]`), __PRIVATE_isNullOrUndefined(e2.limit) || (t3 += ", limit: " + e2.limit), e2.orderBy.length > 0 && (t3 += `, orderBy: [${e2.orderBy.map(((e3) => (function __PRIVATE_stringifyOrderBy(e4) {
         return `${e4.field.canonicalString()} (${e4.dir})`;
-      })(e3))).join(", ")}]`), e2.startAt && (t2 += ", startAt: ", t2 += e2.startAt.inclusive ? "b:" : "a:", t2 += e2.startAt.position.map(((e3) => canonicalId(e3))).join(",")), e2.endAt && (t2 += ", endAt: ", t2 += e2.endAt.inclusive ? "a:" : "b:", t2 += e2.endAt.position.map(((e3) => canonicalId(e3))).join(",")), `Target(${t2})`;
+      })(e3))).join(", ")}]`), e2.startAt && (t3 += ", startAt: ", t3 += e2.startAt.inclusive ? "b:" : "a:", t3 += e2.startAt.position.map(((e3) => canonicalId(e3))).join(",")), e2.endAt && (t3 += ", endAt: ", t3 += e2.endAt.inclusive ? "a:" : "b:", t3 += e2.endAt.position.map(((e3) => canonicalId(e3))).join(",")), `Target(${t3})`;
     })(__PRIVATE_queryToTarget(e))}; limitType=${e.limitType})`;
   }
-  function __PRIVATE_queryMatches(e, t2) {
-    return t2.isFoundDocument() && (function __PRIVATE_queryMatchesPathAndCollectionGroup(e2, t3) {
-      const n = t3.key.path;
-      return null !== e2.collectionGroup ? t3.key.hasCollectionId(e2.collectionGroup) && e2.path.isPrefixOf(n) : DocumentKey.isDocumentKey(e2.path) ? e2.path.isEqual(n) : e2.path.isImmediateParentOf(n);
-    })(e, t2) && (function __PRIVATE_queryMatchesOrderBy(e2, t3) {
+  function __PRIVATE_queryMatches(e, t3) {
+    return t3.isFoundDocument() && (function __PRIVATE_queryMatchesPathAndCollectionGroup(e2, t4) {
+      const n = t4.key.path;
+      return null !== e2.collectionGroup ? t4.key.hasCollectionId(e2.collectionGroup) && e2.path.isPrefixOf(n) : DocumentKey.isDocumentKey(e2.path) ? e2.path.isEqual(n) : e2.path.isImmediateParentOf(n);
+    })(e, t3) && (function __PRIVATE_queryMatchesOrderBy(e2, t4) {
       for (const n of __PRIVATE_queryNormalizedOrderBy(e2))
-        if (!n.field.isKeyField() && null === t3.data.field(n.field)) return false;
+        if (!n.field.isKeyField() && null === t4.data.field(n.field)) return false;
       return true;
-    })(e, t2) && (function __PRIVATE_queryMatchesFilters(e2, t3) {
-      for (const n of e2.filters) if (!n.matches(t3)) return false;
+    })(e, t3) && (function __PRIVATE_queryMatchesFilters(e2, t4) {
+      for (const n of e2.filters) if (!n.matches(t4)) return false;
       return true;
-    })(e, t2) && (function __PRIVATE_queryMatchesBounds(e2, t3) {
+    })(e, t3) && (function __PRIVATE_queryMatchesBounds(e2, t4) {
       if (e2.startAt && !/**
       * Returns true if a document sorts before a bound using the provided sort
       * order.
       */
-      (function __PRIVATE_boundSortsBeforeDocument(e3, t4, n) {
-        const r = __PRIVATE_boundCompareToDocument(e3, t4, n);
+      (function __PRIVATE_boundSortsBeforeDocument(e3, t5, n) {
+        const r = __PRIVATE_boundCompareToDocument(e3, t5, n);
         return e3.inclusive ? r <= 0 : r < 0;
-      })(e2.startAt, __PRIVATE_queryNormalizedOrderBy(e2), t3)) return false;
-      if (e2.endAt && !(function __PRIVATE_boundSortsAfterDocument(e3, t4, n) {
-        const r = __PRIVATE_boundCompareToDocument(e3, t4, n);
+      })(e2.startAt, __PRIVATE_queryNormalizedOrderBy(e2), t4)) return false;
+      if (e2.endAt && !(function __PRIVATE_boundSortsAfterDocument(e3, t5, n) {
+        const r = __PRIVATE_boundCompareToDocument(e3, t5, n);
         return e3.inclusive ? r >= 0 : r > 0;
-      })(e2.endAt, __PRIVATE_queryNormalizedOrderBy(e2), t3)) return false;
+      })(e2.endAt, __PRIVATE_queryNormalizedOrderBy(e2), t4)) return false;
       return true;
-    })(e, t2);
+    })(e, t3);
   }
   function __PRIVATE_queryCollectionGroup(e) {
     return e.collectionGroup || (e.path.length % 2 == 1 ? e.path.lastSegment() : e.path.get(e.path.length - 2));
   }
   function __PRIVATE_newQueryComparator(e) {
-    return (t2, n) => {
+    return (t3, n) => {
       let r = false;
       for (const i of __PRIVATE_queryNormalizedOrderBy(e)) {
-        const e2 = __PRIVATE_compareDocs(i, t2, n);
+        const e2 = __PRIVATE_compareDocs(i, t3, n);
         if (0 !== e2) return e2;
         r = r || i.field.isKeyField();
       }
       return 0;
     };
   }
-  function __PRIVATE_compareDocs(e, t2, n) {
-    const r = e.field.isKeyField() ? DocumentKey.comparator(t2.key, n.key) : (function __PRIVATE_compareDocumentsByField(e2, t3, n2) {
-      const r2 = t3.data.field(e2), i = n2.data.field(e2);
+  function __PRIVATE_compareDocs(e, t3, n) {
+    const r = e.field.isKeyField() ? DocumentKey.comparator(t3.key, n.key) : (function __PRIVATE_compareDocumentsByField(e2, t4, n2) {
+      const r2 = t4.data.field(e2), i = n2.data.field(e2);
       return null !== r2 && null !== i ? __PRIVATE_valueCompare(r2, i) : fail(42886);
-    })(e.field, t2, n);
+    })(e.field, t3, n);
     switch (e.dir) {
       case "asc":
         return r;
@@ -9948,13 +9948,13 @@
     return Rt;
   }
   function documentMap(...e) {
-    let t2 = Vt;
-    for (const n of e) t2 = t2.insert(n.key, n);
-    return t2;
+    let t3 = Vt;
+    for (const n of e) t3 = t3.insert(n.key, n);
+    return t3;
   }
   function __PRIVATE_convertOverlayedDocumentMapToDocumentMap(e) {
-    let t2 = Vt;
-    return e.forEach(((e2, n) => t2 = t2.insert(e2, n.overlayedDocument))), t2;
+    let t3 = Vt;
+    return e.forEach(((e2, n) => t3 = t3.insert(e2, n.overlayedDocument))), t3;
   }
   function __PRIVATE_newOverlayMap() {
     return __PRIVATE_newDocumentKeyMap();
@@ -9963,30 +9963,30 @@
     return __PRIVATE_newDocumentKeyMap();
   }
   function __PRIVATE_newDocumentKeyMap() {
-    return new ObjectMap(((e) => e.toString()), ((e, t2) => e.isEqual(t2)));
+    return new ObjectMap(((e) => e.toString()), ((e, t3) => e.isEqual(t3)));
   }
   function __PRIVATE_documentKeySet(...e) {
-    let t2 = ft;
-    for (const n of e) t2 = t2.add(n);
-    return t2;
+    let t3 = ft;
+    for (const n of e) t3 = t3.add(n);
+    return t3;
   }
   function __PRIVATE_targetIdSet() {
     return gt;
   }
-  function __PRIVATE_toDouble(e, t2) {
+  function __PRIVATE_toDouble(e, t3) {
     if (e.useProto3Json) {
-      if (isNaN(t2)) return {
+      if (isNaN(t3)) return {
         doubleValue: "NaN"
       };
-      if (t2 === 1 / 0) return {
+      if (t3 === 1 / 0) return {
         doubleValue: "Infinity"
       };
-      if (t2 === -1 / 0) return {
+      if (t3 === -1 / 0) return {
         doubleValue: "-Infinity"
       };
     }
     return {
-      doubleValue: __PRIVATE_isNegativeZero(t2) ? "-0" : t2
+      doubleValue: __PRIVATE_isNegativeZero(t3) ? "-0" : t3
     };
   }
   function __PRIVATE_toInteger(e) {
@@ -9994,11 +9994,11 @@
       integerValue: "" + e
     };
   }
-  function toNumber(e, t2) {
-    return isSafeInteger(t2) ? __PRIVATE_toInteger(t2) : __PRIVATE_toDouble(e, t2);
+  function toNumber(e, t3) {
+    return isSafeInteger(t3) ? __PRIVATE_toInteger(t3) : __PRIVATE_toDouble(e, t3);
   }
-  function __PRIVATE_applyTransformOperationToLocalView(e, t2, n) {
-    return e instanceof __PRIVATE_ServerTimestampTransform ? (function serverTimestamp$1(e2, t3) {
+  function __PRIVATE_applyTransformOperationToLocalView(e, t3, n) {
+    return e instanceof __PRIVATE_ServerTimestampTransform ? (function serverTimestamp$1(e2, t4) {
       const n2 = {
         fields: {
           [at]: {
@@ -10012,41 +10012,41 @@
           }
         }
       };
-      return t3 && __PRIVATE_isServerTimestamp(t3) && (t3 = __PRIVATE_getPreviousValue(t3)), t3 && (n2.fields[ut] = t3), {
+      return t4 && __PRIVATE_isServerTimestamp(t4) && (t4 = __PRIVATE_getPreviousValue(t4)), t4 && (n2.fields[ut] = t4), {
         mapValue: n2
       };
-    })(n, t2) : e instanceof __PRIVATE_ArrayUnionTransformOperation ? __PRIVATE_applyArrayUnionTransformOperation(e, t2) : e instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_applyArrayRemoveTransformOperation(e, t2) : (function __PRIVATE_applyNumericIncrementTransformOperationToLocalView(e2, t3) {
-      const n2 = __PRIVATE_computeTransformOperationBaseValue(e2, t3), r = asNumber(n2) + asNumber(e2.Ae);
+    })(n, t3) : e instanceof __PRIVATE_ArrayUnionTransformOperation ? __PRIVATE_applyArrayUnionTransformOperation(e, t3) : e instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_applyArrayRemoveTransformOperation(e, t3) : (function __PRIVATE_applyNumericIncrementTransformOperationToLocalView(e2, t4) {
+      const n2 = __PRIVATE_computeTransformOperationBaseValue(e2, t4), r = asNumber(n2) + asNumber(e2.Ae);
       return isInteger(n2) && isInteger(e2.Ae) ? __PRIVATE_toInteger(r) : __PRIVATE_toDouble(e2.serializer, r);
-    })(e, t2);
+    })(e, t3);
   }
-  function __PRIVATE_applyTransformOperationToRemoteDocument(e, t2, n) {
-    return e instanceof __PRIVATE_ArrayUnionTransformOperation ? __PRIVATE_applyArrayUnionTransformOperation(e, t2) : e instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_applyArrayRemoveTransformOperation(e, t2) : n;
+  function __PRIVATE_applyTransformOperationToRemoteDocument(e, t3, n) {
+    return e instanceof __PRIVATE_ArrayUnionTransformOperation ? __PRIVATE_applyArrayUnionTransformOperation(e, t3) : e instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_applyArrayRemoveTransformOperation(e, t3) : n;
   }
-  function __PRIVATE_computeTransformOperationBaseValue(e, t2) {
+  function __PRIVATE_computeTransformOperationBaseValue(e, t3) {
     return e instanceof __PRIVATE_NumericIncrementTransformOperation ? (
       /** Returns true if `value` is either an IntegerValue or a DoubleValue. */
       (function __PRIVATE_isNumber(e2) {
         return isInteger(e2) || (function __PRIVATE_isDouble(e3) {
           return !!e3 && "doubleValue" in e3;
         })(e2);
-      })(t2) ? t2 : {
+      })(t3) ? t3 : {
         integerValue: 0
       }
     ) : null;
   }
-  function __PRIVATE_applyArrayUnionTransformOperation(e, t2) {
-    const n = __PRIVATE_coercedFieldValuesArray(t2);
-    for (const t3 of e.elements) n.some(((e2) => __PRIVATE_valueEquals(e2, t3))) || n.push(t3);
+  function __PRIVATE_applyArrayUnionTransformOperation(e, t3) {
+    const n = __PRIVATE_coercedFieldValuesArray(t3);
+    for (const t4 of e.elements) n.some(((e2) => __PRIVATE_valueEquals(e2, t4))) || n.push(t4);
     return {
       arrayValue: {
         values: n
       }
     };
   }
-  function __PRIVATE_applyArrayRemoveTransformOperation(e, t2) {
-    let n = __PRIVATE_coercedFieldValuesArray(t2);
-    for (const t3 of e.elements) n = n.filter(((e2) => !__PRIVATE_valueEquals(e2, t3)));
+  function __PRIVATE_applyArrayRemoveTransformOperation(e, t3) {
+    let n = __PRIVATE_coercedFieldValuesArray(t3);
+    for (const t4 of e.elements) n = n.filter(((e2) => !__PRIVATE_valueEquals(e2, t4)));
     return {
       arrayValue: {
         values: n
@@ -10059,95 +10059,95 @@
   function __PRIVATE_coercedFieldValuesArray(e) {
     return isArray(e) && e.arrayValue.values ? e.arrayValue.values.slice() : [];
   }
-  function __PRIVATE_fieldTransformEquals(e, t2) {
-    return e.field.isEqual(t2.field) && (function __PRIVATE_transformOperationEquals(e2, t3) {
-      return e2 instanceof __PRIVATE_ArrayUnionTransformOperation && t3 instanceof __PRIVATE_ArrayUnionTransformOperation || e2 instanceof __PRIVATE_ArrayRemoveTransformOperation && t3 instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_arrayEquals(e2.elements, t3.elements, __PRIVATE_valueEquals) : e2 instanceof __PRIVATE_NumericIncrementTransformOperation && t3 instanceof __PRIVATE_NumericIncrementTransformOperation ? __PRIVATE_valueEquals(e2.Ae, t3.Ae) : e2 instanceof __PRIVATE_ServerTimestampTransform && t3 instanceof __PRIVATE_ServerTimestampTransform;
-    })(e.transform, t2.transform);
+  function __PRIVATE_fieldTransformEquals(e, t3) {
+    return e.field.isEqual(t3.field) && (function __PRIVATE_transformOperationEquals(e2, t4) {
+      return e2 instanceof __PRIVATE_ArrayUnionTransformOperation && t4 instanceof __PRIVATE_ArrayUnionTransformOperation || e2 instanceof __PRIVATE_ArrayRemoveTransformOperation && t4 instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_arrayEquals(e2.elements, t4.elements, __PRIVATE_valueEquals) : e2 instanceof __PRIVATE_NumericIncrementTransformOperation && t4 instanceof __PRIVATE_NumericIncrementTransformOperation ? __PRIVATE_valueEquals(e2.Ae, t4.Ae) : e2 instanceof __PRIVATE_ServerTimestampTransform && t4 instanceof __PRIVATE_ServerTimestampTransform;
+    })(e.transform, t3.transform);
   }
-  function __PRIVATE_preconditionIsValidForDocument(e, t2) {
-    return void 0 !== e.updateTime ? t2.isFoundDocument() && t2.version.isEqual(e.updateTime) : void 0 === e.exists || e.exists === t2.isFoundDocument();
+  function __PRIVATE_preconditionIsValidForDocument(e, t3) {
+    return void 0 !== e.updateTime ? t3.isFoundDocument() && t3.version.isEqual(e.updateTime) : void 0 === e.exists || e.exists === t3.isFoundDocument();
   }
-  function __PRIVATE_calculateOverlayMutation(e, t2) {
-    if (!e.hasLocalMutations || t2 && 0 === t2.fields.length) return null;
-    if (null === t2) return e.isNoDocument() ? new __PRIVATE_DeleteMutation(e.key, Precondition.none()) : new __PRIVATE_SetMutation(e.key, e.data, Precondition.none());
+  function __PRIVATE_calculateOverlayMutation(e, t3) {
+    if (!e.hasLocalMutations || t3 && 0 === t3.fields.length) return null;
+    if (null === t3) return e.isNoDocument() ? new __PRIVATE_DeleteMutation(e.key, Precondition.none()) : new __PRIVATE_SetMutation(e.key, e.data, Precondition.none());
     {
       const n = e.data, r = ObjectValue.empty();
       let i = new SortedSet(FieldPath$1.comparator);
-      for (let e2 of t2.fields) if (!i.has(e2)) {
-        let t3 = n.field(e2);
-        null === t3 && e2.length > 1 && (e2 = e2.popLast(), t3 = n.field(e2)), null === t3 ? r.delete(e2) : r.set(e2, t3), i = i.add(e2);
+      for (let e2 of t3.fields) if (!i.has(e2)) {
+        let t4 = n.field(e2);
+        null === t4 && e2.length > 1 && (e2 = e2.popLast(), t4 = n.field(e2)), null === t4 ? r.delete(e2) : r.set(e2, t4), i = i.add(e2);
       }
       return new __PRIVATE_PatchMutation(e.key, r, new FieldMask(i.toArray()), Precondition.none());
     }
   }
-  function __PRIVATE_mutationApplyToRemoteDocument(e, t2, n) {
-    e instanceof __PRIVATE_SetMutation ? (function __PRIVATE_setMutationApplyToRemoteDocument(e2, t3, n2) {
-      const r = e2.value.clone(), i = __PRIVATE_serverTransformResults(e2.fieldTransforms, t3, n2.transformResults);
-      r.setAll(i), t3.convertToFoundDocument(n2.version, r).setHasCommittedMutations();
-    })(e, t2, n) : e instanceof __PRIVATE_PatchMutation ? (function __PRIVATE_patchMutationApplyToRemoteDocument(e2, t3, n2) {
-      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t3))
-        return void t3.convertToUnknownDocument(n2.version);
-      const r = __PRIVATE_serverTransformResults(e2.fieldTransforms, t3, n2.transformResults), i = t3.data;
-      i.setAll(__PRIVATE_getPatch(e2)), i.setAll(r), t3.convertToFoundDocument(n2.version, i).setHasCommittedMutations();
-    })(e, t2, n) : (function __PRIVATE_deleteMutationApplyToRemoteDocument(e2, t3, n2) {
-      t3.convertToNoDocument(n2.version).setHasCommittedMutations();
-    })(0, t2, n);
+  function __PRIVATE_mutationApplyToRemoteDocument(e, t3, n) {
+    e instanceof __PRIVATE_SetMutation ? (function __PRIVATE_setMutationApplyToRemoteDocument(e2, t4, n2) {
+      const r = e2.value.clone(), i = __PRIVATE_serverTransformResults(e2.fieldTransforms, t4, n2.transformResults);
+      r.setAll(i), t4.convertToFoundDocument(n2.version, r).setHasCommittedMutations();
+    })(e, t3, n) : e instanceof __PRIVATE_PatchMutation ? (function __PRIVATE_patchMutationApplyToRemoteDocument(e2, t4, n2) {
+      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t4))
+        return void t4.convertToUnknownDocument(n2.version);
+      const r = __PRIVATE_serverTransformResults(e2.fieldTransforms, t4, n2.transformResults), i = t4.data;
+      i.setAll(__PRIVATE_getPatch(e2)), i.setAll(r), t4.convertToFoundDocument(n2.version, i).setHasCommittedMutations();
+    })(e, t3, n) : (function __PRIVATE_deleteMutationApplyToRemoteDocument(e2, t4, n2) {
+      t4.convertToNoDocument(n2.version).setHasCommittedMutations();
+    })(0, t3, n);
   }
-  function __PRIVATE_mutationApplyToLocalView(e, t2, n, r) {
-    return e instanceof __PRIVATE_SetMutation ? (function __PRIVATE_setMutationApplyToLocalView(e2, t3, n2, r2) {
-      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t3))
+  function __PRIVATE_mutationApplyToLocalView(e, t3, n, r) {
+    return e instanceof __PRIVATE_SetMutation ? (function __PRIVATE_setMutationApplyToLocalView(e2, t4, n2, r2) {
+      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t4))
         return n2;
-      const i = e2.value.clone(), s = __PRIVATE_localTransformResults(e2.fieldTransforms, r2, t3);
-      return i.setAll(s), t3.convertToFoundDocument(t3.version, i).setHasLocalMutations(), null;
-    })(e, t2, n, r) : e instanceof __PRIVATE_PatchMutation ? (function __PRIVATE_patchMutationApplyToLocalView(e2, t3, n2, r2) {
-      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t3)) return n2;
-      const i = __PRIVATE_localTransformResults(e2.fieldTransforms, r2, t3), s = t3.data;
-      if (s.setAll(__PRIVATE_getPatch(e2)), s.setAll(i), t3.convertToFoundDocument(t3.version, s).setHasLocalMutations(), null === n2) return null;
+      const i = e2.value.clone(), s = __PRIVATE_localTransformResults(e2.fieldTransforms, r2, t4);
+      return i.setAll(s), t4.convertToFoundDocument(t4.version, i).setHasLocalMutations(), null;
+    })(e, t3, n, r) : e instanceof __PRIVATE_PatchMutation ? (function __PRIVATE_patchMutationApplyToLocalView(e2, t4, n2, r2) {
+      if (!__PRIVATE_preconditionIsValidForDocument(e2.precondition, t4)) return n2;
+      const i = __PRIVATE_localTransformResults(e2.fieldTransforms, r2, t4), s = t4.data;
+      if (s.setAll(__PRIVATE_getPatch(e2)), s.setAll(i), t4.convertToFoundDocument(t4.version, s).setHasLocalMutations(), null === n2) return null;
       return n2.unionWith(e2.fieldMask.fields).unionWith(e2.fieldTransforms.map(((e3) => e3.field)));
-    })(e, t2, n, r) : (function __PRIVATE_deleteMutationApplyToLocalView(e2, t3, n2) {
-      if (__PRIVATE_preconditionIsValidForDocument(e2.precondition, t3)) return t3.convertToNoDocument(t3.version).setHasLocalMutations(), null;
+    })(e, t3, n, r) : (function __PRIVATE_deleteMutationApplyToLocalView(e2, t4, n2) {
+      if (__PRIVATE_preconditionIsValidForDocument(e2.precondition, t4)) return t4.convertToNoDocument(t4.version).setHasLocalMutations(), null;
       return n2;
-    })(e, t2, n);
+    })(e, t3, n);
   }
-  function __PRIVATE_mutationExtractBaseValue(e, t2) {
+  function __PRIVATE_mutationExtractBaseValue(e, t3) {
     let n = null;
     for (const r of e.fieldTransforms) {
-      const e2 = t2.data.field(r.field), i = __PRIVATE_computeTransformOperationBaseValue(r.transform, e2 || null);
+      const e2 = t3.data.field(r.field), i = __PRIVATE_computeTransformOperationBaseValue(r.transform, e2 || null);
       null != i && (null === n && (n = ObjectValue.empty()), n.set(r.field, i));
     }
     return n || null;
   }
-  function __PRIVATE_mutationEquals(e, t2) {
-    return e.type === t2.type && (!!e.key.isEqual(t2.key) && (!!e.precondition.isEqual(t2.precondition) && (!!(function __PRIVATE_fieldTransformsAreEqual(e2, t3) {
-      return void 0 === e2 && void 0 === t3 || !(!e2 || !t3) && __PRIVATE_arrayEquals(e2, t3, ((e3, t4) => __PRIVATE_fieldTransformEquals(e3, t4)));
-    })(e.fieldTransforms, t2.fieldTransforms) && (0 === e.type ? e.value.isEqual(t2.value) : 1 !== e.type || e.data.isEqual(t2.data) && e.fieldMask.isEqual(t2.fieldMask)))));
+  function __PRIVATE_mutationEquals(e, t3) {
+    return e.type === t3.type && (!!e.key.isEqual(t3.key) && (!!e.precondition.isEqual(t3.precondition) && (!!(function __PRIVATE_fieldTransformsAreEqual(e2, t4) {
+      return void 0 === e2 && void 0 === t4 || !(!e2 || !t4) && __PRIVATE_arrayEquals(e2, t4, ((e3, t5) => __PRIVATE_fieldTransformEquals(e3, t5)));
+    })(e.fieldTransforms, t3.fieldTransforms) && (0 === e.type ? e.value.isEqual(t3.value) : 1 !== e.type || e.data.isEqual(t3.data) && e.fieldMask.isEqual(t3.fieldMask)))));
   }
   function __PRIVATE_getPatch(e) {
-    const t2 = /* @__PURE__ */ new Map();
+    const t3 = /* @__PURE__ */ new Map();
     return e.fieldMask.fields.forEach(((n) => {
       if (!n.isEmpty()) {
         const r = e.data.field(n);
-        t2.set(n, r);
+        t3.set(n, r);
       }
-    })), t2;
+    })), t3;
   }
-  function __PRIVATE_serverTransformResults(e, t2, n) {
+  function __PRIVATE_serverTransformResults(e, t3, n) {
     const r = /* @__PURE__ */ new Map();
     __PRIVATE_hardAssert(e.length === n.length, 32656, {
       Re: n.length,
       Ve: e.length
     });
     for (let i = 0; i < n.length; i++) {
-      const s = e[i], o = s.transform, _ = t2.data.field(s.field);
+      const s = e[i], o = s.transform, _ = t3.data.field(s.field);
       r.set(s.field, __PRIVATE_applyTransformOperationToRemoteDocument(o, _, n[i]));
     }
     return r;
   }
-  function __PRIVATE_localTransformResults(e, t2, n) {
+  function __PRIVATE_localTransformResults(e, t3, n) {
     const r = /* @__PURE__ */ new Map();
     for (const i of e) {
       const e2 = i.transform, s = n.data.field(i.field);
-      r.set(i.field, __PRIVATE_applyTransformOperationToLocalView(e2, s, t2));
+      r.set(i.field, __PRIVATE_applyTransformOperationToLocalView(e2, s, t3));
     }
     return r;
   }
@@ -10232,23 +10232,23 @@
     return new TextEncoder();
   }
   function __PRIVATE_getMd5HashValue(e) {
-    const t2 = __PRIVATE_newTextEncoder().encode(e), n = new Md5();
-    return n.update(t2), new Uint8Array(n.digest());
+    const t3 = __PRIVATE_newTextEncoder().encode(e), n = new Md5();
+    return n.update(t3), new Uint8Array(n.digest());
   }
   function __PRIVATE_get64BitUints(e) {
-    const t2 = new DataView(e.buffer), n = t2.getUint32(
+    const t3 = new DataView(e.buffer), n = t3.getUint32(
       0,
       /* littleEndian= */
       true
-    ), r = t2.getUint32(
+    ), r = t3.getUint32(
       4,
       /* littleEndian= */
       true
-    ), i = t2.getUint32(
+    ), i = t3.getUint32(
       8,
       /* littleEndian= */
       true
-    ), s = t2.getUint32(
+    ), s = t3.getUint32(
       12,
       /* littleEndian= */
       true
@@ -10261,62 +10261,62 @@
   function __PRIVATE_snapshotChangesMap() {
     return new SortedMap(DocumentKey.comparator);
   }
-  function __PRIVATE_toInt32Proto(e, t2) {
-    return e.useProto3Json || __PRIVATE_isNullOrUndefined(t2) ? t2 : {
-      value: t2
+  function __PRIVATE_toInt32Proto(e, t3) {
+    return e.useProto3Json || __PRIVATE_isNullOrUndefined(t3) ? t3 : {
+      value: t3
     };
   }
-  function toTimestamp(e, t2) {
+  function toTimestamp(e, t3) {
     if (e.useProto3Json) {
-      return `${new Date(1e3 * t2.seconds).toISOString().replace(/\.\d*/, "").replace("Z", "")}.${("000000000" + t2.nanoseconds).slice(-9)}Z`;
+      return `${new Date(1e3 * t3.seconds).toISOString().replace(/\.\d*/, "").replace("Z", "")}.${("000000000" + t3.nanoseconds).slice(-9)}Z`;
     }
     return {
-      seconds: "" + t2.seconds,
-      nanos: t2.nanoseconds
+      seconds: "" + t3.seconds,
+      nanos: t3.nanoseconds
     };
   }
-  function __PRIVATE_toBytes(e, t2) {
-    return e.useProto3Json ? t2.toBase64() : t2.toUint8Array();
+  function __PRIVATE_toBytes(e, t3) {
+    return e.useProto3Json ? t3.toBase64() : t3.toUint8Array();
   }
-  function __PRIVATE_toVersion(e, t2) {
-    return toTimestamp(e, t2.toTimestamp());
+  function __PRIVATE_toVersion(e, t3) {
+    return toTimestamp(e, t3.toTimestamp());
   }
   function __PRIVATE_fromVersion(e) {
     return __PRIVATE_hardAssert(!!e, 49232), SnapshotVersion.fromTimestamp((function fromTimestamp(e2) {
-      const t2 = __PRIVATE_normalizeTimestamp(e2);
-      return new Timestamp(t2.seconds, t2.nanos);
+      const t3 = __PRIVATE_normalizeTimestamp(e2);
+      return new Timestamp(t3.seconds, t3.nanos);
     })(e));
   }
-  function __PRIVATE_toResourceName(e, t2) {
-    return __PRIVATE_toResourcePath(e, t2).canonicalString();
+  function __PRIVATE_toResourceName(e, t3) {
+    return __PRIVATE_toResourcePath(e, t3).canonicalString();
   }
-  function __PRIVATE_toResourcePath(e, t2) {
+  function __PRIVATE_toResourcePath(e, t3) {
     const n = (function __PRIVATE_fullyQualifiedPrefixPath(e2) {
       return new ResourcePath(["projects", e2.projectId, "databases", e2.database]);
     })(e).child("documents");
-    return void 0 === t2 ? n : n.child(t2);
+    return void 0 === t3 ? n : n.child(t3);
   }
   function __PRIVATE_fromResourceName(e) {
-    const t2 = ResourcePath.fromString(e);
-    return __PRIVATE_hardAssert(__PRIVATE_isValidResourceName(t2), 10190, {
-      key: t2.toString()
-    }), t2;
+    const t3 = ResourcePath.fromString(e);
+    return __PRIVATE_hardAssert(__PRIVATE_isValidResourceName(t3), 10190, {
+      key: t3.toString()
+    }), t3;
   }
-  function __PRIVATE_toName(e, t2) {
-    return __PRIVATE_toResourceName(e.databaseId, t2.path);
+  function __PRIVATE_toName(e, t3) {
+    return __PRIVATE_toResourceName(e.databaseId, t3.path);
   }
-  function fromName(e, t2) {
-    const n = __PRIVATE_fromResourceName(t2);
+  function fromName(e, t3) {
+    const n = __PRIVATE_fromResourceName(t3);
     if (n.get(1) !== e.databaseId.projectId) throw new FirestoreError(N.INVALID_ARGUMENT, "Tried to deserialize key from different project: " + n.get(1) + " vs " + e.databaseId.projectId);
     if (n.get(3) !== e.databaseId.database) throw new FirestoreError(N.INVALID_ARGUMENT, "Tried to deserialize key from different database: " + n.get(3) + " vs " + e.databaseId.database);
     return new DocumentKey(__PRIVATE_extractLocalPathFromResourceName(n));
   }
-  function __PRIVATE_toQueryPath(e, t2) {
-    return __PRIVATE_toResourceName(e.databaseId, t2);
+  function __PRIVATE_toQueryPath(e, t3) {
+    return __PRIVATE_toResourceName(e.databaseId, t3);
   }
   function __PRIVATE_fromQueryPath(e) {
-    const t2 = __PRIVATE_fromResourceName(e);
-    return 4 === t2.length ? ResourcePath.emptyPath() : __PRIVATE_extractLocalPathFromResourceName(t2);
+    const t3 = __PRIVATE_fromResourceName(e);
+    return 4 === t3.length ? ResourcePath.emptyPath() : __PRIVATE_extractLocalPathFromResourceName(t3);
   }
   function __PRIVATE_getEncodedDatabaseId(e) {
     return new ResourcePath(["projects", e.databaseId.projectId, "databases", e.databaseId.database]).canonicalString();
@@ -10326,42 +10326,42 @@
       key: e.toString()
     }), e.popFirst(5);
   }
-  function __PRIVATE_toMutationDocument(e, t2, n) {
+  function __PRIVATE_toMutationDocument(e, t3, n) {
     return {
-      name: __PRIVATE_toName(e, t2),
+      name: __PRIVATE_toName(e, t3),
       fields: n.value.mapValue.fields
     };
   }
-  function __PRIVATE_fromDocument(e, t2, n) {
-    const r = fromName(e, t2.name), i = __PRIVATE_fromVersion(t2.updateTime), s = t2.createTime ? __PRIVATE_fromVersion(t2.createTime) : SnapshotVersion.min(), o = new ObjectValue({
+  function __PRIVATE_fromDocument(e, t3, n) {
+    const r = fromName(e, t3.name), i = __PRIVATE_fromVersion(t3.updateTime), s = t3.createTime ? __PRIVATE_fromVersion(t3.createTime) : SnapshotVersion.min(), o = new ObjectValue({
       mapValue: {
-        fields: t2.fields
+        fields: t3.fields
       }
     }), _ = MutableDocument.newFoundDocument(r, i, s, o);
     return n && _.setHasCommittedMutations(), n ? _.setHasCommittedMutations() : _;
   }
-  function __PRIVATE_fromWatchChange(e, t2) {
+  function __PRIVATE_fromWatchChange(e, t3) {
     let n;
-    if ("targetChange" in t2) {
-      t2.targetChange;
+    if ("targetChange" in t3) {
+      t3.targetChange;
       const r = (function __PRIVATE_fromWatchTargetChangeState(e2) {
         return "NO_CHANGE" === e2 ? 0 : "ADD" === e2 ? 1 : "REMOVE" === e2 ? 2 : "CURRENT" === e2 ? 3 : "RESET" === e2 ? 4 : fail(39313, {
           state: e2
         });
-      })(t2.targetChange.targetChangeType || "NO_CHANGE"), i = t2.targetChange.targetIds || [], s = (function __PRIVATE_fromBytes(e2, t3) {
-        return e2.useProto3Json ? (__PRIVATE_hardAssert(void 0 === t3 || "string" == typeof t3, 58123), ByteString.fromBase64String(t3 || "")) : (__PRIVATE_hardAssert(void 0 === t3 || // Check if the value is an instance of both Buffer and Uint8Array,
+      })(t3.targetChange.targetChangeType || "NO_CHANGE"), i = t3.targetChange.targetIds || [], s = (function __PRIVATE_fromBytes(e2, t4) {
+        return e2.useProto3Json ? (__PRIVATE_hardAssert(void 0 === t4 || "string" == typeof t4, 58123), ByteString.fromBase64String(t4 || "")) : (__PRIVATE_hardAssert(void 0 === t4 || // Check if the value is an instance of both Buffer and Uint8Array,
         // despite the fact that Buffer extends Uint8Array. In some
         // environments, such as jsdom, the prototype chain of Buffer
         // does not indicate that it extends Uint8Array.
-        t3 instanceof Buffer || t3 instanceof Uint8Array, 16193), ByteString.fromUint8Array(t3 || new Uint8Array()));
-      })(e, t2.targetChange.resumeToken), o = t2.targetChange.cause, _ = o && (function __PRIVATE_fromRpcStatus(e2) {
-        const t3 = void 0 === e2.code ? N.UNKNOWN : __PRIVATE_mapCodeFromRpcCode(e2.code);
-        return new FirestoreError(t3, e2.message || "");
+        t4 instanceof Buffer || t4 instanceof Uint8Array, 16193), ByteString.fromUint8Array(t4 || new Uint8Array()));
+      })(e, t3.targetChange.resumeToken), o = t3.targetChange.cause, _ = o && (function __PRIVATE_fromRpcStatus(e2) {
+        const t4 = void 0 === e2.code ? N.UNKNOWN : __PRIVATE_mapCodeFromRpcCode(e2.code);
+        return new FirestoreError(t4, e2.message || "");
       })(o);
       n = new __PRIVATE_WatchTargetChange(r, i, s, _ || null);
-    } else if ("documentChange" in t2) {
-      t2.documentChange;
-      const r = t2.documentChange;
+    } else if ("documentChange" in t3) {
+      t3.documentChange;
+      const r = t3.documentChange;
       r.document, r.document.name, r.document.updateTime;
       const i = fromName(e, r.document.name), s = __PRIVATE_fromVersion(r.document.updateTime), o = r.document.createTime ? __PRIVATE_fromVersion(r.document.createTime) : SnapshotVersion.min(), _ = new ObjectValue({
         mapValue: {
@@ -10369,25 +10369,25 @@
         }
       }), a = MutableDocument.newFoundDocument(i, s, o, _), u = r.targetIds || [], c = r.removedTargetIds || [];
       n = new __PRIVATE_DocumentWatchChange(u, c, a.key, a);
-    } else if ("documentDelete" in t2) {
-      t2.documentDelete;
-      const r = t2.documentDelete;
+    } else if ("documentDelete" in t3) {
+      t3.documentDelete;
+      const r = t3.documentDelete;
       r.document;
       const i = fromName(e, r.document), s = r.readTime ? __PRIVATE_fromVersion(r.readTime) : SnapshotVersion.min(), o = MutableDocument.newNoDocument(i, s), _ = r.removedTargetIds || [];
       n = new __PRIVATE_DocumentWatchChange([], _, o.key, o);
-    } else if ("documentRemove" in t2) {
-      t2.documentRemove;
-      const r = t2.documentRemove;
+    } else if ("documentRemove" in t3) {
+      t3.documentRemove;
+      const r = t3.documentRemove;
       r.document;
       const i = fromName(e, r.document), s = r.removedTargetIds || [];
       n = new __PRIVATE_DocumentWatchChange([], s, i, null);
     } else {
-      if (!("filter" in t2)) return fail(11601, {
-        Rt: t2
+      if (!("filter" in t3)) return fail(11601, {
+        Rt: t3
       });
       {
-        t2.filter;
-        const e2 = t2.filter;
+        t3.filter;
+        const e2 = t3.filter;
         e2.targetId;
         const { count: r = 0, unchangedNames: i } = e2, s = new ExistenceFilter(r, i), o = e2.targetId;
         n = new __PRIVATE_ExistenceFilterChange(o, s);
@@ -10395,130 +10395,130 @@
     }
     return n;
   }
-  function toMutation(e, t2) {
+  function toMutation(e, t3) {
     let n;
-    if (t2 instanceof __PRIVATE_SetMutation) n = {
-      update: __PRIVATE_toMutationDocument(e, t2.key, t2.value)
+    if (t3 instanceof __PRIVATE_SetMutation) n = {
+      update: __PRIVATE_toMutationDocument(e, t3.key, t3.value)
     };
-    else if (t2 instanceof __PRIVATE_DeleteMutation) n = {
-      delete: __PRIVATE_toName(e, t2.key)
+    else if (t3 instanceof __PRIVATE_DeleteMutation) n = {
+      delete: __PRIVATE_toName(e, t3.key)
     };
-    else if (t2 instanceof __PRIVATE_PatchMutation) n = {
-      update: __PRIVATE_toMutationDocument(e, t2.key, t2.data),
-      updateMask: __PRIVATE_toDocumentMask(t2.fieldMask)
+    else if (t3 instanceof __PRIVATE_PatchMutation) n = {
+      update: __PRIVATE_toMutationDocument(e, t3.key, t3.data),
+      updateMask: __PRIVATE_toDocumentMask(t3.fieldMask)
     };
     else {
-      if (!(t2 instanceof __PRIVATE_VerifyMutation)) return fail(16599, {
-        Vt: t2.type
+      if (!(t3 instanceof __PRIVATE_VerifyMutation)) return fail(16599, {
+        Vt: t3.type
       });
       n = {
-        verify: __PRIVATE_toName(e, t2.key)
+        verify: __PRIVATE_toName(e, t3.key)
       };
     }
-    return t2.fieldTransforms.length > 0 && (n.updateTransforms = t2.fieldTransforms.map(((e2) => (function __PRIVATE_toFieldTransform(e3, t3) {
-      const n2 = t3.transform;
+    return t3.fieldTransforms.length > 0 && (n.updateTransforms = t3.fieldTransforms.map(((e2) => (function __PRIVATE_toFieldTransform(e3, t4) {
+      const n2 = t4.transform;
       if (n2 instanceof __PRIVATE_ServerTimestampTransform) return {
-        fieldPath: t3.field.canonicalString(),
+        fieldPath: t4.field.canonicalString(),
         setToServerValue: "REQUEST_TIME"
       };
       if (n2 instanceof __PRIVATE_ArrayUnionTransformOperation) return {
-        fieldPath: t3.field.canonicalString(),
+        fieldPath: t4.field.canonicalString(),
         appendMissingElements: {
           values: n2.elements
         }
       };
       if (n2 instanceof __PRIVATE_ArrayRemoveTransformOperation) return {
-        fieldPath: t3.field.canonicalString(),
+        fieldPath: t4.field.canonicalString(),
         removeAllFromArray: {
           values: n2.elements
         }
       };
       if (n2 instanceof __PRIVATE_NumericIncrementTransformOperation) return {
-        fieldPath: t3.field.canonicalString(),
+        fieldPath: t4.field.canonicalString(),
         increment: n2.Ae
       };
       throw fail(20930, {
-        transform: t3.transform
+        transform: t4.transform
       });
-    })(0, e2)))), t2.precondition.isNone || (n.currentDocument = (function __PRIVATE_toPrecondition(e2, t3) {
-      return void 0 !== t3.updateTime ? {
-        updateTime: __PRIVATE_toVersion(e2, t3.updateTime)
-      } : void 0 !== t3.exists ? {
-        exists: t3.exists
+    })(0, e2)))), t3.precondition.isNone || (n.currentDocument = (function __PRIVATE_toPrecondition(e2, t4) {
+      return void 0 !== t4.updateTime ? {
+        updateTime: __PRIVATE_toVersion(e2, t4.updateTime)
+      } : void 0 !== t4.exists ? {
+        exists: t4.exists
       } : fail(27497);
-    })(e, t2.precondition)), n;
+    })(e, t3.precondition)), n;
   }
-  function __PRIVATE_fromMutation(e, t2) {
-    const n = t2.currentDocument ? (function __PRIVATE_fromPrecondition(e2) {
+  function __PRIVATE_fromMutation(e, t3) {
+    const n = t3.currentDocument ? (function __PRIVATE_fromPrecondition(e2) {
       return void 0 !== e2.updateTime ? Precondition.updateTime(__PRIVATE_fromVersion(e2.updateTime)) : void 0 !== e2.exists ? Precondition.exists(e2.exists) : Precondition.none();
-    })(t2.currentDocument) : Precondition.none(), r = t2.updateTransforms ? t2.updateTransforms.map(((t3) => (function __PRIVATE_fromFieldTransform(e2, t4) {
+    })(t3.currentDocument) : Precondition.none(), r = t3.updateTransforms ? t3.updateTransforms.map(((t4) => (function __PRIVATE_fromFieldTransform(e2, t5) {
       let n2 = null;
-      if ("setToServerValue" in t4) __PRIVATE_hardAssert("REQUEST_TIME" === t4.setToServerValue, 16630, {
-        proto: t4
+      if ("setToServerValue" in t5) __PRIVATE_hardAssert("REQUEST_TIME" === t5.setToServerValue, 16630, {
+        proto: t5
       }), n2 = new __PRIVATE_ServerTimestampTransform();
-      else if ("appendMissingElements" in t4) {
-        const e3 = t4.appendMissingElements.values || [];
+      else if ("appendMissingElements" in t5) {
+        const e3 = t5.appendMissingElements.values || [];
         n2 = new __PRIVATE_ArrayUnionTransformOperation(e3);
-      } else if ("removeAllFromArray" in t4) {
-        const e3 = t4.removeAllFromArray.values || [];
+      } else if ("removeAllFromArray" in t5) {
+        const e3 = t5.removeAllFromArray.values || [];
         n2 = new __PRIVATE_ArrayRemoveTransformOperation(e3);
-      } else "increment" in t4 ? n2 = new __PRIVATE_NumericIncrementTransformOperation(e2, t4.increment) : fail(16584, {
-        proto: t4
+      } else "increment" in t5 ? n2 = new __PRIVATE_NumericIncrementTransformOperation(e2, t5.increment) : fail(16584, {
+        proto: t5
       });
-      const r2 = FieldPath$1.fromServerFormat(t4.fieldPath);
+      const r2 = FieldPath$1.fromServerFormat(t5.fieldPath);
       return new FieldTransform(r2, n2);
-    })(e, t3))) : [];
-    if (t2.update) {
-      t2.update.name;
-      const i = fromName(e, t2.update.name), s = new ObjectValue({
+    })(e, t4))) : [];
+    if (t3.update) {
+      t3.update.name;
+      const i = fromName(e, t3.update.name), s = new ObjectValue({
         mapValue: {
-          fields: t2.update.fields
+          fields: t3.update.fields
         }
       });
-      if (t2.updateMask) {
+      if (t3.updateMask) {
         const e2 = (function __PRIVATE_fromDocumentMask(e3) {
-          const t3 = e3.fieldPaths || [];
-          return new FieldMask(t3.map(((e4) => FieldPath$1.fromServerFormat(e4))));
-        })(t2.updateMask);
+          const t4 = e3.fieldPaths || [];
+          return new FieldMask(t4.map(((e4) => FieldPath$1.fromServerFormat(e4))));
+        })(t3.updateMask);
         return new __PRIVATE_PatchMutation(i, s, e2, n, r);
       }
       return new __PRIVATE_SetMutation(i, s, n, r);
     }
-    if (t2.delete) {
-      const r2 = fromName(e, t2.delete);
+    if (t3.delete) {
+      const r2 = fromName(e, t3.delete);
       return new __PRIVATE_DeleteMutation(r2, n);
     }
-    if (t2.verify) {
-      const r2 = fromName(e, t2.verify);
+    if (t3.verify) {
+      const r2 = fromName(e, t3.verify);
       return new __PRIVATE_VerifyMutation(r2, n);
     }
     return fail(1463, {
-      proto: t2
+      proto: t3
     });
   }
-  function __PRIVATE_fromWriteResults(e, t2) {
-    return e && e.length > 0 ? (__PRIVATE_hardAssert(void 0 !== t2, 14353), e.map(((e2) => (function __PRIVATE_fromWriteResult(e3, t3) {
-      let n = e3.updateTime ? __PRIVATE_fromVersion(e3.updateTime) : __PRIVATE_fromVersion(t3);
+  function __PRIVATE_fromWriteResults(e, t3) {
+    return e && e.length > 0 ? (__PRIVATE_hardAssert(void 0 !== t3, 14353), e.map(((e2) => (function __PRIVATE_fromWriteResult(e3, t4) {
+      let n = e3.updateTime ? __PRIVATE_fromVersion(e3.updateTime) : __PRIVATE_fromVersion(t4);
       return n.isEqual(SnapshotVersion.min()) && // The Firestore Emulator currently returns an update time of 0 for
       // deletes of non-existing documents (rather than null). This breaks the
       // test "get deleted doc while offline with source=cache" as NoDocuments
       // with version 0 are filtered by IndexedDb's RemoteDocumentCache.
       // TODO(#2149): Remove this when Emulator is fixed
-      (n = __PRIVATE_fromVersion(t3)), new MutationResult(n, e3.transformResults || []);
-    })(e2, t2)))) : [];
+      (n = __PRIVATE_fromVersion(t4)), new MutationResult(n, e3.transformResults || []);
+    })(e2, t3)))) : [];
   }
-  function __PRIVATE_toDocumentsTarget(e, t2) {
+  function __PRIVATE_toDocumentsTarget(e, t3) {
     return {
-      documents: [__PRIVATE_toQueryPath(e, t2.path)]
+      documents: [__PRIVATE_toQueryPath(e, t3.path)]
     };
   }
-  function __PRIVATE_toQueryTarget(e, t2) {
+  function __PRIVATE_toQueryTarget(e, t3) {
     const n = {
       structuredQuery: {}
-    }, r = t2.path;
+    }, r = t3.path;
     let i;
-    null !== t2.collectionGroup ? (i = r, n.structuredQuery.from = [{
-      collectionId: t2.collectionGroup,
+    null !== t3.collectionGroup ? (i = r, n.structuredQuery.from = [{
+      collectionId: t3.collectionGroup,
       allDescendants: true
     }]) : (i = r.popLast(), n.structuredQuery.from = [{
       collectionId: r.lastSegment()
@@ -10530,7 +10530,7 @@
         "and"
         /* CompositeOperator.AND */
       ));
-    })(t2.filters);
+    })(t3.filters);
     s && (n.structuredQuery.where = s);
     const o = (function __PRIVATE_toOrder(e2) {
       if (0 === e2.length) return;
@@ -10543,38 +10543,38 @@
           };
         })(e3)
       )));
-    })(t2.orderBy);
+    })(t3.orderBy);
     o && (n.structuredQuery.orderBy = o);
-    const _ = __PRIVATE_toInt32Proto(e, t2.limit);
-    return null !== _ && (n.structuredQuery.limit = _), t2.startAt && (n.structuredQuery.startAt = (function __PRIVATE_toStartAtCursor(e2) {
+    const _ = __PRIVATE_toInt32Proto(e, t3.limit);
+    return null !== _ && (n.structuredQuery.limit = _), t3.startAt && (n.structuredQuery.startAt = (function __PRIVATE_toStartAtCursor(e2) {
       return {
         before: e2.inclusive,
         values: e2.position
       };
-    })(t2.startAt)), t2.endAt && (n.structuredQuery.endAt = (function __PRIVATE_toEndAtCursor(e2) {
+    })(t3.startAt)), t3.endAt && (n.structuredQuery.endAt = (function __PRIVATE_toEndAtCursor(e2) {
       return {
         before: !e2.inclusive,
         values: e2.position
       };
-    })(t2.endAt)), {
+    })(t3.endAt)), {
       ft: n,
       parent: i
     };
   }
   function __PRIVATE_convertQueryTargetToQuery(e) {
-    let t2 = __PRIVATE_fromQueryPath(e.parent);
+    let t3 = __PRIVATE_fromQueryPath(e.parent);
     const n = e.structuredQuery, r = n.from ? n.from.length : 0;
     let i = null;
     if (r > 0) {
       __PRIVATE_hardAssert(1 === r, 65062);
       const e2 = n.from[0];
-      e2.allDescendants ? i = e2.collectionId : t2 = t2.child(e2.collectionId);
+      e2.allDescendants ? i = e2.collectionId : t3 = t3.child(e2.collectionId);
     }
     let s = [];
     n.where && (s = (function __PRIVATE_fromFilters(e2) {
-      const t3 = __PRIVATE_fromFilter(e2);
-      if (t3 instanceof CompositeFilter && __PRIVATE_compositeFilterIsFlatConjunction(t3)) return t3.getFilters();
-      return [t3];
+      const t4 = __PRIVATE_fromFilter(e2);
+      if (t4 instanceof CompositeFilter && __PRIVATE_compositeFilterIsFlatConjunction(t4)) return t4.getFilters();
+      return [t4];
     })(n.where));
     let o = [];
     n.orderBy && (o = (function __PRIVATE_fromOrder(e2) {
@@ -10597,21 +10597,21 @@
     })(n.orderBy));
     let _ = null;
     n.limit && (_ = (function __PRIVATE_fromInt32Proto(e2) {
-      let t3;
-      return t3 = "object" == typeof e2 ? e2.value : e2, __PRIVATE_isNullOrUndefined(t3) ? null : t3;
+      let t4;
+      return t4 = "object" == typeof e2 ? e2.value : e2, __PRIVATE_isNullOrUndefined(t4) ? null : t4;
     })(n.limit));
     let a = null;
     n.startAt && (a = (function __PRIVATE_fromStartAtCursor(e2) {
-      const t3 = !!e2.before, n2 = e2.values || [];
-      return new Bound(n2, t3);
+      const t4 = !!e2.before, n2 = e2.values || [];
+      return new Bound(n2, t4);
     })(n.startAt));
     let u = null;
     return n.endAt && (u = (function __PRIVATE_fromEndAtCursor(e2) {
-      const t3 = !e2.before, n2 = e2.values || [];
-      return new Bound(n2, t3);
-    })(n.endAt)), __PRIVATE_newQuery(t2, i, o, s, _, "F", a, u);
+      const t4 = !e2.before, n2 = e2.values || [];
+      return new Bound(n2, t4);
+    })(n.endAt)), __PRIVATE_newQuery(t3, i, o, s, _, "F", a, u);
   }
-  function __PRIVATE_toListenRequestLabels(e, t2) {
+  function __PRIVATE_toListenRequestLabels(e, t3) {
     const n = (function __PRIVATE_toLabel(e2) {
       switch (e2) {
         case "TargetPurposeListen":
@@ -10627,7 +10627,7 @@
             purpose: e2
           });
       }
-    })(t2.purpose);
+    })(t3.purpose);
     return null == n ? null : {
       "goog-listen-tags": n
     };
@@ -10636,8 +10636,8 @@
     return void 0 !== e.unaryFilter ? (function __PRIVATE_fromUnaryFilter(e2) {
       switch (e2.unaryFilter.op) {
         case "IS_NAN":
-          const t2 = __PRIVATE_fromFieldPathReference(e2.unaryFilter.field);
-          return FieldFilter.create(t2, "==", {
+          const t3 = __PRIVATE_fromFieldPathReference(e2.unaryFilter.field);
+          return FieldFilter.create(t3, "==", {
             doubleValue: NaN
           });
         case "IS_NULL":
@@ -10758,12 +10758,12 @@
         }
       };
     })(e) : e instanceof CompositeFilter ? (function __PRIVATE_toCompositeFilter(e2) {
-      const t2 = e2.getFilters().map(((e3) => __PRIVATE_toFilter(e3)));
-      if (1 === t2.length) return t2[0];
+      const t3 = e2.getFilters().map(((e3) => __PRIVATE_toFilter(e3)));
+      if (1 === t3.length) return t3[0];
       return {
         compositeFilter: {
           op: __PRIVATE_toCompositeOperatorName(e2.op),
-          filters: t2
+          filters: t3
         }
       };
     })(e) : fail(54877, {
@@ -10771,92 +10771,92 @@
     });
   }
   function __PRIVATE_toDocumentMask(e) {
-    const t2 = [];
-    return e.fields.forEach(((e2) => t2.push(e2.canonicalString()))), {
-      fieldPaths: t2
+    const t3 = [];
+    return e.fields.forEach(((e2) => t3.push(e2.canonicalString()))), {
+      fieldPaths: t3
     };
   }
   function __PRIVATE_isValidResourceName(e) {
     return e.length >= 4 && "projects" === e.get(0) && "databases" === e.get(2);
   }
-  function __PRIVATE_fromDbRemoteDocument(e, t2) {
+  function __PRIVATE_fromDbRemoteDocument(e, t3) {
     let n;
-    if (t2.document) n = __PRIVATE_fromDocument(e.yt, t2.document, !!t2.hasCommittedMutations);
-    else if (t2.noDocument) {
-      const e2 = DocumentKey.fromSegments(t2.noDocument.path), r = __PRIVATE_fromDbTimestamp(t2.noDocument.readTime);
-      n = MutableDocument.newNoDocument(e2, r), t2.hasCommittedMutations && n.setHasCommittedMutations();
+    if (t3.document) n = __PRIVATE_fromDocument(e.yt, t3.document, !!t3.hasCommittedMutations);
+    else if (t3.noDocument) {
+      const e2 = DocumentKey.fromSegments(t3.noDocument.path), r = __PRIVATE_fromDbTimestamp(t3.noDocument.readTime);
+      n = MutableDocument.newNoDocument(e2, r), t3.hasCommittedMutations && n.setHasCommittedMutations();
     } else {
-      if (!t2.unknownDocument) return fail(56709);
+      if (!t3.unknownDocument) return fail(56709);
       {
-        const e2 = DocumentKey.fromSegments(t2.unknownDocument.path), r = __PRIVATE_fromDbTimestamp(t2.unknownDocument.version);
+        const e2 = DocumentKey.fromSegments(t3.unknownDocument.path), r = __PRIVATE_fromDbTimestamp(t3.unknownDocument.version);
         n = MutableDocument.newUnknownDocument(e2, r);
       }
     }
-    return t2.readTime && n.setReadTime((function __PRIVATE_fromDbTimestampKey(e2) {
-      const t3 = new Timestamp(e2[0], e2[1]);
-      return SnapshotVersion.fromTimestamp(t3);
-    })(t2.readTime)), n;
+    return t3.readTime && n.setReadTime((function __PRIVATE_fromDbTimestampKey(e2) {
+      const t4 = new Timestamp(e2[0], e2[1]);
+      return SnapshotVersion.fromTimestamp(t4);
+    })(t3.readTime)), n;
   }
-  function __PRIVATE_toDbRemoteDocument(e, t2) {
-    const n = t2.key, r = {
+  function __PRIVATE_toDbRemoteDocument(e, t3) {
+    const n = t3.key, r = {
       prefixPath: n.getCollectionPath().popLast().toArray(),
       collectionGroup: n.collectionGroup,
       documentId: n.path.lastSegment(),
-      readTime: __PRIVATE_toDbTimestampKey(t2.readTime),
-      hasCommittedMutations: t2.hasCommittedMutations
+      readTime: __PRIVATE_toDbTimestampKey(t3.readTime),
+      hasCommittedMutations: t3.hasCommittedMutations
     };
-    if (t2.isFoundDocument()) r.document = (function __PRIVATE_toDocument(e2, t3) {
+    if (t3.isFoundDocument()) r.document = (function __PRIVATE_toDocument(e2, t4) {
       return {
-        name: __PRIVATE_toName(e2, t3.key),
-        fields: t3.data.value.mapValue.fields,
-        updateTime: toTimestamp(e2, t3.version.toTimestamp()),
-        createTime: toTimestamp(e2, t3.createTime.toTimestamp())
+        name: __PRIVATE_toName(e2, t4.key),
+        fields: t4.data.value.mapValue.fields,
+        updateTime: toTimestamp(e2, t4.version.toTimestamp()),
+        createTime: toTimestamp(e2, t4.createTime.toTimestamp())
       };
-    })(e.yt, t2);
-    else if (t2.isNoDocument()) r.noDocument = {
+    })(e.yt, t3);
+    else if (t3.isNoDocument()) r.noDocument = {
       path: n.path.toArray(),
-      readTime: __PRIVATE_toDbTimestamp(t2.version)
+      readTime: __PRIVATE_toDbTimestamp(t3.version)
     };
     else {
-      if (!t2.isUnknownDocument()) return fail(57904, {
-        document: t2
+      if (!t3.isUnknownDocument()) return fail(57904, {
+        document: t3
       });
       r.unknownDocument = {
         path: n.path.toArray(),
-        version: __PRIVATE_toDbTimestamp(t2.version)
+        version: __PRIVATE_toDbTimestamp(t3.version)
       };
     }
     return r;
   }
   function __PRIVATE_toDbTimestampKey(e) {
-    const t2 = e.toTimestamp();
-    return [t2.seconds, t2.nanoseconds];
+    const t3 = e.toTimestamp();
+    return [t3.seconds, t3.nanoseconds];
   }
   function __PRIVATE_toDbTimestamp(e) {
-    const t2 = e.toTimestamp();
+    const t3 = e.toTimestamp();
     return {
-      seconds: t2.seconds,
-      nanoseconds: t2.nanoseconds
+      seconds: t3.seconds,
+      nanoseconds: t3.nanoseconds
     };
   }
   function __PRIVATE_fromDbTimestamp(e) {
-    const t2 = new Timestamp(e.seconds, e.nanoseconds);
-    return SnapshotVersion.fromTimestamp(t2);
+    const t3 = new Timestamp(e.seconds, e.nanoseconds);
+    return SnapshotVersion.fromTimestamp(t3);
   }
-  function __PRIVATE_fromDbMutationBatch(e, t2) {
-    const n = (t2.baseMutations || []).map(((t3) => __PRIVATE_fromMutation(e.yt, t3)));
-    for (let e2 = 0; e2 < t2.mutations.length - 1; ++e2) {
-      const n2 = t2.mutations[e2];
-      if (e2 + 1 < t2.mutations.length && void 0 !== t2.mutations[e2 + 1].transform) {
-        const r2 = t2.mutations[e2 + 1];
-        n2.updateTransforms = r2.transform.fieldTransforms, t2.mutations.splice(e2 + 1, 1), ++e2;
+  function __PRIVATE_fromDbMutationBatch(e, t3) {
+    const n = (t3.baseMutations || []).map(((t4) => __PRIVATE_fromMutation(e.yt, t4)));
+    for (let e2 = 0; e2 < t3.mutations.length - 1; ++e2) {
+      const n2 = t3.mutations[e2];
+      if (e2 + 1 < t3.mutations.length && void 0 !== t3.mutations[e2 + 1].transform) {
+        const r2 = t3.mutations[e2 + 1];
+        n2.updateTransforms = r2.transform.fieldTransforms, t3.mutations.splice(e2 + 1, 1), ++e2;
       }
     }
-    const r = t2.mutations.map(((t3) => __PRIVATE_fromMutation(e.yt, t3))), i = Timestamp.fromMillis(t2.localWriteTimeMs);
-    return new MutationBatch(t2.batchId, i, n, r);
+    const r = t3.mutations.map(((t4) => __PRIVATE_fromMutation(e.yt, t4))), i = Timestamp.fromMillis(t3.localWriteTimeMs);
+    return new MutationBatch(t3.batchId, i, n, r);
   }
   function __PRIVATE_fromDbTarget(e) {
-    const t2 = __PRIVATE_fromDbTimestamp(e.readTime), n = void 0 !== e.lastLimboFreeSnapshotVersion ? __PRIVATE_fromDbTimestamp(e.lastLimboFreeSnapshotVersion) : SnapshotVersion.min();
+    const t3 = __PRIVATE_fromDbTimestamp(e.readTime), n = void 0 !== e.lastLimboFreeSnapshotVersion ? __PRIVATE_fromDbTimestamp(e.lastLimboFreeSnapshotVersion) : SnapshotVersion.min();
     let r;
     return r = /**
     * A helper function for figuring out what kind of query has been stored.
@@ -10864,52 +10864,52 @@
     (function __PRIVATE_isDocumentQuery(e2) {
       return void 0 !== e2.documents;
     })(e.query) ? (function __PRIVATE_fromDocumentsTarget(e2) {
-      const t3 = e2.documents.length;
-      return __PRIVATE_hardAssert(1 === t3, 1966, {
-        count: t3
+      const t4 = e2.documents.length;
+      return __PRIVATE_hardAssert(1 === t4, 1966, {
+        count: t4
       }), __PRIVATE_queryToTarget(__PRIVATE_newQueryForPath(__PRIVATE_fromQueryPath(e2.documents[0])));
     })(e.query) : (function __PRIVATE_fromQueryTarget(e2) {
       return __PRIVATE_queryToTarget(__PRIVATE_convertQueryTargetToQuery(e2));
-    })(e.query), new TargetData(r, e.targetId, "TargetPurposeListen", e.lastListenSequenceNumber, t2, n, ByteString.fromBase64String(e.resumeToken));
+    })(e.query), new TargetData(r, e.targetId, "TargetPurposeListen", e.lastListenSequenceNumber, t3, n, ByteString.fromBase64String(e.resumeToken));
   }
-  function __PRIVATE_toDbTarget(e, t2) {
-    const n = __PRIVATE_toDbTimestamp(t2.snapshotVersion), r = __PRIVATE_toDbTimestamp(t2.lastLimboFreeSnapshotVersion);
+  function __PRIVATE_toDbTarget(e, t3) {
+    const n = __PRIVATE_toDbTimestamp(t3.snapshotVersion), r = __PRIVATE_toDbTimestamp(t3.lastLimboFreeSnapshotVersion);
     let i;
-    i = __PRIVATE_targetIsDocumentTarget(t2.target) ? __PRIVATE_toDocumentsTarget(e.yt, t2.target) : __PRIVATE_toQueryTarget(e.yt, t2.target).ft;
-    const s = t2.resumeToken.toBase64();
+    i = __PRIVATE_targetIsDocumentTarget(t3.target) ? __PRIVATE_toDocumentsTarget(e.yt, t3.target) : __PRIVATE_toQueryTarget(e.yt, t3.target).ft;
+    const s = t3.resumeToken.toBase64();
     return {
-      targetId: t2.targetId,
-      canonicalId: __PRIVATE_canonifyTarget(t2.target),
+      targetId: t3.targetId,
+      canonicalId: __PRIVATE_canonifyTarget(t3.target),
       readTime: n,
       resumeToken: s,
-      lastListenSequenceNumber: t2.sequenceNumber,
+      lastListenSequenceNumber: t3.sequenceNumber,
       lastLimboFreeSnapshotVersion: r,
       query: i
     };
   }
   function __PRIVATE_fromBundledQuery(e) {
-    const t2 = __PRIVATE_convertQueryTargetToQuery({
+    const t3 = __PRIVATE_convertQueryTargetToQuery({
       parent: e.parent,
       structuredQuery: e.structuredQuery
     });
     return "LAST" === e.limitType ? __PRIVATE_queryWithLimit(
-      t2,
-      t2.limit,
+      t3,
+      t3.limit,
       "L"
       /* LimitType.Last */
-    ) : t2;
+    ) : t3;
   }
-  function __PRIVATE_fromDbDocumentOverlay(e, t2) {
-    return new Overlay(t2.largestBatchId, __PRIVATE_fromMutation(e.yt, t2.overlayMutation));
+  function __PRIVATE_fromDbDocumentOverlay(e, t3) {
+    return new Overlay(t3.largestBatchId, __PRIVATE_fromMutation(e.yt, t3.overlayMutation));
   }
-  function __PRIVATE_toDbDocumentOverlayKey(e, t2) {
-    const n = t2.path.lastSegment();
-    return [e, __PRIVATE_encodeResourcePath(t2.path.popLast()), n];
+  function __PRIVATE_toDbDocumentOverlayKey(e, t3) {
+    const n = t3.path.lastSegment();
+    return [e, __PRIVATE_encodeResourcePath(t3.path.popLast()), n];
   }
-  function __PRIVATE_toDbIndexState(e, t2, n, r) {
+  function __PRIVATE_toDbIndexState(e, t3, n, r) {
     return {
       indexId: e,
-      uid: t2,
+      uid: t3,
       sequenceNumber: n,
       readTime: __PRIVATE_toDbTimestamp(r.readTime),
       documentKey: __PRIVATE_encodeResourcePath(r.documentKey.path),
@@ -10927,33 +10927,33 @@
   }
   function __PRIVATE_numberOfLeadingZerosInByte(e) {
     if (0 === e) return 8;
-    let t2 = 0;
+    let t3 = 0;
     return e >> 4 || // Test if the first four bits are zero.
-    (t2 += 4, e <<= 4), e >> 6 || // Test if the first two (or next two) bits are zero.
-    (t2 += 2, e <<= 2), e >> 7 || // Test if the remaining bit is zero.
-    (t2 += 1), t2;
+    (t3 += 4, e <<= 4), e >> 6 || // Test if the first two (or next two) bits are zero.
+    (t3 += 2, e <<= 2), e >> 7 || // Test if the remaining bit is zero.
+    (t3 += 1), t3;
   }
   function __PRIVATE_unsignedNumLength(e) {
-    const t2 = 64 - (function __PRIVATE_numberOfLeadingZeros(e2) {
-      let t3 = 0;
+    const t3 = 64 - (function __PRIVATE_numberOfLeadingZeros(e2) {
+      let t4 = 0;
       for (let n = 0; n < 8; ++n) {
         const r = __PRIVATE_numberOfLeadingZerosInByte(255 & e2[n]);
-        if (t3 += r, 8 !== r) break;
+        if (t4 += r, 8 !== r) break;
       }
-      return t3;
+      return t4;
     })(e);
-    return Math.ceil(t2 / 8);
+    return Math.ceil(t3 / 8);
   }
-  function __PRIVATE_indexEntryComparator(e, t2) {
-    let n = e.Tn - t2.Tn;
-    return 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.En, t2.En), 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.dn, t2.dn), 0 !== n ? n : DocumentKey.comparator(e.In, t2.In)));
+  function __PRIVATE_indexEntryComparator(e, t3) {
+    let n = e.Tn - t3.Tn;
+    return 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.En, t3.En), 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.dn, t3.dn), 0 !== n ? n : DocumentKey.comparator(e.In, t3.In)));
   }
-  function __PRIVATE_compareByteArrays(e, t2) {
-    for (let n = 0; n < e.length && n < t2.length; ++n) {
-      const r = e[n] - t2[n];
+  function __PRIVATE_compareByteArrays(e, t3) {
+    for (let n = 0; n < e.length && n < t3.length; ++n) {
+      const r = e[n] - t3[n];
       if (0 !== r) return r;
     }
-    return e.length - t2.length;
+    return e.length - t3.length;
   }
   function __PRIVATE_encodeKeySafeBytes(e) {
     return isSafariOrWebkit() ? (
@@ -10963,38 +10963,38 @@
       * This works because JS string comparison sorts strings based on code points.
       */
       (function __PRIVATE_encodeUint8ArrayToSortableString(e2) {
-        let t2 = "";
-        for (let n = 0; n < e2.length; n++) t2 += String.fromCharCode(e2[n]);
-        return t2;
+        let t3 = "";
+        for (let n = 0; n < e2.length; n++) t3 += String.fromCharCode(e2[n]);
+        return t3;
       })(e)
     ) : e;
   }
   function __PRIVATE_decodeKeySafeBytes(e) {
     return "string" != typeof e ? e : (function __PRIVATE_decodeSortableStringToUint8Array(e2) {
-      const t2 = new Uint8Array(e2.length);
-      for (let n = 0; n < e2.length; n++) t2[n] = e2.charCodeAt(n);
-      return t2;
+      const t3 = new Uint8Array(e2.length);
+      for (let n = 0; n < e2.length; n++) t3[n] = e2.charCodeAt(n);
+      return t3;
     })(e);
   }
   function __PRIVATE_computeInExpansion(e) {
     if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 20012), e instanceof FieldFilter) {
       if (e instanceof __PRIVATE_InFilter) {
-        const t3 = e.value.arrayValue?.values?.map(((t4) => FieldFilter.create(e.field, "==", t4))) || [];
+        const t4 = e.value.arrayValue?.values?.map(((t5) => FieldFilter.create(e.field, "==", t5))) || [];
         return CompositeFilter.create(
-          t3,
+          t4,
           "or"
           /* CompositeOperator.OR */
         );
       }
       return e;
     }
-    const t2 = e.filters.map(((e2) => __PRIVATE_computeInExpansion(e2)));
-    return CompositeFilter.create(t2, e.op);
+    const t3 = e.filters.map(((e2) => __PRIVATE_computeInExpansion(e2)));
+    return CompositeFilter.create(t3, e.op);
   }
   function __PRIVATE_getDnfTerms(e) {
     if (0 === e.getFilters().length) return [];
-    const t2 = __PRIVATE_computeDistributedNormalForm(__PRIVATE_computeInExpansion(e));
-    return __PRIVATE_hardAssert(__PRIVATE_isDisjunctiveNormalForm(t2), 7391), __PRIVATE_isSingleFieldFilter(t2) || __PRIVATE_isFlatConjunction(t2) ? [t2] : t2.getFilters();
+    const t3 = __PRIVATE_computeDistributedNormalForm(__PRIVATE_computeInExpansion(e));
+    return __PRIVATE_hardAssert(__PRIVATE_isDisjunctiveNormalForm(t3), 7391), __PRIVATE_isSingleFieldFilter(t3) || __PRIVATE_isFlatConjunction(t3) ? [t3] : t3.getFilters();
   }
   function __PRIVATE_isSingleFieldFilter(e) {
     return e instanceof FieldFilter;
@@ -11009,7 +11009,7 @@
     */
     (function __PRIVATE_isDisjunctionOfFieldFiltersAndFlatConjunctions(e2) {
       if (e2 instanceof CompositeFilter && __PRIVATE_compositeFilterIsDisjunction(e2)) {
-        for (const t2 of e2.getFilters()) if (!__PRIVATE_isSingleFieldFilter(t2) && !__PRIVATE_isFlatConjunction(t2)) return false;
+        for (const t3 of e2.getFilters()) if (!__PRIVATE_isSingleFieldFilter(t3) && !__PRIVATE_isFlatConjunction(t3)) return false;
         return true;
       }
       return false;
@@ -11018,34 +11018,34 @@
   function __PRIVATE_computeDistributedNormalForm(e) {
     if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 34018), e instanceof FieldFilter) return e;
     if (1 === e.filters.length) return __PRIVATE_computeDistributedNormalForm(e.filters[0]);
-    const t2 = e.filters.map(((e2) => __PRIVATE_computeDistributedNormalForm(e2)));
-    let n = CompositeFilter.create(t2, e.op);
-    return n = __PRIVATE_applyAssociation(n), __PRIVATE_isDisjunctiveNormalForm(n) ? n : (__PRIVATE_hardAssert(n instanceof CompositeFilter, 64498), __PRIVATE_hardAssert(__PRIVATE_compositeFilterIsConjunction(n), 40251), __PRIVATE_hardAssert(n.filters.length > 1, 57927), n.filters.reduce(((e2, t3) => __PRIVATE_applyDistribution(e2, t3))));
+    const t3 = e.filters.map(((e2) => __PRIVATE_computeDistributedNormalForm(e2)));
+    let n = CompositeFilter.create(t3, e.op);
+    return n = __PRIVATE_applyAssociation(n), __PRIVATE_isDisjunctiveNormalForm(n) ? n : (__PRIVATE_hardAssert(n instanceof CompositeFilter, 64498), __PRIVATE_hardAssert(__PRIVATE_compositeFilterIsConjunction(n), 40251), __PRIVATE_hardAssert(n.filters.length > 1, 57927), n.filters.reduce(((e2, t4) => __PRIVATE_applyDistribution(e2, t4))));
   }
-  function __PRIVATE_applyDistribution(e, t2) {
+  function __PRIVATE_applyDistribution(e, t3) {
     let n;
-    return __PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 38388), __PRIVATE_hardAssert(t2 instanceof FieldFilter || t2 instanceof CompositeFilter, 25473), // FieldFilter FieldFilter
-    n = e instanceof FieldFilter ? t2 instanceof FieldFilter ? (function __PRIVATE_applyDistributionFieldFilters(e2, t3) {
+    return __PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 38388), __PRIVATE_hardAssert(t3 instanceof FieldFilter || t3 instanceof CompositeFilter, 25473), // FieldFilter FieldFilter
+    n = e instanceof FieldFilter ? t3 instanceof FieldFilter ? (function __PRIVATE_applyDistributionFieldFilters(e2, t4) {
       return CompositeFilter.create(
-        [e2, t3],
+        [e2, t4],
         "and"
         /* CompositeOperator.AND */
       );
-    })(e, t2) : __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t2) : t2 instanceof FieldFilter ? __PRIVATE_applyDistributionFieldAndCompositeFilters(t2, e) : (function __PRIVATE_applyDistributionCompositeFilters(e2, t3) {
-      if (__PRIVATE_hardAssert(e2.filters.length > 0 && t3.filters.length > 0, 48005), __PRIVATE_compositeFilterIsConjunction(e2) && __PRIVATE_compositeFilterIsConjunction(t3)) return __PRIVATE_compositeFilterWithAddedFilters(e2, t3.getFilters());
-      const n2 = __PRIVATE_compositeFilterIsDisjunction(e2) ? e2 : t3, r = __PRIVATE_compositeFilterIsDisjunction(e2) ? t3 : e2, i = n2.filters.map(((e3) => __PRIVATE_applyDistribution(e3, r)));
+    })(e, t3) : __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t3) : t3 instanceof FieldFilter ? __PRIVATE_applyDistributionFieldAndCompositeFilters(t3, e) : (function __PRIVATE_applyDistributionCompositeFilters(e2, t4) {
+      if (__PRIVATE_hardAssert(e2.filters.length > 0 && t4.filters.length > 0, 48005), __PRIVATE_compositeFilterIsConjunction(e2) && __PRIVATE_compositeFilterIsConjunction(t4)) return __PRIVATE_compositeFilterWithAddedFilters(e2, t4.getFilters());
+      const n2 = __PRIVATE_compositeFilterIsDisjunction(e2) ? e2 : t4, r = __PRIVATE_compositeFilterIsDisjunction(e2) ? t4 : e2, i = n2.filters.map(((e3) => __PRIVATE_applyDistribution(e3, r)));
       return CompositeFilter.create(
         i,
         "or"
         /* CompositeOperator.OR */
       );
-    })(e, t2), __PRIVATE_applyAssociation(n);
+    })(e, t3), __PRIVATE_applyAssociation(n);
   }
-  function __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t2) {
-    if (__PRIVATE_compositeFilterIsConjunction(t2))
-      return __PRIVATE_compositeFilterWithAddedFilters(t2, e.getFilters());
+  function __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t3) {
+    if (__PRIVATE_compositeFilterIsConjunction(t3))
+      return __PRIVATE_compositeFilterWithAddedFilters(t3, e.getFilters());
     {
-      const n = t2.filters.map(((t3) => __PRIVATE_applyDistribution(e, t3)));
+      const n = t3.filters.map(((t4) => __PRIVATE_applyDistribution(e, t4)));
       return CompositeFilter.create(
         n,
         "or"
@@ -11055,21 +11055,21 @@
   }
   function __PRIVATE_applyAssociation(e) {
     if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 11850), e instanceof FieldFilter) return e;
-    const t2 = e.getFilters();
-    if (1 === t2.length) return __PRIVATE_applyAssociation(t2[0]);
+    const t3 = e.getFilters();
+    if (1 === t3.length) return __PRIVATE_applyAssociation(t3[0]);
     if (__PRIVATE_compositeFilterIsFlat(e)) return e;
-    const n = t2.map(((e2) => __PRIVATE_applyAssociation(e2))), r = [];
-    return n.forEach(((t3) => {
-      t3 instanceof FieldFilter ? r.push(t3) : t3 instanceof CompositeFilter && (t3.op === e.op ? (
+    const n = t3.map(((e2) => __PRIVATE_applyAssociation(e2))), r = [];
+    return n.forEach(((t4) => {
+      t4 instanceof FieldFilter ? r.push(t4) : t4 instanceof CompositeFilter && (t4.op === e.op ? (
         // compositeFilter: (A | (B | C))
         // compositeSubfilter: (B | C)
         // Result: (A | B | C)
-        r.push(...t3.filters)
+        r.push(...t4.filters)
       ) : (
         // compositeFilter: (A | (B & C))
         // compositeSubfilter: (B & C)
         // Result: (A | (B & C))
-        r.push(t3)
+        r.push(t4)
       ));
     })), 1 === r.length ? r[0] : CompositeFilter.create(r, e.op);
   }
@@ -11087,19 +11087,19 @@
   }
   function __PRIVATE_getMinOffsetFromFieldIndexes(e) {
     __PRIVATE_hardAssert(0 !== e.length, 28825);
-    let t2 = e[0].indexState.offset, n = t2.largestBatchId;
+    let t3 = e[0].indexState.offset, n = t3.largestBatchId;
     for (let r = 1; r < e.length; r++) {
       const i = e[r].indexState.offset;
-      __PRIVATE_indexOffsetComparator(i, t2) < 0 && (t2 = i), n < i.largestBatchId && (n = i.largestBatchId);
+      __PRIVATE_indexOffsetComparator(i, t3) < 0 && (t3 = i), n < i.largestBatchId && (n = i.largestBatchId);
     }
-    return new IndexOffset(t2.readTime, t2.documentKey, n);
+    return new IndexOffset(t3.readTime, t3.documentKey, n);
   }
-  function removeMutationBatch(e, t2, n) {
+  function removeMutationBatch(e, t3, n) {
     const r = e.store(te), i = e.store(oe), s = [], o = IDBKeyRange.only(n.batchId);
     let _ = 0;
     const a = r.ee({
       range: o
-    }, ((e2, t3, n2) => (_++, n2.delete())));
+    }, ((e2, t4, n2) => (_++, n2.delete())));
     s.push(a.next((() => {
       __PRIVATE_hardAssert(1 === _, 47070, {
         batchId: n.batchId
@@ -11107,24 +11107,24 @@
     })));
     const u = [];
     for (const e2 of n.mutations) {
-      const r2 = __PRIVATE_newDbDocumentMutationKey(t2, e2.key.path, n.batchId);
+      const r2 = __PRIVATE_newDbDocumentMutationKey(t3, e2.key.path, n.batchId);
       s.push(i.delete(r2)), u.push(e2.key);
     }
     return PersistencePromise.waitFor(s).next((() => u));
   }
   function __PRIVATE_dbDocumentSize(e) {
     if (!e) return 0;
-    let t2;
-    if (e.document) t2 = e.document;
-    else if (e.unknownDocument) t2 = e.unknownDocument;
+    let t3;
+    if (e.document) t3 = e.document;
+    else if (e.unknownDocument) t3 = e.unknownDocument;
     else {
       if (!e.noDocument) throw fail(14731);
-      t2 = e.noDocument;
+      t3 = e.noDocument;
     }
-    return JSON.stringify(t2).length;
+    return JSON.stringify(t3).length;
   }
-  function __PRIVATE_mutationQueueContainsKey(e, t2, n) {
-    const r = __PRIVATE_newDbDocumentMutationPrefixForPath(t2, n.path), i = r[1], s = IDBKeyRange.lowerBound(r);
+  function __PRIVATE_mutationQueueContainsKey(e, t3, n) {
+    const r = __PRIVATE_newDbDocumentMutationPrefixForPath(t3, n.path), i = r[1], s = IDBKeyRange.lowerBound(r);
     let o = false;
     return __PRIVATE_documentMutationsStore(e).ee({
       range: s,
@@ -11136,7 +11136,7 @@
         /*batchID*/
         a
       ] = e2;
-      s2 === t2 && _ === i && (o = true), r2.done();
+      s2 === t3 && _ === i && (o = true), r2.done();
     })).next((() => o));
   }
   function __PRIVATE_mutationsStore(e) {
@@ -11157,21 +11157,21 @@
   function __PRIVATE_documentTargetStore(e) {
     return __PRIVATE_getStore(e, Ae);
   }
-  function __PRIVATE_bufferEntryComparator([e, t2], [n, r]) {
+  function __PRIVATE_bufferEntryComparator([e, t3], [n, r]) {
     const i = __PRIVATE_primitiveComparator(e, n);
-    return 0 === i ? __PRIVATE_primitiveComparator(t2, r) : i;
+    return 0 === i ? __PRIVATE_primitiveComparator(t3, r) : i;
   }
-  function __PRIVATE_newLruGarbageCollector(e, t2) {
-    return new __PRIVATE_LruGarbageCollectorImpl(e, t2);
+  function __PRIVATE_newLruGarbageCollector(e, t3) {
+    return new __PRIVATE_LruGarbageCollectorImpl(e, t3);
   }
-  function __PRIVATE_writeSentinelKey(e, t2) {
-    return __PRIVATE_documentTargetStore(e).put((function __PRIVATE_sentinelRow(e2, t3) {
+  function __PRIVATE_writeSentinelKey(e, t3) {
+    return __PRIVATE_documentTargetStore(e).put((function __PRIVATE_sentinelRow(e2, t4) {
       return {
         targetId: 0,
         path: __PRIVATE_encodeResourcePath(e2.path),
-        sequenceNumber: t3
+        sequenceNumber: t4
       };
-    })(t2, e.currentSequenceNumber));
+    })(t3, e.currentSequenceNumber));
   }
   function __PRIVATE_newIndexedDbRemoteDocumentCache(e) {
     return new __PRIVATE_IndexedDbRemoteDocumentCacheImpl(e);
@@ -11183,30 +11183,30 @@
     return __PRIVATE_getStore(e, _e);
   }
   function __PRIVATE_dbKey(e) {
-    const t2 = e.path.toArray();
+    const t3 = e.path.toArray();
     return [
       /* prefix path */
-      t2.slice(0, t2.length - 2),
+      t3.slice(0, t3.length - 2),
       /* collection id */
-      t2[t2.length - 2],
+      t3[t3.length - 2],
       /* document id */
-      t2[t2.length - 1]
+      t3[t3.length - 1]
     ];
   }
-  function __PRIVATE_dbCollectionGroupKey(e, t2) {
-    const n = t2.documentKey.path.toArray();
+  function __PRIVATE_dbCollectionGroupKey(e, t3) {
+    const n = t3.documentKey.path.toArray();
     return [
       /* collection id */
       e,
-      __PRIVATE_toDbTimestampKey(t2.readTime),
+      __PRIVATE_toDbTimestampKey(t3.readTime),
       /* prefix path */
       n.slice(0, n.length - 2),
       /* document id */
       n.length > 0 ? n[n.length - 1] : ""
     ];
   }
-  function __PRIVATE_dbKeyComparator(e, t2) {
-    const n = e.path.toArray(), r = t2.path.toArray();
+  function __PRIVATE_dbKeyComparator(e, t3) {
+    const n = e.path.toArray(), r = t3.path.toArray();
     let i = 0;
     for (let e2 = 0; e2 < n.length - 2 && e2 < r.length - 2; ++e2) if (i = __PRIVATE_primitiveComparator(n[e2], r[e2]), i) return i;
     return i = __PRIVATE_primitiveComparator(n.length, r.length), i || (i = __PRIVATE_primitiveComparator(n[n.length - 2], r[r.length - 2]), i || __PRIVATE_primitiveComparator(n[n.length - 1], r[r.length - 1]));
@@ -11229,27 +11229,27 @@
   function __PRIVATE_clientMetadataStore(e) {
     return __PRIVATE_getStore(e, we);
   }
-  function __PRIVATE_indexedDbStoragePrefix(e, t2) {
+  function __PRIVATE_indexedDbStoragePrefix(e, t3) {
     let n = e.projectId;
-    return e.isDefaultDatabase || (n += "." + e.database), "firestore/" + t2 + "/" + n + "/";
+    return e.isDefaultDatabase || (n += "." + e.database), "firestore/" + t3 + "/" + n + "/";
   }
-  function __PRIVATE_newLocalStore(e, t2, n, r) {
-    return new __PRIVATE_LocalStoreImpl(e, t2, n, r);
+  function __PRIVATE_newLocalStore(e, t3, n, r) {
+    return new __PRIVATE_LocalStoreImpl(e, t3, n, r);
   }
-  async function __PRIVATE_localStoreHandleUserChange(e, t2) {
+  async function __PRIVATE_localStoreHandleUserChange(e, t3) {
     const n = __PRIVATE_debugCast(e);
     return await n.persistence.runTransaction("Handle user change", "readonly", ((e2) => {
       let r;
-      return n.mutationQueue.getAllMutationBatches(e2).next(((i) => (r = i, n.Bs(t2), n.mutationQueue.getAllMutationBatches(e2)))).next(((t3) => {
+      return n.mutationQueue.getAllMutationBatches(e2).next(((i) => (r = i, n.Bs(t3), n.mutationQueue.getAllMutationBatches(e2)))).next(((t4) => {
         const i = [], s = [];
         let o = __PRIVATE_documentKeySet();
         for (const e3 of r) {
           i.push(e3.batchId);
-          for (const t4 of e3.mutations) o = o.add(t4.key);
+          for (const t5 of e3.mutations) o = o.add(t5.key);
         }
-        for (const e3 of t3) {
+        for (const e3 of t4) {
           s.push(e3.batchId);
-          for (const t4 of e3.mutations) o = o.add(t4.key);
+          for (const t5 of e3.mutations) o = o.add(t5.key);
         }
         return n.localDocuments.getDocuments(e2, o).next(((e3) => ({
           Ls: e3,
@@ -11259,39 +11259,39 @@
       }));
     }));
   }
-  function __PRIVATE_localStoreAcknowledgeBatch(e, t2) {
+  function __PRIVATE_localStoreAcknowledgeBatch(e, t3) {
     const n = __PRIVATE_debugCast(e);
     return n.persistence.runTransaction("Acknowledge batch", "readwrite-primary", ((e2) => {
-      const r = t2.batch.keys(), i = n.Ns.newChangeBuffer({
+      const r = t3.batch.keys(), i = n.Ns.newChangeBuffer({
         trackRemovals: true
       });
-      return (function __PRIVATE_applyWriteToRemoteDocuments(e3, t3, n2, r2) {
+      return (function __PRIVATE_applyWriteToRemoteDocuments(e3, t4, n2, r2) {
         const i2 = n2.batch, s = i2.keys();
         let o = PersistencePromise.resolve();
         return s.forEach(((e4) => {
-          o = o.next((() => r2.getEntry(t3, e4))).next(((t4) => {
+          o = o.next((() => r2.getEntry(t4, e4))).next(((t5) => {
             const s2 = n2.docVersions.get(e4);
-            __PRIVATE_hardAssert(null !== s2, 48541), t4.version.compareTo(s2) < 0 && (i2.applyToRemoteDocument(t4, n2), t4.isValidDocument() && // We use the commitVersion as the readTime rather than the
+            __PRIVATE_hardAssert(null !== s2, 48541), t5.version.compareTo(s2) < 0 && (i2.applyToRemoteDocument(t5, n2), t5.isValidDocument() && // We use the commitVersion as the readTime rather than the
             // document's updateTime since the updateTime is not advanced
             // for updates that do not modify the underlying document.
-            (t4.setReadTime(n2.commitVersion), r2.addEntry(t4)));
+            (t5.setReadTime(n2.commitVersion), r2.addEntry(t5)));
           }));
-        })), o.next((() => e3.mutationQueue.removeMutationBatch(t3, i2)));
-      })(n, e2, t2, i).next((() => i.apply(e2))).next((() => n.mutationQueue.performConsistencyCheck(e2))).next((() => n.documentOverlayCache.removeOverlaysForBatchId(e2, r, t2.batch.batchId))).next((() => n.localDocuments.recalculateAndSaveOverlaysForDocumentKeys(e2, (function __PRIVATE_getKeysWithTransformResults(e3) {
-        let t3 = __PRIVATE_documentKeySet();
+        })), o.next((() => e3.mutationQueue.removeMutationBatch(t4, i2)));
+      })(n, e2, t3, i).next((() => i.apply(e2))).next((() => n.mutationQueue.performConsistencyCheck(e2))).next((() => n.documentOverlayCache.removeOverlaysForBatchId(e2, r, t3.batch.batchId))).next((() => n.localDocuments.recalculateAndSaveOverlaysForDocumentKeys(e2, (function __PRIVATE_getKeysWithTransformResults(e3) {
+        let t4 = __PRIVATE_documentKeySet();
         for (let n2 = 0; n2 < e3.mutationResults.length; ++n2) {
-          e3.mutationResults[n2].transformResults.length > 0 && (t3 = t3.add(e3.batch.mutations[n2].key));
+          e3.mutationResults[n2].transformResults.length > 0 && (t4 = t4.add(e3.batch.mutations[n2].key));
         }
-        return t3;
-      })(t2)))).next((() => n.localDocuments.getDocuments(e2, r)));
+        return t4;
+      })(t3)))).next((() => n.localDocuments.getDocuments(e2, r)));
     }));
   }
   function __PRIVATE_localStoreGetLastRemoteSnapshotVersion(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    return t2.persistence.runTransaction("Get last remote snapshot version", "readonly", ((e2) => t2.Pi.getLastRemoteSnapshotVersion(e2)));
+    const t3 = __PRIVATE_debugCast(e);
+    return t3.persistence.runTransaction("Get last remote snapshot version", "readonly", ((e2) => t3.Pi.getLastRemoteSnapshotVersion(e2)));
   }
-  function __PRIVATE_localStoreApplyRemoteEventToLocalCache(e, t2) {
-    const n = __PRIVATE_debugCast(e), r = t2.snapshotVersion;
+  function __PRIVATE_localStoreApplyRemoteEventToLocalCache(e, t3) {
+    const n = __PRIVATE_debugCast(e), r = t3.snapshotVersion;
     let i = n.Ms;
     return n.persistence.runTransaction("Apply remote event", "readwrite-primary", ((e2) => {
       const s = n.Ns.newChangeBuffer({
@@ -11299,12 +11299,12 @@
       });
       i = n.Ms;
       const o = [];
-      t2.targetChanges.forEach(((s2, _2) => {
+      t3.targetChanges.forEach(((s2, _2) => {
         const a2 = i.get(_2);
         if (!a2) return;
         o.push(n.Pi.removeMatchingKeys(e2, s2.removedDocuments, _2).next((() => n.Pi.addMatchingKeys(e2, s2.addedDocuments, _2))));
         let u = a2.withSequenceNumber(e2.currentSequenceNumber);
-        null !== t2.targetMismatches.get(_2) ? u = u.withResumeToken(ByteString.EMPTY_BYTE_STRING, SnapshotVersion.min()).withLastLimboFreeSnapshotVersion(SnapshotVersion.min()) : s2.resumeToken.approximateByteSize() > 0 && (u = u.withResumeToken(s2.resumeToken, r)), i = i.insert(_2, u), // Update the target data if there are target changes (or if
+        null !== t3.targetMismatches.get(_2) ? u = u.withResumeToken(ByteString.EMPTY_BYTE_STRING, SnapshotVersion.min()).withLastLimboFreeSnapshotVersion(SnapshotVersion.min()) : s2.resumeToken.approximateByteSize() > 0 && (u = u.withResumeToken(s2.resumeToken, r)), i = i.insert(_2, u), // Update the target data if there are target changes (or if
         // sufficient time has passed since the last update).
         /**
         * Returns true if the newTargetData should be persisted during an update of
@@ -11317,31 +11317,31 @@
         * values from getting too stale after a crash, but this doesn't have to be
         * too frequent.
         */
-        (function __PRIVATE_shouldPersistTargetData(e3, t3, n2) {
+        (function __PRIVATE_shouldPersistTargetData(e3, t4, n2) {
           if (0 === e3.resumeToken.approximateByteSize()) return true;
-          const r2 = t3.snapshotVersion.toMicroseconds() - e3.snapshotVersion.toMicroseconds();
+          const r2 = t4.snapshotVersion.toMicroseconds() - e3.snapshotVersion.toMicroseconds();
           if (r2 >= Kt) return true;
           const i2 = n2.addedDocuments.size + n2.modifiedDocuments.size + n2.removedDocuments.size;
           return i2 > 0;
         })(a2, u, s2) && o.push(n.Pi.updateTargetData(e2, u));
       }));
       let _ = __PRIVATE_mutableDocumentMap(), a = __PRIVATE_documentKeySet();
-      if (t2.documentUpdates.forEach(((r2) => {
-        t2.resolvedLimboDocuments.has(r2) && o.push(n.persistence.referenceDelegate.updateLimboDocument(e2, r2));
+      if (t3.documentUpdates.forEach(((r2) => {
+        t3.resolvedLimboDocuments.has(r2) && o.push(n.persistence.referenceDelegate.updateLimboDocument(e2, r2));
       })), // Each loop iteration only affects its "own" doc, so it's safe to get all
       // the remote documents in advance in a single call.
-      o.push(__PRIVATE_populateDocumentChangeBuffer(e2, s, t2.documentUpdates).next(((e3) => {
+      o.push(__PRIVATE_populateDocumentChangeBuffer(e2, s, t3.documentUpdates).next(((e3) => {
         _ = e3.ks, a = e3.qs;
       }))), !r.isEqual(SnapshotVersion.min())) {
-        const t3 = n.Pi.getLastRemoteSnapshotVersion(e2).next(((t4) => n.Pi.setTargetsMetadata(e2, e2.currentSequenceNumber, r)));
-        o.push(t3);
+        const t4 = n.Pi.getLastRemoteSnapshotVersion(e2).next(((t5) => n.Pi.setTargetsMetadata(e2, e2.currentSequenceNumber, r)));
+        o.push(t4);
       }
       return PersistencePromise.waitFor(o).next((() => s.apply(e2))).next((() => n.localDocuments.getLocalViewOfDocuments(e2, _, a))).next((() => _));
     })).then(((e2) => (n.Ms = i, e2)));
   }
-  function __PRIVATE_populateDocumentChangeBuffer(e, t2, n) {
+  function __PRIVATE_populateDocumentChangeBuffer(e, t3, n) {
     let r = __PRIVATE_documentKeySet(), i = __PRIVATE_documentKeySet();
-    return n.forEach(((e2) => r = r.add(e2))), t2.getEntries(e, r).next(((e2) => {
+    return n.forEach(((e2) => r = r.add(e2))), t3.getEntries(e, r).next(((e2) => {
       let r2 = __PRIVATE_mutableDocumentMap();
       return n.forEach(((n2, s) => {
         const o = e2.get(n2);
@@ -11353,44 +11353,44 @@
           // NoDocuments with SnapshotVersion.min() are used in manufactured
           // events. We remove these documents from cache since we lost
           // access.
-          (t2.removeEntry(n2, s.readTime), r2 = r2.insert(n2, s))
-        ) : !o.isValidDocument() || s.version.compareTo(o.version) > 0 || 0 === s.version.compareTo(o.version) && o.hasPendingWrites ? (t2.addEntry(s), r2 = r2.insert(n2, s)) : __PRIVATE_logDebug(Ut, "Ignoring outdated watch update for ", n2, ". Current version:", o.version, " Watch version:", s.version);
+          (t3.removeEntry(n2, s.readTime), r2 = r2.insert(n2, s))
+        ) : !o.isValidDocument() || s.version.compareTo(o.version) > 0 || 0 === s.version.compareTo(o.version) && o.hasPendingWrites ? (t3.addEntry(s), r2 = r2.insert(n2, s)) : __PRIVATE_logDebug(Ut, "Ignoring outdated watch update for ", n2, ". Current version:", o.version, " Watch version:", s.version);
       })), {
         ks: r2,
         qs: i
       };
     }));
   }
-  function __PRIVATE_localStoreGetNextMutationBatch(e, t2) {
+  function __PRIVATE_localStoreGetNextMutationBatch(e, t3) {
     const n = __PRIVATE_debugCast(e);
-    return n.persistence.runTransaction("Get next mutation batch", "readonly", ((e2) => (void 0 === t2 && (t2 = j), n.mutationQueue.getNextMutationBatchAfterBatchId(e2, t2))));
+    return n.persistence.runTransaction("Get next mutation batch", "readonly", ((e2) => (void 0 === t3 && (t3 = j), n.mutationQueue.getNextMutationBatchAfterBatchId(e2, t3))));
   }
-  function __PRIVATE_localStoreAllocateTarget(e, t2) {
+  function __PRIVATE_localStoreAllocateTarget(e, t3) {
     const n = __PRIVATE_debugCast(e);
     return n.persistence.runTransaction("Allocate target", "readwrite", ((e2) => {
       let r;
-      return n.Pi.getTargetData(e2, t2).next(((i) => i ? (
+      return n.Pi.getTargetData(e2, t3).next(((i) => i ? (
         // This target has been listened to previously, so reuse the
         // previous targetID.
         // TODO(mcg): freshen last accessed date?
         (r = i, PersistencePromise.resolve(r))
-      ) : n.Pi.allocateTargetId(e2).next(((i2) => (r = new TargetData(t2, i2, "TargetPurposeListen", e2.currentSequenceNumber), n.Pi.addTargetData(e2, r).next((() => r)))))));
+      ) : n.Pi.allocateTargetId(e2).next(((i2) => (r = new TargetData(t3, i2, "TargetPurposeListen", e2.currentSequenceNumber), n.Pi.addTargetData(e2, r).next((() => r)))))));
     })).then(((e2) => {
       const r = n.Ms.get(e2.targetId);
-      return (null === r || e2.snapshotVersion.compareTo(r.snapshotVersion) > 0) && (n.Ms = n.Ms.insert(e2.targetId, e2), n.xs.set(t2, e2.targetId)), e2;
+      return (null === r || e2.snapshotVersion.compareTo(r.snapshotVersion) > 0) && (n.Ms = n.Ms.insert(e2.targetId, e2), n.xs.set(t3, e2.targetId)), e2;
     }));
   }
-  async function __PRIVATE_localStoreReleaseTarget(e, t2, n) {
-    const r = __PRIVATE_debugCast(e), i = r.Ms.get(t2), s = n ? "readwrite" : "readwrite-primary";
+  async function __PRIVATE_localStoreReleaseTarget(e, t3, n) {
+    const r = __PRIVATE_debugCast(e), i = r.Ms.get(t3), s = n ? "readwrite" : "readwrite-primary";
     try {
       n || await r.persistence.runTransaction("Release target", s, ((e2) => r.persistence.referenceDelegate.removeTarget(e2, i)));
     } catch (e2) {
       if (!__PRIVATE_isIndexedDbTransactionError(e2)) throw e2;
-      __PRIVATE_logDebug(Ut, `Failed to update sequence numbers for target ${t2}: ${e2}`);
+      __PRIVATE_logDebug(Ut, `Failed to update sequence numbers for target ${t3}: ${e2}`);
     }
-    r.Ms = r.Ms.remove(t2), r.xs.delete(i.target);
+    r.Ms = r.Ms.remove(t3), r.xs.delete(i.target);
   }
-  function __PRIVATE_localStoreExecuteQuery(e, t2, n) {
+  function __PRIVATE_localStoreExecuteQuery(e, t3, n) {
     const r = __PRIVATE_debugCast(e);
     let i = SnapshotVersion.min(), s = __PRIVATE_documentKeySet();
     return r.persistence.runTransaction(
@@ -11398,24 +11398,24 @@
       "readwrite",
       // Use readwrite instead of readonly so indexes can be created
       // Use readwrite instead of readonly so indexes can be created
-      ((e2) => (function __PRIVATE_localStoreGetTargetData(e3, t3, n2) {
+      ((e2) => (function __PRIVATE_localStoreGetTargetData(e3, t4, n2) {
         const r2 = __PRIVATE_debugCast(e3), i2 = r2.xs.get(n2);
-        return void 0 !== i2 ? PersistencePromise.resolve(r2.Ms.get(i2)) : r2.Pi.getTargetData(t3, n2);
-      })(r, e2, __PRIVATE_queryToTarget(t2)).next(((t3) => {
-        if (t3) return i = t3.lastLimboFreeSnapshotVersion, r.Pi.getMatchingKeysForTargetId(e2, t3.targetId).next(((e3) => {
+        return void 0 !== i2 ? PersistencePromise.resolve(r2.Ms.get(i2)) : r2.Pi.getTargetData(t4, n2);
+      })(r, e2, __PRIVATE_queryToTarget(t3)).next(((t4) => {
+        if (t4) return i = t4.lastLimboFreeSnapshotVersion, r.Pi.getMatchingKeysForTargetId(e2, t4.targetId).next(((e3) => {
           s = e3;
         }));
-      })).next((() => r.Fs.getDocumentsMatchingQuery(e2, t2, n ? i : SnapshotVersion.min(), n ? s : __PRIVATE_documentKeySet()))).next(((e3) => (__PRIVATE_setMaxReadTime(r, __PRIVATE_queryCollectionGroup(t2), e3), {
+      })).next((() => r.Fs.getDocumentsMatchingQuery(e2, t3, n ? i : SnapshotVersion.min(), n ? s : __PRIVATE_documentKeySet()))).next(((e3) => (__PRIVATE_setMaxReadTime(r, __PRIVATE_queryCollectionGroup(t3), e3), {
         documents: e3,
         Qs: s
       }))))
     );
   }
-  function __PRIVATE_setMaxReadTime(e, t2, n) {
-    let r = e.Os.get(t2) || SnapshotVersion.min();
-    n.forEach(((e2, t3) => {
-      t3.readTime.compareTo(r) > 0 && (r = t3.readTime);
-    })), e.Os.set(t2, r);
+  function __PRIVATE_setMaxReadTime(e, t3, n) {
+    let r = e.Os.get(t3) || SnapshotVersion.min();
+    n.forEach(((e2, t4) => {
+      t4.readTime.compareTo(r) > 0 && (r = t4.readTime);
+    })), e.Os.set(t3, r);
   }
   function __PRIVATE_generateUniqueDebugId() {
     return null === Ht ? Ht = (function __PRIVATE_generateInitialUniqueDebugId() {
@@ -11436,28 +11436,28 @@
     );
   }
   async function __PRIVATE_enableNetworkInternal(e) {
-    if (__PRIVATE_canUseNetwork(e)) for (const t2 of e.da) await t2(
+    if (__PRIVATE_canUseNetwork(e)) for (const t3 of e.da) await t3(
       /* enabled= */
       true
     );
   }
   async function __PRIVATE_disableNetworkInternal(e) {
-    for (const t2 of e.da) await t2(
+    for (const t3 of e.da) await t3(
       /* enabled= */
       false
     );
   }
-  function __PRIVATE_remoteStoreListen(e, t2) {
+  function __PRIVATE_remoteStoreListen(e, t3) {
     const n = __PRIVATE_debugCast(e);
-    n.Ia.has(t2.targetId) || // Mark this as something the client is currently listening for.
-    (n.Ia.set(t2.targetId, t2), __PRIVATE_shouldStartWatchStream(n) ? (
+    n.Ia.has(t3.targetId) || // Mark this as something the client is currently listening for.
+    (n.Ia.set(t3.targetId, t3), __PRIVATE_shouldStartWatchStream(n) ? (
       // The listen will be sent in onWatchStreamOpen
       __PRIVATE_startWatchStream(n)
-    ) : __PRIVATE_ensureWatchStream(n).O_() && __PRIVATE_sendWatchRequest(n, t2));
+    ) : __PRIVATE_ensureWatchStream(n).O_() && __PRIVATE_sendWatchRequest(n, t3));
   }
-  function __PRIVATE_remoteStoreUnlisten(e, t2) {
+  function __PRIVATE_remoteStoreUnlisten(e, t3) {
     const n = __PRIVATE_debugCast(e), r = __PRIVATE_ensureWatchStream(n);
-    n.Ia.delete(t2), r.O_() && __PRIVATE_sendUnwatchRequest(n, t2), 0 === n.Ia.size && (r.O_() ? r.L_() : __PRIVATE_canUseNetwork(n) && // Revert to OnlineState.Unknown if the watch stream is not open and we
+    n.Ia.delete(t3), r.O_() && __PRIVATE_sendUnwatchRequest(n, t3), 0 === n.Ia.size && (r.O_() ? r.L_() : __PRIVATE_canUseNetwork(n) && // Revert to OnlineState.Unknown if the watch stream is not open and we
     // have no listeners, since without any listens to send we cannot
     // confirm if the stream is healthy and upgrade to OnlineState.Online.
     n.Ra.set(
@@ -11465,20 +11465,20 @@
       /* OnlineState.Unknown */
     ));
   }
-  function __PRIVATE_sendWatchRequest(e, t2) {
-    if (e.Va.Ue(t2.targetId), t2.resumeToken.approximateByteSize() > 0 || t2.snapshotVersion.compareTo(SnapshotVersion.min()) > 0) {
-      const n = e.remoteSyncer.getRemoteKeysForTarget(t2.targetId).size;
-      t2 = t2.withExpectedCount(n);
+  function __PRIVATE_sendWatchRequest(e, t3) {
+    if (e.Va.Ue(t3.targetId), t3.resumeToken.approximateByteSize() > 0 || t3.snapshotVersion.compareTo(SnapshotVersion.min()) > 0) {
+      const n = e.remoteSyncer.getRemoteKeysForTarget(t3.targetId).size;
+      t3 = t3.withExpectedCount(n);
     }
-    __PRIVATE_ensureWatchStream(e).Y_(t2);
+    __PRIVATE_ensureWatchStream(e).Y_(t3);
   }
-  function __PRIVATE_sendUnwatchRequest(e, t2) {
-    e.Va.Ue(t2), __PRIVATE_ensureWatchStream(e).Z_(t2);
+  function __PRIVATE_sendUnwatchRequest(e, t3) {
+    e.Va.Ue(t3), __PRIVATE_ensureWatchStream(e).Z_(t3);
   }
   function __PRIVATE_startWatchStream(e) {
     e.Va = new __PRIVATE_WatchChangeAggregator({
-      getRemoteKeysForTarget: (t2) => e.remoteSyncer.getRemoteKeysForTarget(t2),
-      At: (t2) => e.Ia.get(t2) || null,
+      getRemoteKeysForTarget: (t3) => e.remoteSyncer.getRemoteKeysForTarget(t3),
+      At: (t3) => e.Ia.get(t3) || null,
       ht: () => e.datastore.serializer.databaseId
     }), __PRIVATE_ensureWatchStream(e).start(), e.Ra.ua();
   }
@@ -11498,13 +11498,13 @@
     );
   }
   async function __PRIVATE_onWatchStreamOpen(e) {
-    e.Ia.forEach(((t2, n) => {
-      __PRIVATE_sendWatchRequest(e, t2);
+    e.Ia.forEach(((t3, n) => {
+      __PRIVATE_sendWatchRequest(e, t3);
     }));
   }
-  async function __PRIVATE_onWatchStreamClose(e, t2) {
+  async function __PRIVATE_onWatchStreamClose(e, t3) {
     __PRIVATE_cleanUpWatchStreamState(e), // If we still need the watch stream, retry the connection.
-    __PRIVATE_shouldStartWatchStream(e) ? (e.Ra.ha(t2), __PRIVATE_startWatchStream(e)) : (
+    __PRIVATE_shouldStartWatchStream(e) ? (e.Ra.ha(t3), __PRIVATE_startWatchStream(e)) : (
       // No need to restart watch stream because there are no active targets.
       // The online state is set to unknown because there is no active attempt
       // at establishing a connection
@@ -11514,58 +11514,58 @@
       )
     );
   }
-  async function __PRIVATE_onWatchStreamChange(e, t2, n) {
+  async function __PRIVATE_onWatchStreamChange(e, t3, n) {
     if (
       // Mark the client as online since we got a message from the server
       e.Ra.set(
         "Online"
         /* OnlineState.Online */
-      ), t2 instanceof __PRIVATE_WatchTargetChange && 2 === t2.state && t2.cause
+      ), t3 instanceof __PRIVATE_WatchTargetChange && 2 === t3.state && t3.cause
     )
       try {
-        await (async function __PRIVATE_handleTargetError(e2, t3) {
-          const n2 = t3.cause;
-          for (const r of t3.targetIds)
+        await (async function __PRIVATE_handleTargetError(e2, t4) {
+          const n2 = t4.cause;
+          for (const r of t4.targetIds)
             e2.Ia.has(r) && (await e2.remoteSyncer.rejectListen(r, n2), e2.Ia.delete(r), e2.Va.removeTarget(r));
-        })(e, t2);
+        })(e, t3);
       } catch (n2) {
-        __PRIVATE_logDebug(tn, "Failed to remove targets %s: %s ", t2.targetIds.join(","), n2), await __PRIVATE_disableNetworkUntilRecovery(e, n2);
+        __PRIVATE_logDebug(tn, "Failed to remove targets %s: %s ", t3.targetIds.join(","), n2), await __PRIVATE_disableNetworkUntilRecovery(e, n2);
       }
-    else if (t2 instanceof __PRIVATE_DocumentWatchChange ? e.Va.Ze(t2) : t2 instanceof __PRIVATE_ExistenceFilterChange ? e.Va.st(t2) : e.Va.tt(t2), !n.isEqual(SnapshotVersion.min())) try {
-      const t3 = await __PRIVATE_localStoreGetLastRemoteSnapshotVersion(e.localStore);
-      n.compareTo(t3) >= 0 && // We have received a target change with a global snapshot if the snapshot
+    else if (t3 instanceof __PRIVATE_DocumentWatchChange ? e.Va.Ze(t3) : t3 instanceof __PRIVATE_ExistenceFilterChange ? e.Va.st(t3) : e.Va.tt(t3), !n.isEqual(SnapshotVersion.min())) try {
+      const t4 = await __PRIVATE_localStoreGetLastRemoteSnapshotVersion(e.localStore);
+      n.compareTo(t4) >= 0 && // We have received a target change with a global snapshot if the snapshot
       // version is not equal to SnapshotVersion.min().
       /**
       * Takes a batch of changes from the Datastore, repackages them as a
       * RemoteEvent, and passes that on to the listener, which is typically the
       * SyncEngine.
       */
-      await (function __PRIVATE_raiseWatchSnapshot(e2, t4) {
-        const n2 = e2.Va.Tt(t4);
+      await (function __PRIVATE_raiseWatchSnapshot(e2, t5) {
+        const n2 = e2.Va.Tt(t5);
         return n2.targetChanges.forEach(((n3, r) => {
           if (n3.resumeToken.approximateByteSize() > 0) {
             const i = e2.Ia.get(r);
-            i && e2.Ia.set(r, i.withResumeToken(n3.resumeToken, t4));
+            i && e2.Ia.set(r, i.withResumeToken(n3.resumeToken, t5));
           }
         })), // Re-establish listens for the targets that have been invalidated by
         // existence filter mismatches.
-        n2.targetMismatches.forEach(((t5, n3) => {
-          const r = e2.Ia.get(t5);
+        n2.targetMismatches.forEach(((t6, n3) => {
+          const r = e2.Ia.get(t6);
           if (!r)
             return;
-          e2.Ia.set(t5, r.withResumeToken(ByteString.EMPTY_BYTE_STRING, r.snapshotVersion)), // Cause a hard reset by unwatching and rewatching immediately, but
+          e2.Ia.set(t6, r.withResumeToken(ByteString.EMPTY_BYTE_STRING, r.snapshotVersion)), // Cause a hard reset by unwatching and rewatching immediately, but
           // deliberately don't send a resume token so that we get a full update.
-          __PRIVATE_sendUnwatchRequest(e2, t5);
-          const i = new TargetData(r.target, t5, n3, r.sequenceNumber);
+          __PRIVATE_sendUnwatchRequest(e2, t6);
+          const i = new TargetData(r.target, t6, n3, r.sequenceNumber);
           __PRIVATE_sendWatchRequest(e2, i);
         })), e2.remoteSyncer.applyRemoteEvent(n2);
       })(e, n);
-    } catch (t3) {
-      __PRIVATE_logDebug(tn, "Failed to raise snapshot:", t3), await __PRIVATE_disableNetworkUntilRecovery(e, t3);
+    } catch (t4) {
+      __PRIVATE_logDebug(tn, "Failed to raise snapshot:", t4), await __PRIVATE_disableNetworkUntilRecovery(e, t4);
     }
   }
-  async function __PRIVATE_disableNetworkUntilRecovery(e, t2, n) {
-    if (!__PRIVATE_isIndexedDbTransactionError(t2)) throw t2;
+  async function __PRIVATE_disableNetworkUntilRecovery(e, t3, n) {
+    if (!__PRIVATE_isIndexedDbTransactionError(t3)) throw t3;
     e.Ea.add(
       1
       /* OfflineCause.IndexedDbFailed */
@@ -11584,31 +11584,31 @@
       ), await __PRIVATE_enableNetworkInternal(e);
     }));
   }
-  function __PRIVATE_executeWithRecovery(e, t2) {
-    return t2().catch(((n) => __PRIVATE_disableNetworkUntilRecovery(e, n, t2)));
+  function __PRIVATE_executeWithRecovery(e, t3) {
+    return t3().catch(((n) => __PRIVATE_disableNetworkUntilRecovery(e, n, t3)));
   }
   async function __PRIVATE_fillWritePipeline(e) {
-    const t2 = __PRIVATE_debugCast(e), n = __PRIVATE_ensureWriteStream(t2);
-    let r = t2.Ta.length > 0 ? t2.Ta[t2.Ta.length - 1].batchId : j;
-    for (; __PRIVATE_canAddToWritePipeline(t2); ) try {
-      const e2 = await __PRIVATE_localStoreGetNextMutationBatch(t2.localStore, r);
+    const t3 = __PRIVATE_debugCast(e), n = __PRIVATE_ensureWriteStream(t3);
+    let r = t3.Ta.length > 0 ? t3.Ta[t3.Ta.length - 1].batchId : j;
+    for (; __PRIVATE_canAddToWritePipeline(t3); ) try {
+      const e2 = await __PRIVATE_localStoreGetNextMutationBatch(t3.localStore, r);
       if (null === e2) {
-        0 === t2.Ta.length && n.L_();
+        0 === t3.Ta.length && n.L_();
         break;
       }
-      r = e2.batchId, __PRIVATE_addToWritePipeline(t2, e2);
+      r = e2.batchId, __PRIVATE_addToWritePipeline(t3, e2);
     } catch (e2) {
-      await __PRIVATE_disableNetworkUntilRecovery(t2, e2);
+      await __PRIVATE_disableNetworkUntilRecovery(t3, e2);
     }
-    __PRIVATE_shouldStartWriteStream(t2) && __PRIVATE_startWriteStream(t2);
+    __PRIVATE_shouldStartWriteStream(t3) && __PRIVATE_startWriteStream(t3);
   }
   function __PRIVATE_canAddToWritePipeline(e) {
     return __PRIVATE_canUseNetwork(e) && e.Ta.length < 10;
   }
-  function __PRIVATE_addToWritePipeline(e, t2) {
-    e.Ta.push(t2);
+  function __PRIVATE_addToWritePipeline(e, t3) {
+    e.Ta.push(t3);
     const n = __PRIVATE_ensureWriteStream(e);
-    n.O_() && n.X_ && n.ea(t2.mutations);
+    n.O_() && n.X_ && n.ea(t3.mutations);
   }
   function __PRIVATE_shouldStartWriteStream(e) {
     return __PRIVATE_canUseNetwork(e) && !__PRIVATE_ensureWriteStream(e).x_() && e.Ta.length > 0;
@@ -11620,31 +11620,31 @@
     __PRIVATE_ensureWriteStream(e).ra();
   }
   async function __PRIVATE_onWriteHandshakeComplete(e) {
-    const t2 = __PRIVATE_ensureWriteStream(e);
-    for (const n of e.Ta) t2.ea(n.mutations);
+    const t3 = __PRIVATE_ensureWriteStream(e);
+    for (const n of e.Ta) t3.ea(n.mutations);
   }
-  async function __PRIVATE_onMutationResult(e, t2, n) {
-    const r = e.Ta.shift(), i = MutationBatchResult.from(r, t2, n);
+  async function __PRIVATE_onMutationResult(e, t3, n) {
+    const r = e.Ta.shift(), i = MutationBatchResult.from(r, t3, n);
     await __PRIVATE_executeWithRecovery(e, (() => e.remoteSyncer.applySuccessfulWrite(i))), // It's possible that with the completion of this mutation another
     // slot has freed up.
     await __PRIVATE_fillWritePipeline(e);
   }
-  async function __PRIVATE_onWriteStreamClose(e, t2) {
-    t2 && __PRIVATE_ensureWriteStream(e).X_ && // This error affects the actual write.
-    await (async function __PRIVATE_handleWriteError(e2, t3) {
+  async function __PRIVATE_onWriteStreamClose(e, t3) {
+    t3 && __PRIVATE_ensureWriteStream(e).X_ && // This error affects the actual write.
+    await (async function __PRIVATE_handleWriteError(e2, t4) {
       if ((function __PRIVATE_isPermanentWriteError(e3) {
         return __PRIVATE_isPermanentError(e3) && e3 !== N.ABORTED;
-      })(t3.code)) {
+      })(t4.code)) {
         const n = e2.Ta.shift();
-        __PRIVATE_ensureWriteStream(e2).B_(), await __PRIVATE_executeWithRecovery(e2, (() => e2.remoteSyncer.rejectFailedWrite(n.batchId, t3))), // It's possible that with the completion of this mutation
+        __PRIVATE_ensureWriteStream(e2).B_(), await __PRIVATE_executeWithRecovery(e2, (() => e2.remoteSyncer.rejectFailedWrite(n.batchId, t4))), // It's possible that with the completion of this mutation
         // another slot has freed up.
         await __PRIVATE_fillWritePipeline(e2);
       }
-    })(e, t2), // The write stream might have been started by refilling the write
+    })(e, t3), // The write stream might have been started by refilling the write
     // pipeline for failed writes
     __PRIVATE_shouldStartWriteStream(e) && __PRIVATE_startWriteStream(e);
   }
-  async function __PRIVATE_remoteStoreHandleCredentialChange(e, t2) {
+  async function __PRIVATE_remoteStoreHandleCredentialChange(e, t3) {
     const n = __PRIVATE_debugCast(e);
     n.asyncQueue.verifyOperationInProgress(), __PRIVATE_logDebug(tn, "RemoteStore received new credentials");
     const r = __PRIVATE_canUseNetwork(n);
@@ -11655,17 +11655,17 @@
     n.Ra.set(
       "Unknown"
       /* OnlineState.Unknown */
-    ), await n.remoteSyncer.handleCredentialChange(t2), n.Ea.delete(
+    ), await n.remoteSyncer.handleCredentialChange(t3), n.Ea.delete(
       3
       /* OfflineCause.CredentialChange */
     ), await __PRIVATE_enableNetworkInternal(n);
   }
-  async function __PRIVATE_remoteStoreApplyPrimaryState(e, t2) {
+  async function __PRIVATE_remoteStoreApplyPrimaryState(e, t3) {
     const n = __PRIVATE_debugCast(e);
-    t2 ? (n.Ea.delete(
+    t3 ? (n.Ea.delete(
       2
       /* OfflineCause.IsSecondary */
-    ), await __PRIVATE_enableNetworkInternal(n)) : t2 || (n.Ea.add(
+    ), await __PRIVATE_enableNetworkInternal(n)) : t3 || (n.Ea.add(
       2
       /* OfflineCause.IsSecondary */
     ), await __PRIVATE_disableNetworkInternal(n), n.Ra.set(
@@ -11675,16 +11675,16 @@
   }
   function __PRIVATE_ensureWatchStream(e) {
     return e.ma || // Create stream (but note that it is not started yet).
-    (e.ma = (function __PRIVATE_newPersistentWatchStream(e2, t2, n) {
+    (e.ma = (function __PRIVATE_newPersistentWatchStream(e2, t3, n) {
       const r = __PRIVATE_debugCast(e2);
-      return r.sa(), new __PRIVATE_PersistentListenStream(t2, r.connection, r.authCredentials, r.appCheckCredentials, r.serializer, n);
+      return r.sa(), new __PRIVATE_PersistentListenStream(t3, r.connection, r.authCredentials, r.appCheckCredentials, r.serializer, n);
     })(e.datastore, e.asyncQueue, {
       Xo: __PRIVATE_onWatchStreamConnected.bind(null, e),
       t_: __PRIVATE_onWatchStreamOpen.bind(null, e),
       r_: __PRIVATE_onWatchStreamClose.bind(null, e),
       H_: __PRIVATE_onWatchStreamChange.bind(null, e)
-    }), e.da.push((async (t2) => {
-      t2 ? (e.ma.B_(), __PRIVATE_shouldStartWatchStream(e) ? __PRIVATE_startWatchStream(e) : e.Ra.set(
+    }), e.da.push((async (t3) => {
+      t3 ? (e.ma.B_(), __PRIVATE_shouldStartWatchStream(e) ? __PRIVATE_startWatchStream(e) : e.Ra.set(
         "Unknown"
         /* OnlineState.Unknown */
       )) : (await e.ma.stop(), __PRIVATE_cleanUpWatchStreamState(e));
@@ -11692,34 +11692,34 @@
   }
   function __PRIVATE_ensureWriteStream(e) {
     return e.fa || // Create stream (but note that it is not started yet).
-    (e.fa = (function __PRIVATE_newPersistentWriteStream(e2, t2, n) {
+    (e.fa = (function __PRIVATE_newPersistentWriteStream(e2, t3, n) {
       const r = __PRIVATE_debugCast(e2);
-      return r.sa(), new __PRIVATE_PersistentWriteStream(t2, r.connection, r.authCredentials, r.appCheckCredentials, r.serializer, n);
+      return r.sa(), new __PRIVATE_PersistentWriteStream(t3, r.connection, r.authCredentials, r.appCheckCredentials, r.serializer, n);
     })(e.datastore, e.asyncQueue, {
       Xo: () => Promise.resolve(),
       t_: __PRIVATE_onWriteStreamOpen.bind(null, e),
       r_: __PRIVATE_onWriteStreamClose.bind(null, e),
       ta: __PRIVATE_onWriteHandshakeComplete.bind(null, e),
       na: __PRIVATE_onMutationResult.bind(null, e)
-    }), e.da.push((async (t2) => {
-      t2 ? (e.fa.B_(), // This will start the write stream if necessary.
+    }), e.da.push((async (t3) => {
+      t3 ? (e.fa.B_(), // This will start the write stream if necessary.
       await __PRIVATE_fillWritePipeline(e)) : (await e.fa.stop(), e.Ta.length > 0 && (__PRIVATE_logDebug(tn, `Stopping write stream with ${e.Ta.length} pending writes`), e.Ta = []));
     }))), e.fa;
   }
-  function __PRIVATE_wrapInUserErrorIfRecoverable(e, t2) {
-    if (__PRIVATE_logError("AsyncQueue", `${t2}: ${e}`), __PRIVATE_isIndexedDbTransactionError(e)) return new FirestoreError(N.UNAVAILABLE, `${t2}: ${e}`);
+  function __PRIVATE_wrapInUserErrorIfRecoverable(e, t3) {
+    if (__PRIVATE_logError("AsyncQueue", `${t3}: ${e}`), __PRIVATE_isIndexedDbTransactionError(e)) return new FirestoreError(N.UNAVAILABLE, `${t3}: ${e}`);
     throw e;
   }
   function __PRIVATE_newQueriesObjectMap() {
     return new ObjectMap(((e) => __PRIVATE_canonifyQuery(e)), __PRIVATE_queryEquals);
   }
-  async function __PRIVATE_eventManagerListen(e, t2) {
+  async function __PRIVATE_eventManagerListen(e, t3) {
     const n = __PRIVATE_debugCast(e);
     let r = 3;
-    const i = t2.query;
+    const i = t3.query;
     let s = n.queries.get(i);
-    s ? !s.ba() && t2.Da() && // Query has been listening to local cache, and tries to add a new listener sourced from watch.
-    (r = 2) : (s = new __PRIVATE_QueryListenersInfo(), r = t2.Da() ? 0 : 1);
+    s ? !s.ba() && t3.Da() && // Query has been listening to local cache, and tries to add a new listener sourced from watch.
+    (r = 2) : (s = new __PRIVATE_QueryListenersInfo(), r = t3.Da() ? 0 : 1);
     try {
       switch (r) {
         case 0:
@@ -11740,21 +11740,21 @@
           await n.onFirstRemoteStoreListen(i);
       }
     } catch (e2) {
-      const n2 = __PRIVATE_wrapInUserErrorIfRecoverable(e2, `Initialization of query '${__PRIVATE_stringifyQuery(t2.query)}' failed`);
-      return void t2.onError(n2);
+      const n2 = __PRIVATE_wrapInUserErrorIfRecoverable(e2, `Initialization of query '${__PRIVATE_stringifyQuery(t3.query)}' failed`);
+      return void t3.onError(n2);
     }
-    if (n.queries.set(i, s), s.Sa.push(t2), // Run global snapshot listeners if a consistent snapshot has been emitted.
-    t2.va(n.onlineState), s.wa) {
-      t2.Fa(s.wa) && __PRIVATE_raiseSnapshotsInSyncEvent(n);
+    if (n.queries.set(i, s), s.Sa.push(t3), // Run global snapshot listeners if a consistent snapshot has been emitted.
+    t3.va(n.onlineState), s.wa) {
+      t3.Fa(s.wa) && __PRIVATE_raiseSnapshotsInSyncEvent(n);
     }
   }
-  async function __PRIVATE_eventManagerUnlisten(e, t2) {
-    const n = __PRIVATE_debugCast(e), r = t2.query;
+  async function __PRIVATE_eventManagerUnlisten(e, t3) {
+    const n = __PRIVATE_debugCast(e), r = t3.query;
     let i = 3;
     const s = n.queries.get(r);
     if (s) {
-      const e2 = s.Sa.indexOf(t2);
-      e2 >= 0 && (s.Sa.splice(e2, 1), 0 === s.Sa.length ? i = t2.Da() ? 0 : 1 : !s.ba() && t2.Da() && // The removed listener is the last one that sourced from watch.
+      const e2 = s.Sa.indexOf(t3);
+      e2 >= 0 && (s.Sa.splice(e2, 1), 0 === s.Sa.length ? i = t3.Da() ? 0 : 1 : !s.ba() && t3.Da() && // The removed listener is the last one that sourced from watch.
       (i = 2));
     }
     switch (i) {
@@ -11776,32 +11776,32 @@
         return;
     }
   }
-  function __PRIVATE_eventManagerOnWatchChange(e, t2) {
+  function __PRIVATE_eventManagerOnWatchChange(e, t3) {
     const n = __PRIVATE_debugCast(e);
     let r = false;
-    for (const e2 of t2) {
-      const t3 = e2.query, i = n.queries.get(t3);
+    for (const e2 of t3) {
+      const t4 = e2.query, i = n.queries.get(t4);
       if (i) {
-        for (const t4 of i.Sa) t4.Fa(e2) && (r = true);
+        for (const t5 of i.Sa) t5.Fa(e2) && (r = true);
         i.wa = e2;
       }
     }
     r && __PRIVATE_raiseSnapshotsInSyncEvent(n);
   }
-  function __PRIVATE_eventManagerOnWatchError(e, t2, n) {
-    const r = __PRIVATE_debugCast(e), i = r.queries.get(t2);
+  function __PRIVATE_eventManagerOnWatchError(e, t3, n) {
+    const r = __PRIVATE_debugCast(e), i = r.queries.get(t3);
     if (i) for (const e2 of i.Sa) e2.onError(n);
-    r.queries.delete(t2);
+    r.queries.delete(t3);
   }
   function __PRIVATE_raiseSnapshotsInSyncEvent(e) {
     e.Ca.forEach(((e2) => {
       e2.next();
     }));
   }
-  async function __PRIVATE_syncEngineListen(e, t2, n = true) {
+  async function __PRIVATE_syncEngineListen(e, t3, n = true) {
     const r = __PRIVATE_ensureWatchCallbacks(e);
     let i;
-    const s = r.Tu.get(t2);
+    const s = r.Tu.get(t3);
     return s ? (
       // PORTING NOTE: With Multi-Tab Web, it is possible that a query view
       // already exists when EventManager calls us for the first time. This
@@ -11812,67 +11812,67 @@
       (r.sharedClientState.addLocalQueryTarget(s.targetId), i = s.view.lu())
     ) : i = await __PRIVATE_allocateTargetAndMaybeListen(
       r,
-      t2,
+      t3,
       n,
       /** shouldInitializeView= */
       true
     ), i;
   }
-  async function __PRIVATE_triggerRemoteStoreListen(e, t2) {
+  async function __PRIVATE_triggerRemoteStoreListen(e, t3) {
     const n = __PRIVATE_ensureWatchCallbacks(e);
     await __PRIVATE_allocateTargetAndMaybeListen(
       n,
-      t2,
+      t3,
       /** shouldListenToRemote= */
       true,
       /** shouldInitializeView= */
       false
     );
   }
-  async function __PRIVATE_allocateTargetAndMaybeListen(e, t2, n, r) {
-    const i = await __PRIVATE_localStoreAllocateTarget(e.localStore, __PRIVATE_queryToTarget(t2)), s = i.targetId, o = e.sharedClientState.addLocalQueryTarget(s, n);
+  async function __PRIVATE_allocateTargetAndMaybeListen(e, t3, n, r) {
+    const i = await __PRIVATE_localStoreAllocateTarget(e.localStore, __PRIVATE_queryToTarget(t3)), s = i.targetId, o = e.sharedClientState.addLocalQueryTarget(s, n);
     let _;
-    return r && (_ = await __PRIVATE_initializeViewAndComputeSnapshot(e, t2, s, "current" === o, i.resumeToken)), e.isPrimaryClient && n && __PRIVATE_remoteStoreListen(e.remoteStore, i), _;
+    return r && (_ = await __PRIVATE_initializeViewAndComputeSnapshot(e, t3, s, "current" === o, i.resumeToken)), e.isPrimaryClient && n && __PRIVATE_remoteStoreListen(e.remoteStore, i), _;
   }
-  async function __PRIVATE_initializeViewAndComputeSnapshot(e, t2, n, r, i) {
-    e.pu = (t3, n2, r2) => (async function __PRIVATE_applyDocChanges(e2, t4, n3, r3) {
-      let i2 = t4.view.ru(n3);
+  async function __PRIVATE_initializeViewAndComputeSnapshot(e, t3, n, r, i) {
+    e.pu = (t4, n2, r2) => (async function __PRIVATE_applyDocChanges(e2, t5, n3, r3) {
+      let i2 = t5.view.ru(n3);
       i2.Cs && // The query has a limit and some docs were removed, so we need
       // to re-run the query against the local store to make sure we
       // didn't lose any good docs that had been past the limit.
       (i2 = await __PRIVATE_localStoreExecuteQuery(
         e2.localStore,
-        t4.query,
+        t5.query,
         /* usePreviousResults= */
         false
-      ).then((({ documents: e3 }) => t4.view.ru(e3, i2))));
-      const s2 = r3 && r3.targetChanges.get(t4.targetId), o2 = r3 && null != r3.targetMismatches.get(t4.targetId), _2 = t4.view.applyChanges(
+      ).then((({ documents: e3 }) => t5.view.ru(e3, i2))));
+      const s2 = r3 && r3.targetChanges.get(t5.targetId), o2 = r3 && null != r3.targetMismatches.get(t5.targetId), _2 = t5.view.applyChanges(
         i2,
         /* limboResolutionEnabled= */
         e2.isPrimaryClient,
         s2,
         o2
       );
-      return __PRIVATE_updateTrackedLimbos(e2, t4.targetId, _2.au), _2.snapshot;
-    })(e, t3, n2, r2);
+      return __PRIVATE_updateTrackedLimbos(e2, t5.targetId, _2.au), _2.snapshot;
+    })(e, t4, n2, r2);
     const s = await __PRIVATE_localStoreExecuteQuery(
       e.localStore,
-      t2,
+      t3,
       /* usePreviousResults= */
       true
-    ), o = new __PRIVATE_View(t2, s.Qs), _ = o.ru(s.documents), a = TargetChange.createSynthesizedTargetChangeForCurrentChange(n, r && "Offline" !== e.onlineState, i), u = o.applyChanges(
+    ), o = new __PRIVATE_View(t3, s.Qs), _ = o.ru(s.documents), a = TargetChange.createSynthesizedTargetChangeForCurrentChange(n, r && "Offline" !== e.onlineState, i), u = o.applyChanges(
       _,
       /* limboResolutionEnabled= */
       e.isPrimaryClient,
       a
     );
     __PRIVATE_updateTrackedLimbos(e, n, u.au);
-    const c = new __PRIVATE_QueryView(t2, n, o);
-    return e.Tu.set(t2, c), e.Iu.has(n) ? e.Iu.get(n).push(t2) : e.Iu.set(n, [t2]), u.snapshot;
+    const c = new __PRIVATE_QueryView(t3, n, o);
+    return e.Tu.set(t3, c), e.Iu.has(n) ? e.Iu.get(n).push(t3) : e.Iu.set(n, [t3]), u.snapshot;
   }
-  async function __PRIVATE_syncEngineUnlisten(e, t2, n) {
-    const r = __PRIVATE_debugCast(e), i = r.Tu.get(t2), s = r.Iu.get(i.targetId);
-    if (s.length > 1) return r.Iu.set(i.targetId, s.filter(((e2) => !__PRIVATE_queryEquals(e2, t2)))), void r.Tu.delete(t2);
+  async function __PRIVATE_syncEngineUnlisten(e, t3, n) {
+    const r = __PRIVATE_debugCast(e), i = r.Tu.get(t3), s = r.Iu.get(i.targetId);
+    if (s.length > 1) return r.Iu.set(i.targetId, s.filter(((e2) => !__PRIVATE_queryEquals(e2, t3)))), void r.Tu.delete(t3);
     if (r.isPrimaryClient) {
       r.sharedClientState.removeLocalQueryTarget(i.targetId);
       r.sharedClientState.isActiveQueryTarget(i.targetId) || await __PRIVATE_localStoreReleaseTarget(
@@ -11890,91 +11890,91 @@
       true
     );
   }
-  async function __PRIVATE_triggerRemoteStoreUnlisten(e, t2) {
-    const n = __PRIVATE_debugCast(e), r = n.Tu.get(t2), i = n.Iu.get(r.targetId);
+  async function __PRIVATE_triggerRemoteStoreUnlisten(e, t3) {
+    const n = __PRIVATE_debugCast(e), r = n.Tu.get(t3), i = n.Iu.get(r.targetId);
     n.isPrimaryClient && 1 === i.length && // PORTING NOTE: Unregister the target ID with local Firestore client as
     // watch target.
     (n.sharedClientState.removeLocalQueryTarget(r.targetId), __PRIVATE_remoteStoreUnlisten(n.remoteStore, r.targetId));
   }
-  async function __PRIVATE_syncEngineWrite(e, t2, n) {
+  async function __PRIVATE_syncEngineWrite(e, t3, n) {
     const r = __PRIVATE_syncEngineEnsureWriteCallbacks(e);
     try {
-      const e2 = await (function __PRIVATE_localStoreWriteLocally(e3, t3) {
-        const n2 = __PRIVATE_debugCast(e3), r2 = Timestamp.now(), i = t3.reduce(((e4, t4) => e4.add(t4.key)), __PRIVATE_documentKeySet());
+      const e2 = await (function __PRIVATE_localStoreWriteLocally(e3, t4) {
+        const n2 = __PRIVATE_debugCast(e3), r2 = Timestamp.now(), i = t4.reduce(((e4, t5) => e4.add(t5.key)), __PRIVATE_documentKeySet());
         let s, o;
         return n2.persistence.runTransaction("Locally write mutations", "readwrite", ((e4) => {
           let _ = __PRIVATE_mutableDocumentMap(), a = __PRIVATE_documentKeySet();
           return n2.Ns.getEntries(e4, i).next(((e5) => {
-            _ = e5, _.forEach(((e6, t4) => {
-              t4.isValidDocument() || (a = a.add(e6));
+            _ = e5, _.forEach(((e6, t5) => {
+              t5.isValidDocument() || (a = a.add(e6));
             }));
           })).next((() => n2.localDocuments.getOverlayedDocuments(e4, _))).next(((i2) => {
             s = i2;
             const o2 = [];
-            for (const e5 of t3) {
-              const t4 = __PRIVATE_mutationExtractBaseValue(e5, s.get(e5.key).overlayedDocument);
-              null != t4 && // NOTE: The base state should only be applied if there's some
+            for (const e5 of t4) {
+              const t5 = __PRIVATE_mutationExtractBaseValue(e5, s.get(e5.key).overlayedDocument);
+              null != t5 && // NOTE: The base state should only be applied if there's some
               // existing document to override, so use a Precondition of
               // exists=true
-              o2.push(new __PRIVATE_PatchMutation(e5.key, t4, __PRIVATE_extractFieldMask(t4.value.mapValue), Precondition.exists(true)));
+              o2.push(new __PRIVATE_PatchMutation(e5.key, t5, __PRIVATE_extractFieldMask(t5.value.mapValue), Precondition.exists(true)));
             }
-            return n2.mutationQueue.addMutationBatch(e4, r2, o2, t3);
-          })).next(((t4) => {
-            o = t4;
-            const r3 = t4.applyToLocalDocumentSet(s, a);
-            return n2.documentOverlayCache.saveOverlays(e4, t4.batchId, r3);
+            return n2.mutationQueue.addMutationBatch(e4, r2, o2, t4);
+          })).next(((t5) => {
+            o = t5;
+            const r3 = t5.applyToLocalDocumentSet(s, a);
+            return n2.documentOverlayCache.saveOverlays(e4, t5.batchId, r3);
           }));
         })).then((() => ({
           batchId: o.batchId,
           changes: __PRIVATE_convertOverlayedDocumentMapToDocumentMap(s)
         })));
-      })(r.localStore, t2);
-      r.sharedClientState.addPendingMutation(e2.batchId), (function __PRIVATE_addMutationCallback(e3, t3, n2) {
+      })(r.localStore, t3);
+      r.sharedClientState.addPendingMutation(e2.batchId), (function __PRIVATE_addMutationCallback(e3, t4, n2) {
         let r2 = e3.Vu[e3.currentUser.toKey()];
         r2 || (r2 = new SortedMap(__PRIVATE_primitiveComparator));
-        r2 = r2.insert(t3, n2), e3.Vu[e3.currentUser.toKey()] = r2;
+        r2 = r2.insert(t4, n2), e3.Vu[e3.currentUser.toKey()] = r2;
       })(r, e2.batchId, n), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(r, e2.changes), await __PRIVATE_fillWritePipeline(r.remoteStore);
     } catch (e2) {
-      const t3 = __PRIVATE_wrapInUserErrorIfRecoverable(e2, "Failed to persist write");
-      n.reject(t3);
+      const t4 = __PRIVATE_wrapInUserErrorIfRecoverable(e2, "Failed to persist write");
+      n.reject(t4);
     }
   }
-  async function __PRIVATE_syncEngineApplyRemoteEvent(e, t2) {
+  async function __PRIVATE_syncEngineApplyRemoteEvent(e, t3) {
     const n = __PRIVATE_debugCast(e);
     try {
-      const e2 = await __PRIVATE_localStoreApplyRemoteEventToLocalCache(n.localStore, t2);
-      t2.targetChanges.forEach(((e3, t3) => {
-        const r = n.Au.get(t3);
+      const e2 = await __PRIVATE_localStoreApplyRemoteEventToLocalCache(n.localStore, t3);
+      t3.targetChanges.forEach(((e3, t4) => {
+        const r = n.Au.get(t4);
         r && // Since this is a limbo resolution lookup, it's for a single document
         // and it could be added, modified, or removed, but not a combination.
         (__PRIVATE_hardAssert(e3.addedDocuments.size + e3.modifiedDocuments.size + e3.removedDocuments.size <= 1, 22616), e3.addedDocuments.size > 0 ? r.hu = true : e3.modifiedDocuments.size > 0 ? __PRIVATE_hardAssert(r.hu, 14607) : e3.removedDocuments.size > 0 && (__PRIVATE_hardAssert(r.hu, 42227), r.hu = false));
-      })), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(n, e2, t2);
+      })), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(n, e2, t3);
     } catch (e2) {
       await __PRIVATE_ignoreIfPrimaryLeaseLoss(e2);
     }
   }
-  function __PRIVATE_syncEngineApplyOnlineStateChange(e, t2, n) {
+  function __PRIVATE_syncEngineApplyOnlineStateChange(e, t3, n) {
     const r = __PRIVATE_debugCast(e);
     if (r.isPrimaryClient && 0 === n || !r.isPrimaryClient && 1 === n) {
       const e2 = [];
       r.Tu.forEach(((n2, r2) => {
-        const i = r2.view.va(t2);
+        const i = r2.view.va(t3);
         i.snapshot && e2.push(i.snapshot);
-      })), (function __PRIVATE_eventManagerOnOnlineStateChange(e3, t3) {
+      })), (function __PRIVATE_eventManagerOnOnlineStateChange(e3, t4) {
         const n2 = __PRIVATE_debugCast(e3);
-        n2.onlineState = t3;
+        n2.onlineState = t4;
         let r2 = false;
         n2.queries.forEach(((e4, n3) => {
           for (const e5 of n3.Sa)
-            e5.va(t3) && (r2 = true);
+            e5.va(t4) && (r2 = true);
         })), r2 && __PRIVATE_raiseSnapshotsInSyncEvent(n2);
-      })(r.eventManager, t2), e2.length && r.Pu.H_(e2), r.onlineState = t2, r.isPrimaryClient && r.sharedClientState.setOnlineState(t2);
+      })(r.eventManager, t3), e2.length && r.Pu.H_(e2), r.onlineState = t3, r.isPrimaryClient && r.sharedClientState.setOnlineState(t3);
     }
   }
-  async function __PRIVATE_syncEngineRejectListen(e, t2, n) {
+  async function __PRIVATE_syncEngineRejectListen(e, t3, n) {
     const r = __PRIVATE_debugCast(e);
-    r.sharedClientState.updateQueryState(t2, "rejected", n);
-    const i = r.Au.get(t2), s = i && i.key;
+    r.sharedClientState.updateQueryState(t3, "rejected", n);
+    const i = r.Au.get(t3), s = i && i.key;
     if (s) {
       let e2 = new SortedMap(DocumentKey.comparator);
       e2 = e2.insert(s, MutableDocument.newNoDocument(s, SnapshotVersion.min()));
@@ -11992,18 +11992,18 @@
       // RemoteEvent. If `applyRemoteEvent()` throws, we want to re-listen to
       // this query when the RemoteStore restarts the Watch stream, which should
       // re-trigger the target failure.
-      r.du = r.du.remove(s), r.Au.delete(t2), __PRIVATE_pumpEnqueuedLimboResolutions(r);
+      r.du = r.du.remove(s), r.Au.delete(t3), __PRIVATE_pumpEnqueuedLimboResolutions(r);
     } else await __PRIVATE_localStoreReleaseTarget(
       r.localStore,
-      t2,
+      t3,
       /* keepPersistedTargetData */
       false
-    ).then((() => __PRIVATE_removeAndCleanupTarget(r, t2, n))).catch(__PRIVATE_ignoreIfPrimaryLeaseLoss);
+    ).then((() => __PRIVATE_removeAndCleanupTarget(r, t3, n))).catch(__PRIVATE_ignoreIfPrimaryLeaseLoss);
   }
-  async function __PRIVATE_syncEngineApplySuccessfulWrite(e, t2) {
-    const n = __PRIVATE_debugCast(e), r = t2.batch.batchId;
+  async function __PRIVATE_syncEngineApplySuccessfulWrite(e, t3) {
+    const n = __PRIVATE_debugCast(e), r = t3.batch.batchId;
     try {
-      const e2 = await __PRIVATE_localStoreAcknowledgeBatch(n.localStore, t2);
+      const e2 = await __PRIVATE_localStoreAcknowledgeBatch(n.localStore, t3);
       __PRIVATE_processUserCallback(
         n,
         r,
@@ -12014,165 +12014,165 @@
       await __PRIVATE_ignoreIfPrimaryLeaseLoss(e2);
     }
   }
-  async function __PRIVATE_syncEngineRejectFailedWrite(e, t2, n) {
+  async function __PRIVATE_syncEngineRejectFailedWrite(e, t3, n) {
     const r = __PRIVATE_debugCast(e);
     try {
-      const e2 = await (function __PRIVATE_localStoreRejectBatch(e3, t3) {
+      const e2 = await (function __PRIVATE_localStoreRejectBatch(e3, t4) {
         const n2 = __PRIVATE_debugCast(e3);
         return n2.persistence.runTransaction("Reject batch", "readwrite-primary", ((e4) => {
           let r2;
-          return n2.mutationQueue.lookupMutationBatch(e4, t3).next(((t4) => (__PRIVATE_hardAssert(null !== t4, 37113), r2 = t4.keys(), n2.mutationQueue.removeMutationBatch(e4, t4)))).next((() => n2.mutationQueue.performConsistencyCheck(e4))).next((() => n2.documentOverlayCache.removeOverlaysForBatchId(e4, r2, t3))).next((() => n2.localDocuments.recalculateAndSaveOverlaysForDocumentKeys(e4, r2))).next((() => n2.localDocuments.getDocuments(e4, r2)));
+          return n2.mutationQueue.lookupMutationBatch(e4, t4).next(((t5) => (__PRIVATE_hardAssert(null !== t5, 37113), r2 = t5.keys(), n2.mutationQueue.removeMutationBatch(e4, t5)))).next((() => n2.mutationQueue.performConsistencyCheck(e4))).next((() => n2.documentOverlayCache.removeOverlaysForBatchId(e4, r2, t4))).next((() => n2.localDocuments.recalculateAndSaveOverlaysForDocumentKeys(e4, r2))).next((() => n2.localDocuments.getDocuments(e4, r2)));
         }));
-      })(r.localStore, t2);
-      __PRIVATE_processUserCallback(r, t2, n), __PRIVATE_triggerPendingWritesCallbacks(r, t2), r.sharedClientState.updateMutationState(t2, "rejected", n), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(r, e2);
+      })(r.localStore, t3);
+      __PRIVATE_processUserCallback(r, t3, n), __PRIVATE_triggerPendingWritesCallbacks(r, t3), r.sharedClientState.updateMutationState(t3, "rejected", n), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(r, e2);
     } catch (n2) {
       await __PRIVATE_ignoreIfPrimaryLeaseLoss(n2);
     }
   }
-  function __PRIVATE_triggerPendingWritesCallbacks(e, t2) {
-    (e.mu.get(t2) || []).forEach(((e2) => {
+  function __PRIVATE_triggerPendingWritesCallbacks(e, t3) {
+    (e.mu.get(t3) || []).forEach(((e2) => {
       e2.resolve();
-    })), e.mu.delete(t2);
+    })), e.mu.delete(t3);
   }
-  function __PRIVATE_processUserCallback(e, t2, n) {
+  function __PRIVATE_processUserCallback(e, t3, n) {
     const r = __PRIVATE_debugCast(e);
     let i = r.Vu[r.currentUser.toKey()];
     if (i) {
-      const e2 = i.get(t2);
-      e2 && (n ? e2.reject(n) : e2.resolve(), i = i.remove(t2)), r.Vu[r.currentUser.toKey()] = i;
+      const e2 = i.get(t3);
+      e2 && (n ? e2.reject(n) : e2.resolve(), i = i.remove(t3)), r.Vu[r.currentUser.toKey()] = i;
     }
   }
-  function __PRIVATE_removeAndCleanupTarget(e, t2, n = null) {
-    e.sharedClientState.removeLocalQueryTarget(t2);
-    for (const r of e.Iu.get(t2)) e.Tu.delete(r), n && e.Pu.yu(r, n);
-    if (e.Iu.delete(t2), e.isPrimaryClient) {
-      e.Ru.jr(t2).forEach(((t3) => {
-        e.Ru.containsKey(t3) || // We removed the last reference for this key
-        __PRIVATE_removeLimboTarget(e, t3);
+  function __PRIVATE_removeAndCleanupTarget(e, t3, n = null) {
+    e.sharedClientState.removeLocalQueryTarget(t3);
+    for (const r of e.Iu.get(t3)) e.Tu.delete(r), n && e.Pu.yu(r, n);
+    if (e.Iu.delete(t3), e.isPrimaryClient) {
+      e.Ru.jr(t3).forEach(((t4) => {
+        e.Ru.containsKey(t4) || // We removed the last reference for this key
+        __PRIVATE_removeLimboTarget(e, t4);
       }));
     }
   }
-  function __PRIVATE_removeLimboTarget(e, t2) {
-    e.Eu.delete(t2.path.canonicalString());
-    const n = e.du.get(t2);
-    null !== n && (__PRIVATE_remoteStoreUnlisten(e.remoteStore, n), e.du = e.du.remove(t2), e.Au.delete(n), __PRIVATE_pumpEnqueuedLimboResolutions(e));
+  function __PRIVATE_removeLimboTarget(e, t3) {
+    e.Eu.delete(t3.path.canonicalString());
+    const n = e.du.get(t3);
+    null !== n && (__PRIVATE_remoteStoreUnlisten(e.remoteStore, n), e.du = e.du.remove(t3), e.Au.delete(n), __PRIVATE_pumpEnqueuedLimboResolutions(e));
   }
-  function __PRIVATE_updateTrackedLimbos(e, t2, n) {
-    for (const r of n) if (r instanceof __PRIVATE_AddedLimboDocument) e.Ru.addReference(r.key, t2), __PRIVATE_trackLimboChange(e, r);
+  function __PRIVATE_updateTrackedLimbos(e, t3, n) {
+    for (const r of n) if (r instanceof __PRIVATE_AddedLimboDocument) e.Ru.addReference(r.key, t3), __PRIVATE_trackLimboChange(e, r);
     else if (r instanceof __PRIVATE_RemovedLimboDocument) {
-      __PRIVATE_logDebug(sn, "Document no longer in limbo: " + r.key), e.Ru.removeReference(r.key, t2);
+      __PRIVATE_logDebug(sn, "Document no longer in limbo: " + r.key), e.Ru.removeReference(r.key, t3);
       e.Ru.containsKey(r.key) || // We removed the last reference for this key
       __PRIVATE_removeLimboTarget(e, r.key);
     } else fail(19791, {
       wu: r
     });
   }
-  function __PRIVATE_trackLimboChange(e, t2) {
-    const n = t2.key, r = n.path.canonicalString();
+  function __PRIVATE_trackLimboChange(e, t3) {
+    const n = t3.key, r = n.path.canonicalString();
     e.du.get(n) || e.Eu.has(r) || (__PRIVATE_logDebug(sn, "New document in limbo: " + n), e.Eu.add(r), __PRIVATE_pumpEnqueuedLimboResolutions(e));
   }
   function __PRIVATE_pumpEnqueuedLimboResolutions(e) {
     for (; e.Eu.size > 0 && e.du.size < e.maxConcurrentLimboResolutions; ) {
-      const t2 = e.Eu.values().next().value;
-      e.Eu.delete(t2);
-      const n = new DocumentKey(ResourcePath.fromString(t2)), r = e.fu.next();
+      const t3 = e.Eu.values().next().value;
+      e.Eu.delete(t3);
+      const n = new DocumentKey(ResourcePath.fromString(t3)), r = e.fu.next();
       e.Au.set(r, new LimboResolution(n)), e.du = e.du.insert(n, r), __PRIVATE_remoteStoreListen(e.remoteStore, new TargetData(__PRIVATE_queryToTarget(__PRIVATE_newQueryForPath(n.path)), r, "TargetPurposeLimboResolution", __PRIVATE_ListenSequence.ce));
     }
   }
-  async function __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(e, t2, n) {
+  async function __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(e, t3, n) {
     const r = __PRIVATE_debugCast(e), i = [], s = [], o = [];
     r.Tu.isEmpty() || (r.Tu.forEach(((e2, _) => {
-      o.push(r.pu(_, t2, n).then(((e3) => {
+      o.push(r.pu(_, t3, n).then(((e3) => {
         if ((e3 || n) && r.isPrimaryClient) {
-          const t3 = e3 ? !e3.fromCache : n?.targetChanges.get(_.targetId)?.current;
-          r.sharedClientState.updateQueryState(_.targetId, t3 ? "current" : "not-current");
+          const t4 = e3 ? !e3.fromCache : n?.targetChanges.get(_.targetId)?.current;
+          r.sharedClientState.updateQueryState(_.targetId, t4 ? "current" : "not-current");
         }
         if (e3) {
           i.push(e3);
-          const t3 = __PRIVATE_LocalViewChanges.As(_.targetId, e3);
-          s.push(t3);
+          const t4 = __PRIVATE_LocalViewChanges.As(_.targetId, e3);
+          s.push(t4);
         }
       })));
-    })), await Promise.all(o), r.Pu.H_(i), await (async function __PRIVATE_localStoreNotifyLocalViewChanges(e2, t3) {
+    })), await Promise.all(o), r.Pu.H_(i), await (async function __PRIVATE_localStoreNotifyLocalViewChanges(e2, t4) {
       const n2 = __PRIVATE_debugCast(e2);
       try {
-        await n2.persistence.runTransaction("notifyLocalViewChanges", "readwrite", ((e3) => PersistencePromise.forEach(t3, ((t4) => PersistencePromise.forEach(t4.Es, ((r2) => n2.persistence.referenceDelegate.addReference(e3, t4.targetId, r2))).next((() => PersistencePromise.forEach(t4.ds, ((r2) => n2.persistence.referenceDelegate.removeReference(e3, t4.targetId, r2)))))))));
+        await n2.persistence.runTransaction("notifyLocalViewChanges", "readwrite", ((e3) => PersistencePromise.forEach(t4, ((t5) => PersistencePromise.forEach(t5.Es, ((r2) => n2.persistence.referenceDelegate.addReference(e3, t5.targetId, r2))).next((() => PersistencePromise.forEach(t5.ds, ((r2) => n2.persistence.referenceDelegate.removeReference(e3, t5.targetId, r2)))))))));
       } catch (e3) {
         if (!__PRIVATE_isIndexedDbTransactionError(e3)) throw e3;
         __PRIVATE_logDebug(Ut, "Failed to update sequence numbers: " + e3);
       }
-      for (const e3 of t3) {
-        const t4 = e3.targetId;
+      for (const e3 of t4) {
+        const t5 = e3.targetId;
         if (!e3.fromCache) {
-          const e4 = n2.Ms.get(t4), r2 = e4.snapshotVersion, i2 = e4.withLastLimboFreeSnapshotVersion(r2);
-          n2.Ms = n2.Ms.insert(t4, i2);
+          const e4 = n2.Ms.get(t5), r2 = e4.snapshotVersion, i2 = e4.withLastLimboFreeSnapshotVersion(r2);
+          n2.Ms = n2.Ms.insert(t5, i2);
         }
       }
     })(r.localStore, s));
   }
-  async function __PRIVATE_syncEngineHandleCredentialChange(e, t2) {
+  async function __PRIVATE_syncEngineHandleCredentialChange(e, t3) {
     const n = __PRIVATE_debugCast(e);
-    if (!n.currentUser.isEqual(t2)) {
-      __PRIVATE_logDebug(sn, "User change. New user:", t2.toKey());
-      const e2 = await __PRIVATE_localStoreHandleUserChange(n.localStore, t2);
-      n.currentUser = t2, // Fails tasks waiting for pending writes requested by previous user.
-      (function __PRIVATE_rejectOutstandingPendingWritesCallbacks(e3, t3) {
+    if (!n.currentUser.isEqual(t3)) {
+      __PRIVATE_logDebug(sn, "User change. New user:", t3.toKey());
+      const e2 = await __PRIVATE_localStoreHandleUserChange(n.localStore, t3);
+      n.currentUser = t3, // Fails tasks waiting for pending writes requested by previous user.
+      (function __PRIVATE_rejectOutstandingPendingWritesCallbacks(e3, t4) {
         e3.mu.forEach(((e4) => {
           e4.forEach(((e5) => {
-            e5.reject(new FirestoreError(N.CANCELLED, t3));
+            e5.reject(new FirestoreError(N.CANCELLED, t4));
           }));
         })), e3.mu.clear();
       })(n, "'waitForPendingWrites' promise is rejected due to a user change."), // TODO(b/114226417): Consider calling this only in the primary tab.
-      n.sharedClientState.handleUserChange(t2, e2.removedBatchIds, e2.addedBatchIds), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(n, e2.Ls);
+      n.sharedClientState.handleUserChange(t3, e2.removedBatchIds, e2.addedBatchIds), await __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore(n, e2.Ls);
     }
   }
-  function __PRIVATE_syncEngineGetRemoteKeysForTarget(e, t2) {
-    const n = __PRIVATE_debugCast(e), r = n.Au.get(t2);
+  function __PRIVATE_syncEngineGetRemoteKeysForTarget(e, t3) {
+    const n = __PRIVATE_debugCast(e), r = n.Au.get(t3);
     if (r && r.hu) return __PRIVATE_documentKeySet().add(r.key);
     {
       let e2 = __PRIVATE_documentKeySet();
-      const r2 = n.Iu.get(t2);
+      const r2 = n.Iu.get(t3);
       if (!r2) return e2;
-      for (const t3 of r2) {
-        const r3 = n.Tu.get(t3);
+      for (const t4 of r2) {
+        const r3 = n.Tu.get(t4);
         e2 = e2.unionWith(r3.view.nu);
       }
       return e2;
     }
   }
   function __PRIVATE_ensureWatchCallbacks(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    return t2.remoteStore.remoteSyncer.applyRemoteEvent = __PRIVATE_syncEngineApplyRemoteEvent.bind(null, t2), t2.remoteStore.remoteSyncer.getRemoteKeysForTarget = __PRIVATE_syncEngineGetRemoteKeysForTarget.bind(null, t2), t2.remoteStore.remoteSyncer.rejectListen = __PRIVATE_syncEngineRejectListen.bind(null, t2), t2.Pu.H_ = __PRIVATE_eventManagerOnWatchChange.bind(null, t2.eventManager), t2.Pu.yu = __PRIVATE_eventManagerOnWatchError.bind(null, t2.eventManager), t2;
+    const t3 = __PRIVATE_debugCast(e);
+    return t3.remoteStore.remoteSyncer.applyRemoteEvent = __PRIVATE_syncEngineApplyRemoteEvent.bind(null, t3), t3.remoteStore.remoteSyncer.getRemoteKeysForTarget = __PRIVATE_syncEngineGetRemoteKeysForTarget.bind(null, t3), t3.remoteStore.remoteSyncer.rejectListen = __PRIVATE_syncEngineRejectListen.bind(null, t3), t3.Pu.H_ = __PRIVATE_eventManagerOnWatchChange.bind(null, t3.eventManager), t3.Pu.yu = __PRIVATE_eventManagerOnWatchError.bind(null, t3.eventManager), t3;
   }
   function __PRIVATE_syncEngineEnsureWriteCallbacks(e) {
-    const t2 = __PRIVATE_debugCast(e);
-    return t2.remoteStore.remoteSyncer.applySuccessfulWrite = __PRIVATE_syncEngineApplySuccessfulWrite.bind(null, t2), t2.remoteStore.remoteSyncer.rejectFailedWrite = __PRIVATE_syncEngineRejectFailedWrite.bind(null, t2), t2;
+    const t3 = __PRIVATE_debugCast(e);
+    return t3.remoteStore.remoteSyncer.applySuccessfulWrite = __PRIVATE_syncEngineApplySuccessfulWrite.bind(null, t3), t3.remoteStore.remoteSyncer.rejectFailedWrite = __PRIVATE_syncEngineRejectFailedWrite.bind(null, t3), t3;
   }
-  async function __PRIVATE_setOfflineComponentProvider(e, t2) {
+  async function __PRIVATE_setOfflineComponentProvider(e, t3) {
     e.asyncQueue.verifyOperationInProgress(), __PRIVATE_logDebug(on, "Initializing OfflineComponentProvider");
     const n = e.configuration;
-    await t2.initialize(n);
+    await t3.initialize(n);
     let r = n.initialUser;
     e.setCredentialChangeListener((async (e2) => {
-      r.isEqual(e2) || (await __PRIVATE_localStoreHandleUserChange(t2.localStore, e2), r = e2);
+      r.isEqual(e2) || (await __PRIVATE_localStoreHandleUserChange(t3.localStore, e2), r = e2);
     })), // When a user calls clearPersistence() in one client, all other clients
     // need to be terminated to allow the delete to succeed.
-    t2.persistence.setDatabaseDeletedListener((() => e.terminate())), e._offlineComponents = t2;
+    t3.persistence.setDatabaseDeletedListener((() => e.terminate())), e._offlineComponents = t3;
   }
-  async function __PRIVATE_setOnlineComponentProvider(e, t2) {
+  async function __PRIVATE_setOnlineComponentProvider(e, t3) {
     e.asyncQueue.verifyOperationInProgress();
     const n = await __PRIVATE_ensureOfflineComponents(e);
-    __PRIVATE_logDebug(on, "Initializing OnlineComponentProvider"), await t2.initialize(n, e.configuration), // The CredentialChangeListener of the online component provider takes
+    __PRIVATE_logDebug(on, "Initializing OnlineComponentProvider"), await t3.initialize(n, e.configuration), // The CredentialChangeListener of the online component provider takes
     // precedence over the offline component provider.
-    e.setCredentialChangeListener(((e2) => __PRIVATE_remoteStoreHandleCredentialChange(t2.remoteStore, e2))), e.setAppCheckTokenChangeListener(((e2, n2) => __PRIVATE_remoteStoreHandleCredentialChange(t2.remoteStore, n2))), e._onlineComponents = t2;
+    e.setCredentialChangeListener(((e2) => __PRIVATE_remoteStoreHandleCredentialChange(t3.remoteStore, e2))), e.setAppCheckTokenChangeListener(((e2, n2) => __PRIVATE_remoteStoreHandleCredentialChange(t3.remoteStore, n2))), e._onlineComponents = t3;
   }
   async function __PRIVATE_ensureOfflineComponents(e) {
     if (!e._offlineComponents) if (e._uninitializedComponentsProvider) {
       __PRIVATE_logDebug(on, "Using user provided OfflineComponentProvider");
       try {
         await __PRIVATE_setOfflineComponentProvider(e, e._uninitializedComponentsProvider._offline);
-      } catch (t2) {
-        const n = t2;
+      } catch (t3) {
+        const n = t3;
         if (!(function __PRIVATE_canFallbackFromIndexedDbError(e2) {
           return "FirebaseError" === e2.name ? e2.code === N.FAILED_PRECONDITION || e2.code === N.UNIMPLEMENTED : !("undefined" != typeof DOMException && e2 instanceof DOMException) || // When the browser is out of quota we could get either quota exceeded
           // or an aborted error depending on whether the error happened during
@@ -12193,15 +12193,15 @@
     return __PRIVATE_ensureOnlineComponents(e).then(((e2) => e2.syncEngine));
   }
   async function __PRIVATE_getEventManager(e) {
-    const t2 = await __PRIVATE_ensureOnlineComponents(e), n = t2.eventManager;
-    return n.onListen = __PRIVATE_syncEngineListen.bind(null, t2.syncEngine), n.onUnlisten = __PRIVATE_syncEngineUnlisten.bind(null, t2.syncEngine), n.onFirstRemoteStoreListen = __PRIVATE_triggerRemoteStoreListen.bind(null, t2.syncEngine), n.onLastRemoteStoreUnlisten = __PRIVATE_triggerRemoteStoreUnlisten.bind(null, t2.syncEngine), n;
+    const t3 = await __PRIVATE_ensureOnlineComponents(e), n = t3.eventManager;
+    return n.onListen = __PRIVATE_syncEngineListen.bind(null, t3.syncEngine), n.onUnlisten = __PRIVATE_syncEngineUnlisten.bind(null, t3.syncEngine), n.onFirstRemoteStoreListen = __PRIVATE_triggerRemoteStoreListen.bind(null, t3.syncEngine), n.onLastRemoteStoreUnlisten = __PRIVATE_triggerRemoteStoreUnlisten.bind(null, t3.syncEngine), n;
   }
-  function __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(e, t2, n = {}) {
+  function __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(e, t3, n = {}) {
     const r = new __PRIVATE_Deferred();
-    return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_readDocumentViaSnapshotListener(e2, t3, n2, r2, i) {
+    return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_readDocumentViaSnapshotListener(e2, t4, n2, r2, i) {
       const s = new __PRIVATE_AsyncObserver({
         next: (_) => {
-          s.Nu(), t3.enqueueAndForget((() => __PRIVATE_eventManagerUnlisten(e2, o)));
+          s.Nu(), t4.enqueueAndForget((() => __PRIVATE_eventManagerUnlisten(e2, o)));
           const a = _.docs.has(n2);
           !a && _.fromCache ? (
             // TODO(dimond): If we're online and the document doesn't
@@ -12220,14 +12220,14 @@
         qa: true
       });
       return __PRIVATE_eventManagerListen(e2, o);
-    })(await __PRIVATE_getEventManager(e), e.asyncQueue, t2, n, r))), r.promise;
+    })(await __PRIVATE_getEventManager(e), e.asyncQueue, t3, n, r))), r.promise;
   }
-  function __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(e, t2, n = {}) {
+  function __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(e, t3, n = {}) {
     const r = new __PRIVATE_Deferred();
-    return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_executeQueryViaSnapshotListener(e2, t3, n2, r2, i) {
+    return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_executeQueryViaSnapshotListener(e2, t4, n2, r2, i) {
       const s = new __PRIVATE_AsyncObserver({
         next: (n3) => {
-          s.Nu(), t3.enqueueAndForget((() => __PRIVATE_eventManagerUnlisten(e2, o))), n3.fromCache && "server" === r2.source ? i.reject(new FirestoreError(N.UNAVAILABLE, 'Failed to get documents from server. (However, these documents may exist in the local cache. Run again without setting source to "server" to retrieve the cached documents.)')) : i.resolve(n3);
+          s.Nu(), t4.enqueueAndForget((() => __PRIVATE_eventManagerUnlisten(e2, o))), n3.fromCache && "server" === r2.source ? i.reject(new FirestoreError(N.UNAVAILABLE, 'Failed to get documents from server. (However, these documents may exist in the local cache. Run again without setting source to "server" to retrieve the cached documents.)')) : i.resolve(n3);
         },
         error: (e3) => i.reject(e3)
       }), o = new __PRIVATE_QueryListener(n2, s, {
@@ -12235,15 +12235,15 @@
         qa: true
       });
       return __PRIVATE_eventManagerListen(e2, o);
-    })(await __PRIVATE_getEventManager(e), e.asyncQueue, t2, n, r))), r.promise;
+    })(await __PRIVATE_getEventManager(e), e.asyncQueue, t3, n, r))), r.promise;
   }
   function __PRIVATE_cloneLongPollingOptions(e) {
-    const t2 = {};
-    return void 0 !== e.timeoutSeconds && (t2.timeoutSeconds = e.timeoutSeconds), t2;
+    const t3 = {};
+    return void 0 !== e.timeoutSeconds && (t3.timeoutSeconds = e.timeoutSeconds), t3;
   }
-  function collection(e, t2, ...n) {
-    if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t2), e instanceof Firestore$1) {
-      const r = ResourcePath.fromString(t2, ...n);
+  function collection(e, t3, ...n) {
+    if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t3), e instanceof Firestore$1) {
+      const r = ResourcePath.fromString(t3, ...n);
       return __PRIVATE_validateCollectionPath(r), new CollectionReference(
         e,
         /* converter= */
@@ -12253,7 +12253,7 @@
     }
     {
       if (!(e instanceof DocumentReference || e instanceof CollectionReference)) throw new FirestoreError(N.INVALID_ARGUMENT, "Expected first argument to collection() to be a CollectionReference, a DocumentReference or FirebaseFirestore");
-      const r = e._path.child(ResourcePath.fromString(t2, ...n));
+      const r = e._path.child(ResourcePath.fromString(t3, ...n));
       return __PRIVATE_validateCollectionPath(r), new CollectionReference(
         e.firestore,
         /* converter= */
@@ -12262,11 +12262,11 @@
       );
     }
   }
-  function doc(e, t2, ...n) {
+  function doc(e, t3, ...n) {
     if (e = getModularInstance(e), // We allow omission of 'pathString' but explicitly prohibit passing in both
     // 'undefined' and 'null'.
-    1 === arguments.length && (t2 = __PRIVATE_AutoId.newId()), __PRIVATE_validateNonEmptyArgument("doc", "path", t2), e instanceof Firestore$1) {
-      const r = ResourcePath.fromString(t2, ...n);
+    1 === arguments.length && (t3 = __PRIVATE_AutoId.newId()), __PRIVATE_validateNonEmptyArgument("doc", "path", t3), e instanceof Firestore$1) {
+      const r = ResourcePath.fromString(t3, ...n);
       return __PRIVATE_validateDocumentPath(r), new DocumentReference(
         e,
         /* converter= */
@@ -12276,36 +12276,36 @@
     }
     {
       if (!(e instanceof DocumentReference || e instanceof CollectionReference)) throw new FirestoreError(N.INVALID_ARGUMENT, "Expected first argument to doc() to be a CollectionReference, a DocumentReference or FirebaseFirestore");
-      const r = e._path.child(ResourcePath.fromString(t2, ...n));
+      const r = e._path.child(ResourcePath.fromString(t3, ...n));
       return __PRIVATE_validateDocumentPath(r), new DocumentReference(e.firestore, e instanceof CollectionReference ? e.converter : null, new DocumentKey(r));
     }
   }
   function __PRIVATE_getMessageOrStack(e) {
-    let t2 = e.message || "";
-    return e.stack && (t2 = e.stack.includes(e.message) ? e.stack : e.message + "\n" + e.stack), t2;
+    let t3 = e.message || "";
+    return e.stack && (t3 = e.stack.includes(e.message) ? e.stack : e.message + "\n" + e.stack), t3;
   }
   function __PRIVATE_isPartialObserver(e) {
-    return (function __PRIVATE_implementsAnyMethods(e2, t2) {
+    return (function __PRIVATE_implementsAnyMethods(e2, t3) {
       if ("object" != typeof e2 || null === e2) return false;
       const n = e2;
-      for (const e3 of t2) if (e3 in n && "function" == typeof n[e3]) return true;
+      for (const e3 of t3) if (e3 in n && "function" == typeof n[e3]) return true;
       return false;
     })(e, ["next", "error", "complete"]);
   }
-  function initializeFirestore(e, t2, n) {
+  function initializeFirestore(e, t3, n) {
     n || (n = lt);
     const r = _getProvider(e, "firestore");
     if (r.isInitialized(n)) {
       const e2 = r.getImmediate({
         identifier: n
       }), i = r.getOptions(n);
-      if (deepEqual(i, t2)) return e2;
+      if (deepEqual(i, t3)) return e2;
       throw new FirestoreError(N.FAILED_PRECONDITION, "initializeFirestore() has already been called with different options. To avoid this error, call initializeFirestore() with the same options as when it was originally called, or call getFirestore() to return the already initialized instance.");
     }
-    if (void 0 !== t2.cacheSizeBytes && void 0 !== t2.localCache) throw new FirestoreError(N.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
-    if (void 0 !== t2.cacheSizeBytes && -1 !== t2.cacheSizeBytes && t2.cacheSizeBytes < Bt) throw new FirestoreError(N.INVALID_ARGUMENT, "cacheSizeBytes must be at least 1048576");
-    return t2.host && isCloudWorkstation(t2.host) && pingServer(t2.host), r.initialize({
-      options: t2,
+    if (void 0 !== t3.cacheSizeBytes && void 0 !== t3.localCache) throw new FirestoreError(N.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
+    if (void 0 !== t3.cacheSizeBytes && -1 !== t3.cacheSizeBytes && t3.cacheSizeBytes < Bt) throw new FirestoreError(N.INVALID_ARGUMENT, "cacheSizeBytes must be at least 1048576");
+    return t3.host && isCloudWorkstation(t3.host) && pingServer(t3.host), r.initialize({
+      options: t3,
       instanceIdentifier: n
     });
   }
@@ -12314,17 +12314,17 @@
     return e._firestoreClient || __PRIVATE_configureFirestore(e), e._firestoreClient;
   }
   function __PRIVATE_configureFirestore(e) {
-    const t2 = e._freezeSettings(), n = (function __PRIVATE_makeDatabaseInfo(e2, t3, n2, r) {
-      return new DatabaseInfo(e2, t3, n2, r.host, r.ssl, r.experimentalForceLongPolling, r.experimentalAutoDetectLongPolling, __PRIVATE_cloneLongPollingOptions(r.experimentalLongPollingOptions), r.useFetchStreams, r.isUsingEmulator);
-    })(e._databaseId, e._app?.options.appId || "", e._persistenceKey, t2);
-    e._componentsProvider || t2.localCache?._offlineComponentProvider && t2.localCache?._onlineComponentProvider && (e._componentsProvider = {
-      _offline: t2.localCache._offlineComponentProvider,
-      _online: t2.localCache._onlineComponentProvider
+    const t3 = e._freezeSettings(), n = (function __PRIVATE_makeDatabaseInfo(e2, t4, n2, r) {
+      return new DatabaseInfo(e2, t4, n2, r.host, r.ssl, r.experimentalForceLongPolling, r.experimentalAutoDetectLongPolling, __PRIVATE_cloneLongPollingOptions(r.experimentalLongPollingOptions), r.useFetchStreams, r.isUsingEmulator);
+    })(e._databaseId, e._app?.options.appId || "", e._persistenceKey, t3);
+    e._componentsProvider || t3.localCache?._offlineComponentProvider && t3.localCache?._onlineComponentProvider && (e._componentsProvider = {
+      _offline: t3.localCache._offlineComponentProvider,
+      _online: t3.localCache._onlineComponentProvider
     }), e._firestoreClient = new FirestoreClient(e._authCredentials, e._appCheckCredentials, e._queue, n, e._componentsProvider && (function __PRIVATE_buildComponentProvider(e2) {
-      const t3 = e2?._online.build();
+      const t4 = e2?._online.build();
       return {
-        _offline: e2?._offline.build(t3),
-        _online: t3
+        _offline: e2?._offline.build(t4),
+        _online: t4
       };
     })(e._componentsProvider));
   }
@@ -12346,11 +12346,11 @@
     }
   }
   function __PRIVATE_newUserDataReader(e) {
-    const t2 = e._freezeSettings(), n = __PRIVATE_newSerializer(e._databaseId);
-    return new __PRIVATE_UserDataReader(e._databaseId, !!t2.ignoreUndefinedProperties, n);
+    const t3 = e._freezeSettings(), n = __PRIVATE_newSerializer(e._databaseId);
+    return new __PRIVATE_UserDataReader(e._databaseId, !!t3.ignoreUndefinedProperties, n);
   }
-  function __PRIVATE_parseSetData(e, t2, n, r, i, s = {}) {
-    const o = e.Cc(s.merge || s.mergeFields ? 2 : 0, t2, n, i);
+  function __PRIVATE_parseSetData(e, t3, n, r, i, s = {}) {
+    const o = e.Cc(s.merge || s.mergeFields ? 2 : 0, t3, n, i);
     __PRIVATE_validatePlainObject("Data must be an object, but it was:", o, r);
     const _ = __PRIVATE_parseObject(r, o);
     let a, u;
@@ -12358,7 +12358,7 @@
     else if (s.mergeFields) {
       const e2 = [];
       for (const r2 of s.mergeFields) {
-        const i2 = __PRIVATE_fieldPathFromArgument$1(t2, r2, n);
+        const i2 = __PRIVATE_fieldPathFromArgument$1(t3, r2, n);
         if (!o.contains(i2)) throw new FirestoreError(N.INVALID_ARGUMENT, `Field '${i2}' is specified in your field mask but missing from your input data.`);
         __PRIVATE_fieldMaskContains(e2, i2) || e2.push(i2);
       }
@@ -12366,12 +12366,12 @@
     } else a = null, u = o.fieldTransforms;
     return new ParsedSetData(new ObjectValue(_), a, u);
   }
-  function __PRIVATE_parseUpdateData(e, t2, n, r) {
-    const i = e.Cc(1, t2, n);
+  function __PRIVATE_parseUpdateData(e, t3, n, r) {
+    const i = e.Cc(1, t3, n);
     __PRIVATE_validatePlainObject("Data must be an object, but it was:", i, r);
     const s = [], o = ObjectValue.empty();
     forEach(r, ((e2, r2) => {
-      const _2 = __PRIVATE_fieldPathFromDotSeparatedString(t2, e2, n);
+      const _2 = __PRIVATE_fieldPathFromDotSeparatedString(t3, e2, n);
       r2 = getModularInstance(r2);
       const a = i.yc(_2);
       if (r2 instanceof __PRIVATE_DeleteFieldValueImpl)
@@ -12384,55 +12384,55 @@
     const _ = new FieldMask(s);
     return new ParsedUpdateData(o, _, i.fieldTransforms);
   }
-  function __PRIVATE_parseUpdateVarargs(e, t2, n, r, i, s) {
-    const o = e.Cc(1, t2, n), _ = [__PRIVATE_fieldPathFromArgument$1(t2, r, n)], a = [i];
-    if (s.length % 2 != 0) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${t2}() needs to be called with an even number of arguments that alternate between field names and values.`);
-    for (let e2 = 0; e2 < s.length; e2 += 2) _.push(__PRIVATE_fieldPathFromArgument$1(t2, s[e2])), a.push(s[e2 + 1]);
+  function __PRIVATE_parseUpdateVarargs(e, t3, n, r, i, s) {
+    const o = e.Cc(1, t3, n), _ = [__PRIVATE_fieldPathFromArgument$1(t3, r, n)], a = [i];
+    if (s.length % 2 != 0) throw new FirestoreError(N.INVALID_ARGUMENT, `Function ${t3}() needs to be called with an even number of arguments that alternate between field names and values.`);
+    for (let e2 = 0; e2 < s.length; e2 += 2) _.push(__PRIVATE_fieldPathFromArgument$1(t3, s[e2])), a.push(s[e2 + 1]);
     const u = [], c = ObjectValue.empty();
     for (let e2 = _.length - 1; e2 >= 0; --e2) if (!__PRIVATE_fieldMaskContains(u, _[e2])) {
-      const t3 = _[e2];
+      const t4 = _[e2];
       let n2 = a[e2];
       n2 = getModularInstance(n2);
-      const r2 = o.yc(t3);
+      const r2 = o.yc(t4);
       if (n2 instanceof __PRIVATE_DeleteFieldValueImpl)
-        u.push(t3);
+        u.push(t4);
       else {
         const e3 = __PRIVATE_parseData(n2, r2);
-        null != e3 && (u.push(t3), c.set(t3, e3));
+        null != e3 && (u.push(t4), c.set(t4, e3));
       }
     }
     const l = new FieldMask(u);
     return new ParsedUpdateData(c, l, o.fieldTransforms);
   }
-  function __PRIVATE_parseQueryValue(e, t2, n, r = false) {
-    return __PRIVATE_parseData(n, e.Cc(r ? 4 : 3, t2));
+  function __PRIVATE_parseQueryValue(e, t3, n, r = false) {
+    return __PRIVATE_parseData(n, e.Cc(r ? 4 : 3, t3));
   }
-  function __PRIVATE_parseData(e, t2) {
+  function __PRIVATE_parseData(e, t3) {
     if (__PRIVATE_looksLikeJsonObject(
       // Unwrap the API type from the Compat SDK. This will return the API type
       // from firestore-exp.
       e = getModularInstance(e)
-    )) return __PRIVATE_validatePlainObject("Unsupported field value:", t2, e), __PRIVATE_parseObject(e, t2);
+    )) return __PRIVATE_validatePlainObject("Unsupported field value:", t3, e), __PRIVATE_parseObject(e, t3);
     if (e instanceof FieldValue)
-      return (function __PRIVATE_parseSentinelFieldValue(e2, t3) {
-        if (!__PRIVATE_isWrite(t3.Ac)) throw t3.Sc(`${e2._methodName}() can only be used with update() and set()`);
-        if (!t3.path) throw t3.Sc(`${e2._methodName}() is not currently supported inside arrays`);
-        const n = e2._toFieldTransform(t3);
-        n && t3.fieldTransforms.push(n);
-      })(e, t2), null;
-    if (void 0 === e && t2.ignoreUndefinedProperties)
+      return (function __PRIVATE_parseSentinelFieldValue(e2, t4) {
+        if (!__PRIVATE_isWrite(t4.Ac)) throw t4.Sc(`${e2._methodName}() can only be used with update() and set()`);
+        if (!t4.path) throw t4.Sc(`${e2._methodName}() is not currently supported inside arrays`);
+        const n = e2._toFieldTransform(t4);
+        n && t4.fieldTransforms.push(n);
+      })(e, t3), null;
+    if (void 0 === e && t3.ignoreUndefinedProperties)
       return null;
     if (
       // If context.path is null we are inside an array and we don't support
       // field mask paths more granular than the top-level array.
-      t2.path && t2.fieldMask.push(t2.path), e instanceof Array
+      t3.path && t3.fieldMask.push(t3.path), e instanceof Array
     ) {
-      if (t2.settings.fc && 4 !== t2.Ac) throw t2.Sc("Nested arrays are not supported");
-      return (function __PRIVATE_parseArray(e2, t3) {
+      if (t3.settings.fc && 4 !== t3.Ac) throw t3.Sc("Nested arrays are not supported");
+      return (function __PRIVATE_parseArray(e2, t4) {
         const n = [];
         let r = 0;
         for (const i of e2) {
-          let e3 = __PRIVATE_parseData(i, t3.wc(r));
+          let e3 = __PRIVATE_parseData(i, t4.wc(r));
           null == e3 && // Just include nulls in the array for fields being replaced with a
           // sentinel.
           (e3 = {
@@ -12444,13 +12444,13 @@
             values: n
           }
         };
-      })(e, t2);
+      })(e, t3);
     }
-    return (function __PRIVATE_parseScalarValue(e2, t3) {
+    return (function __PRIVATE_parseScalarValue(e2, t4) {
       if (null === (e2 = getModularInstance(e2))) return {
         nullValue: "NULL_VALUE"
       };
-      if ("number" == typeof e2) return toNumber(t3.serializer, e2);
+      if ("number" == typeof e2) return toNumber(t4.serializer, e2);
       if ("boolean" == typeof e2) return {
         booleanValue: e2
       };
@@ -12460,13 +12460,13 @@
       if (e2 instanceof Date) {
         const n = Timestamp.fromDate(e2);
         return {
-          timestampValue: toTimestamp(t3.serializer, n)
+          timestampValue: toTimestamp(t4.serializer, n)
         };
       }
       if (e2 instanceof Timestamp) {
         const n = new Timestamp(e2.seconds, 1e3 * Math.floor(e2.nanoseconds / 1e3));
         return {
-          timestampValue: toTimestamp(t3.serializer, n)
+          timestampValue: toTimestamp(t4.serializer, n)
         };
       }
       if (e2 instanceof GeoPoint) return {
@@ -12476,17 +12476,17 @@
         }
       };
       if (e2 instanceof Bytes) return {
-        bytesValue: __PRIVATE_toBytes(t3.serializer, e2._byteString)
+        bytesValue: __PRIVATE_toBytes(t4.serializer, e2._byteString)
       };
       if (e2 instanceof DocumentReference) {
-        const n = t3.databaseId, r = e2.firestore._databaseId;
-        if (!r.isEqual(n)) throw t3.Sc(`Document reference is for database ${r.projectId}/${r.database} but should be for database ${n.projectId}/${n.database}`);
+        const n = t4.databaseId, r = e2.firestore._databaseId;
+        if (!r.isEqual(n)) throw t4.Sc(`Document reference is for database ${r.projectId}/${r.database} but should be for database ${n.projectId}/${n.database}`);
         return {
-          referenceValue: __PRIVATE_toResourceName(e2.firestore._databaseId || t3.databaseId, e2._key.path)
+          referenceValue: __PRIVATE_toResourceName(e2.firestore._databaseId || t4.databaseId, e2._key.path)
         };
       }
       if (e2 instanceof VectorValue)
-        return (function __PRIVATE_parseVectorValue(e3, t4) {
+        return (function __PRIVATE_parseVectorValue(e3, t5) {
           const n = {
             fields: {
               [ht]: {
@@ -12495,8 +12495,8 @@
               [Et]: {
                 arrayValue: {
                   values: e3.toArray().map(((e4) => {
-                    if ("number" != typeof e4) throw t4.Sc("VectorValues must only contain numeric values.");
-                    return __PRIVATE_toDouble(t4.serializer, e4);
+                    if ("number" != typeof e4) throw t5.Sc("VectorValues must only contain numeric values.");
+                    return __PRIVATE_toDouble(t5.serializer, e4);
                   }))
                 }
               }
@@ -12505,18 +12505,18 @@
           return {
             mapValue: n
           };
-        })(e2, t3);
-      throw t3.Sc(`Unsupported field value: ${__PRIVATE_valueDescription(e2)}`);
-    })(e, t2);
+        })(e2, t4);
+      throw t4.Sc(`Unsupported field value: ${__PRIVATE_valueDescription(e2)}`);
+    })(e, t3);
   }
-  function __PRIVATE_parseObject(e, t2) {
+  function __PRIVATE_parseObject(e, t3) {
     const n = {};
     return isEmpty(e) ? (
       // If we encounter an empty object, we explicitly add it to the update
       // mask to ensure that the server creates a map entry.
-      t2.path && t2.path.length > 0 && t2.fieldMask.push(t2.path)
+      t3.path && t3.path.length > 0 && t3.fieldMask.push(t3.path)
     ) : forEach(e, ((e2, r) => {
-      const i = __PRIVATE_parseData(r, t2.mc(e2));
+      const i = __PRIVATE_parseData(r, t3.mc(e2));
       null != i && (n[e2] = i);
     })), {
       mapValue: {
@@ -12527,19 +12527,19 @@
   function __PRIVATE_looksLikeJsonObject(e) {
     return !("object" != typeof e || null === e || e instanceof Array || e instanceof Date || e instanceof Timestamp || e instanceof GeoPoint || e instanceof Bytes || e instanceof DocumentReference || e instanceof FieldValue || e instanceof VectorValue);
   }
-  function __PRIVATE_validatePlainObject(e, t2, n) {
+  function __PRIVATE_validatePlainObject(e, t3, n) {
     if (!__PRIVATE_looksLikeJsonObject(n) || !__PRIVATE_isPlainObject(n)) {
       const r = __PRIVATE_valueDescription(n);
-      throw "an object" === r ? t2.Sc(e + " a custom object") : t2.Sc(e + " " + r);
+      throw "an object" === r ? t3.Sc(e + " a custom object") : t3.Sc(e + " " + r);
     }
   }
-  function __PRIVATE_fieldPathFromArgument$1(e, t2, n) {
+  function __PRIVATE_fieldPathFromArgument$1(e, t3, n) {
     if (
       // If required, replace the FieldPath Compat class with the firestore-exp
       // FieldPath.
-      (t2 = getModularInstance(t2)) instanceof FieldPath
-    ) return t2._internalPath;
-    if ("string" == typeof t2) return __PRIVATE_fieldPathFromDotSeparatedString(e, t2);
+      (t3 = getModularInstance(t3)) instanceof FieldPath
+    ) return t3._internalPath;
+    if ("string" == typeof t3) return __PRIVATE_fieldPathFromDotSeparatedString(e, t3);
     throw __PRIVATE_createError(
       "Field path arguments must be of type string or ",
       e,
@@ -12550,9 +12550,9 @@
       n
     );
   }
-  function __PRIVATE_fieldPathFromDotSeparatedString(e, t2, n) {
-    if (t2.search(Pn) >= 0) throw __PRIVATE_createError(
-      `Invalid field path (${t2}). Paths must not contain '~', '*', '/', '[', or ']'`,
+  function __PRIVATE_fieldPathFromDotSeparatedString(e, t3, n) {
+    if (t3.search(Pn) >= 0) throw __PRIVATE_createError(
+      `Invalid field path (${t3}). Paths must not contain '~', '*', '/', '[', or ']'`,
       e,
       /* hasConverter= */
       false,
@@ -12561,10 +12561,10 @@
       n
     );
     try {
-      return new FieldPath(...t2.split("."))._internalPath;
+      return new FieldPath(...t3.split("."))._internalPath;
     } catch (r) {
       throw __PRIVATE_createError(
-        `Invalid field path (${t2}). Paths must not be empty, begin with '.', end with '.', or contain '..'`,
+        `Invalid field path (${t3}). Paths must not be empty, begin with '.', end with '.', or contain '..'`,
         e,
         /* hasConverter= */
         false,
@@ -12574,37 +12574,37 @@
       );
     }
   }
-  function __PRIVATE_createError(e, t2, n, r, i) {
+  function __PRIVATE_createError(e, t3, n, r, i) {
     const s = r && !r.isEmpty(), o = void 0 !== i;
-    let _ = `Function ${t2}() called with invalid data`;
+    let _ = `Function ${t3}() called with invalid data`;
     n && (_ += " (via `toFirestore()`)"), _ += ". ";
     let a = "";
     return (s || o) && (a += " (found", s && (a += ` in field ${r}`), o && (a += ` in document ${i}`), a += ")"), new FirestoreError(N.INVALID_ARGUMENT, _ + e + a);
   }
-  function __PRIVATE_fieldMaskContains(e, t2) {
-    return e.some(((e2) => e2.isEqual(t2)));
+  function __PRIVATE_fieldMaskContains(e, t3) {
+    return e.some(((e2) => e2.isEqual(t3)));
   }
-  function __PRIVATE_fieldPathFromArgument(e, t2) {
-    return "string" == typeof t2 ? __PRIVATE_fieldPathFromDotSeparatedString(e, t2) : t2 instanceof FieldPath ? t2._internalPath : t2._delegate._internalPath;
+  function __PRIVATE_fieldPathFromArgument(e, t3) {
+    return "string" == typeof t3 ? __PRIVATE_fieldPathFromDotSeparatedString(e, t3) : t3 instanceof FieldPath ? t3._internalPath : t3._delegate._internalPath;
   }
   function __PRIVATE_validateHasExplicitOrderByForLimitToLast(e) {
     if ("L" === e.limitType && 0 === e.explicitOrderBy.length) throw new FirestoreError(N.UNIMPLEMENTED, "limitToLast() queries require specifying at least one orderBy() clause");
   }
-  function query(e, t2, ...n) {
+  function query(e, t3, ...n) {
     let r = [];
-    t2 instanceof AppliableConstraint && r.push(t2), r = r.concat(n), (function __PRIVATE_validateQueryConstraintArray(e2) {
-      const t3 = e2.filter(((e3) => e3 instanceof QueryCompositeFilterConstraint)).length, n2 = e2.filter(((e3) => e3 instanceof QueryFieldFilterConstraint)).length;
-      if (t3 > 1 || t3 > 0 && n2 > 0) throw new FirestoreError(N.INVALID_ARGUMENT, "InvalidQuery. When using composite filters, you cannot use more than one filter at the top level. Consider nesting the multiple filters within an `and(...)` statement. For example: change `query(query, where(...), or(...))` to `query(query, and(where(...), or(...)))`.");
+    t3 instanceof AppliableConstraint && r.push(t3), r = r.concat(n), (function __PRIVATE_validateQueryConstraintArray(e2) {
+      const t4 = e2.filter(((e3) => e3 instanceof QueryCompositeFilterConstraint)).length, n2 = e2.filter(((e3) => e3 instanceof QueryFieldFilterConstraint)).length;
+      if (t4 > 1 || t4 > 0 && n2 > 0) throw new FirestoreError(N.INVALID_ARGUMENT, "InvalidQuery. When using composite filters, you cannot use more than one filter at the top level. Consider nesting the multiple filters within an `and(...)` statement. For example: change `query(query, where(...), or(...))` to `query(query, and(where(...), or(...)))`.");
     })(r);
-    for (const t3 of r) e = t3._apply(e);
+    for (const t4 of r) e = t4._apply(e);
     return e;
   }
-  function where(e, t2, n) {
-    const r = t2, i = __PRIVATE_fieldPathFromArgument("where", e);
+  function where(e, t3, n) {
+    const r = t3, i = __PRIVATE_fieldPathFromArgument("where", e);
     return QueryFieldFilterConstraint._create(i, r, n);
   }
-  function orderBy(e, t2 = "asc") {
-    const n = t2, r = __PRIVATE_fieldPathFromArgument("orderBy", e);
+  function orderBy(e, t3 = "asc") {
+    const n = t3, r = __PRIVATE_fieldPathFromArgument("orderBy", e);
     return QueryOrderByConstraint._create(r, n);
   }
   function limit(e) {
@@ -12623,11 +12623,11 @@
       false
     );
   }
-  function __PRIVATE_newQueryBoundFromDocOrFields(e, t2, n, r) {
-    if (n[0] = getModularInstance(n[0]), n[0] instanceof DocumentSnapshot$1) return (function __PRIVATE_newQueryBoundFromDocument(e2, t3, n2, r2, i) {
+  function __PRIVATE_newQueryBoundFromDocOrFields(e, t3, n, r) {
+    if (n[0] = getModularInstance(n[0]), n[0] instanceof DocumentSnapshot$1) return (function __PRIVATE_newQueryBoundFromDocument(e2, t4, n2, r2, i) {
       if (!r2) throw new FirestoreError(N.NOT_FOUND, `Can't use a DocumentSnapshot that doesn't exist for ${n2}().`);
       const s = [];
-      for (const n3 of __PRIVATE_queryNormalizedOrderBy(e2)) if (n3.field.isKeyField()) s.push(__PRIVATE_refValue(t3, r2.key));
+      for (const n3 of __PRIVATE_queryNormalizedOrderBy(e2)) if (n3.field.isKeyField()) s.push(__PRIVATE_refValue(t4, r2.key));
       else {
         const e3 = r2.data.field(n3.field);
         if (__PRIVATE_isServerTimestamp(e3)) throw new FirestoreError(N.INVALID_ARGUMENT, 'Invalid query. You are trying to start or end a query using a document for which the field "' + n3.field + '" is an uncommitted server timestamp. (Since the value of this field is unknown, you cannot start/end a query with it.)');
@@ -12638,10 +12638,10 @@
         s.push(e3);
       }
       return new Bound(s, i);
-    })(e._query, e.firestore._databaseId, t2, n[0]._document, r);
+    })(e._query, e.firestore._databaseId, t3, n[0]._document, r);
     {
       const i = __PRIVATE_newUserDataReader(e.firestore);
-      return (function __PRIVATE_newQueryBoundFromFields(e2, t3, n2, r2, i2, s) {
+      return (function __PRIVATE_newQueryBoundFromFields(e2, t4, n2, r2, i2, s) {
         const o = e2.explicitOrderBy;
         if (i2.length > o.length) throw new FirestoreError(N.INVALID_ARGUMENT, `Too many arguments provided to ${r2}(). The number of arguments must be less than or equal to the number of orderBy() clauses`);
         const _ = [];
@@ -12653,33 +12653,33 @@
             const n3 = e2.path.child(ResourcePath.fromString(a));
             if (!DocumentKey.isDocumentKey(n3)) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. When querying a collection group and ordering by documentId(), the value passed to ${r2}() must result in a valid document path, but '${n3}' is not because it contains an odd number of segments.`);
             const i3 = new DocumentKey(n3);
-            _.push(__PRIVATE_refValue(t3, i3));
+            _.push(__PRIVATE_refValue(t4, i3));
           } else {
             const e3 = __PRIVATE_parseQueryValue(n2, r2, a);
             _.push(e3);
           }
         }
         return new Bound(_, s);
-      })(e._query, e.firestore._databaseId, i, t2, n, r);
+      })(e._query, e.firestore._databaseId, i, t3, n, r);
     }
   }
-  function __PRIVATE_parseDocumentIdValue(e, t2, n) {
+  function __PRIVATE_parseDocumentIdValue(e, t3, n) {
     if ("string" == typeof (n = getModularInstance(n))) {
       if ("" === n) throw new FirestoreError(N.INVALID_ARGUMENT, "Invalid query. When querying with documentId(), you must provide a valid document ID, but it was an empty string.");
-      if (!__PRIVATE_isCollectionGroupQuery(t2) && -1 !== n.indexOf("/")) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. When querying a collection by documentId(), you must provide a plain document ID, but '${n}' contains a '/' character.`);
-      const r = t2.path.child(ResourcePath.fromString(n));
+      if (!__PRIVATE_isCollectionGroupQuery(t3) && -1 !== n.indexOf("/")) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. When querying a collection by documentId(), you must provide a plain document ID, but '${n}' contains a '/' character.`);
+      const r = t3.path.child(ResourcePath.fromString(n));
       if (!DocumentKey.isDocumentKey(r)) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. When querying a collection group by documentId(), the value provided must result in a valid document path, but '${r}' is not because it has an odd number of segments (${r.length}).`);
       return __PRIVATE_refValue(e, new DocumentKey(r));
     }
     if (n instanceof DocumentReference) return __PRIVATE_refValue(e, n._key);
     throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. When querying with documentId(), you must provide a valid string or a DocumentReference, but it was: ${__PRIVATE_valueDescription(n)}.`);
   }
-  function __PRIVATE_validateDisjunctiveFilterElements(e, t2) {
-    if (!Array.isArray(e) || 0 === e.length) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid Query. A non-empty array is required for '${t2.toString()}' filters.`);
+  function __PRIVATE_validateDisjunctiveFilterElements(e, t3) {
+    if (!Array.isArray(e) || 0 === e.length) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid Query. A non-empty array is required for '${t3.toString()}' filters.`);
   }
-  function __PRIVATE_validateNewFieldFilter(e, t2) {
-    const n = (function __PRIVATE_findOpInsideFilters(e2, t3) {
-      for (const n2 of e2) for (const e3 of n2.getFlattenedFilters()) if (t3.indexOf(e3.op) >= 0) return e3.op;
+  function __PRIVATE_validateNewFieldFilter(e, t3) {
+    const n = (function __PRIVATE_findOpInsideFilters(e2, t4) {
+      for (const n2 of e2) for (const e3 of n2.getFlattenedFilters()) if (t4.indexOf(e3.op) >= 0) return e3.op;
       return null;
     })(e.filters, (function __PRIVATE_conflictingOps(e2) {
       switch (e2) {
@@ -12706,13 +12706,13 @@
         default:
           return [];
       }
-    })(t2.op));
+    })(t3.op));
     if (null !== n)
-      throw n === t2.op ? new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. You cannot use more than one '${t2.op.toString()}' filter.`) : new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. You cannot use '${t2.op.toString()}' filters with '${n.toString()}' filters.`);
+      throw n === t3.op ? new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. You cannot use more than one '${t3.op.toString()}' filter.`) : new FirestoreError(N.INVALID_ARGUMENT, `Invalid query. You cannot use '${t3.op.toString()}' filters with '${n.toString()}' filters.`);
   }
-  function __PRIVATE_applyFirestoreDataConverter(e, t2, n) {
+  function __PRIVATE_applyFirestoreDataConverter(e, t3, n) {
     let r;
-    return r = e ? n && (n.merge || n.mergeFields) ? e.toFirestore(t2, n) : e.toFirestore(t2) : t2, r;
+    return r = e ? n && (n.merge || n.mergeFields) ? e.toFirestore(t3, n) : e.toFirestore(t3) : t3, r;
   }
   function __PRIVATE_resultChangeType(e) {
     switch (e) {
@@ -12731,64 +12731,64 @@
   }
   function getDoc(e) {
     e = __PRIVATE_cast(e, DocumentReference);
-    const t2 = __PRIVATE_cast(e.firestore, Firestore);
-    return __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(ensureFirestoreConfigured(t2), e._key).then(((n) => __PRIVATE_convertToDocSnapshot(t2, e, n)));
+    const t3 = __PRIVATE_cast(e.firestore, Firestore);
+    return __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(ensureFirestoreConfigured(t3), e._key).then(((n) => __PRIVATE_convertToDocSnapshot(t3, e, n)));
   }
   function getDocs(e) {
     e = __PRIVATE_cast(e, Query);
-    const t2 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t2), r = new __PRIVATE_ExpUserDataWriter(t2);
-    return __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query), __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query).then(((n2) => new QuerySnapshot(t2, r, e, n2)));
+    const t3 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t3), r = new __PRIVATE_ExpUserDataWriter(t3);
+    return __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query), __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query).then(((n2) => new QuerySnapshot(t3, r, e, n2)));
   }
   function getDocsFromServer(e) {
     e = __PRIVATE_cast(e, Query);
-    const t2 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t2), r = new __PRIVATE_ExpUserDataWriter(t2);
+    const t3 = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t3), r = new __PRIVATE_ExpUserDataWriter(t3);
     return __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query, {
       source: "server"
-    }).then(((n2) => new QuerySnapshot(t2, r, e, n2)));
+    }).then(((n2) => new QuerySnapshot(t3, r, e, n2)));
   }
-  function setDoc(e, t2, n) {
+  function setDoc(e, t3, n) {
     e = __PRIVATE_cast(e, DocumentReference);
-    const r = __PRIVATE_cast(e.firestore, Firestore), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t2, n);
+    const r = __PRIVATE_cast(e.firestore, Firestore), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t3, n);
     return executeWrite(r, [__PRIVATE_parseSetData(__PRIVATE_newUserDataReader(r), "setDoc", e._key, i, null !== e.converter, n).toMutation(e._key, Precondition.none())]);
   }
-  function updateDoc(e, t2, n, ...r) {
+  function updateDoc(e, t3, n, ...r) {
     e = __PRIVATE_cast(e, DocumentReference);
     const i = __PRIVATE_cast(e.firestore, Firestore), s = __PRIVATE_newUserDataReader(i);
     let o;
     o = "string" == typeof // For Compat types, we have to "extract" the underlying types before
     // performing validation.
-    (t2 = getModularInstance(t2)) || t2 instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(s, "updateDoc", e._key, t2, n, r) : __PRIVATE_parseUpdateData(s, "updateDoc", e._key, t2);
+    (t3 = getModularInstance(t3)) || t3 instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(s, "updateDoc", e._key, t3, n, r) : __PRIVATE_parseUpdateData(s, "updateDoc", e._key, t3);
     return executeWrite(i, [o.toMutation(e._key, Precondition.exists(true))]);
   }
   function deleteDoc(e) {
     return executeWrite(__PRIVATE_cast(e.firestore, Firestore), [new __PRIVATE_DeleteMutation(e._key, Precondition.none())]);
   }
-  function addDoc(e, t2) {
-    const n = __PRIVATE_cast(e.firestore, Firestore), r = doc(e), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t2);
+  function addDoc(e, t3) {
+    const n = __PRIVATE_cast(e.firestore, Firestore), r = doc(e), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t3);
     return executeWrite(n, [__PRIVATE_parseSetData(__PRIVATE_newUserDataReader(e.firestore), "addDoc", r._key, i, null !== e.converter, {}).toMutation(r._key, Precondition.exists(false))]).then((() => r));
   }
-  function onSnapshot(e, ...t2) {
+  function onSnapshot(e, ...t3) {
     e = getModularInstance(e);
     let n = {
       includeMetadataChanges: false,
       source: "default"
     }, r = 0;
-    "object" != typeof t2[r] || __PRIVATE_isPartialObserver(t2[r]) || (n = t2[r++]);
+    "object" != typeof t3[r] || __PRIVATE_isPartialObserver(t3[r]) || (n = t3[r++]);
     const i = {
       includeMetadataChanges: n.includeMetadataChanges,
       source: n.source
     };
-    if (__PRIVATE_isPartialObserver(t2[r])) {
-      const e2 = t2[r];
-      t2[r] = e2.next?.bind(e2), t2[r + 1] = e2.error?.bind(e2), t2[r + 2] = e2.complete?.bind(e2);
+    if (__PRIVATE_isPartialObserver(t3[r])) {
+      const e2 = t3[r];
+      t3[r] = e2.next?.bind(e2), t3[r + 1] = e2.error?.bind(e2), t3[r + 2] = e2.complete?.bind(e2);
     }
     let s, o, _;
     if (e instanceof DocumentReference) o = __PRIVATE_cast(e.firestore, Firestore), _ = __PRIVATE_newQueryForPath(e._key.path), s = {
       next: (n2) => {
-        t2[r] && t2[r](__PRIVATE_convertToDocSnapshot(o, e, n2));
+        t3[r] && t3[r](__PRIVATE_convertToDocSnapshot(o, e, n2));
       },
-      error: t2[r + 1],
-      complete: t2[r + 2]
+      error: t3[r + 1],
+      complete: t3[r + 2]
     };
     else {
       const n2 = __PRIVATE_cast(e, Query);
@@ -12796,28 +12796,28 @@
       const i2 = new __PRIVATE_ExpUserDataWriter(o);
       s = {
         next: (e2) => {
-          t2[r] && t2[r](new QuerySnapshot(o, i2, n2, e2));
+          t3[r] && t3[r](new QuerySnapshot(o, i2, n2, e2));
         },
-        error: t2[r + 1],
-        complete: t2[r + 2]
+        error: t3[r + 1],
+        complete: t3[r + 2]
       }, __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query);
     }
-    return (function __PRIVATE_firestoreClientListen(e2, t3, n2, r2) {
-      const i2 = new __PRIVATE_AsyncObserver(r2), s2 = new __PRIVATE_QueryListener(t3, i2, n2);
+    return (function __PRIVATE_firestoreClientListen(e2, t4, n2, r2) {
+      const i2 = new __PRIVATE_AsyncObserver(r2), s2 = new __PRIVATE_QueryListener(t4, i2, n2);
       return e2.asyncQueue.enqueueAndForget((async () => __PRIVATE_eventManagerListen(await __PRIVATE_getEventManager(e2), s2))), () => {
         i2.Nu(), e2.asyncQueue.enqueueAndForget((async () => __PRIVATE_eventManagerUnlisten(await __PRIVATE_getEventManager(e2), s2)));
       };
     })(ensureFirestoreConfigured(o), _, i, s);
   }
-  function executeWrite(e, t2) {
-    return (function __PRIVATE_firestoreClientWrite(e2, t3) {
+  function executeWrite(e, t3) {
+    return (function __PRIVATE_firestoreClientWrite(e2, t4) {
       const n = new __PRIVATE_Deferred();
-      return e2.asyncQueue.enqueueAndForget((async () => __PRIVATE_syncEngineWrite(await __PRIVATE_getSyncEngine(e2), t3, n))), n.promise;
-    })(ensureFirestoreConfigured(e), t2);
+      return e2.asyncQueue.enqueueAndForget((async () => __PRIVATE_syncEngineWrite(await __PRIVATE_getSyncEngine(e2), t4, n))), n.promise;
+    })(ensureFirestoreConfigured(e), t3);
   }
-  function __PRIVATE_convertToDocSnapshot(e, t2, n) {
-    const r = n.docs.get(t2._key), i = new __PRIVATE_ExpUserDataWriter(e);
-    return new DocumentSnapshot(e, i, t2._key, r, new SnapshotMetadata(n.hasPendingWrites, n.fromCache), t2.converter);
+  function __PRIVATE_convertToDocSnapshot(e, t3, n) {
+    const r = n.docs.get(t3._key), i = new __PRIVATE_ExpUserDataWriter(e);
+    return new DocumentSnapshot(e, i, t3._key, r, new SnapshotMetadata(n.hasPendingWrites, n.fromCache), t3.converter);
   }
   function persistentLocalCache(e) {
     return new __PRIVATE_PersistentLocalCacheImpl(e);
@@ -12825,12 +12825,12 @@
   function persistentSingleTabManager(e) {
     return new __PRIVATE_SingleTabManagerImpl(e?.forceOwnership);
   }
-  function __PRIVATE_validateReference(e, t2) {
-    if ((e = getModularInstance(e)).firestore !== t2) throw new FirestoreError(N.INVALID_ARGUMENT, "Provided document reference is from a different Firestore instance.");
+  function __PRIVATE_validateReference(e, t3) {
+    if ((e = getModularInstance(e)).firestore !== t3) throw new FirestoreError(N.INVALID_ARGUMENT, "Provided document reference is from a different Firestore instance.");
     return e;
   }
   function writeBatch(e) {
-    return ensureFirestoreConfigured(e = __PRIVATE_cast(e, Firestore)), new WriteBatch(e, ((t2) => executeWrite(e, t2)));
+    return ensureFirestoreConfigured(e = __PRIVATE_cast(e, Firestore)), new WriteBatch(e, ((t3) => executeWrite(e, t3)));
   }
   var F, M, User, x, O, N, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, B, L, k, BasePath, ResourcePath, q, FieldPath$1, DocumentKey, Q, $, Timestamp, SnapshotVersion, U, FieldIndex, IndexSegment, IndexState, IndexOffset, K, PersistenceTransaction, PersistencePromise, W, __PRIVATE_SimpleDbTransaction, __PRIVATE_SimpleDb, __PRIVATE_IterationController, __PRIVATE_IndexedDbTransactionError, __PRIVATE_SimpleDbStore, G, z, __PRIVATE_IndexBackfillerScheduler, __PRIVATE_IndexBackfiller, __PRIVATE_ListenSequence, j, J, H, Y, Z, X, ee, te, ne, re, ie, se, oe, _e, ae, ue, ce, le, he, Pe, Te, Ie, Ee, de, Ae, Re, Ve, me, fe, ge, pe, ye, we, Se, be, De, Ce, ve, Fe, Me, xe, Oe, Ne, Be, Le, ke, qe, Qe, $e, Ue, Ke, We, Ge, ze, je, Je, He, Ye, Ze, Xe, et, tt, nt, rt, it, st, __PRIVATE_IndexedDbTransaction, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, ot, _t, at, ut, ct, DatabaseInfo, lt, DatabaseId, ht, Pt, Tt, It, Et, dt, At, ObjectValue, MutableDocument, Bound, OrderBy, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ObjectMap, Rt, Vt, mt, ft, gt, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericIncrementTransformOperation, FieldTransform, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, MutationBatch, MutationBatchResult, Overlay, ExistenceFilter, pt, yt, wt, St, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, __PRIVATE_WatchChangeAggregator, bt, Dt, Ct, JsonProtoSerializer, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_IndexedDbBundleCache, __PRIVATE_IndexedDbDocumentOverlayCache, __PRIVATE_IndexedDbGlobalsCache, __PRIVATE_FirestoreIndexValueWriter, vt, __PRIVATE_OrderedCodeWriter, __PRIVATE_AscendingIndexByteEncoder, __PRIVATE_DescendingIndexByteEncoder, __PRIVATE_IndexByteEncoder, __PRIVATE_IndexEntry, __PRIVATE_TargetIndexMatcher, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, Ft, Mt, __PRIVATE_IndexedDbIndexManager, xt, Ot, LruParams, __PRIVATE_IndexedDbMutationQueue, __PRIVATE_TargetIdGenerator, __PRIVATE_IndexedDbTargetCache, Nt, Bt, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, __PRIVATE_IndexedDbLruDelegateImpl, RemoteDocumentChangeBuffer, __PRIVATE_IndexedDbRemoteDocumentCacheImpl, __PRIVATE_IndexedDbRemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_SchemaConverter, Lt, kt, qt, Qt, $t, __PRIVATE_IndexedDbPersistence, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, Ut, Kt, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_NoopConnectivityMonitor, Jt, __PRIVATE_BrowserConnectivityMonitor, Ht, Yt, Zt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Xt, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, en, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, __PRIVATE_OnlineStateTracker, tn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, nn, rn, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, sn, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, __PRIVATE_IndexedDbOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, on, FirestoreClient, _n, an, un, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, cn, __PRIVATE_AsyncQueueImpl, Firestore, Bytes, FieldPath, FieldValue, GeoPoint, VectorValue, hn, ParsedSetData, ParsedUpdateData, __PRIVATE_ParseContextImpl, __PRIVATE_UserDataReader, __PRIVATE_DeleteFieldValueImpl, Pn, DocumentSnapshot$1, QueryDocumentSnapshot$1, AppliableConstraint, QueryConstraint, QueryFieldFilterConstraint, QueryCompositeFilterConstraint, QueryOrderByConstraint, QueryLimitConstraint, QueryStartAtConstraint, AbstractUserDataWriter, SnapshotMetadata, DocumentSnapshot, QueryDocumentSnapshot, QuerySnapshot, __PRIVATE_ExpUserDataWriter, __PRIVATE_PersistentLocalCacheImpl, __PRIVATE_SingleTabManagerImpl, WriteBatch;
   var init_index_esm7 = __esm({
@@ -12980,8 +12980,8 @@
       };
       FirestoreError = class extends FirebaseError {
         /** @hideconstructor */
-        constructor(e, t2) {
-          super(e, t2), this.code = e, this.message = t2, // HACK: We write a toString property directly because Error is not a real
+        constructor(e, t3) {
+          super(e, t3), this.code = e, this.message = t3, // HACK: We write a toString property directly because Error is not a real
           // class and so inheritance does not work correctly. We could alternatively
           // do the same "back-door inheritance" trick that FirebaseError does.
           this.toString = () => `${this.name}: [code=${this.code}]: ${this.message}`;
@@ -12989,14 +12989,14 @@
       };
       __PRIVATE_Deferred = class {
         constructor() {
-          this.promise = new Promise(((e, t2) => {
-            this.resolve = e, this.reject = t2;
+          this.promise = new Promise(((e, t3) => {
+            this.resolve = e, this.reject = t3;
           }));
         }
       };
       __PRIVATE_OAuthToken = class {
-        constructor(e, t2) {
-          this.user = t2, this.type = "OAuth", this.headers = /* @__PURE__ */ new Map(), this.headers.set("Authorization", `Bearer ${e}`);
+        constructor(e, t3) {
+          this.user = t3, this.type = "OAuth", this.headers = /* @__PURE__ */ new Map(), this.headers.set("Authorization", `Bearer ${e}`);
         }
       };
       __PRIVATE_EmptyAuthCredentialsProvider = class {
@@ -13005,8 +13005,8 @@
         }
         invalidateToken() {
         }
-        start(e, t2) {
-          e.enqueueRetryable((() => t2(User.UNAUTHENTICATED)));
+        start(e, t3) {
+          e.enqueueRetryable((() => t3(User.UNAUTHENTICATED)));
         }
         shutdown() {
         }
@@ -13020,18 +13020,18 @@
            */
           this.i = 0, this.forceRefresh = false, this.auth = null;
         }
-        start(e, t2) {
+        start(e, t3) {
           __PRIVATE_hardAssert(void 0 === this.o, 42304);
           let n = this.i;
-          const __PRIVATE_guardedChangeListener = (e2) => this.i !== n ? (n = this.i, t2(e2)) : Promise.resolve();
+          const __PRIVATE_guardedChangeListener = (e2) => this.i !== n ? (n = this.i, t3(e2)) : Promise.resolve();
           let r = new __PRIVATE_Deferred();
           this.o = () => {
             this.i++, this.currentUser = this.u(), r.resolve(), r = new __PRIVATE_Deferred(), e.enqueueRetryable((() => __PRIVATE_guardedChangeListener(this.currentUser)));
           };
           const __PRIVATE_awaitNextToken = () => {
-            const t3 = r;
+            const t4 = r;
             e.enqueueRetryable((async () => {
-              await t3.promise, await __PRIVATE_guardedChangeListener(this.currentUser);
+              await t4.promise, await __PRIVATE_guardedChangeListener(this.currentUser);
             }));
           }, __PRIVATE_registerAuth = (e2) => {
             __PRIVATE_logDebug("FirebaseAuthCredentialsProvider", "Auth detected"), this.auth = e2, this.o && (this.auth.addAuthTokenListener(this.o), __PRIVATE_awaitNextToken());
@@ -13052,14 +13052,14 @@
           }), 0), __PRIVATE_awaitNextToken();
         }
         getToken() {
-          const e = this.i, t2 = this.forceRefresh;
-          return this.forceRefresh = false, this.auth ? this.auth.getToken(t2).then(((t3) => (
+          const e = this.i, t3 = this.forceRefresh;
+          return this.forceRefresh = false, this.auth ? this.auth.getToken(t3).then(((t4) => (
             // Cancel the request since the token changed while the request was
             // outstanding so the response is potentially for a previous user (which
             // user, we can't be sure).
-            this.i !== e ? (__PRIVATE_logDebug("FirebaseAuthCredentialsProvider", "getToken aborted due to token change."), this.getToken()) : t3 ? (__PRIVATE_hardAssert("string" == typeof t3.accessToken, 31837, {
-              l: t3
-            }), new __PRIVATE_OAuthToken(t3.accessToken, this.currentUser)) : null
+            this.i !== e ? (__PRIVATE_logDebug("FirebaseAuthCredentialsProvider", "getToken aborted due to token change."), this.getToken()) : t4 ? (__PRIVATE_hardAssert("string" == typeof t4.accessToken, 31837, {
+              l: t4
+            }), new __PRIVATE_OAuthToken(t4.accessToken, this.currentUser)) : null
           ))) : Promise.resolve(null);
         }
         invalidateToken() {
@@ -13080,8 +13080,8 @@
         }
       };
       __PRIVATE_FirstPartyToken = class {
-        constructor(e, t2, n) {
-          this.P = e, this.T = t2, this.I = n, this.type = "FirstParty", this.user = User.FIRST_PARTY, this.A = /* @__PURE__ */ new Map();
+        constructor(e, t3, n) {
+          this.P = e, this.T = t3, this.I = n, this.type = "FirstParty", this.user = User.FIRST_PARTY, this.A = /* @__PURE__ */ new Map();
         }
         /**
          * Gets an authorization token, using a provided factory function, or return
@@ -13097,14 +13097,14 @@
         }
       };
       __PRIVATE_FirstPartyAuthCredentialsProvider = class {
-        constructor(e, t2, n) {
-          this.P = e, this.T = t2, this.I = n;
+        constructor(e, t3, n) {
+          this.P = e, this.T = t3, this.I = n;
         }
         getToken() {
           return Promise.resolve(new __PRIVATE_FirstPartyToken(this.P, this.T, this.I));
         }
-        start(e, t2) {
-          e.enqueueRetryable((() => t2(User.FIRST_PARTY)));
+        start(e, t3) {
+          e.enqueueRetryable((() => t3(User.FIRST_PARTY)));
         }
         shutdown() {
         }
@@ -13117,18 +13117,18 @@
         }
       };
       __PRIVATE_FirebaseAppCheckTokenProvider = class {
-        constructor(t2, n) {
-          this.V = n, this.forceRefresh = false, this.appCheck = null, this.m = null, this.p = null, _isFirebaseServerApp(t2) && t2.settings.appCheckToken && (this.p = t2.settings.appCheckToken);
+        constructor(t3, n) {
+          this.V = n, this.forceRefresh = false, this.appCheck = null, this.m = null, this.p = null, _isFirebaseServerApp(t3) && t3.settings.appCheckToken && (this.p = t3.settings.appCheckToken);
         }
-        start(e, t2) {
+        start(e, t3) {
           __PRIVATE_hardAssert(void 0 === this.o, 3512);
           const onTokenChanged = (e2) => {
             null != e2.error && __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", `Error getting App Check token; using placeholder token instead. Error: ${e2.error.message}`);
             const n = e2.token !== this.m;
-            return this.m = e2.token, __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", `Received ${n ? "new" : "existing"} token.`), n ? t2(e2.token) : Promise.resolve();
+            return this.m = e2.token, __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", `Received ${n ? "new" : "existing"} token.`), n ? t3(e2.token) : Promise.resolve();
           };
-          this.o = (t3) => {
-            e.enqueueRetryable((() => onTokenChanged(t3)));
+          this.o = (t4) => {
+            e.enqueueRetryable((() => onTokenChanged(t4)));
           };
           const __PRIVATE_registerAppCheck = (e2) => {
             __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", "AppCheck detected"), this.appCheck = e2, this.o && this.appCheck.addTokenListener(this.o);
@@ -13163,12 +13163,12 @@
       };
       __PRIVATE_AutoId = class {
         static newId() {
-          const e = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", t2 = 62 * Math.floor(256 / 62);
+          const e = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", t3 = 62 * Math.floor(256 / 62);
           let n = "";
           for (; n.length < 20; ) {
             const r = __PRIVATE_randomBytes(40);
             for (let i = 0; i < r.length; ++i)
-              n.length < 20 && r[i] < t2 && (n += e.charAt(r[i] % 62));
+              n.length < 20 && r[i] < t3 && (n += e.charAt(r[i] % 62));
           }
           return n;
         }
@@ -13177,14 +13177,14 @@
       L = 57343;
       k = "__name__";
       BasePath = class _BasePath {
-        constructor(e, t2, n) {
-          void 0 === t2 ? t2 = 0 : t2 > e.length && fail(637, {
-            offset: t2,
+        constructor(e, t3, n) {
+          void 0 === t3 ? t3 = 0 : t3 > e.length && fail(637, {
+            offset: t3,
             range: e.length
-          }), void 0 === n ? n = e.length - t2 : n > e.length - t2 && fail(1746, {
+          }), void 0 === n ? n = e.length - t3 : n > e.length - t3 && fail(1746, {
             length: n,
-            range: e.length - t2
-          }), this.segments = e, this.offset = t2, this.len = n;
+            range: e.length - t3
+          }), this.segments = e, this.offset = t3, this.len = n;
         }
         get length() {
           return this.len;
@@ -13193,10 +13193,10 @@
           return 0 === _BasePath.comparator(this, e);
         }
         child(e) {
-          const t2 = this.segments.slice(this.offset, this.limit());
+          const t3 = this.segments.slice(this.offset, this.limit());
           return e instanceof _BasePath ? e.forEach(((e2) => {
-            t2.push(e2);
-          })) : t2.push(e), this.construct(t2);
+            t3.push(e2);
+          })) : t3.push(e), this.construct(t3);
         }
         /** The index of one past the last segment of the path. */
         limit() {
@@ -13222,16 +13222,16 @@
         }
         isPrefixOf(e) {
           if (e.length < this.length) return false;
-          for (let t2 = 0; t2 < this.length; t2++) if (this.get(t2) !== e.get(t2)) return false;
+          for (let t3 = 0; t3 < this.length; t3++) if (this.get(t3) !== e.get(t3)) return false;
           return true;
         }
         isImmediateParentOf(e) {
           if (this.length + 1 !== e.length) return false;
-          for (let t2 = 0; t2 < this.length; t2++) if (this.get(t2) !== e.get(t2)) return false;
+          for (let t3 = 0; t3 < this.length; t3++) if (this.get(t3) !== e.get(t3)) return false;
           return true;
         }
         forEach(e) {
-          for (let t2 = this.offset, n = this.limit(); t2 < n; t2++) e(this.segments[t2]);
+          for (let t3 = this.offset, n = this.limit(); t3 < n; t3++) e(this.segments[t3]);
         }
         toArray() {
           return this.segments.slice(this.offset, this.limit());
@@ -13241,17 +13241,17 @@
          * (e.g., "__id123__") in numeric ascending order, followed by string
          * segments in lexicographical order.
          */
-        static comparator(e, t2) {
-          const n = Math.min(e.length, t2.length);
+        static comparator(e, t3) {
+          const n = Math.min(e.length, t3.length);
           for (let r = 0; r < n; r++) {
-            const n2 = _BasePath.compareSegments(e.get(r), t2.get(r));
+            const n2 = _BasePath.compareSegments(e.get(r), t3.get(r));
             if (0 !== n2) return n2;
           }
-          return __PRIVATE_primitiveComparator(e.length, t2.length);
+          return __PRIVATE_primitiveComparator(e.length, t3.length);
         }
-        static compareSegments(e, t2) {
-          const n = _BasePath.isNumericId(e), r = _BasePath.isNumericId(t2);
-          return n && !r ? -1 : !n && r ? 1 : n && r ? _BasePath.extractNumericId(e).compare(_BasePath.extractNumericId(t2)) : __PRIVATE_compareUtf8Strings(e, t2);
+        static compareSegments(e, t3) {
+          const n = _BasePath.isNumericId(e), r = _BasePath.isNumericId(t3);
+          return n && !r ? -1 : !n && r ? 1 : n && r ? _BasePath.extractNumericId(e).compare(_BasePath.extractNumericId(t3)) : __PRIVATE_compareUtf8Strings(e, t3);
         }
         // Checks if a segment is a numeric ID (starts with "__id" and ends with "__").
         static isNumericId(e) {
@@ -13262,8 +13262,8 @@
         }
       };
       ResourcePath = class _ResourcePath extends BasePath {
-        construct(e, t2, n) {
-          return new _ResourcePath(e, t2, n);
+        construct(e, t3, n) {
+          return new _ResourcePath(e, t3, n);
         }
         canonicalString() {
           return this.toArray().join("/");
@@ -13285,12 +13285,12 @@
          * slashes from all components are ignored.
          */
         static fromString(...e) {
-          const t2 = [];
+          const t3 = [];
           for (const n of e) {
             if (n.indexOf("//") >= 0) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid segment (${n}). Paths must not contain // in them.`);
-            t2.push(...n.split("/").filter(((e2) => e2.length > 0)));
+            t3.push(...n.split("/").filter(((e2) => e2.length > 0)));
           }
-          return new _ResourcePath(t2);
+          return new _ResourcePath(t3);
         }
         static emptyPath() {
           return new _ResourcePath([]);
@@ -13298,8 +13298,8 @@
       };
       q = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
       FieldPath$1 = class _FieldPath$1 extends BasePath {
-        construct(e, t2, n) {
-          return new _FieldPath$1(e, t2, n);
+        construct(e, t3, n) {
+          return new _FieldPath$1(e, t3, n);
         }
         /**
          * Returns true if the string could be used as a segment in a field path
@@ -13337,24 +13337,24 @@
          * non-identifier path components, even if they aren't escaped.
          */
         static fromServerFormat(e) {
-          const t2 = [];
+          const t3 = [];
           let n = "", r = 0;
           const __PRIVATE_addCurrentSegment = () => {
             if (0 === n.length) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid field path (${e}). Paths must not be empty, begin with '.', end with '.', or contain '..'`);
-            t2.push(n), n = "";
+            t3.push(n), n = "";
           };
           let i = false;
           for (; r < e.length; ) {
-            const t3 = e[r];
-            if ("\\" === t3) {
+            const t4 = e[r];
+            if ("\\" === t4) {
               if (r + 1 === e.length) throw new FirestoreError(N.INVALID_ARGUMENT, "Path has trailing escape character: " + e);
-              const t4 = e[r + 1];
-              if ("\\" !== t4 && "." !== t4 && "`" !== t4) throw new FirestoreError(N.INVALID_ARGUMENT, "Path has invalid escape sequence: " + e);
-              n += t4, r += 2;
-            } else "`" === t3 ? (i = !i, r++) : "." !== t3 || i ? (n += t3, r++) : (__PRIVATE_addCurrentSegment(), r++);
+              const t5 = e[r + 1];
+              if ("\\" !== t5 && "." !== t5 && "`" !== t5) throw new FirestoreError(N.INVALID_ARGUMENT, "Path has invalid escape sequence: " + e);
+              n += t5, r += 2;
+            } else "`" === t4 ? (i = !i, r++) : "." !== t4 || i ? (n += t4, r++) : (__PRIVATE_addCurrentSegment(), r++);
           }
           if (__PRIVATE_addCurrentSegment(), i) throw new FirestoreError(N.INVALID_ARGUMENT, "Unterminated ` in path: " + e);
-          return new _FieldPath$1(t2);
+          return new _FieldPath$1(t3);
         }
         static emptyPath() {
           return new _FieldPath$1([]);
@@ -13394,8 +13394,8 @@
         toString() {
           return this.path.toString();
         }
-        static comparator(e, t2) {
-          return ResourcePath.comparator(e.path, t2.path);
+        static comparator(e, t3) {
+          return ResourcePath.comparator(e.path, t3.path);
         }
         static isDocumentKey(e) {
           return e.length % 2 == 0;
@@ -13440,8 +13440,8 @@
          *     number of milliseconds.
          */
         static fromMillis(e) {
-          const t2 = Math.floor(e / 1e3), n = Math.floor((e - 1e3 * t2) * $);
-          return new _Timestamp(t2, n);
+          const t3 = Math.floor(e / 1e3), n = Math.floor((e - 1e3 * t3) * $);
+          return new _Timestamp(t3, n);
         }
         /**
          * Creates a new timestamp.
@@ -13454,9 +13454,9 @@
          *     non-negative nanoseconds values that count forward in time. Must be
          *     from 0 to 999,999,999 inclusive.
          */
-        constructor(e, t2) {
-          if (this.seconds = e, this.nanoseconds = t2, t2 < 0) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp nanoseconds out of range: " + t2);
-          if (t2 >= 1e9) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp nanoseconds out of range: " + t2);
+        constructor(e, t3) {
+          if (this.seconds = e, this.nanoseconds = t3, t3 < 0) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp nanoseconds out of range: " + t3);
+          if (t3 >= 1e9) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp nanoseconds out of range: " + t3);
           if (e < Q) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp seconds out of range: " + e);
           if (e >= 253402300800) throw new FirestoreError(N.INVALID_ARGUMENT, "Timestamp seconds out of range: " + e);
         }
@@ -13559,19 +13559,19 @@
       };
       U = -1;
       FieldIndex = class {
-        constructor(e, t2, n, r) {
-          this.indexId = e, this.collectionGroup = t2, this.fields = n, this.indexState = r;
+        constructor(e, t3, n, r) {
+          this.indexId = e, this.collectionGroup = t3, this.fields = n, this.indexState = r;
         }
       };
       FieldIndex.UNKNOWN_ID = -1;
       IndexSegment = class {
-        constructor(e, t2) {
-          this.fieldPath = e, this.kind = t2;
+        constructor(e, t3) {
+          this.fieldPath = e, this.kind = t3;
         }
       };
       IndexState = class _IndexState {
-        constructor(e, t2) {
-          this.sequenceNumber = e, this.offset = t2;
+        constructor(e, t3) {
+          this.sequenceNumber = e, this.offset = t3;
         }
         /** The state of an index that has not yet been backfilled. */
         static empty() {
@@ -13579,8 +13579,8 @@
         }
       };
       IndexOffset = class _IndexOffset {
-        constructor(e, t2, n) {
-          this.readTime = e, this.documentKey = t2, this.largestBatchId = n;
+        constructor(e, t3, n) {
+          this.readTime = e, this.documentKey = t3, this.largestBatchId = n;
         }
         /** Returns an offset that sorts before all regular offsets. */
         static min() {
@@ -13619,52 +13619,52 @@
         catch(e) {
           return this.next(void 0, e);
         }
-        next(e, t2) {
-          return this.callbackAttached && fail(59440), this.callbackAttached = true, this.isDone ? this.error ? this.wrapFailure(t2, this.error) : this.wrapSuccess(e, this.result) : new _PersistencePromise(((n, r) => {
-            this.nextCallback = (t3) => {
-              this.wrapSuccess(e, t3).next(n, r);
+        next(e, t3) {
+          return this.callbackAttached && fail(59440), this.callbackAttached = true, this.isDone ? this.error ? this.wrapFailure(t3, this.error) : this.wrapSuccess(e, this.result) : new _PersistencePromise(((n, r) => {
+            this.nextCallback = (t4) => {
+              this.wrapSuccess(e, t4).next(n, r);
             }, this.catchCallback = (e2) => {
-              this.wrapFailure(t2, e2).next(n, r);
+              this.wrapFailure(t3, e2).next(n, r);
             };
           }));
         }
         toPromise() {
-          return new Promise(((e, t2) => {
-            this.next(e, t2);
+          return new Promise(((e, t3) => {
+            this.next(e, t3);
           }));
         }
         wrapUserFunction(e) {
           try {
-            const t2 = e();
-            return t2 instanceof _PersistencePromise ? t2 : _PersistencePromise.resolve(t2);
+            const t3 = e();
+            return t3 instanceof _PersistencePromise ? t3 : _PersistencePromise.resolve(t3);
           } catch (e2) {
             return _PersistencePromise.reject(e2);
           }
         }
-        wrapSuccess(e, t2) {
-          return e ? this.wrapUserFunction((() => e(t2))) : _PersistencePromise.resolve(t2);
+        wrapSuccess(e, t3) {
+          return e ? this.wrapUserFunction((() => e(t3))) : _PersistencePromise.resolve(t3);
         }
-        wrapFailure(e, t2) {
-          return e ? this.wrapUserFunction((() => e(t2))) : _PersistencePromise.reject(t2);
+        wrapFailure(e, t3) {
+          return e ? this.wrapUserFunction((() => e(t3))) : _PersistencePromise.reject(t3);
         }
         static resolve(e) {
-          return new _PersistencePromise(((t2, n) => {
-            t2(e);
+          return new _PersistencePromise(((t3, n) => {
+            t3(e);
           }));
         }
         static reject(e) {
-          return new _PersistencePromise(((t2, n) => {
+          return new _PersistencePromise(((t3, n) => {
             n(e);
           }));
         }
         static waitFor(e) {
-          return new _PersistencePromise(((t2, n) => {
+          return new _PersistencePromise(((t3, n) => {
             let r = 0, i = 0, s = false;
             e.forEach(((e2) => {
               ++r, e2.next((() => {
-                ++i, s && i === r && t2();
+                ++i, s && i === r && t3();
               }), ((e3) => n(e3)));
-            })), s = true, i === r && t2();
+            })), s = true, i === r && t3();
           }));
         }
         /**
@@ -13674,26 +13674,26 @@
          * result will be whether any of them returned `true`.
          */
         static or(e) {
-          let t2 = _PersistencePromise.resolve(false);
-          for (const n of e) t2 = t2.next(((e2) => e2 ? _PersistencePromise.resolve(e2) : n()));
-          return t2;
+          let t3 = _PersistencePromise.resolve(false);
+          for (const n of e) t3 = t3.next(((e2) => e2 ? _PersistencePromise.resolve(e2) : n()));
+          return t3;
         }
-        static forEach(e, t2) {
+        static forEach(e, t3) {
           const n = [];
           return e.forEach(((e2, r) => {
-            n.push(t2.call(this, e2, r));
+            n.push(t3.call(this, e2, r));
           })), this.waitFor(n);
         }
         /**
          * Concurrently map all array elements through asynchronous function.
          */
-        static mapArray(e, t2) {
+        static mapArray(e, t3) {
           return new _PersistencePromise(((n, r) => {
             const i = e.length, s = new Array(i);
             let o = 0;
             for (let _ = 0; _ < i; _++) {
               const a = _;
-              t2(e[a]).next(((e2) => {
+              t3(e[a]).next(((e2) => {
                 s[a] = e2, ++o, o === i && n(s);
               }), ((e2) => r(e2)));
             }
@@ -13705,10 +13705,10 @@
          *
          * The `action` will be called repeatedly while `condition` is true.
          */
-        static doWhile(e, t2) {
+        static doWhile(e, t3) {
           return new _PersistencePromise(((n, r) => {
             const process2 = () => {
-              true === e() ? t2().next((() => {
+              true === e() ? t3().next((() => {
                 process2();
               }), r) : n();
             };
@@ -13718,23 +13718,23 @@
       };
       W = "SimpleDb";
       __PRIVATE_SimpleDbTransaction = class ___PRIVATE_SimpleDbTransaction {
-        static open(e, t2, n, r) {
+        static open(e, t3, n, r) {
           try {
-            return new ___PRIVATE_SimpleDbTransaction(t2, e.transaction(r, n));
+            return new ___PRIVATE_SimpleDbTransaction(t3, e.transaction(r, n));
           } catch (e2) {
-            throw new __PRIVATE_IndexedDbTransactionError(t2, e2);
+            throw new __PRIVATE_IndexedDbTransactionError(t3, e2);
           }
         }
-        constructor(e, t2) {
-          this.action = e, this.transaction = t2, this.aborted = false, /**
+        constructor(e, t3) {
+          this.action = e, this.transaction = t3, this.aborted = false, /**
            * A `Promise` that resolves with the result of the IndexedDb transaction.
            */
           this.S = new __PRIVATE_Deferred(), this.transaction.oncomplete = () => {
             this.S.resolve();
           }, this.transaction.onabort = () => {
-            t2.error ? this.S.reject(new __PRIVATE_IndexedDbTransactionError(e, t2.error)) : this.S.resolve();
-          }, this.transaction.onerror = (t3) => {
-            const n = __PRIVATE_checkForAndReportiOSError(t3.target.error);
+            t3.error ? this.S.reject(new __PRIVATE_IndexedDbTransactionError(e, t3.error)) : this.S.resolve();
+          }, this.transaction.onerror = (t4) => {
+            const n = __PRIVATE_checkForAndReportiOSError(t4.target.error);
             this.S.reject(new __PRIVATE_IndexedDbTransactionError(e, n));
           };
         }
@@ -13758,8 +13758,8 @@
          * correct, but they allow type safety through the rest of the consuming code.
          */
         store(e) {
-          const t2 = this.transaction.objectStore(e);
-          return new __PRIVATE_SimpleDbStore(t2);
+          const t3 = this.transaction.objectStore(e);
+          return new __PRIVATE_SimpleDbStore(t3);
         }
       };
       __PRIVATE_SimpleDb = class ___PRIVATE_SimpleDb {
@@ -13772,7 +13772,7 @@
         static v() {
           if (!isIndexedDBAvailable()) return false;
           if (___PRIVATE_SimpleDb.F()) return true;
-          const e = getUA(), t2 = ___PRIVATE_SimpleDb.M(e), n = 0 < t2 && t2 < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
+          const e = getUA(), t3 = ___PRIVATE_SimpleDb.M(e), n = 0 < t3 && t3 < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
           return !(e.indexOf("MSIE ") > 0 || e.indexOf("Trident/") > 0 || e.indexOf("Edge/") > 0 || n || i);
         }
         /**
@@ -13783,13 +13783,13 @@
           return "undefined" != typeof process && "YES" === process.__PRIVATE_env?.__PRIVATE_USE_MOCK_PERSISTENCE;
         }
         /** Helper to get a typed SimpleDbStore from a transaction. */
-        static O(e, t2) {
-          return e.store(t2);
+        static O(e, t3) {
+          return e.store(t3);
         }
         // visible for testing
         /** Parse User Agent to determine iOS version. Returns -1 if not found. */
         static M(e) {
-          const t2 = e.match(/i(?:phone|pad|pod) os ([\d_]+)/i), n = t2 ? t2[1].split("_").slice(0, 2).join(".") : "-1";
+          const t3 = e.match(/i(?:phone|pad|pod) os ([\d_]+)/i), n = t3 ? t3[1].split("_").slice(0, 2).join(".") : "-1";
           return Number(n);
         }
         /*
@@ -13801,55 +13801,55 @@
          * version-upgrade transactions are allowed to do things like create
          * objectstores.
          */
-        constructor(e, t2, n) {
-          this.name = e, this.version = t2, this.N = n, this.B = null;
+        constructor(e, t3, n) {
+          this.name = e, this.version = t3, this.N = n, this.B = null;
           12.2 === ___PRIVATE_SimpleDb.M(getUA()) && __PRIVATE_logError("Firestore persistence suffers from a bug in iOS 12.2 Safari that may cause your app to stop working. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.");
         }
         /**
          * Opens the specified database, creating or upgrading it if necessary.
          */
         async L(e) {
-          return this.db || (__PRIVATE_logDebug(W, "Opening database:", this.name), this.db = await new Promise(((t2, n) => {
+          return this.db || (__PRIVATE_logDebug(W, "Opening database:", this.name), this.db = await new Promise(((t3, n) => {
             const r = indexedDB.open(this.name, this.version);
             r.onsuccess = (e2) => {
               const n2 = e2.target.result;
-              t2(n2);
+              t3(n2);
             }, r.onblocked = () => {
               n(new __PRIVATE_IndexedDbTransactionError(e, "Cannot upgrade IndexedDB schema while another tab is open. Close all tabs that access Firestore and reload this page to proceed."));
-            }, r.onerror = (t3) => {
-              const r2 = t3.target.error;
+            }, r.onerror = (t4) => {
+              const r2 = t4.target.error;
               "VersionError" === r2.name ? n(new FirestoreError(N.FAILED_PRECONDITION, "A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear the persisted IndexedDB data for your app to start fresh.")) : "InvalidStateError" === r2.name ? n(new FirestoreError(N.FAILED_PRECONDITION, "Unable to open an IndexedDB connection. This could be due to running in a private browsing session on a browser whose private browsing sessions do not support IndexedDB: " + r2)) : n(new __PRIVATE_IndexedDbTransactionError(e, r2));
             }, r.onupgradeneeded = (e2) => {
               __PRIVATE_logDebug(W, 'Database "' + this.name + '" requires upgrade from version:', e2.oldVersion);
-              const t3 = e2.target.result;
-              this.N.k(t3, r.transaction, e2.oldVersion, this.version).next((() => {
+              const t4 = e2.target.result;
+              this.N.k(t4, r.transaction, e2.oldVersion, this.version).next((() => {
                 __PRIVATE_logDebug(W, "Database upgrade to version " + this.version + " complete");
               }));
             };
           }))), this.q && (this.db.onversionchange = (e2) => this.q(e2)), this.db;
         }
         $(e) {
-          this.q = e, this.db && (this.db.onversionchange = (t2) => e(t2));
+          this.q = e, this.db && (this.db.onversionchange = (t3) => e(t3));
         }
-        async runTransaction(e, t2, n, r) {
-          const i = "readonly" === t2;
+        async runTransaction(e, t3, n, r) {
+          const i = "readonly" === t3;
           let s = 0;
           for (; ; ) {
             ++s;
             try {
               this.db = await this.L(e);
-              const t3 = __PRIVATE_SimpleDbTransaction.open(this.db, e, i ? "readonly" : "readwrite", n), s2 = r(t3).next(((e2) => (t3.C(), e2))).catch(((e2) => (
+              const t4 = __PRIVATE_SimpleDbTransaction.open(this.db, e, i ? "readonly" : "readwrite", n), s2 = r(t4).next(((e2) => (t4.C(), e2))).catch(((e2) => (
                 // Abort the transaction if there was an error.
-                (t3.abort(e2), PersistencePromise.reject(e2))
+                (t4.abort(e2), PersistencePromise.reject(e2))
               ))).toPromise();
               return s2.catch((() => {
               })), // Wait for the transaction to complete (i.e. IndexedDb's onsuccess event to
               // fire), but still return the original transactionFnResult back to the
               // caller.
-              await t3.D, s2;
+              await t4.D, s2;
             } catch (e2) {
-              const t3 = e2, n2 = "FirebaseError" !== t3.name && s < 3;
-              if (__PRIVATE_logDebug(W, "Transaction failed with error:", t3.message, "Retrying:", n2), this.close(), !n2) return Promise.reject(t3);
+              const t4 = e2, n2 = "FirebaseError" !== t4.name && s < 3;
+              if (__PRIVATE_logDebug(W, "Transaction failed with error:", t4.message, "Retrying:", n2), this.close(), !n2) return Promise.reject(t4);
             }
           }
         }
@@ -13893,17 +13893,17 @@
         }
       };
       __PRIVATE_IndexedDbTransactionError = class extends FirestoreError {
-        constructor(e, t2) {
-          super(N.UNAVAILABLE, `IndexedDB transaction '${e}' failed: ${t2}`), this.name = "IndexedDbTransactionError";
+        constructor(e, t3) {
+          super(N.UNAVAILABLE, `IndexedDB transaction '${e}' failed: ${t3}`), this.name = "IndexedDbTransactionError";
         }
       };
       __PRIVATE_SimpleDbStore = class {
         constructor(e) {
           this.store = e;
         }
-        put(e, t2) {
+        put(e, t3) {
           let n;
-          return void 0 !== t2 ? (__PRIVATE_logDebug(W, "PUT", this.store.name, e, t2), n = this.store.put(t2, e)) : (__PRIVATE_logDebug(W, "PUT", this.store.name, "<auto-key>", e), n = this.store.put(e)), __PRIVATE_wrapRequest(n);
+          return void 0 !== t3 ? (__PRIVATE_logDebug(W, "PUT", this.store.name, e, t3), n = this.store.put(t3, e)) : (__PRIVATE_logDebug(W, "PUT", this.store.name, "<auto-key>", e), n = this.store.put(e)), __PRIVATE_wrapRequest(n);
         }
         /**
          * Adds a new value into an Object Store and returns the new key. Similar to
@@ -13924,9 +13924,9 @@
          * @returns The object with the specified key or null if no object exists.
          */
         get(e) {
-          return __PRIVATE_wrapRequest(this.store.get(e)).next(((t2) => (
+          return __PRIVATE_wrapRequest(this.store.get(e)).next(((t3) => (
             // Normalize nonexistence to null.
-            (void 0 === t2 && (t2 = null), __PRIVATE_logDebug(W, "GET", this.store.name, e, t2), t2)
+            (void 0 === t3 && (t3 = null), __PRIVATE_logDebug(W, "GET", this.store.name, e, t3), t3)
           )));
         }
         delete(e) {
@@ -13943,51 +13943,51 @@
           __PRIVATE_logDebug(W, "COUNT", this.store.name);
           return __PRIVATE_wrapRequest(this.store.count());
         }
-        J(e, t2) {
-          const n = this.options(e, t2), r = n.index ? this.store.index(n.index) : this.store;
+        J(e, t3) {
+          const n = this.options(e, t3), r = n.index ? this.store.index(n.index) : this.store;
           if ("function" == typeof r.getAll) {
             const e2 = r.getAll(n.range);
-            return new PersistencePromise(((t3, n2) => {
+            return new PersistencePromise(((t4, n2) => {
               e2.onerror = (e3) => {
                 n2(e3.target.error);
               }, e2.onsuccess = (e3) => {
-                t3(e3.target.result);
+                t4(e3.target.result);
               };
             }));
           }
           {
-            const e2 = this.cursor(n), t3 = [];
+            const e2 = this.cursor(n), t4 = [];
             return this.H(e2, ((e3, n2) => {
-              t3.push(n2);
-            })).next((() => t3));
+              t4.push(n2);
+            })).next((() => t4));
           }
         }
         /**
          * Loads the first `count` elements from the provided index range. Loads all
          * elements if no limit is provided.
          */
-        Y(e, t2) {
-          const n = this.store.getAll(e, null === t2 ? void 0 : t2);
-          return new PersistencePromise(((e2, t3) => {
+        Y(e, t3) {
+          const n = this.store.getAll(e, null === t3 ? void 0 : t3);
+          return new PersistencePromise(((e2, t4) => {
             n.onerror = (e3) => {
-              t3(e3.target.error);
-            }, n.onsuccess = (t4) => {
-              e2(t4.target.result);
+              t4(e3.target.error);
+            }, n.onsuccess = (t5) => {
+              e2(t5.target.result);
             };
           }));
         }
-        Z(e, t2) {
+        Z(e, t3) {
           __PRIVATE_logDebug(W, "DELETE ALL", this.store.name);
-          const n = this.options(e, t2);
+          const n = this.options(e, t3);
           n.X = false;
           const r = this.cursor(n);
-          return this.H(r, ((e2, t3, n2) => n2.delete()));
+          return this.H(r, ((e2, t4, n2) => n2.delete()));
         }
-        ee(e, t2) {
+        ee(e, t3) {
           let n;
-          t2 ? n = e : (n = {}, t2 = e);
+          t3 ? n = e : (n = {}, t3 = e);
           const r = this.cursor(n);
-          return this.H(r, t2);
+          return this.H(r, t3);
         }
         /**
          * Iterates over a store, but waits for the given callback to complete for
@@ -13998,20 +13998,20 @@
          * `false` otherwise.
          */
         te(e) {
-          const t2 = this.cursor({});
+          const t3 = this.cursor({});
           return new PersistencePromise(((n, r) => {
-            t2.onerror = (e2) => {
-              const t3 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
-              r(t3);
-            }, t2.onsuccess = (t3) => {
-              const r2 = t3.target.result;
+            t3.onerror = (e2) => {
+              const t4 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+              r(t4);
+            }, t3.onsuccess = (t4) => {
+              const r2 = t4.target.result;
               r2 ? e(r2.primaryKey, r2.value).next(((e2) => {
                 e2 ? r2.continue() : n();
               })) : n();
             };
           }));
         }
-        H(e, t2) {
+        H(e, t3) {
           const n = [];
           return new PersistencePromise(((r, i) => {
             e.onerror = (e2) => {
@@ -14019,7 +14019,7 @@
             }, e.onsuccess = (e2) => {
               const i2 = e2.target.result;
               if (!i2) return void r();
-              const s = new __PRIVATE_IterationController(i2), o = t2(i2.primaryKey, i2.value, s);
+              const s = new __PRIVATE_IterationController(i2), o = t3(i2.primaryKey, i2.value, s);
               if (o instanceof PersistencePromise) {
                 const e3 = o.catch(((e4) => (s.done(), PersistencePromise.reject(e4))));
                 n.push(e3);
@@ -14028,27 +14028,27 @@
             };
           })).next((() => PersistencePromise.waitFor(n)));
         }
-        options(e, t2) {
+        options(e, t3) {
           let n;
-          return void 0 !== e && ("string" == typeof e ? n = e : t2 = e), {
+          return void 0 !== e && ("string" == typeof e ? n = e : t3 = e), {
             index: n,
-            range: t2
+            range: t3
           };
         }
         cursor(e) {
-          let t2 = "next";
-          if (e.reverse && (t2 = "prev"), e.index) {
+          let t3 = "next";
+          if (e.reverse && (t3 = "prev"), e.index) {
             const n = this.store.index(e.index);
-            return e.X ? n.openKeyCursor(e.range, t2) : n.openCursor(e.range, t2);
+            return e.X ? n.openKeyCursor(e.range, t3) : n.openCursor(e.range, t3);
           }
-          return this.store.openCursor(e.range, t2);
+          return this.store.openCursor(e.range, t3);
         }
       };
       G = false;
       z = "IndexBackfiller";
       __PRIVATE_IndexBackfillerScheduler = class {
-        constructor(e, t2) {
-          this.asyncQueue = e, this.ne = t2, this.task = null;
+        constructor(e, t3) {
+          this.asyncQueue = e, this.ne = t3, this.task = null;
         }
         start() {
           this.re(15e3);
@@ -14073,44 +14073,44 @@
         }
       };
       __PRIVATE_IndexBackfiller = class {
-        constructor(e, t2) {
-          this.localStore = e, this.persistence = t2;
+        constructor(e, t3) {
+          this.localStore = e, this.persistence = t3;
         }
         async ie(e = 50) {
-          return this.persistence.runTransaction("Backfill Indexes", "readwrite-primary", ((t2) => this.se(t2, e)));
+          return this.persistence.runTransaction("Backfill Indexes", "readwrite-primary", ((t3) => this.se(t3, e)));
         }
         /** Writes index entries until the cap is reached. Returns the number of documents processed. */
-        se(e, t2) {
+        se(e, t3) {
           const n = /* @__PURE__ */ new Set();
-          let r = t2, i = true;
-          return PersistencePromise.doWhile((() => true === i && r > 0), (() => this.localStore.indexManager.getNextCollectionGroupToUpdate(e).next(((t3) => {
-            if (null !== t3 && !n.has(t3)) return __PRIVATE_logDebug(z, `Processing collection: ${t3}`), this.oe(e, t3, r).next(((e2) => {
-              r -= e2, n.add(t3);
+          let r = t3, i = true;
+          return PersistencePromise.doWhile((() => true === i && r > 0), (() => this.localStore.indexManager.getNextCollectionGroupToUpdate(e).next(((t4) => {
+            if (null !== t4 && !n.has(t4)) return __PRIVATE_logDebug(z, `Processing collection: ${t4}`), this.oe(e, t4, r).next(((e2) => {
+              r -= e2, n.add(t4);
             }));
             i = false;
-          })))).next((() => t2 - r));
+          })))).next((() => t3 - r));
         }
         /**
          * Writes entries for the provided collection group. Returns the number of documents processed.
          */
-        oe(e, t2, n) {
-          return this.localStore.indexManager.getMinOffsetFromCollectionGroup(e, t2).next(((r) => this.localStore.localDocuments.getNextDocuments(e, t2, r, n).next(((n2) => {
+        oe(e, t3, n) {
+          return this.localStore.indexManager.getMinOffsetFromCollectionGroup(e, t3).next(((r) => this.localStore.localDocuments.getNextDocuments(e, t3, r, n).next(((n2) => {
             const i = n2.changes;
-            return this.localStore.indexManager.updateIndexEntries(e, i).next((() => this._e(r, n2))).next(((n3) => (__PRIVATE_logDebug(z, `Updating offset: ${n3}`), this.localStore.indexManager.updateCollectionGroup(e, t2, n3)))).next((() => i.size));
+            return this.localStore.indexManager.updateIndexEntries(e, i).next((() => this._e(r, n2))).next(((n3) => (__PRIVATE_logDebug(z, `Updating offset: ${n3}`), this.localStore.indexManager.updateCollectionGroup(e, t3, n3)))).next((() => i.size));
           }))));
         }
         /** Returns the next offset based on the provided documents. */
-        _e(e, t2) {
+        _e(e, t3) {
           let n = e;
-          return t2.changes.forEach(((e2, t3) => {
-            const r = __PRIVATE_newIndexOffsetFromDocument(t3);
+          return t3.changes.forEach(((e2, t4) => {
+            const r = __PRIVATE_newIndexOffsetFromDocument(t4);
             __PRIVATE_indexOffsetComparator(r, n) > 0 && (n = r);
-          })), new IndexOffset(n.readTime, n.documentKey, Math.max(t2.batchId, e.largestBatchId));
+          })), new IndexOffset(n.readTime, n.documentKey, Math.max(t3.batchId, e.largestBatchId));
         }
       };
       __PRIVATE_ListenSequence = class {
-        constructor(e, t2) {
-          this.previousValue = e, t2 && (t2.sequenceNumberHandler = (e2) => this.ae(e2), this.ue = (e2) => t2.writeSequenceNumber(e2));
+        constructor(e, t3) {
+          this.previousValue = e, t3 && (t3.sequenceNumberHandler = (e2) => this.ae(e2), this.ue = (e2) => t3.writeSequenceNumber(e2));
         }
         ae(e) {
           return this.previousValue = Math.max(e, this.previousValue), this.previousValue;
@@ -14188,17 +14188,17 @@
       it = [...nt, He];
       st = it;
       __PRIVATE_IndexedDbTransaction = class extends PersistenceTransaction {
-        constructor(e, t2) {
-          super(), this.le = e, this.currentSequenceNumber = t2;
+        constructor(e, t3) {
+          super(), this.le = e, this.currentSequenceNumber = t3;
         }
       };
       SortedMap = class _SortedMap {
-        constructor(e, t2) {
-          this.comparator = e, this.root = t2 || LLRBNode.EMPTY;
+        constructor(e, t3) {
+          this.comparator = e, this.root = t3 || LLRBNode.EMPTY;
         }
         // Returns a copy of the map, with the specified key/value added or replaced.
-        insert(e, t2) {
-          return new _SortedMap(this.comparator, this.root.insert(e, t2, this.comparator).copy(null, null, LLRBNode.BLACK, null, null));
+        insert(e, t3) {
+          return new _SortedMap(this.comparator, this.root.insert(e, t3, this.comparator).copy(null, null, LLRBNode.BLACK, null, null));
         }
         // Returns a copy of the map, with the specified key removed.
         remove(e) {
@@ -14206,24 +14206,24 @@
         }
         // Returns the value of the node with the given key, or null.
         get(e) {
-          let t2 = this.root;
-          for (; !t2.isEmpty(); ) {
-            const n = this.comparator(e, t2.key);
-            if (0 === n) return t2.value;
-            n < 0 ? t2 = t2.left : n > 0 && (t2 = t2.right);
+          let t3 = this.root;
+          for (; !t3.isEmpty(); ) {
+            const n = this.comparator(e, t3.key);
+            if (0 === n) return t3.value;
+            n < 0 ? t3 = t3.left : n > 0 && (t3 = t3.right);
           }
           return null;
         }
         // Returns the index of the element in this sorted map, or -1 if it doesn't
         // exist.
         indexOf(e) {
-          let t2 = 0, n = this.root;
+          let t3 = 0, n = this.root;
           for (; !n.isEmpty(); ) {
             const r = this.comparator(e, n.key);
-            if (0 === r) return t2 + n.left.size;
+            if (0 === r) return t3 + n.left.size;
             r < 0 ? n = n.left : (
               // Count all nodes left of the node plus the node itself
-              (t2 += n.left.size + 1, n = n.right)
+              (t3 += n.left.size + 1, n = n.right)
             );
           }
           return -1;
@@ -14251,11 +14251,11 @@
           return this.root.inorderTraversal(e);
         }
         forEach(e) {
-          this.inorderTraversal(((t2, n) => (e(t2, n), false)));
+          this.inorderTraversal(((t3, n) => (e(t3, n), false)));
         }
         toString() {
           const e = [];
-          return this.inorderTraversal(((t2, n) => (e.push(`${t2}:${n}`), false))), `{${e.join(", ")}}`;
+          return this.inorderTraversal(((t3, n) => (e.push(`${t3}:${n}`), false))), `{${e.join(", ")}}`;
         }
         // Traverses the map in reverse key order and calls the specified action
         // function for each key/value pair. If action returns true, traversal is
@@ -14280,11 +14280,11 @@
         }
       };
       SortedMapIterator = class {
-        constructor(e, t2, n, r) {
+        constructor(e, t3, n, r) {
           this.isReverse = r, this.nodeStack = [];
           let i = 1;
-          for (; !e.isEmpty(); ) if (i = t2 ? n(e.key, t2) : 1, // flip the comparison if we're going in reverse
-          t2 && r && (i *= -1), i < 0)
+          for (; !e.isEmpty(); ) if (i = t3 ? n(e.key, t3) : 1, // flip the comparison if we're going in reverse
+          t3 && r && (i *= -1), i < 0)
             e = this.isReverse ? e.left : e.right;
           else {
             if (0 === i) {
@@ -14296,13 +14296,13 @@
         }
         getNext() {
           let e = this.nodeStack.pop();
-          const t2 = {
+          const t3 = {
             key: e.key,
             value: e.value
           };
           if (this.isReverse) for (e = e.left; !e.isEmpty(); ) this.nodeStack.push(e), e = e.right;
           else for (e = e.right; !e.isEmpty(); ) this.nodeStack.push(e), e = e.left;
-          return t2;
+          return t3;
         }
         hasNext() {
           return this.nodeStack.length > 0;
@@ -14317,12 +14317,12 @@
         }
       };
       LLRBNode = class _LLRBNode {
-        constructor(e, t2, n, r, i) {
-          this.key = e, this.value = t2, this.color = null != n ? n : _LLRBNode.RED, this.left = null != r ? r : _LLRBNode.EMPTY, this.right = null != i ? i : _LLRBNode.EMPTY, this.size = this.left.size + 1 + this.right.size;
+        constructor(e, t3, n, r, i) {
+          this.key = e, this.value = t3, this.color = null != n ? n : _LLRBNode.RED, this.left = null != r ? r : _LLRBNode.EMPTY, this.right = null != i ? i : _LLRBNode.EMPTY, this.size = this.left.size + 1 + this.right.size;
         }
         // Returns a copy of the current node, optionally replacing pieces of it.
-        copy(e, t2, n, r, i) {
-          return new _LLRBNode(null != e ? e : this.key, null != t2 ? t2 : this.value, null != n ? n : this.color, null != r ? r : this.left, null != i ? i : this.right);
+        copy(e, t3, n, r, i) {
+          return new _LLRBNode(null != e ? e : this.key, null != t3 ? t3 : this.value, null != n ? n : this.color, null != r ? r : this.left, null != i ? i : this.right);
         }
         isEmpty() {
           return false;
@@ -14354,10 +14354,10 @@
           return this.right.isEmpty() ? this.key : this.right.maxKey();
         }
         // Returns new tree, with the key/value added.
-        insert(e, t2, n) {
+        insert(e, t3, n) {
           let r = this;
           const i = n(e, r.key);
-          return r = i < 0 ? r.copy(null, null, null, r.left.insert(e, t2, n), null) : 0 === i ? r.copy(null, t2, null, null, null) : r.copy(null, null, null, null, r.right.insert(e, t2, n)), r.fixUp();
+          return r = i < 0 ? r.copy(null, null, null, r.left.insert(e, t3, n), null) : 0 === i ? r.copy(null, t3, null, null, null) : r.copy(null, null, null, null, r.right.insert(e, t3, n)), r.fixUp();
         }
         removeMin() {
           if (this.left.isEmpty()) return _LLRBNode.EMPTY;
@@ -14365,15 +14365,15 @@
           return e.left.isRed() || e.left.left.isRed() || (e = e.moveRedLeft()), e = e.copy(null, null, null, e.left.removeMin(), null), e.fixUp();
         }
         // Returns new tree, with the specified item removed.
-        remove(e, t2) {
+        remove(e, t3) {
           let n, r = this;
-          if (t2(e, r.key) < 0) r.left.isEmpty() || r.left.isRed() || r.left.left.isRed() || (r = r.moveRedLeft()), r = r.copy(null, null, null, r.left.remove(e, t2), null);
+          if (t3(e, r.key) < 0) r.left.isEmpty() || r.left.isRed() || r.left.left.isRed() || (r = r.moveRedLeft()), r = r.copy(null, null, null, r.left.remove(e, t3), null);
           else {
-            if (r.left.isRed() && (r = r.rotateRight()), r.right.isEmpty() || r.right.isRed() || r.right.left.isRed() || (r = r.moveRedRight()), 0 === t2(e, r.key)) {
+            if (r.left.isRed() && (r = r.rotateRight()), r.right.isEmpty() || r.right.isRed() || r.right.left.isRed() || (r = r.moveRedRight()), 0 === t3(e, r.key)) {
               if (r.right.isEmpty()) return _LLRBNode.EMPTY;
               n = r.right.min(), r = r.copy(n.key, n.value, null, null, r.right.removeMin());
             }
-            r = r.copy(null, null, null, null, r.right.remove(e, t2));
+            r = r.copy(null, null, null, null, r.right.remove(e, t3));
           }
           return r.fixUp();
         }
@@ -14402,8 +14402,8 @@
           return this.left.copy(null, null, this.color, null, e);
         }
         colorFlip() {
-          const e = this.left.copy(null, null, !this.left.color, null, null), t2 = this.right.copy(null, null, !this.right.color, null, null);
-          return this.copy(null, null, !this.color, e, t2);
+          const e = this.left.copy(null, null, !this.left.color, null, null), t3 = this.right.copy(null, null, !this.right.color, null, null);
+          return this.copy(null, null, !this.color, e, t3);
         }
         // For testing.
         checkMaxDepth() {
@@ -14448,15 +14448,15 @@
           throw fail(36894);
         }
         // Returns a copy of the current node.
-        copy(e, t2, n, r, i) {
+        copy(e, t3, n, r, i) {
           return this;
         }
         // Returns a copy of the tree, with the specified key/value added.
-        insert(e, t2, n) {
-          return new LLRBNode(e, t2);
+        insert(e, t3, n) {
+          return new LLRBNode(e, t3);
         }
         // Returns a copy of the tree, with the specified key removed.
-        remove(e, t2) {
+        remove(e, t3) {
           return this;
         }
         isEmpty() {
@@ -14506,30 +14506,30 @@
         }
         /** Iterates elements in order defined by "comparator" */
         forEach(e) {
-          this.data.inorderTraversal(((t2, n) => (e(t2), false)));
+          this.data.inorderTraversal(((t3, n) => (e(t3), false)));
         }
         /** Iterates over `elem`s such that: range[0] &lt;= elem &lt; range[1]. */
-        forEachInRange(e, t2) {
+        forEachInRange(e, t3) {
           const n = this.data.getIteratorFrom(e[0]);
           for (; n.hasNext(); ) {
             const r = n.getNext();
             if (this.comparator(r.key, e[1]) >= 0) return;
-            t2(r.key);
+            t3(r.key);
           }
         }
         /**
          * Iterates over `elem`s such that: start &lt;= elem until false is returned.
          */
-        forEachWhile(e, t2) {
+        forEachWhile(e, t3) {
           let n;
-          for (n = void 0 !== t2 ? this.data.getIteratorFrom(t2) : this.data.getIterator(); n.hasNext(); ) {
+          for (n = void 0 !== t3 ? this.data.getIteratorFrom(t3) : this.data.getIterator(); n.hasNext(); ) {
             if (!e(n.getNext().key)) return;
           }
         }
         /** Finds the least element greater than or equal to `elem`. */
         firstAfterOrEqual(e) {
-          const t2 = this.data.getIteratorFrom(e);
-          return t2.hasNext() ? t2.getNext().key : null;
+          const t3 = this.data.getIteratorFrom(e);
+          return t3.hasNext() ? t3.getNext().key : null;
         }
         getIterator() {
           return new SortedSetIterator(this.data.getIterator());
@@ -14549,34 +14549,34 @@
           return this.data.isEmpty();
         }
         unionWith(e) {
-          let t2 = this;
-          return t2.size < e.size && (t2 = e, e = this), e.forEach(((e2) => {
-            t2 = t2.add(e2);
-          })), t2;
+          let t3 = this;
+          return t3.size < e.size && (t3 = e, e = this), e.forEach(((e2) => {
+            t3 = t3.add(e2);
+          })), t3;
         }
         isEqual(e) {
           if (!(e instanceof _SortedSet)) return false;
           if (this.size !== e.size) return false;
-          const t2 = this.data.getIterator(), n = e.data.getIterator();
-          for (; t2.hasNext(); ) {
-            const e2 = t2.getNext().key, r = n.getNext().key;
+          const t3 = this.data.getIterator(), n = e.data.getIterator();
+          for (; t3.hasNext(); ) {
+            const e2 = t3.getNext().key, r = n.getNext().key;
             if (0 !== this.comparator(e2, r)) return false;
           }
           return true;
         }
         toArray() {
           const e = [];
-          return this.forEach(((t2) => {
-            e.push(t2);
+          return this.forEach(((t3) => {
+            e.push(t3);
           })), e;
         }
         toString() {
           const e = [];
-          return this.forEach(((t2) => e.push(t2))), "SortedSet(" + e.toString() + ")";
+          return this.forEach(((t3) => e.push(t3))), "SortedSet(" + e.toString() + ")";
         }
         copy(e) {
-          const t2 = new _SortedSet(this.comparator);
-          return t2.data = e, t2;
+          const t3 = new _SortedSet(this.comparator);
+          return t3.data = e, t3;
         }
       };
       SortedSetIterator = class {
@@ -14604,10 +14604,10 @@
          * fields paths to this field mask.
          */
         unionWith(e) {
-          let t2 = new SortedSet(FieldPath$1.comparator);
-          for (const e2 of this.fields) t2 = t2.add(e2);
-          for (const n of e) t2 = t2.add(n);
-          return new _FieldMask(t2.toArray());
+          let t3 = new SortedSet(FieldPath$1.comparator);
+          for (const e2 of this.fields) t3 = t3.add(e2);
+          for (const n of e) t3 = t3.add(n);
+          return new _FieldMask(t3.toArray());
         }
         /**
          * Verifies that `fieldPath` is included by at least one field in this field
@@ -14616,11 +14616,11 @@
          * This is an O(n) operation, where `n` is the size of the field mask.
          */
         covers(e) {
-          for (const t2 of this.fields) if (t2.isPrefixOf(e)) return true;
+          for (const t3 of this.fields) if (t3.isPrefixOf(e)) return true;
           return false;
         }
         isEqual(e) {
-          return __PRIVATE_arrayEquals(this.fields, e.fields, ((e2, t2) => e2.isEqual(t2)));
+          return __PRIVATE_arrayEquals(this.fields, e.fields, ((e2, t3) => e2.isEqual(t3)));
         }
       };
       __PRIVATE_Base64DecodeError = class extends Error {
@@ -14633,27 +14633,27 @@
           this.binaryString = e;
         }
         static fromBase64String(e) {
-          const t2 = (function __PRIVATE_decodeBase64(e2) {
+          const t3 = (function __PRIVATE_decodeBase64(e2) {
             try {
               return atob(e2);
             } catch (e3) {
               throw "undefined" != typeof DOMException && e3 instanceof DOMException ? new __PRIVATE_Base64DecodeError("Invalid base64 string: " + e3) : e3;
             }
           })(e);
-          return new _ByteString(t2);
+          return new _ByteString(t3);
         }
         static fromUint8Array(e) {
-          const t2 = (
+          const t3 = (
             /**
             * Helper function to convert an Uint8array to a binary string.
             */
             (function __PRIVATE_binaryStringFromUint8Array(e2) {
-              let t3 = "";
-              for (let n = 0; n < e2.length; ++n) t3 += String.fromCharCode(e2[n]);
-              return t3;
+              let t4 = "";
+              for (let n = 0; n < e2.length; ++n) t4 += String.fromCharCode(e2[n]);
+              return t4;
             })(e)
           );
-          return new _ByteString(t2);
+          return new _ByteString(t3);
         }
         [Symbol.iterator]() {
           let e = 0;
@@ -14674,9 +14674,9 @@
         }
         toUint8Array() {
           return (function __PRIVATE_uint8ArrayFromBinaryString(e) {
-            const t2 = new Uint8Array(e.length);
-            for (let n = 0; n < e.length; n++) t2[n] = e.charCodeAt(n);
-            return t2;
+            const t3 = new Uint8Array(e.length);
+            for (let n = 0; n < e.length; n++) t3[n] = e.charCodeAt(n);
+            return t3;
           })(this.binaryString);
         }
         approximateByteSize() {
@@ -14714,14 +14714,14 @@
          * @param useFetchStreams Whether to use the Fetch API instead of
          * XMLHTTPRequest
          */
-        constructor(e, t2, n, r, i, s, o, _, a, u) {
-          this.databaseId = e, this.appId = t2, this.persistenceKey = n, this.host = r, this.ssl = i, this.forceLongPolling = s, this.autoDetectLongPolling = o, this.longPollingOptions = _, this.useFetchStreams = a, this.isUsingEmulator = u;
+        constructor(e, t3, n, r, i, s, o, _, a, u) {
+          this.databaseId = e, this.appId = t3, this.persistenceKey = n, this.host = r, this.ssl = i, this.forceLongPolling = s, this.autoDetectLongPolling = o, this.longPollingOptions = _, this.useFetchStreams = a, this.isUsingEmulator = u;
         }
       };
       lt = "(default)";
       DatabaseId = class _DatabaseId {
-        constructor(e, t2) {
-          this.projectId = e, this.database = t2 || lt;
+        constructor(e, t3) {
+          this.projectId = e, this.database = t3 || lt;
         }
         static empty() {
           return new _DatabaseId("", "");
@@ -14779,9 +14779,9 @@
         field(e) {
           if (e.isEmpty()) return this.value;
           {
-            let t2 = this.value;
-            for (let n = 0; n < e.length - 1; ++n) if (t2 = (t2.mapValue.fields || {})[e.get(n)], !__PRIVATE_isMapValue(t2)) return null;
-            return t2 = (t2.mapValue.fields || {})[e.lastSegment()], t2 || null;
+            let t3 = this.value;
+            for (let n = 0; n < e.length - 1; ++n) if (t3 = (t3.mapValue.fields || {})[e.get(n)], !__PRIVATE_isMapValue(t3)) return null;
+            return t3 = (t3.mapValue.fields || {})[e.lastSegment()], t3 || null;
           }
         }
         /**
@@ -14790,8 +14790,8 @@
          * @param path - The field path to set.
          * @param value - The value to set.
          */
-        set(e, t2) {
-          this.getFieldsMap(e.popLast())[e.lastSegment()] = __PRIVATE_deepClone(t2);
+        set(e, t3) {
+          this.getFieldsMap(e.popLast())[e.lastSegment()] = __PRIVATE_deepClone(t3);
         }
         /**
          * Sets the provided fields to the provided values.
@@ -14799,15 +14799,15 @@
          * @param data - A map of fields to values (or null for deletes).
          */
         setAll(e) {
-          let t2 = FieldPath$1.emptyPath(), n = {}, r = [];
+          let t3 = FieldPath$1.emptyPath(), n = {}, r = [];
           e.forEach(((e2, i2) => {
-            if (!t2.isImmediateParentOf(i2)) {
-              const e3 = this.getFieldsMap(t2);
-              this.applyChanges(e3, n, r), n = {}, r = [], t2 = i2.popLast();
+            if (!t3.isImmediateParentOf(i2)) {
+              const e3 = this.getFieldsMap(t3);
+              this.applyChanges(e3, n, r), n = {}, r = [], t3 = i2.popLast();
             }
             e2 ? n[i2.lastSegment()] = __PRIVATE_deepClone(e2) : r.push(i2.lastSegment());
           }));
-          const i = this.getFieldsMap(t2);
+          const i = this.getFieldsMap(t3);
           this.applyChanges(i, n, r);
         }
         /**
@@ -14817,8 +14817,8 @@
          * @param path - The field path to remove.
          */
         delete(e) {
-          const t2 = this.field(e.popLast());
-          __PRIVATE_isMapValue(t2) && t2.mapValue.fields && delete t2.mapValue.fields[e.lastSegment()];
+          const t3 = this.field(e.popLast());
+          __PRIVATE_isMapValue(t3) && t3.mapValue.fields && delete t3.mapValue.fields[e.lastSegment()];
         }
         isEqual(e) {
           return __PRIVATE_valueEquals(this.value, e.value);
@@ -14828,35 +14828,35 @@
          * entry does not yet exist, or if it is not a map, a new map will be created.
          */
         getFieldsMap(e) {
-          let t2 = this.value;
-          t2.mapValue.fields || (t2.mapValue = {
+          let t3 = this.value;
+          t3.mapValue.fields || (t3.mapValue = {
             fields: {}
           });
           for (let n = 0; n < e.length; ++n) {
-            let r = t2.mapValue.fields[e.get(n)];
+            let r = t3.mapValue.fields[e.get(n)];
             __PRIVATE_isMapValue(r) && r.mapValue.fields || (r = {
               mapValue: {
                 fields: {}
               }
-            }, t2.mapValue.fields[e.get(n)] = r), t2 = r;
+            }, t3.mapValue.fields[e.get(n)] = r), t3 = r;
           }
-          return t2.mapValue.fields;
+          return t3.mapValue.fields;
         }
         /**
          * Modifies `fieldsMap` by adding, replacing or deleting the specified
          * entries.
          */
-        applyChanges(e, t2, n) {
-          forEach(t2, ((t3, n2) => e[t3] = n2));
-          for (const t3 of n) delete e[t3];
+        applyChanges(e, t3, n) {
+          forEach(t3, ((t4, n2) => e[t4] = n2));
+          for (const t4 of n) delete e[t4];
         }
         clone() {
           return new _ObjectValue(__PRIVATE_deepClone(this.value));
         }
       };
       MutableDocument = class _MutableDocument {
-        constructor(e, t2, n, r, i, s, o) {
-          this.key = e, this.documentType = t2, this.version = n, this.readTime = r, this.createTime = i, this.data = s, this.documentState = o;
+        constructor(e, t3, n, r, i, s, o) {
+          this.key = e, this.documentType = t3, this.version = n, this.readTime = r, this.createTime = i, this.data = s, this.documentState = o;
         }
         /**
          * Creates a document with no known version or data, but which can serve as
@@ -14881,12 +14881,12 @@
          * Creates a new document that is known to exist with the given data at the
          * given version.
          */
-        static newFoundDocument(e, t2, n, r) {
+        static newFoundDocument(e, t3, n, r) {
           return new _MutableDocument(
             e,
             1,
             /* version */
-            t2,
+            t3,
             /* readTime */
             SnapshotVersion.min(),
             /* createTime */
@@ -14897,12 +14897,12 @@
           );
         }
         /** Creates a new document that is known to not exist at the given version. */
-        static newNoDocument(e, t2) {
+        static newNoDocument(e, t3) {
           return new _MutableDocument(
             e,
             2,
             /* version */
-            t2,
+            t3,
             /* readTime */
             SnapshotVersion.min(),
             /* createTime */
@@ -14917,12 +14917,12 @@
          * whose data is not known (e.g. a document that was updated without a known
          * base document).
          */
-        static newUnknownDocument(e, t2) {
+        static newUnknownDocument(e, t3) {
           return new _MutableDocument(
             e,
             3,
             /* version */
-            t2,
+            t3,
             /* readTime */
             SnapshotVersion.min(),
             /* createTime */
@@ -14936,8 +14936,8 @@
          * Changes the document type to indicate that it exists and that its version
          * and data are known.
          */
-        convertToFoundDocument(e, t2) {
-          return !this.createTime.isEqual(SnapshotVersion.min()) || 2 !== this.documentType && 0 !== this.documentType || (this.createTime = e), this.version = e, this.documentType = 1, this.data = t2, this.documentState = 0, this;
+        convertToFoundDocument(e, t3) {
+          return !this.createTime.isEqual(SnapshotVersion.min()) || 2 !== this.documentType && 0 !== this.documentType || (this.createTime = e), this.version = e, this.documentType = 1, this.data = t3, this.documentState = 0, this;
         }
         /**
          * Changes the document type to indicate that it doesn't exist at the given
@@ -14995,33 +14995,33 @@
         }
       };
       Bound = class {
-        constructor(e, t2) {
-          this.position = e, this.inclusive = t2;
+        constructor(e, t3) {
+          this.position = e, this.inclusive = t3;
         }
       };
       OrderBy = class {
-        constructor(e, t2 = "asc") {
-          this.field = e, this.dir = t2;
+        constructor(e, t3 = "asc") {
+          this.field = e, this.dir = t3;
         }
       };
       Filter = class {
       };
       FieldFilter = class _FieldFilter extends Filter {
-        constructor(e, t2, n) {
-          super(), this.field = e, this.op = t2, this.value = n;
+        constructor(e, t3, n) {
+          super(), this.field = e, this.op = t3, this.value = n;
         }
         /**
          * Creates a filter based on the provided arguments.
          */
-        static create(e, t2, n) {
-          return e.isKeyField() ? "in" === t2 || "not-in" === t2 ? this.createKeyFieldInFilter(e, t2, n) : new __PRIVATE_KeyFieldFilter(e, t2, n) : "array-contains" === t2 ? new __PRIVATE_ArrayContainsFilter(e, n) : "in" === t2 ? new __PRIVATE_InFilter(e, n) : "not-in" === t2 ? new __PRIVATE_NotInFilter(e, n) : "array-contains-any" === t2 ? new __PRIVATE_ArrayContainsAnyFilter(e, n) : new _FieldFilter(e, t2, n);
+        static create(e, t3, n) {
+          return e.isKeyField() ? "in" === t3 || "not-in" === t3 ? this.createKeyFieldInFilter(e, t3, n) : new __PRIVATE_KeyFieldFilter(e, t3, n) : "array-contains" === t3 ? new __PRIVATE_ArrayContainsFilter(e, n) : "in" === t3 ? new __PRIVATE_InFilter(e, n) : "not-in" === t3 ? new __PRIVATE_NotInFilter(e, n) : "array-contains-any" === t3 ? new __PRIVATE_ArrayContainsAnyFilter(e, n) : new _FieldFilter(e, t3, n);
         }
-        static createKeyFieldInFilter(e, t2, n) {
-          return "in" === t2 ? new __PRIVATE_KeyFieldInFilter(e, n) : new __PRIVATE_KeyFieldNotInFilter(e, n);
+        static createKeyFieldInFilter(e, t3, n) {
+          return "in" === t3 ? new __PRIVATE_KeyFieldInFilter(e, n) : new __PRIVATE_KeyFieldNotInFilter(e, n);
         }
         matches(e) {
-          const t2 = e.data.field(this.field);
-          return "!=" === this.op ? null !== t2 && void 0 === t2.nullValue && this.matchesComparison(__PRIVATE_valueCompare(t2, this.value)) : null !== t2 && __PRIVATE_typeOrder(this.value) === __PRIVATE_typeOrder(t2) && this.matchesComparison(__PRIVATE_valueCompare(t2, this.value));
+          const t3 = e.data.field(this.field);
+          return "!=" === this.op ? null !== t3 && void 0 === t3.nullValue && this.matchesComparison(__PRIVATE_valueCompare(t3, this.value)) : null !== t3 && __PRIVATE_typeOrder(this.value) === __PRIVATE_typeOrder(t3) && this.matchesComparison(__PRIVATE_valueCompare(t3, this.value));
         }
         matchesComparison(e) {
           switch (this.op) {
@@ -15062,20 +15062,20 @@
         }
       };
       CompositeFilter = class _CompositeFilter extends Filter {
-        constructor(e, t2) {
-          super(), this.filters = e, this.op = t2, this.Pe = null;
+        constructor(e, t3) {
+          super(), this.filters = e, this.op = t3, this.Pe = null;
         }
         /**
          * Creates a filter based on the provided arguments.
          */
-        static create(e, t2) {
-          return new _CompositeFilter(e, t2);
+        static create(e, t3) {
+          return new _CompositeFilter(e, t3);
         }
         matches(e) {
-          return __PRIVATE_compositeFilterIsConjunction(this) ? void 0 === this.filters.find(((t2) => !t2.matches(e))) : void 0 !== this.filters.find(((t2) => t2.matches(e)));
+          return __PRIVATE_compositeFilterIsConjunction(this) ? void 0 === this.filters.find(((t3) => !t3.matches(e))) : void 0 !== this.filters.find(((t3) => t3.matches(e)));
         }
         getFlattenedFilters() {
-          return null !== this.Pe || (this.Pe = this.filters.reduce(((e, t2) => e.concat(t2.getFlattenedFilters())), [])), this.Pe;
+          return null !== this.Pe || (this.Pe = this.filters.reduce(((e, t3) => e.concat(t3.getFlattenedFilters())), [])), this.Pe;
         }
         // Returns a mutable copy of `this.filters`
         getFilters() {
@@ -15083,72 +15083,72 @@
         }
       };
       __PRIVATE_KeyFieldFilter = class extends FieldFilter {
-        constructor(e, t2, n) {
-          super(e, t2, n), this.key = DocumentKey.fromName(n.referenceValue);
+        constructor(e, t3, n) {
+          super(e, t3, n), this.key = DocumentKey.fromName(n.referenceValue);
         }
         matches(e) {
-          const t2 = DocumentKey.comparator(e.key, this.key);
-          return this.matchesComparison(t2);
+          const t3 = DocumentKey.comparator(e.key, this.key);
+          return this.matchesComparison(t3);
         }
       };
       __PRIVATE_KeyFieldInFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "in", t2), this.keys = __PRIVATE_extractDocumentKeysFromArrayValue("in", t2);
+        constructor(e, t3) {
+          super(e, "in", t3), this.keys = __PRIVATE_extractDocumentKeysFromArrayValue("in", t3);
         }
         matches(e) {
-          return this.keys.some(((t2) => t2.isEqual(e.key)));
+          return this.keys.some(((t3) => t3.isEqual(e.key)));
         }
       };
       __PRIVATE_KeyFieldNotInFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "not-in", t2), this.keys = __PRIVATE_extractDocumentKeysFromArrayValue("not-in", t2);
+        constructor(e, t3) {
+          super(e, "not-in", t3), this.keys = __PRIVATE_extractDocumentKeysFromArrayValue("not-in", t3);
         }
         matches(e) {
-          return !this.keys.some(((t2) => t2.isEqual(e.key)));
+          return !this.keys.some(((t3) => t3.isEqual(e.key)));
         }
       };
       __PRIVATE_ArrayContainsFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "array-contains", t2);
+        constructor(e, t3) {
+          super(e, "array-contains", t3);
         }
         matches(e) {
-          const t2 = e.data.field(this.field);
-          return isArray(t2) && __PRIVATE_arrayValueContains(t2.arrayValue, this.value);
+          const t3 = e.data.field(this.field);
+          return isArray(t3) && __PRIVATE_arrayValueContains(t3.arrayValue, this.value);
         }
       };
       __PRIVATE_InFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "in", t2);
+        constructor(e, t3) {
+          super(e, "in", t3);
         }
         matches(e) {
-          const t2 = e.data.field(this.field);
-          return null !== t2 && __PRIVATE_arrayValueContains(this.value.arrayValue, t2);
+          const t3 = e.data.field(this.field);
+          return null !== t3 && __PRIVATE_arrayValueContains(this.value.arrayValue, t3);
         }
       };
       __PRIVATE_NotInFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "not-in", t2);
+        constructor(e, t3) {
+          super(e, "not-in", t3);
         }
         matches(e) {
           if (__PRIVATE_arrayValueContains(this.value.arrayValue, {
             nullValue: "NULL_VALUE"
           })) return false;
-          const t2 = e.data.field(this.field);
-          return null !== t2 && void 0 === t2.nullValue && !__PRIVATE_arrayValueContains(this.value.arrayValue, t2);
+          const t3 = e.data.field(this.field);
+          return null !== t3 && void 0 === t3.nullValue && !__PRIVATE_arrayValueContains(this.value.arrayValue, t3);
         }
       };
       __PRIVATE_ArrayContainsAnyFilter = class extends FieldFilter {
-        constructor(e, t2) {
-          super(e, "array-contains-any", t2);
+        constructor(e, t3) {
+          super(e, "array-contains-any", t3);
         }
         matches(e) {
-          const t2 = e.data.field(this.field);
-          return !(!isArray(t2) || !t2.arrayValue.values) && t2.arrayValue.values.some(((e2) => __PRIVATE_arrayValueContains(this.value.arrayValue, e2)));
+          const t3 = e.data.field(this.field);
+          return !(!isArray(t3) || !t3.arrayValue.values) && t3.arrayValue.values.some(((e2) => __PRIVATE_arrayValueContains(this.value.arrayValue, e2)));
         }
       };
       __PRIVATE_TargetImpl = class {
-        constructor(e, t2 = null, n = [], r = [], i = null, s = null, o = null) {
-          this.path = e, this.collectionGroup = t2, this.orderBy = n, this.filters = r, this.limit = i, this.startAt = s, this.endAt = o, this.Te = null;
+        constructor(e, t3 = null, n = [], r = [], i = null, s = null, o = null) {
+          this.path = e, this.collectionGroup = t3, this.orderBy = n, this.filters = r, this.limit = i, this.startAt = s, this.endAt = o, this.Te = null;
         }
       };
       __PRIVATE_QueryImpl = class {
@@ -15156,8 +15156,8 @@
          * Initializes a Query with a path and optional additional query constraints.
          * Path must currently be empty if this is a collection group query.
          */
-        constructor(e, t2 = null, n = [], r = [], i = null, s = "F", o = null, _ = null) {
-          this.path = e, this.collectionGroup = t2, this.explicitOrderBy = n, this.filters = r, this.limit = i, this.limitType = s, this.startAt = o, this.endAt = _, this.Ie = null, // The corresponding `Target` of this `Query` instance, for use with
+        constructor(e, t3 = null, n = [], r = [], i = null, s = "F", o = null, _ = null) {
+          this.path = e, this.collectionGroup = t3, this.explicitOrderBy = n, this.filters = r, this.limit = i, this.limitType = s, this.startAt = o, this.endAt = _, this.Ie = null, // The corresponding `Target` of this `Query` instance, for use with
           // non-aggregate queries.
           this.Ee = null, // The corresponding `Target` of this `Query` instance, for use with
           // aggregate queries. Unlike targets for non-aggregate queries,
@@ -15167,8 +15167,8 @@
         }
       };
       ObjectMap = class {
-        constructor(e, t2) {
-          this.mapKeyFn = e, this.equalsFn = t2, /**
+        constructor(e, t3) {
+          this.mapKeyFn = e, this.equalsFn = t3, /**
            * The inner map for a key/value pair. Due to the possibility of collisions we
            * keep a list of entries that we do a linear search through to find an actual
            * match. Note that collisions should be rare, so we still expect near
@@ -15179,34 +15179,34 @@
         }
         /** Get a value for this key, or undefined if it does not exist. */
         get(e) {
-          const t2 = this.mapKeyFn(e), n = this.inner[t2];
+          const t3 = this.mapKeyFn(e), n = this.inner[t3];
           if (void 0 !== n) {
-            for (const [t3, r] of n) if (this.equalsFn(t3, e)) return r;
+            for (const [t4, r] of n) if (this.equalsFn(t4, e)) return r;
           }
         }
         has(e) {
           return void 0 !== this.get(e);
         }
         /** Put this key and value in the map. */
-        set(e, t2) {
+        set(e, t3) {
           const n = this.mapKeyFn(e), r = this.inner[n];
-          if (void 0 === r) return this.inner[n] = [[e, t2]], void this.innerSize++;
+          if (void 0 === r) return this.inner[n] = [[e, t3]], void this.innerSize++;
           for (let n2 = 0; n2 < r.length; n2++) if (this.equalsFn(r[n2][0], e))
-            return void (r[n2] = [e, t2]);
-          r.push([e, t2]), this.innerSize++;
+            return void (r[n2] = [e, t3]);
+          r.push([e, t3]), this.innerSize++;
         }
         /**
          * Remove this key from the map. Returns a boolean if anything was deleted.
          */
         delete(e) {
-          const t2 = this.mapKeyFn(e), n = this.inner[t2];
+          const t3 = this.mapKeyFn(e), n = this.inner[t3];
           if (void 0 === n) return false;
-          for (let r = 0; r < n.length; r++) if (this.equalsFn(n[r][0], e)) return 1 === n.length ? delete this.inner[t2] : n.splice(r, 1), this.innerSize--, true;
+          for (let r = 0; r < n.length; r++) if (this.equalsFn(n[r][0], e)) return 1 === n.length ? delete this.inner[t3] : n.splice(r, 1), this.innerSize--, true;
           return false;
         }
         forEach(e) {
-          forEach(this.inner, ((t2, n) => {
-            for (const [t3, r] of n) e(t3, r);
+          forEach(this.inner, ((t3, n) => {
+            for (const [t4, r] of n) e(t4, r);
           }));
         }
         isEmpty() {
@@ -15239,23 +15239,23 @@
         }
       };
       __PRIVATE_NumericIncrementTransformOperation = class extends TransformOperation {
-        constructor(e, t2) {
-          super(), this.serializer = e, this.Ae = t2;
+        constructor(e, t3) {
+          super(), this.serializer = e, this.Ae = t3;
         }
       };
       FieldTransform = class {
-        constructor(e, t2) {
-          this.field = e, this.transform = t2;
+        constructor(e, t3) {
+          this.field = e, this.transform = t3;
         }
       };
       MutationResult = class {
-        constructor(e, t2) {
-          this.version = e, this.transformResults = t2;
+        constructor(e, t3) {
+          this.version = e, this.transformResults = t3;
         }
       };
       Precondition = class _Precondition {
-        constructor(e, t2) {
-          this.updateTime = e, this.exists = t2;
+        constructor(e, t3) {
+          this.updateTime = e, this.exists = t3;
         }
         /** Creates a new empty Precondition. */
         static none() {
@@ -15280,32 +15280,32 @@
       Mutation = class {
       };
       __PRIVATE_SetMutation = class extends Mutation {
-        constructor(e, t2, n, r = []) {
-          super(), this.key = e, this.value = t2, this.precondition = n, this.fieldTransforms = r, this.type = 0;
+        constructor(e, t3, n, r = []) {
+          super(), this.key = e, this.value = t3, this.precondition = n, this.fieldTransforms = r, this.type = 0;
         }
         getFieldMask() {
           return null;
         }
       };
       __PRIVATE_PatchMutation = class extends Mutation {
-        constructor(e, t2, n, r, i = []) {
-          super(), this.key = e, this.data = t2, this.fieldMask = n, this.precondition = r, this.fieldTransforms = i, this.type = 1;
+        constructor(e, t3, n, r, i = []) {
+          super(), this.key = e, this.data = t3, this.fieldMask = n, this.precondition = r, this.fieldTransforms = i, this.type = 1;
         }
         getFieldMask() {
           return this.fieldMask;
         }
       };
       __PRIVATE_DeleteMutation = class extends Mutation {
-        constructor(e, t2) {
-          super(), this.key = e, this.precondition = t2, this.type = 2, this.fieldTransforms = [];
+        constructor(e, t3) {
+          super(), this.key = e, this.precondition = t3, this.type = 2, this.fieldTransforms = [];
         }
         getFieldMask() {
           return null;
         }
       };
       __PRIVATE_VerifyMutation = class extends Mutation {
-        constructor(e, t2) {
-          super(), this.key = e, this.precondition = t2, this.type = 3, this.fieldTransforms = [];
+        constructor(e, t3) {
+          super(), this.key = e, this.precondition = t3, this.type = 3, this.fieldTransforms = [];
         }
         getFieldMask() {
           return null;
@@ -15323,8 +15323,8 @@
          * User-provided mutations are applied both locally and remotely on the
          * backend.
          */
-        constructor(e, t2, n, r) {
-          this.batchId = e, this.localWriteTime = t2, this.baseMutations = n, this.mutations = r;
+        constructor(e, t3, n, r) {
+          this.batchId = e, this.localWriteTime = t3, this.baseMutations = n, this.mutations = r;
         }
         /**
          * Applies all the mutations in this MutationBatch to the specified document
@@ -15334,12 +15334,12 @@
          * @param batchResult - The result of applying the MutationBatch to the
          * backend.
          */
-        applyToRemoteDocument(e, t2) {
-          const n = t2.mutationResults;
-          for (let t3 = 0; t3 < this.mutations.length; t3++) {
-            const r = this.mutations[t3];
+        applyToRemoteDocument(e, t3) {
+          const n = t3.mutationResults;
+          for (let t4 = 0; t4 < this.mutations.length; t4++) {
+            const r = this.mutations[t4];
             if (r.key.isEqual(e.key)) {
-              __PRIVATE_mutationApplyToRemoteDocument(r, e, n[t3]);
+              __PRIVATE_mutationApplyToRemoteDocument(r, e, n[t4]);
             }
           }
         }
@@ -15351,43 +15351,43 @@
          * @param mutatedFields - Fields that have been updated before applying this mutation batch.
          * @returns A `FieldMask` representing all the fields that are mutated.
          */
-        applyToLocalView(e, t2) {
-          for (const n of this.baseMutations) n.key.isEqual(e.key) && (t2 = __PRIVATE_mutationApplyToLocalView(n, e, t2, this.localWriteTime));
-          for (const n of this.mutations) n.key.isEqual(e.key) && (t2 = __PRIVATE_mutationApplyToLocalView(n, e, t2, this.localWriteTime));
-          return t2;
+        applyToLocalView(e, t3) {
+          for (const n of this.baseMutations) n.key.isEqual(e.key) && (t3 = __PRIVATE_mutationApplyToLocalView(n, e, t3, this.localWriteTime));
+          for (const n of this.mutations) n.key.isEqual(e.key) && (t3 = __PRIVATE_mutationApplyToLocalView(n, e, t3, this.localWriteTime));
+          return t3;
         }
         /**
          * Computes the local view for all provided documents given the mutations in
          * this batch. Returns a `DocumentKey` to `Mutation` map which can be used to
          * replace all the mutation applications.
          */
-        applyToLocalDocumentSet(e, t2) {
+        applyToLocalDocumentSet(e, t3) {
           const n = __PRIVATE_newMutationMap();
           return this.mutations.forEach(((r) => {
             const i = e.get(r.key), s = i.overlayedDocument;
             let o = this.applyToLocalView(s, i.mutatedFields);
-            o = t2.has(r.key) ? null : o;
+            o = t3.has(r.key) ? null : o;
             const _ = __PRIVATE_calculateOverlayMutation(s, o);
             null !== _ && n.set(r.key, _), s.isValidDocument() || s.convertToNoDocument(SnapshotVersion.min());
           })), n;
         }
         keys() {
-          return this.mutations.reduce(((e, t2) => e.add(t2.key)), __PRIVATE_documentKeySet());
+          return this.mutations.reduce(((e, t3) => e.add(t3.key)), __PRIVATE_documentKeySet());
         }
         isEqual(e) {
-          return this.batchId === e.batchId && __PRIVATE_arrayEquals(this.mutations, e.mutations, ((e2, t2) => __PRIVATE_mutationEquals(e2, t2))) && __PRIVATE_arrayEquals(this.baseMutations, e.baseMutations, ((e2, t2) => __PRIVATE_mutationEquals(e2, t2)));
+          return this.batchId === e.batchId && __PRIVATE_arrayEquals(this.mutations, e.mutations, ((e2, t3) => __PRIVATE_mutationEquals(e2, t3))) && __PRIVATE_arrayEquals(this.baseMutations, e.baseMutations, ((e2, t3) => __PRIVATE_mutationEquals(e2, t3)));
         }
       };
       MutationBatchResult = class _MutationBatchResult {
-        constructor(e, t2, n, r) {
-          this.batch = e, this.commitVersion = t2, this.mutationResults = n, this.docVersions = r;
+        constructor(e, t3, n, r) {
+          this.batch = e, this.commitVersion = t3, this.mutationResults = n, this.docVersions = r;
         }
         /**
          * Creates a new MutationBatchResult for the given batch and results. There
          * must be one result for each mutation in the batch. This static factory
          * caches a document=&gt;version mapping (docVersions).
          */
-        static from(e, t2, n) {
+        static from(e, t3, n) {
           __PRIVATE_hardAssert(e.mutations.length === n.length, 58842, {
             me: e.mutations.length,
             fe: n.length
@@ -15397,12 +15397,12 @@
           })();
           const i = e.mutations;
           for (let e2 = 0; e2 < i.length; e2++) r = r.insert(i[e2].key, n[e2].version);
-          return new _MutationBatchResult(e, t2, n, r);
+          return new _MutationBatchResult(e, t3, n, r);
         }
       };
       Overlay = class {
-        constructor(e, t2) {
-          this.largestBatchId = e, this.mutation = t2;
+        constructor(e, t3) {
+          this.largestBatchId = e, this.mutation = t3;
         }
         getKey() {
           return this.mutation.key;
@@ -15418,28 +15418,28 @@
         }
       };
       ExistenceFilter = class {
-        constructor(e, t2) {
-          this.count = e, this.unchangedNames = t2;
+        constructor(e, t3) {
+          this.count = e, this.unchangedNames = t3;
         }
       };
       (yt = pt || (pt = {}))[yt.OK = 0] = "OK", yt[yt.CANCELLED = 1] = "CANCELLED", yt[yt.UNKNOWN = 2] = "UNKNOWN", yt[yt.INVALID_ARGUMENT = 3] = "INVALID_ARGUMENT", yt[yt.DEADLINE_EXCEEDED = 4] = "DEADLINE_EXCEEDED", yt[yt.NOT_FOUND = 5] = "NOT_FOUND", yt[yt.ALREADY_EXISTS = 6] = "ALREADY_EXISTS", yt[yt.PERMISSION_DENIED = 7] = "PERMISSION_DENIED", yt[yt.UNAUTHENTICATED = 16] = "UNAUTHENTICATED", yt[yt.RESOURCE_EXHAUSTED = 8] = "RESOURCE_EXHAUSTED", yt[yt.FAILED_PRECONDITION = 9] = "FAILED_PRECONDITION", yt[yt.ABORTED = 10] = "ABORTED", yt[yt.OUT_OF_RANGE = 11] = "OUT_OF_RANGE", yt[yt.UNIMPLEMENTED = 12] = "UNIMPLEMENTED", yt[yt.INTERNAL = 13] = "INTERNAL", yt[yt.UNAVAILABLE = 14] = "UNAVAILABLE", yt[yt.DATA_LOSS = 15] = "DATA_LOSS";
       wt = null;
       St = new Integer([4294967295, 4294967295], 0);
       BloomFilter = class _BloomFilter {
-        constructor(e, t2, n) {
-          if (this.bitmap = e, this.padding = t2, this.hashCount = n, t2 < 0 || t2 >= 8) throw new __PRIVATE_BloomFilterError(`Invalid padding: ${t2}`);
+        constructor(e, t3, n) {
+          if (this.bitmap = e, this.padding = t3, this.hashCount = n, t3 < 0 || t3 >= 8) throw new __PRIVATE_BloomFilterError(`Invalid padding: ${t3}`);
           if (n < 0) throw new __PRIVATE_BloomFilterError(`Invalid hash count: ${n}`);
           if (e.length > 0 && 0 === this.hashCount)
             throw new __PRIVATE_BloomFilterError(`Invalid hash count: ${n}`);
-          if (0 === e.length && 0 !== t2)
-            throw new __PRIVATE_BloomFilterError(`Invalid padding when bitmap length is 0: ${t2}`);
-          this.ge = 8 * e.length - t2, // Set the bit count in Integer to avoid repetition in mightContain().
+          if (0 === e.length && 0 !== t3)
+            throw new __PRIVATE_BloomFilterError(`Invalid padding when bitmap length is 0: ${t3}`);
+          this.ge = 8 * e.length - t3, // Set the bit count in Integer to avoid repetition in mightContain().
           this.pe = Integer.fromNumber(this.ge);
         }
         // Calculate the ith hash value based on the hashed 64bit integers,
         // and calculate its corresponding bit index in the bitmap to be checked.
-        ye(e, t2, n) {
-          let r = e.add(t2.multiply(Integer.fromNumber(n)));
+        ye(e, t3, n) {
+          let r = e.add(t3.multiply(Integer.fromNumber(n)));
           return 1 === r.compare(St) && (r = new Integer([r.getBits(0), r.getBits(1)], 0)), r.modulo(this.pe).toNumber();
         }
         // Return whether the bit on the given index in the bitmap is set to 1.
@@ -15448,29 +15448,29 @@
         }
         mightContain(e) {
           if (0 === this.ge) return false;
-          const t2 = __PRIVATE_getMd5HashValue(e), [n, r] = __PRIVATE_get64BitUints(t2);
+          const t3 = __PRIVATE_getMd5HashValue(e), [n, r] = __PRIVATE_get64BitUints(t3);
           for (let e2 = 0; e2 < this.hashCount; e2++) {
-            const t3 = this.ye(n, r, e2);
-            if (!this.we(t3)) return false;
+            const t4 = this.ye(n, r, e2);
+            if (!this.we(t4)) return false;
           }
           return true;
         }
         /** Create bloom filter for testing purposes only. */
-        static create(e, t2, n) {
-          const r = e % 8 == 0 ? 0 : 8 - e % 8, i = new Uint8Array(Math.ceil(e / 8)), s = new _BloomFilter(i, r, t2);
+        static create(e, t3, n) {
+          const r = e % 8 == 0 ? 0 : 8 - e % 8, i = new Uint8Array(Math.ceil(e / 8)), s = new _BloomFilter(i, r, t3);
           return n.forEach(((e2) => s.insert(e2))), s;
         }
         insert(e) {
           if (0 === this.ge) return;
-          const t2 = __PRIVATE_getMd5HashValue(e), [n, r] = __PRIVATE_get64BitUints(t2);
+          const t3 = __PRIVATE_getMd5HashValue(e), [n, r] = __PRIVATE_get64BitUints(t3);
           for (let e2 = 0; e2 < this.hashCount; e2++) {
-            const t3 = this.ye(n, r, e2);
-            this.Se(t3);
+            const t4 = this.ye(n, r, e2);
+            this.Se(t4);
           }
         }
         Se(e) {
-          const t2 = Math.floor(e / 8), n = e % 8;
-          this.bitmap[t2] |= 1 << n;
+          const t3 = Math.floor(e / 8), n = e % 8;
+          this.bitmap[t3] |= 1 << n;
         }
       };
       __PRIVATE_BloomFilterError = class extends Error {
@@ -15479,8 +15479,8 @@
         }
       };
       RemoteEvent = class _RemoteEvent {
-        constructor(e, t2, n, r, i) {
-          this.snapshotVersion = e, this.targetChanges = t2, this.targetMismatches = n, this.documentUpdates = r, this.resolvedLimboDocuments = i;
+        constructor(e, t3, n, r, i) {
+          this.snapshotVersion = e, this.targetChanges = t3, this.targetMismatches = n, this.documentUpdates = r, this.resolvedLimboDocuments = i;
         }
         /**
          * HACK: Views require RemoteEvents in order to determine whether the view is
@@ -15489,37 +15489,37 @@
          * CURRENT status change to a View, for queries executed in a different tab.
          */
         // PORTING NOTE: Multi-tab only
-        static createSynthesizedRemoteEventForCurrentChange(e, t2, n) {
+        static createSynthesizedRemoteEventForCurrentChange(e, t3, n) {
           const r = /* @__PURE__ */ new Map();
-          return r.set(e, TargetChange.createSynthesizedTargetChangeForCurrentChange(e, t2, n)), new _RemoteEvent(SnapshotVersion.min(), r, new SortedMap(__PRIVATE_primitiveComparator), __PRIVATE_mutableDocumentMap(), __PRIVATE_documentKeySet());
+          return r.set(e, TargetChange.createSynthesizedTargetChangeForCurrentChange(e, t3, n)), new _RemoteEvent(SnapshotVersion.min(), r, new SortedMap(__PRIVATE_primitiveComparator), __PRIVATE_mutableDocumentMap(), __PRIVATE_documentKeySet());
         }
       };
       TargetChange = class _TargetChange {
-        constructor(e, t2, n, r, i) {
-          this.resumeToken = e, this.current = t2, this.addedDocuments = n, this.modifiedDocuments = r, this.removedDocuments = i;
+        constructor(e, t3, n, r, i) {
+          this.resumeToken = e, this.current = t3, this.addedDocuments = n, this.modifiedDocuments = r, this.removedDocuments = i;
         }
         /**
          * This method is used to create a synthesized TargetChanges that can be used to
          * apply a CURRENT status change to a View (for queries executed in a different
          * tab) or for new queries (to raise snapshots with correct CURRENT status).
          */
-        static createSynthesizedTargetChangeForCurrentChange(e, t2, n) {
-          return new _TargetChange(n, t2, __PRIVATE_documentKeySet(), __PRIVATE_documentKeySet(), __PRIVATE_documentKeySet());
+        static createSynthesizedTargetChangeForCurrentChange(e, t3, n) {
+          return new _TargetChange(n, t3, __PRIVATE_documentKeySet(), __PRIVATE_documentKeySet(), __PRIVATE_documentKeySet());
         }
       };
       __PRIVATE_DocumentWatchChange = class {
-        constructor(e, t2, n, r) {
-          this.be = e, this.removedTargetIds = t2, this.key = n, this.De = r;
+        constructor(e, t3, n, r) {
+          this.be = e, this.removedTargetIds = t3, this.key = n, this.De = r;
         }
       };
       __PRIVATE_ExistenceFilterChange = class {
-        constructor(e, t2) {
-          this.targetId = e, this.Ce = t2;
+        constructor(e, t3) {
+          this.targetId = e, this.Ce = t3;
         }
       };
       __PRIVATE_WatchTargetChange = class {
-        constructor(e, t2, n = ByteString.EMPTY_BYTE_STRING, r = null) {
-          this.state = e, this.targetIds = t2, this.resumeToken = n, this.cause = r;
+        constructor(e, t3, n = ByteString.EMPTY_BYTE_STRING, r = null) {
+          this.state = e, this.targetIds = t3, this.resumeToken = n, this.cause = r;
         }
       };
       __PRIVATE_TargetState = class {
@@ -15575,14 +15575,14 @@
          * `clearPendingChanges()`.
          */
         ke() {
-          let e = __PRIVATE_documentKeySet(), t2 = __PRIVATE_documentKeySet(), n = __PRIVATE_documentKeySet();
+          let e = __PRIVATE_documentKeySet(), t3 = __PRIVATE_documentKeySet(), n = __PRIVATE_documentKeySet();
           return this.Fe.forEach(((r, i) => {
             switch (i) {
               case 0:
                 e = e.add(r);
                 break;
               case 2:
-                t2 = t2.add(r);
+                t3 = t3.add(r);
                 break;
               case 1:
                 n = n.add(r);
@@ -15592,7 +15592,7 @@
                   changeType: i
                 });
             }
-          })), new TargetChange(this.Me, this.xe, e, t2, n);
+          })), new TargetChange(this.Me, this.xe, e, t3, n);
         }
         /**
          * Resets the document changes and sets `hasPendingChanges` to false.
@@ -15600,8 +15600,8 @@
         qe() {
           this.Oe = false, this.Fe = __PRIVATE_snapshotChangesMap();
         }
-        Qe(e, t2) {
-          this.Oe = true, this.Fe = this.Fe.insert(e, t2);
+        Qe(e, t3) {
+          this.Oe = true, this.Fe = this.Fe.insert(e, t3);
         }
         $e(e) {
           this.Oe = true, this.Fe = this.Fe.remove(e);
@@ -15634,16 +15634,16 @@
          * Processes and adds the DocumentWatchChange to the current set of changes.
          */
         Ze(e) {
-          for (const t2 of e.be) e.De && e.De.isFoundDocument() ? this.Xe(t2, e.De) : this.et(t2, e.key, e.De);
-          for (const t2 of e.removedTargetIds) this.et(t2, e.key, e.De);
+          for (const t3 of e.be) e.De && e.De.isFoundDocument() ? this.Xe(t3, e.De) : this.et(t3, e.key, e.De);
+          for (const t3 of e.removedTargetIds) this.et(t3, e.key, e.De);
         }
         /** Processes and adds the WatchTargetChange to the current set of changes. */
         tt(e) {
-          this.forEachTarget(e, ((t2) => {
-            const n = this.nt(t2);
+          this.forEachTarget(e, ((t3) => {
+            const n = this.nt(t3);
             switch (e.state) {
               case 0:
-                this.rt(t2) && n.Le(e.resumeToken);
+                this.rt(t3) && n.Le(e.resumeToken);
                 break;
               case 1:
                 n.Ke(), n.Ne || // We have a freshly added target, so we need to reset any state
@@ -15652,16 +15652,16 @@
                 n.qe(), n.Le(e.resumeToken);
                 break;
               case 2:
-                n.Ke(), n.Ne || this.removeTarget(t2);
+                n.Ke(), n.Ne || this.removeTarget(t3);
                 break;
               case 3:
-                this.rt(t2) && (n.We(), n.Le(e.resumeToken));
+                this.rt(t3) && (n.We(), n.Le(e.resumeToken));
                 break;
               case 4:
-                this.rt(t2) && // Reset the target and synthesizes removes for all existing
+                this.rt(t3) && // Reset the target and synthesizes removes for all existing
                 // documents. The backend will re-add any documents that still
                 // match the target before it sends the next global snapshot.
-                (this.it(t2), n.Le(e.resumeToken));
+                (this.it(t3), n.Le(e.resumeToken));
                 break;
               default:
                 fail(56790, {
@@ -15675,9 +15675,9 @@
          * targetIds explicitly listed in the change or the targetIds of all currently
          * active targets.
          */
-        forEachTarget(e, t2) {
-          e.targetIds.length > 0 ? e.targetIds.forEach(t2) : this.ze.forEach(((e2, n) => {
-            this.rt(n) && t2(n);
+        forEachTarget(e, t3) {
+          e.targetIds.length > 0 ? e.targetIds.forEach(t3) : this.ze.forEach(((e2, n) => {
+            this.rt(n) && t3(n);
           }));
         }
         /**
@@ -15686,31 +15686,31 @@
          * `pendingTargetResets`.
          */
         st(e) {
-          const t2 = e.targetId, n = e.Ce.count, r = this.ot(t2);
+          const t3 = e.targetId, n = e.Ce.count, r = this.ot(t3);
           if (r) {
             const i = r.target;
             if (__PRIVATE_targetIsDocumentTarget(i)) if (0 === n) {
               const e2 = new DocumentKey(i.path);
-              this.et(t2, e2, MutableDocument.newNoDocument(e2, SnapshotVersion.min()));
+              this.et(t3, e2, MutableDocument.newNoDocument(e2, SnapshotVersion.min()));
             } else __PRIVATE_hardAssert(1 === n, 20013, {
               expectedCount: n
             });
             else {
-              const r2 = this._t(t2);
+              const r2 = this._t(t3);
               if (r2 !== n) {
                 const n2 = this.ut(e), i2 = n2 ? this.ct(n2, e, r2) : 1;
                 if (0 !== i2) {
-                  this.it(t2);
+                  this.it(t3);
                   const e2 = 2 === i2 ? "TargetPurposeExistenceFilterMismatchBloom" : "TargetPurposeExistenceFilterMismatch";
-                  this.Ye = this.Ye.insert(t2, e2);
+                  this.Ye = this.Ye.insert(t3, e2);
                 }
-                wt?.lt((function __PRIVATE_createExistenceFilterMismatchInfoForTestingHooks(e2, t3, n3, r3, i3) {
+                wt?.lt((function __PRIVATE_createExistenceFilterMismatchInfoForTestingHooks(e2, t4, n3, r3, i3) {
                   const s = {
                     localCacheCount: e2,
-                    existenceFilterCount: t3.count,
+                    existenceFilterCount: t4.count,
                     databaseId: n3.database,
                     projectId: n3.projectId
-                  }, o = t3.unchangedNames;
+                  }, o = t4.unchangedNames;
                   o && (s.bloomFilter = {
                     applied: 0 === i3,
                     hashCount: o?.hashCount ?? 0,
@@ -15729,9 +15729,9 @@
          * filter.
          */
         ut(e) {
-          const t2 = e.Ce.unchangedNames;
-          if (!t2 || !t2.bits) return null;
-          const { bits: { bitmap: n = "", padding: r = 0 }, hashCount: i = 0 } = t2;
+          const t3 = e.Ce.unchangedNames;
+          if (!t3 || !t3.bits) return null;
+          const { bits: { bitmap: n = "", padding: r = 0 }, hashCount: i = 0 } = t3;
           let s, o;
           try {
             s = __PRIVATE_normalizeByteString(n).toUint8Array();
@@ -15750,20 +15750,20 @@
          * Apply bloom filter to remove the deleted documents, and return the
          * application status.
          */
-        ct(e, t2, n) {
-          return t2.Ce.count === n - this.Pt(e, t2.targetId) ? 0 : 2;
+        ct(e, t3, n) {
+          return t3.Ce.count === n - this.Pt(e, t3.targetId) ? 0 : 2;
         }
         /**
          * Filter out removed documents based on bloom filter membership result and
          * return number of documents removed.
          */
-        Pt(e, t2) {
-          const n = this.Ge.getRemoteKeysForTarget(t2);
+        Pt(e, t3) {
+          const n = this.Ge.getRemoteKeysForTarget(t3);
           let r = 0;
           return n.forEach(((n2) => {
             const i = this.Ge.ht(), s = `projects/${i.projectId}/databases/${i.database}/documents/${n2.path.canonicalString()}`;
             e.mightContain(s) || (this.et(
-              t2,
+              t3,
               n2,
               /*updatedDocument=*/
               null
@@ -15775,26 +15775,26 @@
          * provided snapshot version. Resets the accumulated changes before returning.
          */
         Tt(e) {
-          const t2 = /* @__PURE__ */ new Map();
+          const t3 = /* @__PURE__ */ new Map();
           this.ze.forEach(((n2, r2) => {
             const i = this.ot(r2);
             if (i) {
               if (n2.current && __PRIVATE_targetIsDocumentTarget(i.target)) {
-                const t3 = new DocumentKey(i.target.path);
-                this.It(t3).has(r2) || this.Et(r2, t3) || this.et(r2, t3, MutableDocument.newNoDocument(t3, e));
+                const t4 = new DocumentKey(i.target.path);
+                this.It(t4).has(r2) || this.Et(r2, t4) || this.et(r2, t4, MutableDocument.newNoDocument(t4, e));
               }
-              n2.Be && (t2.set(r2, n2.ke()), n2.qe());
+              n2.Be && (t3.set(r2, n2.ke()), n2.qe());
             }
           }));
           let n = __PRIVATE_documentKeySet();
-          this.He.forEach(((e2, t3) => {
+          this.He.forEach(((e2, t4) => {
             let r2 = true;
-            t3.forEachWhile(((e3) => {
-              const t4 = this.ot(e3);
-              return !t4 || "TargetPurposeLimboResolution" === t4.purpose || (r2 = false, false);
+            t4.forEachWhile(((e3) => {
+              const t5 = this.ot(e3);
+              return !t5 || "TargetPurposeLimboResolution" === t5.purpose || (r2 = false, false);
             })), r2 && (n = n.add(e2));
-          })), this.je.forEach(((t3, n2) => n2.setReadTime(e)));
-          const r = new RemoteEvent(e, t2, this.Ye, this.je, n);
+          })), this.je.forEach(((t4, n2) => n2.setReadTime(e)));
+          const r = new RemoteEvent(e, t3, this.Ye, this.je, n);
           return this.je = __PRIVATE_mutableDocumentMap(), this.Je = __PRIVATE_documentTargetMap(), this.He = __PRIVATE_documentTargetMap(), this.Ye = new SortedMap(__PRIVATE_primitiveComparator), r;
         }
         /**
@@ -15802,10 +15802,10 @@
          * its document key to the given target's mapping.
          */
         // Visible for testing.
-        Xe(e, t2) {
+        Xe(e, t3) {
           if (!this.rt(e)) return;
-          const n = this.Et(e, t2.key) ? 2 : 0;
-          this.nt(e).Qe(t2.key, n), this.je = this.je.insert(t2.key, t2), this.Je = this.Je.insert(t2.key, this.It(t2.key).add(e)), this.He = this.He.insert(t2.key, this.dt(t2.key).add(e));
+          const n = this.Et(e, t3.key) ? 2 : 0;
+          this.nt(e).Qe(t3.key, n), this.je = this.je.insert(t3.key, t3), this.Je = this.Je.insert(t3.key, this.It(t3.key).add(e)), this.He = this.He.insert(t3.key, this.dt(t3.key).add(e));
         }
         /**
          * Removes the provided document from the target mapping. If the
@@ -15815,18 +15815,18 @@
          * to update the remote document cache.
          */
         // Visible for testing.
-        et(e, t2, n) {
+        et(e, t3, n) {
           if (!this.rt(e)) return;
           const r = this.nt(e);
-          this.Et(e, t2) ? r.Qe(
-            t2,
+          this.Et(e, t3) ? r.Qe(
+            t3,
             1
             /* ChangeType.Removed */
           ) : (
             // The document may have entered and left the target before we raised a
             // snapshot, so we can just ignore the change.
-            r.$e(t2)
-          ), this.He = this.He.insert(t2, this.dt(t2).delete(e)), this.He = this.He.insert(t2, this.dt(t2).add(e)), n && (this.je = this.je.insert(t2, n));
+            r.$e(t3)
+          ), this.He = this.He.insert(t3, this.dt(t3).delete(e)), this.He = this.He.insert(t3, this.dt(t3).add(e)), n && (this.je = this.je.insert(t3, n));
         }
         removeTarget(e) {
           this.ze.delete(e);
@@ -15837,8 +15837,8 @@
          * target as well as any accumulated changes.
          */
         _t(e) {
-          const t2 = this.nt(e).ke();
-          return this.Ge.getRemoteKeysForTarget(e).size + t2.addedDocuments.size - t2.removedDocuments.size;
+          const t3 = this.nt(e).ke();
+          return this.Ge.getRemoteKeysForTarget(e).size + t3.addedDocuments.size - t3.removedDocuments.size;
         }
         /**
          * Increment the number of acks needed from watch before we can consider the
@@ -15848,16 +15848,16 @@
           this.nt(e).Ue();
         }
         nt(e) {
-          let t2 = this.ze.get(e);
-          return t2 || (t2 = new __PRIVATE_TargetState(), this.ze.set(e, t2)), t2;
+          let t3 = this.ze.get(e);
+          return t3 || (t3 = new __PRIVATE_TargetState(), this.ze.set(e, t3)), t3;
         }
         dt(e) {
-          let t2 = this.He.get(e);
-          return t2 || (t2 = new SortedSet(__PRIVATE_primitiveComparator), this.He = this.He.insert(e, t2)), t2;
+          let t3 = this.He.get(e);
+          return t3 || (t3 = new SortedSet(__PRIVATE_primitiveComparator), this.He = this.He.insert(e, t3)), t3;
         }
         It(e) {
-          let t2 = this.Je.get(e);
-          return t2 || (t2 = new SortedSet(__PRIVATE_primitiveComparator), this.Je = this.Je.insert(e, t2)), t2;
+          let t3 = this.Je.get(e);
+          return t3 || (t3 = new SortedSet(__PRIVATE_primitiveComparator), this.Je = this.Je.insert(e, t3)), t3;
         }
         /**
          * Verifies that the user is still interested in this target (by calling
@@ -15865,16 +15865,16 @@
          * from watch.
          */
         rt(e) {
-          const t2 = null !== this.ot(e);
-          return t2 || __PRIVATE_logDebug("WatchChangeAggregator", "Detected inactive target", e), t2;
+          const t3 = null !== this.ot(e);
+          return t3 || __PRIVATE_logDebug("WatchChangeAggregator", "Detected inactive target", e), t3;
         }
         /**
          * Returns the TargetData for an active target (i.e. a target that the user
          * is still interested in that has no outstanding target change requests).
          */
         ot(e) {
-          const t2 = this.ze.get(e);
-          return t2 && t2.Ne ? null : this.Ge.At(e);
+          const t3 = this.ze.get(e);
+          return t3 && t3.Ne ? null : this.Ge.At(e);
         }
         /**
          * Resets the state of a Watch target to its initial state (e.g. sets
@@ -15883,10 +15883,10 @@
          */
         it(e) {
           this.ze.set(e, new __PRIVATE_TargetState());
-          this.Ge.getRemoteKeysForTarget(e).forEach(((t2) => {
+          this.Ge.getRemoteKeysForTarget(e).forEach(((t3) => {
             this.et(
               e,
-              t2,
+              t3,
               /*updatedDocument=*/
               null
             );
@@ -15896,8 +15896,8 @@
          * Returns whether the LocalStore considers the document to be part of the
          * specified target.
          */
-        Et(e, t2) {
-          return this.Ge.getRemoteKeysForTarget(e).has(t2);
+        Et(e, t3) {
+          return this.Ge.getRemoteKeysForTarget(e).has(t3);
         }
       };
       bt = /* @__PURE__ */ (() => {
@@ -15930,13 +15930,13 @@
         return e;
       })();
       JsonProtoSerializer = class {
-        constructor(e, t2) {
-          this.databaseId = e, this.useProto3Json = t2;
+        constructor(e, t3) {
+          this.databaseId = e, this.useProto3Json = t3;
         }
       };
       TargetData = class _TargetData {
-        constructor(e, t2, n, r, i = SnapshotVersion.min(), s = SnapshotVersion.min(), o = ByteString.EMPTY_BYTE_STRING, _ = null) {
-          this.target = e, this.targetId = t2, this.purpose = n, this.sequenceNumber = r, this.snapshotVersion = i, this.lastLimboFreeSnapshotVersion = s, this.resumeToken = o, this.expectedCount = _;
+        constructor(e, t3, n, r, i = SnapshotVersion.min(), s = SnapshotVersion.min(), o = ByteString.EMPTY_BYTE_STRING, _ = null) {
+          this.target = e, this.targetId = t3, this.purpose = n, this.sequenceNumber = r, this.snapshotVersion = i, this.lastLimboFreeSnapshotVersion = s, this.resumeToken = o, this.expectedCount = _;
         }
         /** Creates a new target data instance with an updated sequence number. */
         withSequenceNumber(e) {
@@ -15946,13 +15946,13 @@
          * Creates a new target data instance with an updated resume token and
          * snapshot version.
          */
-        withResumeToken(e, t2) {
+        withResumeToken(e, t3) {
           return new _TargetData(
             this.target,
             this.targetId,
             this.purpose,
             this.sequenceNumber,
-            t2,
+            t3,
             this.lastLimboFreeSnapshotVersion,
             e,
             /* expectedCount= */
@@ -15979,8 +15979,8 @@
         }
       };
       __PRIVATE_IndexedDbBundleCache = class {
-        getBundleMetadata(e, t2) {
-          return __PRIVATE_bundlesStore(e).get(t2).next(((e2) => {
+        getBundleMetadata(e, t3) {
+          return __PRIVATE_bundlesStore(e).get(t3).next(((e2) => {
             if (e2) return (function __PRIVATE_fromDbBundle(e3) {
               return {
                 id: e3.bundleId,
@@ -15990,17 +15990,17 @@
             })(e2);
           }));
         }
-        saveBundleMetadata(e, t2) {
+        saveBundleMetadata(e, t3) {
           return __PRIVATE_bundlesStore(e).put((function __PRIVATE_toDbBundle(e2) {
             return {
               bundleId: e2.id,
               createTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.createTime)),
               version: e2.version
             };
-          })(t2));
+          })(t3));
         }
-        getNamedQuery(e, t2) {
-          return __PRIVATE_namedQueriesStore(e).get(t2).next(((e2) => {
+        getNamedQuery(e, t3) {
+          return __PRIVATE_namedQueriesStore(e).get(t3).next(((e2) => {
             if (e2) return (function __PRIVATE_fromDbNamedQuery(e3) {
               return {
                 name: e3.name,
@@ -16010,14 +16010,14 @@
             })(e2);
           }));
         }
-        saveNamedQuery(e, t2) {
+        saveNamedQuery(e, t3) {
           return __PRIVATE_namedQueriesStore(e).put((function __PRIVATE_toDbNamedQuery(e2) {
             return {
               name: e2.name,
               readTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.readTime)),
               bundledQuery: e2.bundledQuery
             };
-          })(t2));
+          })(t3));
         }
       };
       __PRIVATE_IndexedDbDocumentOverlayCache = class ___PRIVATE_IndexedDbDocumentOverlayCache {
@@ -16025,37 +16025,37 @@
          * @param serializer - The document serializer.
          * @param userId - The userId for which we are accessing overlays.
          */
-        constructor(e, t2) {
-          this.serializer = e, this.userId = t2;
+        constructor(e, t3) {
+          this.serializer = e, this.userId = t3;
         }
-        static wt(e, t2) {
-          const n = t2.uid || "";
+        static wt(e, t3) {
+          const n = t3.uid || "";
           return new ___PRIVATE_IndexedDbDocumentOverlayCache(e, n);
         }
-        getOverlay(e, t2) {
-          return __PRIVATE_documentOverlayStore(e).get(__PRIVATE_toDbDocumentOverlayKey(this.userId, t2)).next(((e2) => e2 ? __PRIVATE_fromDbDocumentOverlay(this.serializer, e2) : null));
+        getOverlay(e, t3) {
+          return __PRIVATE_documentOverlayStore(e).get(__PRIVATE_toDbDocumentOverlayKey(this.userId, t3)).next(((e2) => e2 ? __PRIVATE_fromDbDocumentOverlay(this.serializer, e2) : null));
         }
-        getOverlays(e, t2) {
+        getOverlays(e, t3) {
           const n = __PRIVATE_newOverlayMap();
-          return PersistencePromise.forEach(t2, ((t3) => this.getOverlay(e, t3).next(((e2) => {
-            null !== e2 && n.set(t3, e2);
+          return PersistencePromise.forEach(t3, ((t4) => this.getOverlay(e, t4).next(((e2) => {
+            null !== e2 && n.set(t4, e2);
           })))).next((() => n));
         }
-        saveOverlays(e, t2, n) {
+        saveOverlays(e, t3, n) {
           const r = [];
           return n.forEach(((n2, i) => {
-            const s = new Overlay(t2, i);
+            const s = new Overlay(t3, i);
             r.push(this.St(e, s));
           })), PersistencePromise.waitFor(r);
         }
-        removeOverlaysForBatchId(e, t2, n) {
+        removeOverlaysForBatchId(e, t3, n) {
           const r = /* @__PURE__ */ new Set();
-          t2.forEach(((e2) => r.add(__PRIVATE_encodeResourcePath(e2.getCollectionPath()))));
+          t3.forEach(((e2) => r.add(__PRIVATE_encodeResourcePath(e2.getCollectionPath()))));
           const i = [];
-          return r.forEach(((t3) => {
+          return r.forEach(((t4) => {
             const r2 = IDBKeyRange.bound(
-              [this.userId, t3, n],
-              [this.userId, t3, n + 1],
+              [this.userId, t4, n],
+              [this.userId, t4, n + 1],
               /*lowerOpen=*/
               false,
               /*upperOpen=*/
@@ -16064,50 +16064,50 @@
             i.push(__PRIVATE_documentOverlayStore(e).Z(Ge, r2));
           })), PersistencePromise.waitFor(i);
         }
-        getOverlaysForCollection(e, t2, n) {
-          const r = __PRIVATE_newOverlayMap(), i = __PRIVATE_encodeResourcePath(t2), s = IDBKeyRange.bound(
+        getOverlaysForCollection(e, t3, n) {
+          const r = __PRIVATE_newOverlayMap(), i = __PRIVATE_encodeResourcePath(t3), s = IDBKeyRange.bound(
             [this.userId, i, n],
             [this.userId, i, Number.POSITIVE_INFINITY],
             /*lowerOpen=*/
             true
           );
           return __PRIVATE_documentOverlayStore(e).J(Ge, s).next(((e2) => {
-            for (const t3 of e2) {
-              const e3 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t3);
+            for (const t4 of e2) {
+              const e3 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t4);
               r.set(e3.getKey(), e3);
             }
             return r;
           }));
         }
-        getOverlaysForCollectionGroup(e, t2, n, r) {
+        getOverlaysForCollectionGroup(e, t3, n, r) {
           const i = __PRIVATE_newOverlayMap();
           let s;
           const o = IDBKeyRange.bound(
-            [this.userId, t2, n],
-            [this.userId, t2, Number.POSITIVE_INFINITY],
+            [this.userId, t3, n],
+            [this.userId, t3, Number.POSITIVE_INFINITY],
             /*lowerOpen=*/
             true
           );
           return __PRIVATE_documentOverlayStore(e).ee({
             index: je,
             range: o
-          }, ((e2, t3, n2) => {
-            const o2 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t3);
+          }, ((e2, t4, n2) => {
+            const o2 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t4);
             i.size() < r || o2.largestBatchId === s ? (i.set(o2.getKey(), o2), s = o2.largestBatchId) : n2.done();
           })).next((() => i));
         }
-        St(e, t2) {
-          return __PRIVATE_documentOverlayStore(e).put((function __PRIVATE_toDbDocumentOverlay(e2, t3, n) {
-            const [r, i, s] = __PRIVATE_toDbDocumentOverlayKey(t3, n.mutation.key);
+        St(e, t3) {
+          return __PRIVATE_documentOverlayStore(e).put((function __PRIVATE_toDbDocumentOverlay(e2, t4, n) {
+            const [r, i, s] = __PRIVATE_toDbDocumentOverlayKey(t4, n.mutation.key);
             return {
-              userId: t3,
+              userId: t4,
               collectionPath: i,
               documentId: s,
               collectionGroup: n.mutation.key.getCollectionGroup(),
               largestBatchId: n.largestBatchId,
               overlayMutation: toMutation(e2.yt, n.mutation)
             };
-          })(this.serializer, this.userId, t2));
+          })(this.serializer, this.userId, t3));
         }
       };
       __PRIVATE_IndexedDbGlobalsCache = class {
@@ -16116,14 +16116,14 @@
         }
         getSessionToken(e) {
           return this.bt(e).get("sessionToken").next(((e2) => {
-            const t2 = e2?.value;
-            return t2 ? ByteString.fromUint8Array(t2) : ByteString.EMPTY_BYTE_STRING;
+            const t3 = e2?.value;
+            return t3 ? ByteString.fromUint8Array(t3) : ByteString.EMPTY_BYTE_STRING;
           }));
         }
-        setSessionToken(e, t2) {
+        setSessionToken(e, t3) {
           return this.bt(e).put({
             name: "sessionToken",
-            value: t2.toUint8Array()
+            value: t3.toUint8Array()
           });
         }
       };
@@ -16137,65 +16137,65 @@
         // ["bar", [2, truncated("foo")]] -> (STRING, "bar", TERM, ARRAY, NUMBER, 2, STRING, "foo", TRUNC)
         // ["bar", truncated(["foo"])] -> (STRING, "bar", TERM, ARRAY. STRING, "foo", TERM, TRUNC)
         /** Writes an index value.  */
-        Dt(e, t2) {
-          this.Ct(e, t2), // Write separator to split index values
+        Dt(e, t3) {
+          this.Ct(e, t3), // Write separator to split index values
           // (see go/firestore-storage-format#encodings).
-          t2.vt();
+          t3.vt();
         }
-        Ct(e, t2) {
-          if ("nullValue" in e) this.Ft(t2, 5);
-          else if ("booleanValue" in e) this.Ft(t2, 10), t2.Mt(e.booleanValue ? 1 : 0);
-          else if ("integerValue" in e) this.Ft(t2, 15), t2.Mt(__PRIVATE_normalizeNumber(e.integerValue));
+        Ct(e, t3) {
+          if ("nullValue" in e) this.Ft(t3, 5);
+          else if ("booleanValue" in e) this.Ft(t3, 10), t3.Mt(e.booleanValue ? 1 : 0);
+          else if ("integerValue" in e) this.Ft(t3, 15), t3.Mt(__PRIVATE_normalizeNumber(e.integerValue));
           else if ("doubleValue" in e) {
             const n = __PRIVATE_normalizeNumber(e.doubleValue);
-            isNaN(n) ? this.Ft(t2, 13) : (this.Ft(t2, 15), __PRIVATE_isNegativeZero(n) ? (
+            isNaN(n) ? this.Ft(t3, 13) : (this.Ft(t3, 15), __PRIVATE_isNegativeZero(n) ? (
               // -0.0, 0 and 0.0 are all considered the same
-              t2.Mt(0)
-            ) : t2.Mt(n));
+              t3.Mt(0)
+            ) : t3.Mt(n));
           } else if ("timestampValue" in e) {
             let n = e.timestampValue;
-            this.Ft(t2, 20), "string" == typeof n && (n = __PRIVATE_normalizeTimestamp(n)), t2.xt(`${n.seconds || ""}`), t2.Mt(n.nanos || 0);
-          } else if ("stringValue" in e) this.Ot(e.stringValue, t2), this.Nt(t2);
-          else if ("bytesValue" in e) this.Ft(t2, 30), t2.Bt(__PRIVATE_normalizeByteString(e.bytesValue)), this.Nt(t2);
-          else if ("referenceValue" in e) this.Lt(e.referenceValue, t2);
+            this.Ft(t3, 20), "string" == typeof n && (n = __PRIVATE_normalizeTimestamp(n)), t3.xt(`${n.seconds || ""}`), t3.Mt(n.nanos || 0);
+          } else if ("stringValue" in e) this.Ot(e.stringValue, t3), this.Nt(t3);
+          else if ("bytesValue" in e) this.Ft(t3, 30), t3.Bt(__PRIVATE_normalizeByteString(e.bytesValue)), this.Nt(t3);
+          else if ("referenceValue" in e) this.Lt(e.referenceValue, t3);
           else if ("geoPointValue" in e) {
             const n = e.geoPointValue;
-            this.Ft(t2, 45), t2.Mt(n.latitude || 0), t2.Mt(n.longitude || 0);
-          } else "mapValue" in e ? __PRIVATE_isMaxValue(e) ? this.Ft(t2, Number.MAX_SAFE_INTEGER) : __PRIVATE_isVectorValue(e) ? this.kt(e.mapValue, t2) : (this.qt(e.mapValue, t2), this.Nt(t2)) : "arrayValue" in e ? (this.Qt(e.arrayValue, t2), this.Nt(t2)) : fail(19022, {
+            this.Ft(t3, 45), t3.Mt(n.latitude || 0), t3.Mt(n.longitude || 0);
+          } else "mapValue" in e ? __PRIVATE_isMaxValue(e) ? this.Ft(t3, Number.MAX_SAFE_INTEGER) : __PRIVATE_isVectorValue(e) ? this.kt(e.mapValue, t3) : (this.qt(e.mapValue, t3), this.Nt(t3)) : "arrayValue" in e ? (this.Qt(e.arrayValue, t3), this.Nt(t3)) : fail(19022, {
             $t: e
           });
         }
-        Ot(e, t2) {
-          this.Ft(t2, 25), this.Ut(e, t2);
+        Ot(e, t3) {
+          this.Ft(t3, 25), this.Ut(e, t3);
         }
-        Ut(e, t2) {
-          t2.xt(e);
+        Ut(e, t3) {
+          t3.xt(e);
         }
-        qt(e, t2) {
+        qt(e, t3) {
           const n = e.fields || {};
-          this.Ft(t2, 55);
-          for (const e2 of Object.keys(n)) this.Ot(e2, t2), this.Ct(n[e2], t2);
+          this.Ft(t3, 55);
+          for (const e2 of Object.keys(n)) this.Ot(e2, t3), this.Ct(n[e2], t3);
         }
-        kt(e, t2) {
+        kt(e, t3) {
           const n = e.fields || {};
-          this.Ft(t2, 53);
+          this.Ft(t3, 53);
           const r = Et, i = n[r].arrayValue?.values?.length || 0;
-          this.Ft(t2, 15), t2.Mt(__PRIVATE_normalizeNumber(i)), // Vectors then sort by position value
-          this.Ot(r, t2), this.Ct(n[r], t2);
+          this.Ft(t3, 15), t3.Mt(__PRIVATE_normalizeNumber(i)), // Vectors then sort by position value
+          this.Ot(r, t3), this.Ct(n[r], t3);
         }
-        Qt(e, t2) {
+        Qt(e, t3) {
           const n = e.values || [];
-          this.Ft(t2, 50);
-          for (const e2 of n) this.Ct(e2, t2);
+          this.Ft(t3, 50);
+          for (const e2 of n) this.Ct(e2, t3);
         }
-        Lt(e, t2) {
-          this.Ft(t2, 37);
+        Lt(e, t3) {
+          this.Ft(t3, 37);
           DocumentKey.fromName(e).path.forEach(((e2) => {
-            this.Ft(t2, 60), this.Ut(e2, t2);
+            this.Ft(t3, 60), this.Ut(e2, t3);
           }));
         }
-        Ft(e, t2) {
-          e.Mt(t2);
+        Ft(e, t3) {
+          e.Mt(t3);
         }
         Nt(e) {
           e.Mt(2);
@@ -16208,26 +16208,26 @@
           this.buffer = new Uint8Array(1024), this.position = 0;
         }
         Wt(e) {
-          const t2 = e[Symbol.iterator]();
-          let n = t2.next();
-          for (; !n.done; ) this.Gt(n.value), n = t2.next();
+          const t3 = e[Symbol.iterator]();
+          let n = t3.next();
+          for (; !n.done; ) this.Gt(n.value), n = t3.next();
           this.zt();
         }
         jt(e) {
-          const t2 = e[Symbol.iterator]();
-          let n = t2.next();
-          for (; !n.done; ) this.Jt(n.value), n = t2.next();
+          const t3 = e[Symbol.iterator]();
+          let n = t3.next();
+          for (; !n.done; ) this.Jt(n.value), n = t3.next();
           this.Ht();
         }
         /** Writes utf8 bytes into this byte sequence, ascending. */
         Yt(e) {
-          for (const t2 of e) {
-            const e2 = t2.charCodeAt(0);
+          for (const t3 of e) {
+            const e2 = t3.charCodeAt(0);
             if (e2 < 128) this.Gt(e2);
             else if (e2 < 2048) this.Gt(960 | e2 >>> 6), this.Gt(128 | 63 & e2);
-            else if (t2 < "\uD800" || "\uDBFF" < t2) this.Gt(480 | e2 >>> 12), this.Gt(128 | 63 & e2 >>> 6), this.Gt(128 | 63 & e2);
+            else if (t3 < "\uD800" || "\uDBFF" < t3) this.Gt(480 | e2 >>> 12), this.Gt(128 | 63 & e2 >>> 6), this.Gt(128 | 63 & e2);
             else {
-              const e3 = t2.codePointAt(0);
+              const e3 = t3.codePointAt(0);
               this.Gt(240 | e3 >>> 18), this.Gt(128 | 63 & e3 >>> 12), this.Gt(128 | 63 & e3 >>> 6), this.Gt(128 | 63 & e3);
             }
           }
@@ -16235,27 +16235,27 @@
         }
         /** Writes utf8 bytes into this byte sequence, descending */
         Zt(e) {
-          for (const t2 of e) {
-            const e2 = t2.charCodeAt(0);
+          for (const t3 of e) {
+            const e2 = t3.charCodeAt(0);
             if (e2 < 128) this.Jt(e2);
             else if (e2 < 2048) this.Jt(960 | e2 >>> 6), this.Jt(128 | 63 & e2);
-            else if (t2 < "\uD800" || "\uDBFF" < t2) this.Jt(480 | e2 >>> 12), this.Jt(128 | 63 & e2 >>> 6), this.Jt(128 | 63 & e2);
+            else if (t3 < "\uD800" || "\uDBFF" < t3) this.Jt(480 | e2 >>> 12), this.Jt(128 | 63 & e2 >>> 6), this.Jt(128 | 63 & e2);
             else {
-              const e3 = t2.codePointAt(0);
+              const e3 = t3.codePointAt(0);
               this.Jt(240 | e3 >>> 18), this.Jt(128 | 63 & e3 >>> 12), this.Jt(128 | 63 & e3 >>> 6), this.Jt(128 | 63 & e3);
             }
           }
           this.Ht();
         }
         Xt(e) {
-          const t2 = this.en(e), n = __PRIVATE_unsignedNumLength(t2);
+          const t3 = this.en(e), n = __PRIVATE_unsignedNumLength(t3);
           this.tn(1 + n), this.buffer[this.position++] = 255 & n;
-          for (let e2 = t2.length - n; e2 < t2.length; ++e2) this.buffer[this.position++] = 255 & t2[e2];
+          for (let e2 = t3.length - n; e2 < t3.length; ++e2) this.buffer[this.position++] = 255 & t3[e2];
         }
         nn(e) {
-          const t2 = this.en(e), n = __PRIVATE_unsignedNumLength(t2);
+          const t3 = this.en(e), n = __PRIVATE_unsignedNumLength(t3);
           this.tn(1 + n), this.buffer[this.position++] = ~(255 & n);
-          for (let e2 = t2.length - n; e2 < t2.length; ++e2) this.buffer[this.position++] = ~(255 & t2[e2]);
+          for (let e2 = t3.length - n; e2 < t3.length; ++e2) this.buffer[this.position++] = ~(255 & t3[e2]);
         }
         /**
          * Writes the "infinity" byte sequence that sorts after all other byte
@@ -16293,31 +16293,31 @@
          *   NaN = NaN
          */
         en(e) {
-          const t2 = (
+          const t3 = (
             /** Converts a JavaScript number to a byte array (using big endian encoding). */
             (function __PRIVATE_doubleToLongBits(e2) {
-              const t3 = new DataView(new ArrayBuffer(8));
-              return t3.setFloat64(
+              const t4 = new DataView(new ArrayBuffer(8));
+              return t4.setFloat64(
                 0,
                 e2,
                 /* littleEndian= */
                 false
-              ), new Uint8Array(t3.buffer);
+              ), new Uint8Array(t4.buffer);
             })(e)
-          ), n = !!(128 & t2[0]);
-          t2[0] ^= n ? 255 : 128;
-          for (let e2 = 1; e2 < t2.length; ++e2) t2[e2] ^= n ? 255 : 0;
-          return t2;
+          ), n = !!(128 & t3[0]);
+          t3[0] ^= n ? 255 : 128;
+          for (let e2 = 1; e2 < t3.length; ++e2) t3[e2] ^= n ? 255 : 0;
+          return t3;
         }
         /** Writes a single byte ascending to the buffer. */
         Gt(e) {
-          const t2 = 255 & e;
-          0 === t2 ? (this.sn(0), this.sn(255)) : t2 === vt ? (this.sn(vt), this.sn(0)) : this.sn(t2);
+          const t3 = 255 & e;
+          0 === t3 ? (this.sn(0), this.sn(255)) : t3 === vt ? (this.sn(vt), this.sn(0)) : this.sn(t3);
         }
         /** Writes a single byte descending to the buffer.  */
         Jt(e) {
-          const t2 = 255 & e;
-          0 === t2 ? (this.an(0), this.an(255)) : t2 === vt ? (this.an(vt), this.an(0)) : this.an(e);
+          const t3 = 255 & e;
+          0 === t3 ? (this.an(0), this.an(255)) : t3 === vt ? (this.an(vt), this.an(0)) : this.an(e);
         }
         zt() {
           this.sn(0), this.sn(1);
@@ -16332,10 +16332,10 @@
           this.tn(1), this.buffer[this.position++] = ~e;
         }
         tn(e) {
-          const t2 = e + this.position;
-          if (t2 <= this.buffer.length) return;
+          const t3 = e + this.position;
+          if (t3 <= this.buffer.length) return;
           let n = 2 * this.buffer.length;
-          n < t2 && (n = t2);
+          n < t3 && (n = t3);
           const r = new Uint8Array(n);
           r.set(this.buffer), // copy old data
           this.buffer = r;
@@ -16393,39 +16393,39 @@
         }
       };
       __PRIVATE_IndexEntry = class ___PRIVATE_IndexEntry {
-        constructor(e, t2, n, r) {
-          this.Tn = e, this.In = t2, this.En = n, this.dn = r;
+        constructor(e, t3, n, r) {
+          this.Tn = e, this.In = t3, this.En = n, this.dn = r;
         }
         /**
          * Returns an IndexEntry entry that sorts immediately after the current
          * directional value.
          */
         An() {
-          const e = this.dn.length, t2 = 0 === e || 255 === this.dn[e - 1] ? e + 1 : e, n = new Uint8Array(t2);
-          return n.set(this.dn, 0), t2 !== e ? n.set([0], this.dn.length) : ++n[n.length - 1], new ___PRIVATE_IndexEntry(this.Tn, this.In, this.En, n);
+          const e = this.dn.length, t3 = 0 === e || 255 === this.dn[e - 1] ? e + 1 : e, n = new Uint8Array(t3);
+          return n.set(this.dn, 0), t3 !== e ? n.set([0], this.dn.length) : ++n[n.length - 1], new ___PRIVATE_IndexEntry(this.Tn, this.In, this.En, n);
         }
         // Create a representation of the Index Entry as a DbIndexEntry
-        Rn(e, t2, n) {
+        Rn(e, t3, n) {
           return {
             indexId: this.Tn,
             uid: e,
             arrayValue: __PRIVATE_encodeKeySafeBytes(this.En),
             directionalValue: __PRIVATE_encodeKeySafeBytes(this.dn),
-            orderedDocumentKey: __PRIVATE_encodeKeySafeBytes(t2),
+            orderedDocumentKey: __PRIVATE_encodeKeySafeBytes(t3),
             documentKey: n.path.toArray()
           };
         }
         // Create a representation of the Index Entry as a DbIndexEntryKey
-        Vn(e, t2, n) {
-          const r = this.Rn(e, t2, n);
+        Vn(e, t3, n) {
+          const r = this.Rn(e, t3, n);
           return [r.indexId, r.uid, r.arrayValue, r.directionalValue, r.orderedDocumentKey, r.documentKey];
         }
       };
       __PRIVATE_TargetIndexMatcher = class {
         constructor(e) {
-          this.mn = new SortedSet(((e2, t2) => FieldPath$1.comparator(e2.field, t2.field))), this.collectionId = null != e.collectionGroup ? e.collectionGroup : e.path.lastSegment(), this.fn = e.orderBy, this.gn = [];
-          for (const t2 of e.filters) {
-            const e2 = t2;
+          this.mn = new SortedSet(((e2, t3) => FieldPath$1.comparator(e2.field, t3.field))), this.collectionId = null != e.collectionGroup ? e.collectionGroup : e.path.lastSegment(), this.fn = e.orderBy, this.gn = [];
+          for (const t3 of e.filters) {
+            const e2 = t3;
             e2.isInequality() ? this.mn = this.mn.add(e2) : this.gn.push(e2);
           }
         }
@@ -16456,8 +16456,8 @@
         yn(e) {
           if (__PRIVATE_hardAssert(e.collectionGroup === this.collectionId, 49279), this.pn)
             return false;
-          const t2 = __PRIVATE_fieldIndexGetArraySegment(e);
-          if (void 0 !== t2 && !this.wn(t2)) return false;
+          const t3 = __PRIVATE_fieldIndexGetArraySegment(e);
+          if (void 0 !== t3 && !this.wn(t3)) return false;
           const n = __PRIVATE_fieldIndexGetDirectionalSegments(e);
           let r = /* @__PURE__ */ new Set(), i = 0, s = 0;
           for (; i < n.length && this.wn(n[i]); ++i) r = r.add(n[i].fieldPath.canonicalString());
@@ -16465,8 +16465,8 @@
           if (this.mn.size > 0) {
             const e2 = this.mn.getIterator().getNext();
             if (!r.has(e2.field.canonicalString())) {
-              const t3 = n[i];
-              if (!this.Sn(e2, t3) || !this.bn(this.fn[s++], t3)) return false;
+              const t4 = n[i];
+              if (!this.Sn(e2, t4) || !this.bn(this.fn[s++], t4)) return false;
             }
             ++i;
           }
@@ -16483,17 +16483,17 @@
         Dn() {
           if (this.pn) return null;
           let e = new SortedSet(FieldPath$1.comparator);
-          const t2 = [];
+          const t3 = [];
           for (const n of this.gn) {
             if (n.field.isKeyField()) continue;
-            if ("array-contains" === n.op || "array-contains-any" === n.op) t2.push(new IndexSegment(
+            if ("array-contains" === n.op || "array-contains-any" === n.op) t3.push(new IndexSegment(
               n.field,
               2
               /* IndexKind.CONTAINS */
             ));
             else {
               if (e.has(n.field)) continue;
-              e = e.add(n.field), t2.push(new IndexSegment(
+              e = e.add(n.field), t3.push(new IndexSegment(
                 n.field,
                 0
                 /* IndexKind.ASCENDING */
@@ -16501,73 +16501,73 @@
             }
           }
           for (const n of this.fn)
-            n.field.isKeyField() || e.has(n.field) || (e = e.add(n.field), t2.push(new IndexSegment(
+            n.field.isKeyField() || e.has(n.field) || (e = e.add(n.field), t3.push(new IndexSegment(
               n.field,
               "asc" === n.dir ? 0 : 1
               /* IndexKind.DESCENDING */
             )));
-          return new FieldIndex(FieldIndex.UNKNOWN_ID, this.collectionId, t2, IndexState.empty());
+          return new FieldIndex(FieldIndex.UNKNOWN_ID, this.collectionId, t3, IndexState.empty());
         }
         wn(e) {
-          for (const t2 of this.gn) if (this.Sn(t2, e)) return true;
+          for (const t3 of this.gn) if (this.Sn(t3, e)) return true;
           return false;
         }
-        Sn(e, t2) {
-          if (void 0 === e || !e.field.isEqual(t2.fieldPath)) return false;
+        Sn(e, t3) {
+          if (void 0 === e || !e.field.isEqual(t3.fieldPath)) return false;
           const n = "array-contains" === e.op || "array-contains-any" === e.op;
-          return 2 === t2.kind === n;
+          return 2 === t3.kind === n;
         }
-        bn(e, t2) {
-          return !!e.field.isEqual(t2.fieldPath) && (0 === t2.kind && "asc" === e.dir || 1 === t2.kind && "desc" === e.dir);
+        bn(e, t3) {
+          return !!e.field.isEqual(t3.fieldPath) && (0 === t3.kind && "asc" === e.dir || 1 === t3.kind && "desc" === e.dir);
         }
       };
       __PRIVATE_MemoryIndexManager = class {
         constructor() {
           this.Cn = new __PRIVATE_MemoryCollectionParentIndex();
         }
-        addToCollectionParentIndex(e, t2) {
-          return this.Cn.add(t2), PersistencePromise.resolve();
+        addToCollectionParentIndex(e, t3) {
+          return this.Cn.add(t3), PersistencePromise.resolve();
         }
-        getCollectionParents(e, t2) {
-          return PersistencePromise.resolve(this.Cn.getEntries(t2));
+        getCollectionParents(e, t3) {
+          return PersistencePromise.resolve(this.Cn.getEntries(t3));
         }
-        addFieldIndex(e, t2) {
+        addFieldIndex(e, t3) {
           return PersistencePromise.resolve();
         }
-        deleteFieldIndex(e, t2) {
+        deleteFieldIndex(e, t3) {
           return PersistencePromise.resolve();
         }
         deleteAllFieldIndexes(e) {
           return PersistencePromise.resolve();
         }
-        createTargetIndexes(e, t2) {
+        createTargetIndexes(e, t3) {
           return PersistencePromise.resolve();
         }
-        getDocumentsMatchingTarget(e, t2) {
+        getDocumentsMatchingTarget(e, t3) {
           return PersistencePromise.resolve(null);
         }
-        getIndexType(e, t2) {
+        getIndexType(e, t3) {
           return PersistencePromise.resolve(
             0
             /* IndexType.NONE */
           );
         }
-        getFieldIndexes(e, t2) {
+        getFieldIndexes(e, t3) {
           return PersistencePromise.resolve([]);
         }
         getNextCollectionGroupToUpdate(e) {
           return PersistencePromise.resolve(null);
         }
-        getMinOffset(e, t2) {
+        getMinOffset(e, t3) {
           return PersistencePromise.resolve(IndexOffset.min());
         }
-        getMinOffsetFromCollectionGroup(e, t2) {
+        getMinOffsetFromCollectionGroup(e, t3) {
           return PersistencePromise.resolve(IndexOffset.min());
         }
-        updateCollectionGroup(e, t2, n) {
+        updateCollectionGroup(e, t3, n) {
           return PersistencePromise.resolve();
         }
-        updateIndexEntries(e, t2) {
+        updateIndexEntries(e, t3) {
           return PersistencePromise.resolve();
         }
       };
@@ -16577,11 +16577,11 @@
         }
         // Returns false if the entry already existed.
         add(e) {
-          const t2 = e.lastSegment(), n = e.popLast(), r = this.index[t2] || new SortedSet(ResourcePath.comparator), i = !r.has(n);
-          return this.index[t2] = r.add(n), i;
+          const t3 = e.lastSegment(), n = e.popLast(), r = this.index[t3] || new SortedSet(ResourcePath.comparator), i = !r.has(n);
+          return this.index[t3] = r.add(n), i;
         }
         has(e) {
-          const t2 = e.lastSegment(), n = e.popLast(), r = this.index[t2];
+          const t3 = e.lastSegment(), n = e.popLast(), r = this.index[t3];
           return r && r.has(n);
         }
         getEntries(e) {
@@ -16591,8 +16591,8 @@
       Ft = "IndexedDbIndexManager";
       Mt = new Uint8Array(0);
       __PRIVATE_IndexedDbIndexManager = class {
-        constructor(e, t2) {
-          this.databaseId = t2, /**
+        constructor(e, t3) {
+          this.databaseId = t3, /**
            * An in-memory copy of the index entries we've already written since the SDK
            * launched. Used to avoid re-writing the same entry repeatedly.
            *
@@ -16603,7 +16603,7 @@
            * Maps from a target to its equivalent list of sub-targets. Each sub-target
            * contains only one term from the target's disjunctive normal form (DNF).
            */
-          this.Fn = new ObjectMap(((e2) => __PRIVATE_canonifyTarget(e2)), ((e2, t3) => __PRIVATE_targetEquals(e2, t3))), this.uid = e.uid || "";
+          this.Fn = new ObjectMap(((e2) => __PRIVATE_canonifyTarget(e2)), ((e2, t4) => __PRIVATE_targetEquals(e2, t4))), this.uid = e.uid || "";
         }
         /**
          * Adds a new entry to the collection parent index.
@@ -16612,11 +16612,11 @@
          * transaction as IndexedDbIndexManager only caches writes once a transaction
          * has been committed.
          */
-        addToCollectionParentIndex(e, t2) {
-          if (!this.vn.has(t2)) {
-            const n = t2.lastSegment(), r = t2.popLast();
+        addToCollectionParentIndex(e, t3) {
+          if (!this.vn.has(t3)) {
+            const n = t3.lastSegment(), r = t3.popLast();
             e.addOnCommittedListener((() => {
-              this.vn.add(t2);
+              this.vn.add(t3);
             }));
             const i = {
               collectionId: n,
@@ -16626,10 +16626,10 @@
           }
           return PersistencePromise.resolve();
         }
-        getCollectionParents(e, t2) {
+        getCollectionParents(e, t3) {
           const n = [], r = IDBKeyRange.bound(
-            [t2, ""],
-            [__PRIVATE_immediateSuccessor(t2), ""],
+            [t3, ""],
+            [__PRIVATE_immediateSuccessor(t3), ""],
             /*lowerOpen=*/
             false,
             /*upperOpen=*/
@@ -16637,42 +16637,42 @@
           );
           return __PRIVATE_collectionParentsStore(e).J(r).next(((e2) => {
             for (const r2 of e2) {
-              if (r2.collectionId !== t2) break;
+              if (r2.collectionId !== t3) break;
               n.push(__PRIVATE_decodeResourcePath(r2.parent));
             }
             return n;
           }));
         }
-        addFieldIndex(e, t2) {
+        addFieldIndex(e, t3) {
           const n = __PRIVATE_indexConfigurationStore(e), r = (function __PRIVATE_toDbIndexConfiguration(e2) {
             return {
               indexId: e2.indexId,
               collectionGroup: e2.collectionGroup,
               fields: e2.fields.map(((e3) => [e3.fieldPath.canonicalString(), e3.kind]))
             };
-          })(t2);
+          })(t3);
           delete r.indexId;
           const i = n.add(r);
-          if (t2.indexState) {
+          if (t3.indexState) {
             const n2 = __PRIVATE_indexStateStore(e);
             return i.next(((e2) => {
-              n2.put(__PRIVATE_toDbIndexState(e2, this.uid, t2.indexState.sequenceNumber, t2.indexState.offset));
+              n2.put(__PRIVATE_toDbIndexState(e2, this.uid, t3.indexState.sequenceNumber, t3.indexState.offset));
             }));
           }
           return i.next();
         }
-        deleteFieldIndex(e, t2) {
+        deleteFieldIndex(e, t3) {
           const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e), i = __PRIVATE_indexEntriesStore(e);
-          return n.delete(t2.indexId).next((() => r.delete(IDBKeyRange.bound(
-            [t2.indexId],
-            [t2.indexId + 1],
+          return n.delete(t3.indexId).next((() => r.delete(IDBKeyRange.bound(
+            [t3.indexId],
+            [t3.indexId + 1],
             /*lowerOpen=*/
             false,
             /*upperOpen=*/
             true
           )))).next((() => i.delete(IDBKeyRange.bound(
-            [t2.indexId],
-            [t2.indexId + 1],
+            [t3.indexId],
+            [t3.indexId + 1],
             /*lowerOpen=*/
             false,
             /*upperOpen=*/
@@ -16680,23 +16680,23 @@
           ))));
         }
         deleteAllFieldIndexes(e) {
-          const t2 = __PRIVATE_indexConfigurationStore(e), n = __PRIVATE_indexEntriesStore(e), r = __PRIVATE_indexStateStore(e);
-          return t2.Z().next((() => n.Z())).next((() => r.Z()));
+          const t3 = __PRIVATE_indexConfigurationStore(e), n = __PRIVATE_indexEntriesStore(e), r = __PRIVATE_indexStateStore(e);
+          return t3.Z().next((() => n.Z())).next((() => r.Z()));
         }
-        createTargetIndexes(e, t2) {
-          return PersistencePromise.forEach(this.Mn(t2), ((t3) => this.getIndexType(e, t3).next(((n) => {
+        createTargetIndexes(e, t3) {
+          return PersistencePromise.forEach(this.Mn(t3), ((t4) => this.getIndexType(e, t4).next(((n) => {
             if (0 === n || 1 === n) {
-              const n2 = new __PRIVATE_TargetIndexMatcher(t3).Dn();
+              const n2 = new __PRIVATE_TargetIndexMatcher(t4).Dn();
               if (null != n2) return this.addFieldIndex(e, n2);
             }
           }))));
         }
-        getDocumentsMatchingTarget(e, t2) {
+        getDocumentsMatchingTarget(e, t3) {
           const n = __PRIVATE_indexEntriesStore(e);
           let r = true;
           const i = /* @__PURE__ */ new Map();
-          return PersistencePromise.forEach(this.Mn(t2), ((t3) => this.xn(e, t3).next(((e2) => {
-            r && (r = !!e2), i.set(t3, e2);
+          return PersistencePromise.forEach(this.Mn(t3), ((t4) => this.xn(e, t4).next(((e2) => {
+            r && (r = !!e2), i.set(t4, e2);
           })))).next((() => {
             if (r) {
               let e2 = __PRIVATE_documentKeySet();
@@ -16704,49 +16704,49 @@
               return PersistencePromise.forEach(i, ((i2, s) => {
                 __PRIVATE_logDebug(Ft, `Using index ${(function __PRIVATE_fieldIndexToString(e3) {
                   return `id=${e3.indexId}|cg=${e3.collectionGroup}|f=${e3.fields.map(((e4) => `${e4.fieldPath}:${e4.kind}`)).join(",")}`;
-                })(i2)} to execute ${__PRIVATE_canonifyTarget(t2)}`);
-                const o = (function __PRIVATE_targetGetArrayValues(e3, t3) {
-                  const n2 = __PRIVATE_fieldIndexGetArraySegment(t3);
+                })(i2)} to execute ${__PRIVATE_canonifyTarget(t3)}`);
+                const o = (function __PRIVATE_targetGetArrayValues(e3, t4) {
+                  const n2 = __PRIVATE_fieldIndexGetArraySegment(t4);
                   if (void 0 === n2) return null;
-                  for (const t4 of __PRIVATE_targetGetFieldFiltersForPath(e3, n2.fieldPath)) switch (t4.op) {
+                  for (const t5 of __PRIVATE_targetGetFieldFiltersForPath(e3, n2.fieldPath)) switch (t5.op) {
                     case "array-contains-any":
-                      return t4.value.arrayValue.values || [];
+                      return t5.value.arrayValue.values || [];
                     case "array-contains":
-                      return [t4.value];
+                      return [t5.value];
                   }
                   return null;
-                })(s, i2), _ = (function __PRIVATE_targetGetNotInValues(e3, t3) {
+                })(s, i2), _ = (function __PRIVATE_targetGetNotInValues(e3, t4) {
                   const n2 = /* @__PURE__ */ new Map();
-                  for (const r3 of __PRIVATE_fieldIndexGetDirectionalSegments(t3)) for (const t4 of __PRIVATE_targetGetFieldFiltersForPath(e3, r3.fieldPath)) switch (t4.op) {
+                  for (const r3 of __PRIVATE_fieldIndexGetDirectionalSegments(t4)) for (const t5 of __PRIVATE_targetGetFieldFiltersForPath(e3, r3.fieldPath)) switch (t5.op) {
                     case "==":
                     case "in":
-                      n2.set(r3.fieldPath.canonicalString(), t4.value);
+                      n2.set(r3.fieldPath.canonicalString(), t5.value);
                       break;
                     case "not-in":
                     case "!=":
-                      return n2.set(r3.fieldPath.canonicalString(), t4.value), Array.from(n2.values());
+                      return n2.set(r3.fieldPath.canonicalString(), t5.value), Array.from(n2.values());
                   }
                   return null;
-                })(s, i2), a = (function __PRIVATE_targetGetLowerBound(e3, t3) {
+                })(s, i2), a = (function __PRIVATE_targetGetLowerBound(e3, t4) {
                   const n2 = [];
                   let r3 = true;
-                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t3)) {
-                    const t4 = 0 === i3.kind ? __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.startAt) : __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.startAt);
-                    n2.push(t4.value), r3 && (r3 = t4.inclusive);
+                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t4)) {
+                    const t5 = 0 === i3.kind ? __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.startAt) : __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.startAt);
+                    n2.push(t5.value), r3 && (r3 = t5.inclusive);
                   }
                   return new Bound(n2, r3);
-                })(s, i2), u = (function __PRIVATE_targetGetUpperBound(e3, t3) {
+                })(s, i2), u = (function __PRIVATE_targetGetUpperBound(e3, t4) {
                   const n2 = [];
                   let r3 = true;
-                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t3)) {
-                    const t4 = 0 === i3.kind ? __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.endAt) : __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.endAt);
-                    n2.push(t4.value), r3 && (r3 = t4.inclusive);
+                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t4)) {
+                    const t5 = 0 === i3.kind ? __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.endAt) : __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.endAt);
+                    n2.push(t5.value), r3 && (r3 = t5.inclusive);
                   }
                   return new Bound(n2, r3);
                 })(s, i2), c = this.On(i2, s, a), l = this.On(i2, s, u), h = this.Nn(i2, s, _), P = this.Bn(i2.indexId, o, c, a.inclusive, l, u.inclusive, h);
-                return PersistencePromise.forEach(P, ((i3) => n.Y(i3, t2.limit).next(((t3) => {
-                  t3.forEach(((t4) => {
-                    const n2 = DocumentKey.fromSegments(t4.documentKey);
+                return PersistencePromise.forEach(P, ((i3) => n.Y(i3, t3.limit).next(((t4) => {
+                  t4.forEach(((t5) => {
+                    const n2 = DocumentKey.fromSegments(t5.documentKey);
                     e2.has(n2) || (e2 = e2.add(n2), r2.push(n2));
                   }));
                 }))));
@@ -16756,29 +16756,29 @@
           }));
         }
         Mn(e) {
-          let t2 = this.Fn.get(e);
-          if (t2) return t2;
-          if (0 === e.filters.length) t2 = [e];
+          let t3 = this.Fn.get(e);
+          if (t3) return t3;
+          if (0 === e.filters.length) t3 = [e];
           else {
-            t2 = __PRIVATE_getDnfTerms(CompositeFilter.create(
+            t3 = __PRIVATE_getDnfTerms(CompositeFilter.create(
               e.filters,
               "and"
               /* CompositeOperator.AND */
-            )).map(((t3) => __PRIVATE_newTarget(e.path, e.collectionGroup, e.orderBy, t3.getFilters(), e.limit, e.startAt, e.endAt)));
+            )).map(((t4) => __PRIVATE_newTarget(e.path, e.collectionGroup, e.orderBy, t4.getFilters(), e.limit, e.startAt, e.endAt)));
           }
-          return this.Fn.set(e, t2), t2;
+          return this.Fn.set(e, t3), t3;
         }
         /**
          * Constructs a key range query on `DbIndexEntryStore` that unions all
          * bounds.
          */
-        Bn(e, t2, n, r, i, s, o) {
-          const _ = (null != t2 ? t2.length : 1) * Math.max(n.length, i.length), a = _ / (null != t2 ? t2.length : 1), u = [];
+        Bn(e, t3, n, r, i, s, o) {
+          const _ = (null != t3 ? t3.length : 1) * Math.max(n.length, i.length), a = _ / (null != t3 ? t3.length : 1), u = [];
           for (let c = 0; c < _; ++c) {
-            const _2 = t2 ? this.Ln(t2[c / a]) : Mt, l = this.kn(e, _2, n[c % a], r), h = this.qn(e, _2, i[c % a], s), P = o.map(((t3) => this.kn(
+            const _2 = t3 ? this.Ln(t3[c / a]) : Mt, l = this.kn(e, _2, n[c % a], r), h = this.qn(e, _2, i[c % a], s), P = o.map(((t4) => this.kn(
               e,
               _2,
-              t3,
+              t4,
               /* inclusive= */
               true
             )));
@@ -16787,48 +16787,48 @@
           return u;
         }
         /** Generates the lower bound for `arrayValue` and `directionalValue`. */
-        kn(e, t2, n, r) {
-          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t2, n);
+        kn(e, t3, n, r) {
+          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t3, n);
           return r ? i : i.An();
         }
         /** Generates the upper bound for `arrayValue` and `directionalValue`. */
-        qn(e, t2, n, r) {
-          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t2, n);
+        qn(e, t3, n, r) {
+          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t3, n);
           return r ? i.An() : i;
         }
-        xn(e, t2) {
-          const n = new __PRIVATE_TargetIndexMatcher(t2), r = null != t2.collectionGroup ? t2.collectionGroup : t2.path.lastSegment();
+        xn(e, t3) {
+          const n = new __PRIVATE_TargetIndexMatcher(t3), r = null != t3.collectionGroup ? t3.collectionGroup : t3.path.lastSegment();
           return this.getFieldIndexes(e, r).next(((e2) => {
-            let t3 = null;
+            let t4 = null;
             for (const r2 of e2) {
-              n.yn(r2) && (!t3 || r2.fields.length > t3.fields.length) && (t3 = r2);
+              n.yn(r2) && (!t4 || r2.fields.length > t4.fields.length) && (t4 = r2);
             }
-            return t3;
+            return t4;
           }));
         }
-        getIndexType(e, t2) {
+        getIndexType(e, t3) {
           let n = 2;
-          const r = this.Mn(t2);
-          return PersistencePromise.forEach(r, ((t3) => this.xn(e, t3).next(((e2) => {
+          const r = this.Mn(t3);
+          return PersistencePromise.forEach(r, ((t4) => this.xn(e, t4).next(((e2) => {
             e2 ? 0 !== n && e2.fields.length < (function __PRIVATE_targetGetSegmentCount(e3) {
-              let t4 = new SortedSet(FieldPath$1.comparator), n2 = false;
+              let t5 = new SortedSet(FieldPath$1.comparator), n2 = false;
               for (const r2 of e3.filters) for (const e4 of r2.getFlattenedFilters())
                 e4.field.isKeyField() || // ARRAY_CONTAINS or ARRAY_CONTAINS_ANY filters must be counted separately.
                 // For instance, it is possible to have an index for "a ARRAY a ASC". Even
                 // though these are on the same field, they should be counted as two
                 // separate segments in an index.
-                ("array-contains" === e4.op || "array-contains-any" === e4.op ? n2 = true : t4 = t4.add(e4.field));
+                ("array-contains" === e4.op || "array-contains-any" === e4.op ? n2 = true : t5 = t5.add(e4.field));
               for (const n3 of e3.orderBy)
-                n3.field.isKeyField() || (t4 = t4.add(n3.field));
-              return t4.size + (n2 ? 1 : 0);
-            })(t3) && (n = 1) : n = 0;
+                n3.field.isKeyField() || (t5 = t5.add(n3.field));
+              return t5.size + (n2 ? 1 : 0);
+            })(t4) && (n = 1) : n = 0;
           })))).next((() => (
             // OR queries have more than one sub-target (one sub-target per DNF term). We currently consider
             // OR queries that have a `limit` to have a partial index. For such queries we perform sorting
             // and apply the limit in memory as a post-processing step.
             (function __PRIVATE_targetHasLimit(e2) {
               return null !== e2.limit;
-            })(t2) && r.length > 1 && 2 === n ? 1 : n
+            })(t3) && r.length > 1 && 2 === n ? 1 : n
           )));
         }
         /**
@@ -16836,10 +16836,10 @@
          * Returns `null` if the document does not have all fields specified in the
          * index.
          */
-        Qn(e, t2) {
+        Qn(e, t3) {
           const n = new __PRIVATE_IndexByteEncoder();
           for (const r of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
-            const e2 = t2.data.field(r.fieldPath);
+            const e2 = t3.data.field(r.fieldPath);
             if (null == e2) return null;
             const i = n.Pn(r.kind);
             __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e2, i);
@@ -16848,38 +16848,38 @@
         }
         /** Encodes a single value to the ascending index format. */
         Ln(e) {
-          const t2 = new __PRIVATE_IndexByteEncoder();
-          return __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e, t2.Pn(
+          const t3 = new __PRIVATE_IndexByteEncoder();
+          return __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e, t3.Pn(
             0
             /* IndexKind.ASCENDING */
-          )), t2.un();
+          )), t3.un();
         }
         /**
          * Returns an encoded form of the document key that sorts based on the key
          * ordering of the field index.
          */
-        $n(e, t2) {
+        $n(e, t3) {
           const n = new __PRIVATE_IndexByteEncoder();
-          return __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(__PRIVATE_refValue(this.databaseId, t2), n.Pn((function __PRIVATE_fieldIndexGetKeyOrder(e2) {
-            const t3 = __PRIVATE_fieldIndexGetDirectionalSegments(e2);
-            return 0 === t3.length ? 0 : t3[t3.length - 1].kind;
+          return __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(__PRIVATE_refValue(this.databaseId, t3), n.Pn((function __PRIVATE_fieldIndexGetKeyOrder(e2) {
+            const t4 = __PRIVATE_fieldIndexGetDirectionalSegments(e2);
+            return 0 === t4.length ? 0 : t4[t4.length - 1].kind;
           })(e))), n.un();
         }
         /**
          * Encodes the given field values according to the specification in `target`.
          * For IN queries, a list of possible values is returned.
          */
-        Nn(e, t2, n) {
+        Nn(e, t3, n) {
           if (null === n) return [];
           let r = [];
           r.push(new __PRIVATE_IndexByteEncoder());
           let i = 0;
           for (const s of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
             const e2 = n[i++];
-            for (const n2 of r) if (this.Un(t2, s.fieldPath) && isArray(e2)) r = this.Kn(r, s, e2);
+            for (const n2 of r) if (this.Un(t3, s.fieldPath) && isArray(e2)) r = this.Kn(r, s, e2);
             else {
-              const t3 = n2.Pn(s.kind);
-              __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e2, t3);
+              const t4 = n2.Pn(s.kind);
+              __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e2, t4);
             }
           }
           return this.Wn(r);
@@ -16888,14 +16888,14 @@
          * Encodes the given bounds according to the specification in `target`. For IN
          * queries, a list of possible values is returned.
          */
-        On(e, t2, n) {
-          return this.Nn(e, t2, n.position);
+        On(e, t3, n) {
+          return this.Nn(e, t3, n.position);
         }
         /** Returns the byte representation for the provided encoders. */
         Wn(e) {
-          const t2 = [];
-          for (let n = 0; n < e.length; ++n) t2[n] = e[n].un();
-          return t2;
+          const t3 = [];
+          for (let n = 0; n < e.length; ++n) t3[n] = e[n].un();
+          return t3;
         }
         /**
          * Creates a separate encoder for each element of an array.
@@ -16904,75 +16904,75 @@
          * "==", "a1").filter("b", "in", ["b1", "b2"]) becomes ["a1,b1", "a1,b2"]). A
          * list of new encoders is returned.
          */
-        Kn(e, t2, n) {
+        Kn(e, t3, n) {
           const r = [...e], i = [];
           for (const e2 of n.arrayValue.values || []) for (const n2 of r) {
             const r2 = new __PRIVATE_IndexByteEncoder();
-            r2.seed(n2.un()), __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e2, r2.Pn(t2.kind)), i.push(r2);
+            r2.seed(n2.un()), __PRIVATE_FirestoreIndexValueWriter.Kt.Dt(e2, r2.Pn(t3.kind)), i.push(r2);
           }
           return i;
         }
-        Un(e, t2) {
-          return !!e.filters.find(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t2) && ("in" === e2.op || "not-in" === e2.op)));
+        Un(e, t3) {
+          return !!e.filters.find(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t3) && ("in" === e2.op || "not-in" === e2.op)));
         }
-        getFieldIndexes(e, t2) {
+        getFieldIndexes(e, t3) {
           const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e);
-          return (t2 ? n.J(xe, IDBKeyRange.bound(t2, t2)) : n.J()).next(((e2) => {
-            const t3 = [];
+          return (t3 ? n.J(xe, IDBKeyRange.bound(t3, t3)) : n.J()).next(((e2) => {
+            const t4 = [];
             return PersistencePromise.forEach(e2, ((e3) => r.get([e3.indexId, this.uid]).next(((n2) => {
-              t3.push((function __PRIVATE_fromDbIndexConfiguration(e4, t4) {
-                const n3 = t4 ? new IndexState(t4.sequenceNumber, new IndexOffset(__PRIVATE_fromDbTimestamp(t4.readTime), new DocumentKey(__PRIVATE_decodeResourcePath(t4.documentKey)), t4.largestBatchId)) : IndexState.empty(), r2 = e4.fields.map((([e5, t5]) => new IndexSegment(FieldPath$1.fromServerFormat(e5), t5)));
+              t4.push((function __PRIVATE_fromDbIndexConfiguration(e4, t5) {
+                const n3 = t5 ? new IndexState(t5.sequenceNumber, new IndexOffset(__PRIVATE_fromDbTimestamp(t5.readTime), new DocumentKey(__PRIVATE_decodeResourcePath(t5.documentKey)), t5.largestBatchId)) : IndexState.empty(), r2 = e4.fields.map((([e5, t6]) => new IndexSegment(FieldPath$1.fromServerFormat(e5), t6)));
                 return new FieldIndex(e4.indexId, e4.collectionGroup, r2, n3);
               })(e3, n2));
-            })))).next((() => t3));
+            })))).next((() => t4));
           }));
         }
         getNextCollectionGroupToUpdate(e) {
-          return this.getFieldIndexes(e).next(((e2) => 0 === e2.length ? null : (e2.sort(((e3, t2) => {
-            const n = e3.indexState.sequenceNumber - t2.indexState.sequenceNumber;
-            return 0 !== n ? n : __PRIVATE_primitiveComparator(e3.collectionGroup, t2.collectionGroup);
+          return this.getFieldIndexes(e).next(((e2) => 0 === e2.length ? null : (e2.sort(((e3, t3) => {
+            const n = e3.indexState.sequenceNumber - t3.indexState.sequenceNumber;
+            return 0 !== n ? n : __PRIVATE_primitiveComparator(e3.collectionGroup, t3.collectionGroup);
           })), e2[0].collectionGroup)));
         }
-        updateCollectionGroup(e, t2, n) {
+        updateCollectionGroup(e, t3, n) {
           const r = __PRIVATE_indexConfigurationStore(e), i = __PRIVATE_indexStateStore(e);
-          return this.Gn(e).next(((e2) => r.J(xe, IDBKeyRange.bound(t2, t2)).next(((t3) => PersistencePromise.forEach(t3, ((t4) => i.put(__PRIVATE_toDbIndexState(t4.indexId, this.uid, e2, n))))))));
+          return this.Gn(e).next(((e2) => r.J(xe, IDBKeyRange.bound(t3, t3)).next(((t4) => PersistencePromise.forEach(t4, ((t5) => i.put(__PRIVATE_toDbIndexState(t5.indexId, this.uid, e2, n))))))));
         }
-        updateIndexEntries(e, t2) {
+        updateIndexEntries(e, t3) {
           const n = /* @__PURE__ */ new Map();
-          return PersistencePromise.forEach(t2, ((t3, r) => {
-            const i = n.get(t3.collectionGroup);
-            return (i ? PersistencePromise.resolve(i) : this.getFieldIndexes(e, t3.collectionGroup)).next(((i2) => (n.set(t3.collectionGroup, i2), PersistencePromise.forEach(i2, ((n2) => this.zn(e, t3, n2).next(((t4) => {
+          return PersistencePromise.forEach(t3, ((t4, r) => {
+            const i = n.get(t4.collectionGroup);
+            return (i ? PersistencePromise.resolve(i) : this.getFieldIndexes(e, t4.collectionGroup)).next(((i2) => (n.set(t4.collectionGroup, i2), PersistencePromise.forEach(i2, ((n2) => this.zn(e, t4, n2).next(((t5) => {
               const i3 = this.jn(r, n2);
-              return t4.isEqual(i3) ? PersistencePromise.resolve() : this.Jn(e, r, n2, t4, i3);
+              return t5.isEqual(i3) ? PersistencePromise.resolve() : this.Jn(e, r, n2, t5, i3);
             })))))));
           }));
         }
-        Hn(e, t2, n, r) {
-          return __PRIVATE_indexEntriesStore(e).put(r.Rn(this.uid, this.$n(n, t2.key), t2.key));
+        Hn(e, t3, n, r) {
+          return __PRIVATE_indexEntriesStore(e).put(r.Rn(this.uid, this.$n(n, t3.key), t3.key));
         }
-        Yn(e, t2, n, r) {
-          return __PRIVATE_indexEntriesStore(e).delete(r.Vn(this.uid, this.$n(n, t2.key), t2.key));
+        Yn(e, t3, n, r) {
+          return __PRIVATE_indexEntriesStore(e).delete(r.Vn(this.uid, this.$n(n, t3.key), t3.key));
         }
-        zn(e, t2, n) {
+        zn(e, t3, n) {
           const r = __PRIVATE_indexEntriesStore(e);
           let i = new SortedSet(__PRIVATE_indexEntryComparator);
           return r.ee({
             index: $e,
-            range: IDBKeyRange.only([n.indexId, this.uid, __PRIVATE_encodeKeySafeBytes(this.$n(n, t2))])
+            range: IDBKeyRange.only([n.indexId, this.uid, __PRIVATE_encodeKeySafeBytes(this.$n(n, t3))])
           }, ((e2, r2) => {
-            i = i.add(new __PRIVATE_IndexEntry(n.indexId, t2, __PRIVATE_decodeKeySafeBytes(r2.arrayValue), __PRIVATE_decodeKeySafeBytes(r2.directionalValue)));
+            i = i.add(new __PRIVATE_IndexEntry(n.indexId, t3, __PRIVATE_decodeKeySafeBytes(r2.arrayValue), __PRIVATE_decodeKeySafeBytes(r2.directionalValue)));
           })).next((() => i));
         }
         /** Creates the index entries for the given document. */
-        jn(e, t2) {
+        jn(e, t3) {
           let n = new SortedSet(__PRIVATE_indexEntryComparator);
-          const r = this.Qn(t2, e);
+          const r = this.Qn(t3, e);
           if (null == r) return n;
-          const i = __PRIVATE_fieldIndexGetArraySegment(t2);
+          const i = __PRIVATE_fieldIndexGetArraySegment(t3);
           if (null != i) {
             const s = e.data.field(i.fieldPath);
-            if (isArray(s)) for (const i2 of s.arrayValue.values || []) n = n.add(new __PRIVATE_IndexEntry(t2.indexId, e.key, this.Ln(i2), r));
-          } else n = n.add(new __PRIVATE_IndexEntry(t2.indexId, e.key, Mt, r));
+            if (isArray(s)) for (const i2 of s.arrayValue.values || []) n = n.add(new __PRIVATE_IndexEntry(t3.indexId, e.key, this.Ln(i2), r));
+          } else n = n.add(new __PRIVATE_IndexEntry(t3.indexId, e.key, Mt, r));
           return n;
         }
         /**
@@ -16980,25 +16980,25 @@
          * that are no longer referenced in `newEntries` and adding all newly added
          * entries.
          */
-        Jn(e, t2, n, r, i) {
-          __PRIVATE_logDebug(Ft, "Updating index entries for document '%s'", t2.key);
+        Jn(e, t3, n, r, i) {
+          __PRIVATE_logDebug(Ft, "Updating index entries for document '%s'", t3.key);
           const s = [];
-          return (function __PRIVATE_diffSortedSets(e2, t3, n2, r2, i2) {
-            const s2 = e2.getIterator(), o = t3.getIterator();
+          return (function __PRIVATE_diffSortedSets(e2, t4, n2, r2, i2) {
+            const s2 = e2.getIterator(), o = t4.getIterator();
             let _ = __PRIVATE_advanceIterator(s2), a = __PRIVATE_advanceIterator(o);
             for (; _ || a; ) {
-              let e3 = false, t4 = false;
+              let e3 = false, t5 = false;
               if (_ && a) {
                 const r3 = n2(_, a);
                 r3 < 0 ? (
                   // The element was removed if the next element in our ordered
                   // walkthrough is only in `before`.
-                  t4 = true
+                  t5 = true
                 ) : r3 > 0 && // The element was added if the next element in our ordered walkthrough
                 // is only in `after`.
                 (e3 = true);
-              } else null != _ ? t4 = true : e3 = true;
-              e3 ? (r2(a), a = __PRIVATE_advanceIterator(o)) : t4 ? (i2(_), _ = __PRIVATE_advanceIterator(s2)) : (_ = __PRIVATE_advanceIterator(s2), a = __PRIVATE_advanceIterator(o));
+              } else null != _ ? t5 = true : e3 = true;
+              e3 ? (r2(a), a = __PRIVATE_advanceIterator(o)) : t5 ? (i2(_), _ = __PRIVATE_advanceIterator(s2)) : (_ = __PRIVATE_advanceIterator(s2), a = __PRIVATE_advanceIterator(o));
             }
           })(
             r,
@@ -17006,35 +17006,35 @@
             __PRIVATE_indexEntryComparator,
             /* onAdd= */
             ((r2) => {
-              s.push(this.Hn(e, t2, n, r2));
+              s.push(this.Hn(e, t3, n, r2));
             }),
             /* onRemove= */
             ((r2) => {
-              s.push(this.Yn(e, t2, n, r2));
+              s.push(this.Yn(e, t3, n, r2));
             })
           ), PersistencePromise.waitFor(s);
         }
         Gn(e) {
-          let t2 = 1;
+          let t3 = 1;
           return __PRIVATE_indexStateStore(e).ee({
             index: Le,
             reverse: true,
             range: IDBKeyRange.upperBound([this.uid, Number.MAX_SAFE_INTEGER])
           }, ((e2, n, r) => {
-            r.done(), t2 = n.sequenceNumber + 1;
-          })).next((() => t2));
+            r.done(), t3 = n.sequenceNumber + 1;
+          })).next((() => t3));
         }
         /**
          * Returns a new set of IDB ranges that splits the existing range and excludes
          * any values that match the `notInValue` from these ranges. As an example,
          * '[foo > 2 && foo != 3]` becomes  `[foo > 2 && < 3, foo > 3]`.
          */
-        createRange(e, t2, n) {
-          n = n.sort(((e2, t3) => __PRIVATE_indexEntryComparator(e2, t3))).filter(((e2, t3, n2) => !t3 || 0 !== __PRIVATE_indexEntryComparator(e2, n2[t3 - 1])));
+        createRange(e, t3, n) {
+          n = n.sort(((e2, t4) => __PRIVATE_indexEntryComparator(e2, t4))).filter(((e2, t4, n2) => !t4 || 0 !== __PRIVATE_indexEntryComparator(e2, n2[t4 - 1])));
           const r = [];
           r.push(e);
           for (const i2 of n) {
-            const n2 = __PRIVATE_indexEntryComparator(i2, e), s = __PRIVATE_indexEntryComparator(i2, t2);
+            const n2 = __PRIVATE_indexEntryComparator(i2, e), s = __PRIVATE_indexEntryComparator(i2, t3);
             if (0 === n2)
               r[0] = e.An();
             else if (n2 > 0 && s < 0)
@@ -17042,23 +17042,23 @@
             else if (s > 0)
               break;
           }
-          r.push(t2);
+          r.push(t3);
           const i = [];
           for (let e2 = 0; e2 < r.length; e2 += 2) {
             if (this.Zn(r[e2], r[e2 + 1])) return [];
-            const t3 = r[e2].Vn(this.uid, Mt, DocumentKey.empty()), n2 = r[e2 + 1].Vn(this.uid, Mt, DocumentKey.empty());
-            i.push(IDBKeyRange.bound(t3, n2));
+            const t4 = r[e2].Vn(this.uid, Mt, DocumentKey.empty()), n2 = r[e2 + 1].Vn(this.uid, Mt, DocumentKey.empty());
+            i.push(IDBKeyRange.bound(t4, n2));
           }
           return i;
         }
-        Zn(e, t2) {
-          return __PRIVATE_indexEntryComparator(e, t2) > 0;
+        Zn(e, t3) {
+          return __PRIVATE_indexEntryComparator(e, t3) > 0;
         }
-        getMinOffsetFromCollectionGroup(e, t2) {
-          return this.getFieldIndexes(e, t2).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+        getMinOffsetFromCollectionGroup(e, t3) {
+          return this.getFieldIndexes(e, t3).next(__PRIVATE_getMinOffsetFromFieldIndexes);
         }
-        getMinOffset(e, t2) {
-          return PersistencePromise.mapArray(this.Mn(t2), ((t3) => this.xn(e, t3).next(((e2) => e2 || fail(44426))))).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+        getMinOffset(e, t3) {
+          return PersistencePromise.mapArray(this.Mn(t3), ((t4) => this.xn(e, t4).next(((e2) => e2 || fail(44426))))).next(__PRIVATE_getMinOffsetFromFieldIndexes);
         }
       };
       xt = {
@@ -17072,14 +17072,14 @@
         static withCacheSize(e) {
           return new _LruParams(e, _LruParams.DEFAULT_COLLECTION_PERCENTILE, _LruParams.DEFAULT_MAX_SEQUENCE_NUMBERS_TO_COLLECT);
         }
-        constructor(e, t2, n) {
-          this.cacheSizeCollectionThreshold = e, this.percentileToCollect = t2, this.maximumSequenceNumbersToCollect = n;
+        constructor(e, t3, n) {
+          this.cacheSizeCollectionThreshold = e, this.percentileToCollect = t3, this.maximumSequenceNumbersToCollect = n;
         }
       };
       LruParams.DEFAULT_COLLECTION_PERCENTILE = 10, LruParams.DEFAULT_MAX_SEQUENCE_NUMBERS_TO_COLLECT = 1e3, LruParams.DEFAULT = new LruParams(Ot, LruParams.DEFAULT_COLLECTION_PERCENTILE, LruParams.DEFAULT_MAX_SEQUENCE_NUMBERS_TO_COLLECT), LruParams.DISABLED = new LruParams(-1, 0, 0);
       __PRIVATE_IndexedDbMutationQueue = class ___PRIVATE_IndexedDbMutationQueue {
-        constructor(e, t2, n, r) {
-          this.userId = e, this.serializer = t2, this.indexManager = n, this.referenceDelegate = r, /**
+        constructor(e, t3, n, r) {
+          this.userId = e, this.serializer = t3, this.indexManager = n, this.referenceDelegate = r, /**
            * Caches the document keys for pending mutation batches. If the mutation
            * has been removed from IndexedDb, the cached value may continue to
            * be used to retrieve the batch's document keys. To remove a cached value
@@ -17098,51 +17098,51 @@
          * @param user - The user for which to create a mutation queue.
          * @param serializer - The serializer to use when persisting to IndexedDb.
          */
-        static wt(e, t2, n, r) {
+        static wt(e, t3, n, r) {
           __PRIVATE_hardAssert("" !== e.uid, 64387);
           const i = e.isAuthenticated() ? e.uid : "";
-          return new ___PRIVATE_IndexedDbMutationQueue(i, t2, n, r);
+          return new ___PRIVATE_IndexedDbMutationQueue(i, t3, n, r);
         }
         checkEmpty(e) {
-          let t2 = true;
+          let t3 = true;
           const n = IDBKeyRange.bound([this.userId, Number.NEGATIVE_INFINITY], [this.userId, Number.POSITIVE_INFINITY]);
           return __PRIVATE_mutationsStore(e).ee({
             index: re,
             range: n
           }, ((e2, n2, r) => {
-            t2 = false, r.done();
-          })).next((() => t2));
+            t3 = false, r.done();
+          })).next((() => t3));
         }
-        addMutationBatch(e, t2, n, r) {
+        addMutationBatch(e, t3, n, r) {
           const i = __PRIVATE_documentMutationsStore(e), s = __PRIVATE_mutationsStore(e);
           return s.add({}).next(((o) => {
             __PRIVATE_hardAssert("number" == typeof o, 49019);
-            const _ = new MutationBatch(o, t2, n, r), a = (function __PRIVATE_toDbMutationBatch(e2, t3, n2) {
-              const r2 = n2.baseMutations.map(((t4) => toMutation(e2.yt, t4))), i2 = n2.mutations.map(((t4) => toMutation(e2.yt, t4)));
+            const _ = new MutationBatch(o, t3, n, r), a = (function __PRIVATE_toDbMutationBatch(e2, t4, n2) {
+              const r2 = n2.baseMutations.map(((t5) => toMutation(e2.yt, t5))), i2 = n2.mutations.map(((t5) => toMutation(e2.yt, t5)));
               return {
-                userId: t3,
+                userId: t4,
                 batchId: n2.batchId,
                 localWriteTimeMs: n2.localWriteTime.toMillis(),
                 baseMutations: r2,
                 mutations: i2
               };
             })(this.serializer, this.userId, _), u = [];
-            let c = new SortedSet(((e2, t3) => __PRIVATE_primitiveComparator(e2.canonicalString(), t3.canonicalString())));
+            let c = new SortedSet(((e2, t4) => __PRIVATE_primitiveComparator(e2.canonicalString(), t4.canonicalString())));
             for (const e2 of r) {
-              const t3 = __PRIVATE_newDbDocumentMutationKey(this.userId, e2.key.path, o);
-              c = c.add(e2.key.path.popLast()), u.push(s.put(a)), u.push(i.put(t3, se));
+              const t4 = __PRIVATE_newDbDocumentMutationKey(this.userId, e2.key.path, o);
+              c = c.add(e2.key.path.popLast()), u.push(s.put(a)), u.push(i.put(t4, se));
             }
-            return c.forEach(((t3) => {
-              u.push(this.indexManager.addToCollectionParentIndex(e, t3));
+            return c.forEach(((t4) => {
+              u.push(this.indexManager.addToCollectionParentIndex(e, t4));
             })), e.addOnCommittedListener((() => {
               this.Xn[o] = _.keys();
             })), PersistencePromise.waitFor(u).next((() => _));
           }));
         }
-        lookupMutationBatch(e, t2) {
-          return __PRIVATE_mutationsStore(e).get(t2).next(((e2) => e2 ? (__PRIVATE_hardAssert(e2.userId === this.userId, 48, "Unexpected user for mutation batch", {
+        lookupMutationBatch(e, t3) {
+          return __PRIVATE_mutationsStore(e).get(t3).next(((e2) => e2 ? (__PRIVATE_hardAssert(e2.userId === this.userId, 48, "Unexpected user for mutation batch", {
             userId: e2.userId,
-            batchId: t2
+            batchId: t3
           }), __PRIVATE_fromDbMutationBatch(this.serializer, e2)) : null));
         }
         /**
@@ -17152,49 +17152,49 @@
          * cached result until `removeCachedMutationKeys()` is invoked.
          */
         // PORTING NOTE: Multi-tab only.
-        er(e, t2) {
-          return this.Xn[t2] ? PersistencePromise.resolve(this.Xn[t2]) : this.lookupMutationBatch(e, t2).next(((e2) => {
+        er(e, t3) {
+          return this.Xn[t3] ? PersistencePromise.resolve(this.Xn[t3]) : this.lookupMutationBatch(e, t3).next(((e2) => {
             if (e2) {
               const n = e2.keys();
-              return this.Xn[t2] = n, n;
+              return this.Xn[t3] = n, n;
             }
             return null;
           }));
         }
-        getNextMutationBatchAfterBatchId(e, t2) {
-          const n = t2 + 1, r = IDBKeyRange.lowerBound([this.userId, n]);
+        getNextMutationBatchAfterBatchId(e, t3) {
+          const n = t3 + 1, r = IDBKeyRange.lowerBound([this.userId, n]);
           let i = null;
           return __PRIVATE_mutationsStore(e).ee({
             index: re,
             range: r
-          }, ((e2, t3, r2) => {
-            t3.userId === this.userId && (__PRIVATE_hardAssert(t3.batchId >= n, 47524, {
+          }, ((e2, t4, r2) => {
+            t4.userId === this.userId && (__PRIVATE_hardAssert(t4.batchId >= n, 47524, {
               tr: n
-            }), i = __PRIVATE_fromDbMutationBatch(this.serializer, t3)), r2.done();
+            }), i = __PRIVATE_fromDbMutationBatch(this.serializer, t4)), r2.done();
           })).next((() => i));
         }
         getHighestUnacknowledgedBatchId(e) {
-          const t2 = IDBKeyRange.upperBound([this.userId, Number.POSITIVE_INFINITY]);
+          const t3 = IDBKeyRange.upperBound([this.userId, Number.POSITIVE_INFINITY]);
           let n = j;
           return __PRIVATE_mutationsStore(e).ee({
             index: re,
-            range: t2,
+            range: t3,
             reverse: true
-          }, ((e2, t3, r) => {
-            n = t3.batchId, r.done();
+          }, ((e2, t4, r) => {
+            n = t4.batchId, r.done();
           })).next((() => n));
         }
         getAllMutationBatches(e) {
-          const t2 = IDBKeyRange.bound([this.userId, j], [this.userId, Number.POSITIVE_INFINITY]);
-          return __PRIVATE_mutationsStore(e).J(re, t2).next(((e2) => e2.map(((e3) => __PRIVATE_fromDbMutationBatch(this.serializer, e3)))));
+          const t3 = IDBKeyRange.bound([this.userId, j], [this.userId, Number.POSITIVE_INFINITY]);
+          return __PRIVATE_mutationsStore(e).J(re, t3).next(((e2) => e2.map(((e3) => __PRIVATE_fromDbMutationBatch(this.serializer, e3)))));
         }
-        getAllMutationBatchesAffectingDocumentKey(e, t2) {
-          const n = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t2.path), r = IDBKeyRange.lowerBound(n), i = [];
+        getAllMutationBatchesAffectingDocumentKey(e, t3) {
+          const n = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t3.path), r = IDBKeyRange.lowerBound(n), i = [];
           return __PRIVATE_documentMutationsStore(e).ee({
             range: r
           }, ((n2, r2, s) => {
             const [o, _, a] = n2, u = __PRIVATE_decodeResourcePath(_);
-            if (o === this.userId && t2.path.isEqual(u))
+            if (o === this.userId && t3.path.isEqual(u))
               return __PRIVATE_mutationsStore(e).get(a).next(((e2) => {
                 if (!e2) throw fail(61480, {
                   nr: n2,
@@ -17208,25 +17208,25 @@
             s.done();
           })).next((() => i));
         }
-        getAllMutationBatchesAffectingDocumentKeys(e, t2) {
+        getAllMutationBatchesAffectingDocumentKeys(e, t3) {
           let n = new SortedSet(__PRIVATE_primitiveComparator);
           const r = [];
-          return t2.forEach(((t3) => {
-            const i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t3.path), s = IDBKeyRange.lowerBound(i), o = __PRIVATE_documentMutationsStore(e).ee({
+          return t3.forEach(((t4) => {
+            const i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t4.path), s = IDBKeyRange.lowerBound(i), o = __PRIVATE_documentMutationsStore(e).ee({
               range: s
             }, ((e2, r2, i2) => {
               const [s2, o2, _] = e2, a = __PRIVATE_decodeResourcePath(o2);
-              s2 === this.userId && t3.path.isEqual(a) ? n = n.add(_) : i2.done();
+              s2 === this.userId && t4.path.isEqual(a) ? n = n.add(_) : i2.done();
             }));
             r.push(o);
           })), PersistencePromise.waitFor(r).next((() => this.rr(e, n)));
         }
-        getAllMutationBatchesAffectingQuery(e, t2) {
-          const n = t2.path, r = n.length + 1, i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, n), s = IDBKeyRange.lowerBound(i);
+        getAllMutationBatchesAffectingQuery(e, t3) {
+          const n = t3.path, r = n.length + 1, i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, n), s = IDBKeyRange.lowerBound(i);
           let o = new SortedSet(__PRIVATE_primitiveComparator);
           return __PRIVATE_documentMutationsStore(e).ee({
             range: s
-          }, ((e2, t3, i2) => {
+          }, ((e2, t4, i2) => {
             const [s2, _, a] = e2, u = __PRIVATE_decodeResourcePath(_);
             s2 === this.userId && n.isPrefixOf(u) ? (
               // Rows with document keys more than one segment longer than the
@@ -17238,24 +17238,24 @@
             ) : i2.done();
           })).next((() => this.rr(e, o)));
         }
-        rr(e, t2) {
+        rr(e, t3) {
           const n = [], r = [];
-          return t2.forEach(((t3) => {
-            r.push(__PRIVATE_mutationsStore(e).get(t3).next(((e2) => {
+          return t3.forEach(((t4) => {
+            r.push(__PRIVATE_mutationsStore(e).get(t4).next(((e2) => {
               if (null === e2) throw fail(35274, {
-                batchId: t3
+                batchId: t4
               });
               __PRIVATE_hardAssert(e2.userId === this.userId, 9748, "Unexpected user for mutation batch", {
                 userId: e2.userId,
-                batchId: t3
+                batchId: t4
               }), n.push(__PRIVATE_fromDbMutationBatch(this.serializer, e2));
             })));
           })), PersistencePromise.waitFor(r).next((() => n));
         }
-        removeMutationBatch(e, t2) {
-          return removeMutationBatch(e.le, this.userId, t2).next(((n) => (e.addOnCommittedListener((() => {
-            this.ir(t2.batchId);
-          })), PersistencePromise.forEach(n, ((t3) => this.referenceDelegate.markPotentiallyOrphaned(e, t3))))));
+        removeMutationBatch(e, t3) {
+          return removeMutationBatch(e.le, this.userId, t3).next(((n) => (e.addOnCommittedListener((() => {
+            this.ir(t3.batchId);
+          })), PersistencePromise.forEach(n, ((t4) => this.referenceDelegate.markPotentiallyOrphaned(e, t4))))));
         }
         /**
          * Clears the cached keys for a mutation batch. This method should be
@@ -17270,8 +17270,8 @@
           delete this.Xn[e];
         }
         performConsistencyCheck(e) {
-          return this.checkEmpty(e).next(((t2) => {
-            if (!t2) return PersistencePromise.resolve();
+          return this.checkEmpty(e).next(((t3) => {
+            if (!t3) return PersistencePromise.resolve();
             const n = IDBKeyRange.lowerBound(
               /**
               * Creates a [userId] key for use in the DbDocumentMutations index to iterate
@@ -17283,10 +17283,10 @@
             ), r = [];
             return __PRIVATE_documentMutationsStore(e).ee({
               range: n
-            }, ((e2, t3, n2) => {
+            }, ((e2, t4, n2) => {
               if (e2[0] === this.userId) {
-                const t4 = __PRIVATE_decodeResourcePath(e2[1]);
-                r.push(t4);
+                const t5 = __PRIVATE_decodeResourcePath(e2[1]);
+                r.push(t5);
               } else n2.done();
             })).next((() => {
               __PRIVATE_hardAssert(0 === r.length, 56720, {
@@ -17295,8 +17295,8 @@
             }));
           }));
         }
-        containsKey(e, t2) {
-          return __PRIVATE_mutationQueueContainsKey(e, this.userId, t2);
+        containsKey(e, t3) {
+          return __PRIVATE_mutationQueueContainsKey(e, this.userId, t3);
         }
         // PORTING NOTE: Multi-tab only (state is held in memory in other clients).
         /** Returns the mutation queue's metadata from IndexedDb. */
@@ -17323,8 +17323,8 @@
         }
       };
       __PRIVATE_IndexedDbTargetCache = class {
-        constructor(e, t2) {
-          this.referenceDelegate = e, this.serializer = t2;
+        constructor(e, t3) {
+          this.referenceDelegate = e, this.serializer = t3;
         }
         // PORTING NOTE: We don't cache global metadata for the target cache, since
         // some of it (in particular `highestTargetId`) can be modified by secondary
@@ -17333,9 +17333,9 @@
         // to IndexedDb whenever we need to read metadata. We can revisit if it turns
         // out to have a meaningful performance impact.
         allocateTargetId(e) {
-          return this.lr(e).next(((t2) => {
-            const n = new __PRIVATE_TargetIdGenerator(t2.highestTargetId);
-            return t2.highestTargetId = n.next(), this.hr(e, t2).next((() => t2.highestTargetId));
+          return this.lr(e).next(((t3) => {
+            const n = new __PRIVATE_TargetIdGenerator(t3.highestTargetId);
+            return t3.highestTargetId = n.next(), this.hr(e, t3).next((() => t3.highestTargetId));
           }));
         }
         getLastRemoteSnapshotVersion(e) {
@@ -17344,93 +17344,93 @@
         getHighestSequenceNumber(e) {
           return this.lr(e).next(((e2) => e2.highestListenSequenceNumber));
         }
-        setTargetsMetadata(e, t2, n) {
-          return this.lr(e).next(((r) => (r.highestListenSequenceNumber = t2, n && (r.lastRemoteSnapshotVersion = n.toTimestamp()), t2 > r.highestListenSequenceNumber && (r.highestListenSequenceNumber = t2), this.hr(e, r))));
+        setTargetsMetadata(e, t3, n) {
+          return this.lr(e).next(((r) => (r.highestListenSequenceNumber = t3, n && (r.lastRemoteSnapshotVersion = n.toTimestamp()), t3 > r.highestListenSequenceNumber && (r.highestListenSequenceNumber = t3), this.hr(e, r))));
         }
-        addTargetData(e, t2) {
-          return this.Pr(e, t2).next((() => this.lr(e).next(((n) => (n.targetCount += 1, this.Tr(t2, n), this.hr(e, n))))));
+        addTargetData(e, t3) {
+          return this.Pr(e, t3).next((() => this.lr(e).next(((n) => (n.targetCount += 1, this.Tr(t3, n), this.hr(e, n))))));
         }
-        updateTargetData(e, t2) {
-          return this.Pr(e, t2);
+        updateTargetData(e, t3) {
+          return this.Pr(e, t3);
         }
-        removeTargetData(e, t2) {
-          return this.removeMatchingKeysForTargetId(e, t2.targetId).next((() => __PRIVATE_targetsStore(e).delete(t2.targetId))).next((() => this.lr(e))).next(((t3) => (__PRIVATE_hardAssert(t3.targetCount > 0, 8065), t3.targetCount -= 1, this.hr(e, t3))));
+        removeTargetData(e, t3) {
+          return this.removeMatchingKeysForTargetId(e, t3.targetId).next((() => __PRIVATE_targetsStore(e).delete(t3.targetId))).next((() => this.lr(e))).next(((t4) => (__PRIVATE_hardAssert(t4.targetCount > 0, 8065), t4.targetCount -= 1, this.hr(e, t4))));
         }
         /**
          * Drops any targets with sequence number less than or equal to the upper bound, excepting those
          * present in `activeTargetIds`. Document associations for the removed targets are also removed.
          * Returns the number of targets removed.
          */
-        removeTargets(e, t2, n) {
+        removeTargets(e, t3, n) {
           let r = 0;
           const i = [];
           return __PRIVATE_targetsStore(e).ee(((s, o) => {
             const _ = __PRIVATE_fromDbTarget(o);
-            _.sequenceNumber <= t2 && null === n.get(_.targetId) && (r++, i.push(this.removeTargetData(e, _)));
+            _.sequenceNumber <= t3 && null === n.get(_.targetId) && (r++, i.push(this.removeTargetData(e, _)));
           })).next((() => PersistencePromise.waitFor(i))).next((() => r));
         }
         /**
          * Call provided function with each `TargetData` that we have cached.
          */
-        forEachTarget(e, t2) {
+        forEachTarget(e, t3) {
           return __PRIVATE_targetsStore(e).ee(((e2, n) => {
             const r = __PRIVATE_fromDbTarget(n);
-            t2(r);
+            t3(r);
           }));
         }
         lr(e) {
           return __PRIVATE_globalTargetStore(e).get(fe).next(((e2) => (__PRIVATE_hardAssert(null !== e2, 2888), e2)));
         }
-        hr(e, t2) {
-          return __PRIVATE_globalTargetStore(e).put(fe, t2);
+        hr(e, t3) {
+          return __PRIVATE_globalTargetStore(e).put(fe, t3);
         }
-        Pr(e, t2) {
-          return __PRIVATE_targetsStore(e).put(__PRIVATE_toDbTarget(this.serializer, t2));
+        Pr(e, t3) {
+          return __PRIVATE_targetsStore(e).put(__PRIVATE_toDbTarget(this.serializer, t3));
         }
         /**
          * In-place updates the provided metadata to account for values in the given
          * TargetData. Saving is done separately. Returns true if there were any
          * changes to the metadata.
          */
-        Tr(e, t2) {
+        Tr(e, t3) {
           let n = false;
-          return e.targetId > t2.highestTargetId && (t2.highestTargetId = e.targetId, n = true), e.sequenceNumber > t2.highestListenSequenceNumber && (t2.highestListenSequenceNumber = e.sequenceNumber, n = true), n;
+          return e.targetId > t3.highestTargetId && (t3.highestTargetId = e.targetId, n = true), e.sequenceNumber > t3.highestListenSequenceNumber && (t3.highestListenSequenceNumber = e.sequenceNumber, n = true), n;
         }
         getTargetCount(e) {
           return this.lr(e).next(((e2) => e2.targetCount));
         }
-        getTargetData(e, t2) {
-          const n = __PRIVATE_canonifyTarget(t2), r = IDBKeyRange.bound([n, Number.NEGATIVE_INFINITY], [n, Number.POSITIVE_INFINITY]);
+        getTargetData(e, t3) {
+          const n = __PRIVATE_canonifyTarget(t3), r = IDBKeyRange.bound([n, Number.NEGATIVE_INFINITY], [n, Number.POSITIVE_INFINITY]);
           let i = null;
           return __PRIVATE_targetsStore(e).ee({
             range: r,
             index: Ee
           }, ((e2, n2, r2) => {
             const s = __PRIVATE_fromDbTarget(n2);
-            __PRIVATE_targetEquals(t2, s.target) && (i = s, r2.done());
+            __PRIVATE_targetEquals(t3, s.target) && (i = s, r2.done());
           })).next((() => i));
         }
-        addMatchingKeys(e, t2, n) {
+        addMatchingKeys(e, t3, n) {
           const r = [], i = __PRIVATE_documentTargetStore(e);
-          return t2.forEach(((t3) => {
-            const s = __PRIVATE_encodeResourcePath(t3.path);
+          return t3.forEach(((t4) => {
+            const s = __PRIVATE_encodeResourcePath(t4.path);
             r.push(i.put({
               targetId: n,
               path: s
-            })), r.push(this.referenceDelegate.addReference(e, n, t3));
+            })), r.push(this.referenceDelegate.addReference(e, n, t4));
           })), PersistencePromise.waitFor(r);
         }
-        removeMatchingKeys(e, t2, n) {
+        removeMatchingKeys(e, t3, n) {
           const r = __PRIVATE_documentTargetStore(e);
-          return PersistencePromise.forEach(t2, ((t3) => {
-            const i = __PRIVATE_encodeResourcePath(t3.path);
-            return PersistencePromise.waitFor([r.delete([n, i]), this.referenceDelegate.removeReference(e, n, t3)]);
+          return PersistencePromise.forEach(t3, ((t4) => {
+            const i = __PRIVATE_encodeResourcePath(t4.path);
+            return PersistencePromise.waitFor([r.delete([n, i]), this.referenceDelegate.removeReference(e, n, t4)]);
           }));
         }
-        removeMatchingKeysForTargetId(e, t2) {
+        removeMatchingKeysForTargetId(e, t3) {
           const n = __PRIVATE_documentTargetStore(e), r = IDBKeyRange.bound(
-            [t2],
-            [t2 + 1],
+            [t3],
+            [t3 + 1],
             /*lowerOpen=*/
             false,
             /*upperOpen=*/
@@ -17438,10 +17438,10 @@
           );
           return n.delete(r);
         }
-        getMatchingKeysForTargetId(e, t2) {
+        getMatchingKeysForTargetId(e, t3) {
           const n = IDBKeyRange.bound(
-            [t2],
-            [t2 + 1],
+            [t3],
+            [t3 + 1],
             /*lowerOpen=*/
             false,
             /*upperOpen=*/
@@ -17451,13 +17451,13 @@
           return r.ee({
             range: n,
             X: true
-          }, ((e2, t3, n2) => {
+          }, ((e2, t4, n2) => {
             const r2 = __PRIVATE_decodeResourcePath(e2[1]), s = new DocumentKey(r2);
             i = i.add(s);
           })).next((() => i));
         }
-        containsKey(e, t2) {
-          const n = __PRIVATE_encodeResourcePath(t2.path), r = IDBKeyRange.bound(
+        containsKey(e, t3) {
+          const n = __PRIVATE_encodeResourcePath(t3.path), r = IDBKeyRange.bound(
             [n],
             [__PRIVATE_immediateSuccessor(n)],
             /*lowerOpen=*/
@@ -17470,7 +17470,7 @@
             index: Ve,
             X: true,
             range: r
-          }, (([e2, t3], n2, r2) => {
+          }, (([e2, t4], n2, r2) => {
             0 !== e2 && (i++, r2.done());
           })).next((() => i > 0));
         }
@@ -17482,8 +17482,8 @@
          * the target.
          */
         // PORTING NOTE: Multi-tab only.
-        At(e, t2) {
-          return __PRIVATE_targetsStore(e).get(t2).next(((e2) => e2 ? __PRIVATE_fromDbTarget(e2) : null));
+        At(e, t3) {
+          return __PRIVATE_targetsStore(e).get(t3).next(((e2) => e2 ? __PRIVATE_fromDbTarget(e2) : null));
         }
       };
       Nt = "LruGarbageCollector";
@@ -17496,11 +17496,11 @@
           return ++this.Er;
         }
         Ar(e) {
-          const t2 = [e, this.dr()];
-          if (this.buffer.size < this.Ir) this.buffer = this.buffer.add(t2);
+          const t3 = [e, this.dr()];
+          if (this.buffer.size < this.Ir) this.buffer = this.buffer.add(t3);
           else {
             const e2 = this.buffer.last();
-            __PRIVATE_bufferEntryComparator(t2, e2) < 0 && (this.buffer = this.buffer.delete(e2).add(t2));
+            __PRIVATE_bufferEntryComparator(t3, e2) < 0 && (this.buffer = this.buffer.delete(e2).add(t3));
           }
         }
         get maxValue() {
@@ -17508,8 +17508,8 @@
         }
       };
       __PRIVATE_LruScheduler = class {
-        constructor(e, t2, n) {
-          this.garbageCollector = e, this.asyncQueue = t2, this.localStore = n, this.Rr = null;
+        constructor(e, t3, n) {
+          this.garbageCollector = e, this.asyncQueue = t3, this.localStore = n, this.Rr = null;
         }
         start() {
           -1 !== this.garbageCollector.params.cacheSizeCollectionThreshold && this.Vr(6e4);
@@ -17533,36 +17533,36 @@
         }
       };
       __PRIVATE_LruGarbageCollectorImpl = class {
-        constructor(e, t2) {
-          this.mr = e, this.params = t2;
+        constructor(e, t3) {
+          this.mr = e, this.params = t3;
         }
-        calculateTargetCount(e, t2) {
-          return this.mr.gr(e).next(((e2) => Math.floor(t2 / 100 * e2)));
+        calculateTargetCount(e, t3) {
+          return this.mr.gr(e).next(((e2) => Math.floor(t3 / 100 * e2)));
         }
-        nthSequenceNumber(e, t2) {
-          if (0 === t2) return PersistencePromise.resolve(__PRIVATE_ListenSequence.ce);
-          const n = new __PRIVATE_RollingSequenceNumberBuffer(t2);
+        nthSequenceNumber(e, t3) {
+          if (0 === t3) return PersistencePromise.resolve(__PRIVATE_ListenSequence.ce);
+          const n = new __PRIVATE_RollingSequenceNumberBuffer(t3);
           return this.mr.forEachTarget(e, ((e2) => n.Ar(e2.sequenceNumber))).next((() => this.mr.pr(e, ((e2) => n.Ar(e2))))).next((() => n.maxValue));
         }
-        removeTargets(e, t2, n) {
-          return this.mr.removeTargets(e, t2, n);
+        removeTargets(e, t3, n) {
+          return this.mr.removeTargets(e, t3, n);
         }
-        removeOrphanedDocuments(e, t2) {
-          return this.mr.removeOrphanedDocuments(e, t2);
+        removeOrphanedDocuments(e, t3) {
+          return this.mr.removeOrphanedDocuments(e, t3);
         }
-        collect(e, t2) {
-          return -1 === this.params.cacheSizeCollectionThreshold ? (__PRIVATE_logDebug("LruGarbageCollector", "Garbage collection skipped; disabled"), PersistencePromise.resolve(xt)) : this.getCacheSize(e).next(((n) => n < this.params.cacheSizeCollectionThreshold ? (__PRIVATE_logDebug("LruGarbageCollector", `Garbage collection skipped; Cache size ${n} is lower than threshold ${this.params.cacheSizeCollectionThreshold}`), xt) : this.yr(e, t2)));
+        collect(e, t3) {
+          return -1 === this.params.cacheSizeCollectionThreshold ? (__PRIVATE_logDebug("LruGarbageCollector", "Garbage collection skipped; disabled"), PersistencePromise.resolve(xt)) : this.getCacheSize(e).next(((n) => n < this.params.cacheSizeCollectionThreshold ? (__PRIVATE_logDebug("LruGarbageCollector", `Garbage collection skipped; Cache size ${n} is lower than threshold ${this.params.cacheSizeCollectionThreshold}`), xt) : this.yr(e, t3)));
         }
         getCacheSize(e) {
           return this.mr.getCacheSize(e);
         }
-        yr(e, t2) {
+        yr(e, t3) {
           let n, r, i, s, o, _, u;
           const c = Date.now();
-          return this.calculateTargetCount(e, this.params.percentileToCollect).next(((t3) => (
+          return this.calculateTargetCount(e, this.params.percentileToCollect).next(((t4) => (
             // Cap at the configured max
-            (t3 > this.params.maximumSequenceNumbersToCollect ? (__PRIVATE_logDebug("LruGarbageCollector", `Capping sequence numbers to collect down to the maximum of ${this.params.maximumSequenceNumbersToCollect} from ${t3}`), r = this.params.maximumSequenceNumbersToCollect) : r = t3, s = Date.now(), this.nthSequenceNumber(e, r))
-          ))).next(((r2) => (n = r2, o = Date.now(), this.removeTargets(e, n, t2)))).next(((t3) => (i = t3, _ = Date.now(), this.removeOrphanedDocuments(e, n)))).next(((e2) => {
+            (t4 > this.params.maximumSequenceNumbersToCollect ? (__PRIVATE_logDebug("LruGarbageCollector", `Capping sequence numbers to collect down to the maximum of ${this.params.maximumSequenceNumbersToCollect} from ${t4}`), r = this.params.maximumSequenceNumbersToCollect) : r = t4, s = Date.now(), this.nthSequenceNumber(e, r))
+          ))).next(((r2) => (n = r2, o = Date.now(), this.removeTargets(e, n, t3)))).next(((t4) => (i = t4, _ = Date.now(), this.removeOrphanedDocuments(e, n)))).next(((e2) => {
             if (u = Date.now(), __PRIVATE_getLogLevel() <= LogLevel.DEBUG) {
               __PRIVATE_logDebug("LruGarbageCollector", `LRU Garbage Collection
 	Counted targets in ${s - c}ms
@@ -17581,36 +17581,36 @@ Total Duration: ${u - c}ms`);
         }
       };
       __PRIVATE_IndexedDbLruDelegateImpl = class {
-        constructor(e, t2) {
-          this.db = e, this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t2);
+        constructor(e, t3) {
+          this.db = e, this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t3);
         }
         gr(e) {
-          const t2 = this.wr(e);
-          return this.db.getTargetCache().getTargetCount(e).next(((e2) => t2.next(((t3) => e2 + t3))));
+          const t3 = this.wr(e);
+          return this.db.getTargetCache().getTargetCount(e).next(((e2) => t3.next(((t4) => e2 + t4))));
         }
         wr(e) {
-          let t2 = 0;
+          let t3 = 0;
           return this.pr(e, ((e2) => {
-            t2++;
-          })).next((() => t2));
+            t3++;
+          })).next((() => t3));
         }
-        forEachTarget(e, t2) {
-          return this.db.getTargetCache().forEachTarget(e, t2);
+        forEachTarget(e, t3) {
+          return this.db.getTargetCache().forEachTarget(e, t3);
         }
-        pr(e, t2) {
-          return this.Sr(e, ((e2, n) => t2(n)));
+        pr(e, t3) {
+          return this.Sr(e, ((e2, n) => t3(n)));
         }
-        addReference(e, t2, n) {
+        addReference(e, t3, n) {
           return __PRIVATE_writeSentinelKey(e, n);
         }
-        removeReference(e, t2, n) {
+        removeReference(e, t3, n) {
           return __PRIVATE_writeSentinelKey(e, n);
         }
-        removeTargets(e, t2, n) {
-          return this.db.getTargetCache().removeTargets(e, t2, n);
+        removeTargets(e, t3, n) {
+          return this.db.getTargetCache().removeTargets(e, t3, n);
         }
-        markPotentiallyOrphaned(e, t2) {
-          return __PRIVATE_writeSentinelKey(e, t2);
+        markPotentiallyOrphaned(e, t3) {
+          return __PRIVATE_writeSentinelKey(e, t3);
         }
         /**
          * Returns true if anything would prevent this document from being garbage
@@ -17618,33 +17618,33 @@ Total Duration: ${u - c}ms`);
          * targets and has a sequence number less than or equal to the upper bound for
          * the collection run.
          */
-        br(e, t2) {
-          return (function __PRIVATE_mutationQueuesContainKey(e2, t3) {
+        br(e, t3) {
+          return (function __PRIVATE_mutationQueuesContainKey(e2, t4) {
             let n = false;
-            return __PRIVATE_mutationQueuesStore(e2).te(((r) => __PRIVATE_mutationQueueContainsKey(e2, r, t3).next(((e3) => (e3 && (n = true), PersistencePromise.resolve(!e3)))))).next((() => n));
-          })(e, t2);
+            return __PRIVATE_mutationQueuesStore(e2).te(((r) => __PRIVATE_mutationQueueContainsKey(e2, r, t4).next(((e3) => (e3 && (n = true), PersistencePromise.resolve(!e3)))))).next((() => n));
+          })(e, t3);
         }
-        removeOrphanedDocuments(e, t2) {
+        removeOrphanedDocuments(e, t3) {
           const n = this.db.getRemoteDocumentCache().newChangeBuffer(), r = [];
           let i = 0;
           return this.Sr(e, ((s, o) => {
-            if (o <= t2) {
-              const t3 = this.br(e, s).next(((t4) => {
-                if (!t4)
+            if (o <= t3) {
+              const t4 = this.br(e, s).next(((t5) => {
+                if (!t5)
                   return i++, n.getEntry(e, s).next((() => (n.removeEntry(s, SnapshotVersion.min()), __PRIVATE_documentTargetStore(e).delete((function __PRIVATE_sentinelKey$1(e2) {
                     return [0, __PRIVATE_encodeResourcePath(e2.path)];
                   })(s)))));
               }));
-              r.push(t3);
+              r.push(t4);
             }
           })).next((() => PersistencePromise.waitFor(r))).next((() => n.apply(e))).next((() => i));
         }
-        removeTarget(e, t2) {
-          const n = t2.withSequenceNumber(e.currentSequenceNumber);
+        removeTarget(e, t3) {
+          const n = t3.withSequenceNumber(e.currentSequenceNumber);
           return this.db.getTargetCache().updateTargetData(e, n);
         }
-        updateLimboDocument(e, t2) {
-          return __PRIVATE_writeSentinelKey(e, t2);
+        updateLimboDocument(e, t3) {
+          return __PRIVATE_writeSentinelKey(e, t3);
         }
         /**
          * Call provided function for each document in the cache that is 'orphaned'. Orphaned
@@ -17652,7 +17652,7 @@ Total Duration: ${u - c}ms`);
          * that document will be the sentinel row (targetId 0), which will also have the sequence
          * number for the last time the document was accessed.
          */
-        Sr(e, t2) {
+        Sr(e, t3) {
           const n = __PRIVATE_documentTargetStore(e);
           let r, i = __PRIVATE_ListenSequence.ce;
           return n.ee({
@@ -17661,7 +17661,7 @@ Total Duration: ${u - c}ms`);
             0 === e2 ? (
               // if nextToReport is valid, report it, this is a new key so the
               // last one must not be a member of any targets.
-              (i !== __PRIVATE_ListenSequence.ce && t2(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i), // set nextToReport to be this sequence number. It's the next one we
+              (i !== __PRIVATE_ListenSequence.ce && t3(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i), // set nextToReport to be this sequence number. It's the next one we
               // might report, if we don't find any targets for this document.
               // Note that the sequence number must be defined when the targetId
               // is 0.
@@ -17672,7 +17672,7 @@ Total Duration: ${u - c}ms`);
               i = __PRIVATE_ListenSequence.ce
             );
           })).next((() => {
-            i !== __PRIVATE_ListenSequence.ce && t2(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i);
+            i !== __PRIVATE_ListenSequence.ce && t3(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i);
           }));
         }
         getCacheSize(e) {
@@ -17681,7 +17681,7 @@ Total Duration: ${u - c}ms`);
       };
       RemoteDocumentChangeBuffer = class {
         constructor() {
-          this.changes = new ObjectMap(((e) => e.toString()), ((e, t2) => e.isEqual(t2))), this.changesApplied = false;
+          this.changes = new ObjectMap(((e) => e.toString()), ((e, t3) => e.isEqual(t3))), this.changesApplied = false;
         }
         /**
          * Buffers a `RemoteDocumentCache.addEntry()` call.
@@ -17698,8 +17698,8 @@ Total Duration: ${u - c}ms`);
          * You can only remove documents that have already been retrieved via
          * `getEntry()/getEntries()` (enforced via IndexedDbs `apply()`).
          */
-        removeEntry(e, t2) {
-          this.assertNotApplied(), this.changes.set(e, MutableDocument.newInvalidDocument(e).setReadTime(t2));
+        removeEntry(e, t3) {
+          this.assertNotApplied(), this.changes.set(e, MutableDocument.newInvalidDocument(e).setReadTime(t3));
         }
         /**
          * Looks up an entry in the cache. The buffered changes will first be checked,
@@ -17712,10 +17712,10 @@ Total Duration: ${u - c}ms`);
          * @returns The cached document or an invalid document if we have nothing
          * cached.
          */
-        getEntry(e, t2) {
+        getEntry(e, t3) {
           this.assertNotApplied();
-          const n = this.changes.get(t2);
-          return void 0 !== n ? PersistencePromise.resolve(n) : this.getFromCache(e, t2);
+          const n = this.changes.get(t3);
+          return void 0 !== n ? PersistencePromise.resolve(n) : this.getFromCache(e, t3);
         }
         /**
          * Looks up several entries in the cache, forwarding to
@@ -17727,8 +17727,8 @@ Total Duration: ${u - c}ms`);
          * @returns A map of cached documents, indexed by key. If an entry cannot be
          *     found, the corresponding key will be mapped to an invalid document.
          */
-        getEntries(e, t2) {
-          return this.getAllFromCache(e, t2);
+        getEntries(e, t3) {
+          return this.getAllFromCache(e, t3);
         }
         /**
          * Applies buffered changes to the underlying RemoteDocumentCache, using
@@ -17754,7 +17754,7 @@ Total Duration: ${u - c}ms`);
          * All calls of `addEntry` are required to go through the RemoteDocumentChangeBuffer
          * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
          */
-        addEntry(e, t2, n) {
+        addEntry(e, t3, n) {
           return __PRIVATE_remoteDocumentsStore(e).put(n);
         }
         /**
@@ -17763,24 +17763,24 @@ Total Duration: ${u - c}ms`);
          * All calls of `removeEntry`  are required to go through the RemoteDocumentChangeBuffer
          * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
          */
-        removeEntry(e, t2, n) {
+        removeEntry(e, t3, n) {
           return __PRIVATE_remoteDocumentsStore(e).delete(
             /**
             * Returns a key that can be used for document lookups via the primary key of
             * the DbRemoteDocument object store.
             */
-            (function __PRIVATE_dbReadTimeKey(e2, t3) {
+            (function __PRIVATE_dbReadTimeKey(e2, t4) {
               const n2 = e2.path.toArray();
               return [
                 /* prefix path */
                 n2.slice(0, n2.length - 2),
                 /* collection id */
                 n2[n2.length - 2],
-                __PRIVATE_toDbTimestampKey(t3),
+                __PRIVATE_toDbTimestampKey(t4),
                 /* document id */
                 n2[n2.length - 1]
               ];
-            })(t2, n)
+            })(t3, n)
           );
         }
         /**
@@ -17789,16 +17789,16 @@ Total Duration: ${u - c}ms`);
          * Callers to `addEntry()` and `removeEntry()` *must* call this afterwards to update the
          * cache's metadata.
          */
-        updateMetadata(e, t2) {
-          return this.getMetadata(e).next(((n) => (n.byteSize += t2, this.Dr(e, n))));
+        updateMetadata(e, t3) {
+          return this.getMetadata(e).next(((n) => (n.byteSize += t3, this.Dr(e, n))));
         }
-        getEntry(e, t2) {
-          let n = MutableDocument.newInvalidDocument(t2);
+        getEntry(e, t3) {
+          let n = MutableDocument.newInvalidDocument(t3);
           return __PRIVATE_remoteDocumentsStore(e).ee({
             index: ue,
-            range: IDBKeyRange.only(__PRIVATE_dbKey(t2))
+            range: IDBKeyRange.only(__PRIVATE_dbKey(t3))
           }, ((e2, r) => {
-            n = this.Cr(t2, r);
+            n = this.Cr(t3, r);
           })).next((() => n));
         }
         /**
@@ -17807,25 +17807,25 @@ Total Duration: ${u - c}ms`);
          * @param documentKey - The key of the entry to look up.
          * @returns The cached document entry and its size.
          */
-        vr(e, t2) {
+        vr(e, t3) {
           let n = {
             size: 0,
-            document: MutableDocument.newInvalidDocument(t2)
+            document: MutableDocument.newInvalidDocument(t3)
           };
           return __PRIVATE_remoteDocumentsStore(e).ee({
             index: ue,
-            range: IDBKeyRange.only(__PRIVATE_dbKey(t2))
+            range: IDBKeyRange.only(__PRIVATE_dbKey(t3))
           }, ((e2, r) => {
             n = {
-              document: this.Cr(t2, r),
+              document: this.Cr(t3, r),
               size: __PRIVATE_dbDocumentSize(r)
             };
           })).next((() => n));
         }
-        getEntries(e, t2) {
+        getEntries(e, t3) {
           let n = __PRIVATE_mutableDocumentMap();
-          return this.Fr(e, t2, ((e2, t3) => {
-            const r = this.Cr(e2, t3);
+          return this.Fr(e, t3, ((e2, t4) => {
+            const r = this.Cr(e2, t4);
             n = n.insert(e2, r);
           })).next((() => n));
         }
@@ -17836,56 +17836,56 @@ Total Duration: ${u - c}ms`);
          * @returns A map of documents indexed by key and a map of sizes indexed by
          *     key (zero if the document does not exist).
          */
-        Mr(e, t2) {
+        Mr(e, t3) {
           let n = __PRIVATE_mutableDocumentMap(), r = new SortedMap(DocumentKey.comparator);
-          return this.Fr(e, t2, ((e2, t3) => {
-            const i = this.Cr(e2, t3);
-            n = n.insert(e2, i), r = r.insert(e2, __PRIVATE_dbDocumentSize(t3));
+          return this.Fr(e, t3, ((e2, t4) => {
+            const i = this.Cr(e2, t4);
+            n = n.insert(e2, i), r = r.insert(e2, __PRIVATE_dbDocumentSize(t4));
           })).next((() => ({
             documents: n,
             Or: r
           })));
         }
-        Fr(e, t2, n) {
-          if (t2.isEmpty()) return PersistencePromise.resolve();
+        Fr(e, t3, n) {
+          if (t3.isEmpty()) return PersistencePromise.resolve();
           let r = new SortedSet(__PRIVATE_dbKeyComparator);
-          t2.forEach(((e2) => r = r.add(e2)));
+          t3.forEach(((e2) => r = r.add(e2)));
           const i = IDBKeyRange.bound(__PRIVATE_dbKey(r.first()), __PRIVATE_dbKey(r.last())), s = r.getIterator();
           let o = s.getNext();
           return __PRIVATE_remoteDocumentsStore(e).ee({
             index: ue,
             range: i
-          }, ((e2, t3, r2) => {
-            const i2 = DocumentKey.fromSegments([...t3.prefixPath, t3.collectionGroup, t3.documentId]);
+          }, ((e2, t4, r2) => {
+            const i2 = DocumentKey.fromSegments([...t4.prefixPath, t4.collectionGroup, t4.documentId]);
             for (; o && __PRIVATE_dbKeyComparator(o, i2) < 0; ) n(o, null), o = s.getNext();
             o && o.isEqual(i2) && // Key found in cache.
-            (n(o, t3), o = s.hasNext() ? s.getNext() : null), // Skip to the next key (if there is one).
+            (n(o, t4), o = s.hasNext() ? s.getNext() : null), // Skip to the next key (if there is one).
             o ? r2.j(__PRIVATE_dbKey(o)) : r2.done();
           })).next((() => {
             for (; o; ) n(o, null), o = s.hasNext() ? s.getNext() : null;
           }));
         }
-        getDocumentsMatchingQuery(e, t2, n, r, i) {
-          const s = t2.path, o = [s.popLast().toArray(), s.lastSegment(), __PRIVATE_toDbTimestampKey(n.readTime), n.documentKey.path.isEmpty() ? "" : n.documentKey.path.lastSegment()], _ = [s.popLast().toArray(), s.lastSegment(), [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], ""];
+        getDocumentsMatchingQuery(e, t3, n, r, i) {
+          const s = t3.path, o = [s.popLast().toArray(), s.lastSegment(), __PRIVATE_toDbTimestampKey(n.readTime), n.documentKey.path.isEmpty() ? "" : n.documentKey.path.lastSegment()], _ = [s.popLast().toArray(), s.lastSegment(), [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], ""];
           return __PRIVATE_remoteDocumentsStore(e).J(IDBKeyRange.bound(o, _, true)).next(((e2) => {
             i?.incrementDocumentReadCount(e2.length);
             let n2 = __PRIVATE_mutableDocumentMap();
             for (const i2 of e2) {
               const e3 = this.Cr(DocumentKey.fromSegments(i2.prefixPath.concat(i2.collectionGroup, i2.documentId)), i2);
-              e3.isFoundDocument() && (__PRIVATE_queryMatches(t2, e3) || r.has(e3.key)) && // Either the document matches the given query, or it is mutated.
+              e3.isFoundDocument() && (__PRIVATE_queryMatches(t3, e3) || r.has(e3.key)) && // Either the document matches the given query, or it is mutated.
               (n2 = n2.insert(e3.key, e3));
             }
             return n2;
           }));
         }
-        getAllFromCollectionGroup(e, t2, n, r) {
+        getAllFromCollectionGroup(e, t3, n, r) {
           let i = __PRIVATE_mutableDocumentMap();
-          const s = __PRIVATE_dbCollectionGroupKey(t2, n), o = __PRIVATE_dbCollectionGroupKey(t2, IndexOffset.max());
+          const s = __PRIVATE_dbCollectionGroupKey(t3, n), o = __PRIVATE_dbCollectionGroupKey(t3, IndexOffset.max());
           return __PRIVATE_remoteDocumentsStore(e).ee({
             index: le,
             range: IDBKeyRange.bound(s, o, true)
-          }, ((e2, t3, n2) => {
-            const s2 = this.Cr(DocumentKey.fromSegments(t3.prefixPath.concat(t3.collectionGroup, t3.documentId)), t3);
+          }, ((e2, t4, n2) => {
+            const s2 = this.Cr(DocumentKey.fromSegments(t4.prefixPath.concat(t4.collectionGroup, t4.documentId)), t4);
             i = i.insert(s2.key, s2), i.size === r && n2.done();
           })).next((() => i));
         }
@@ -17898,16 +17898,16 @@ Total Duration: ${u - c}ms`);
         getMetadata(e) {
           return __PRIVATE_documentGlobalStore(e).get(Te).next(((e2) => (__PRIVATE_hardAssert(!!e2, 20021), e2)));
         }
-        Dr(e, t2) {
-          return __PRIVATE_documentGlobalStore(e).put(Te, t2);
+        Dr(e, t3) {
+          return __PRIVATE_documentGlobalStore(e).put(Te, t3);
         }
         /**
          * Decodes `dbRemoteDoc` and returns the document (or an invalid document if
          * the document corresponds to the format used for sentinel deletes).
          */
-        Cr(e, t2) {
-          if (t2) {
-            const e2 = __PRIVATE_fromDbRemoteDocument(this.serializer, t2);
+        Cr(e, t3) {
+          if (t3) {
+            const e2 = __PRIVATE_fromDbRemoteDocument(this.serializer, t3);
             if (!(e2.isNoDocument() && e2.version.isEqual(SnapshotVersion.min()))) return e2;
           }
           return MutableDocument.newInvalidDocument(e);
@@ -17919,57 +17919,57 @@ Total Duration: ${u - c}ms`);
          * @param trackRemovals - Whether to create sentinel deletes that can be tracked by
          * `getNewDocumentChanges()`.
          */
-        constructor(e, t2) {
-          super(), this.Nr = e, this.trackRemovals = t2, // A map of document sizes and read times prior to applying the changes in
+        constructor(e, t3) {
+          super(), this.Nr = e, this.trackRemovals = t3, // A map of document sizes and read times prior to applying the changes in
           // this buffer.
-          this.Br = new ObjectMap(((e2) => e2.toString()), ((e2, t3) => e2.isEqual(t3)));
+          this.Br = new ObjectMap(((e2) => e2.toString()), ((e2, t4) => e2.isEqual(t4)));
         }
         applyChanges(e) {
-          const t2 = [];
-          let n = 0, r = new SortedSet(((e2, t3) => __PRIVATE_primitiveComparator(e2.canonicalString(), t3.canonicalString())));
+          const t3 = [];
+          let n = 0, r = new SortedSet(((e2, t4) => __PRIVATE_primitiveComparator(e2.canonicalString(), t4.canonicalString())));
           return this.changes.forEach(((i, s) => {
             const o = this.Br.get(i);
-            if (t2.push(this.Nr.removeEntry(e, i, o.readTime)), s.isValidDocument()) {
+            if (t3.push(this.Nr.removeEntry(e, i, o.readTime)), s.isValidDocument()) {
               const _ = __PRIVATE_toDbRemoteDocument(this.Nr.serializer, s);
               r = r.add(i.path.popLast());
               const a = __PRIVATE_dbDocumentSize(_);
-              n += a - o.size, t2.push(this.Nr.addEntry(e, i, _));
+              n += a - o.size, t3.push(this.Nr.addEntry(e, i, _));
             } else if (n -= o.size, this.trackRemovals) {
               const n2 = __PRIVATE_toDbRemoteDocument(this.Nr.serializer, s.convertToNoDocument(SnapshotVersion.min()));
-              t2.push(this.Nr.addEntry(e, i, n2));
+              t3.push(this.Nr.addEntry(e, i, n2));
             }
           })), r.forEach(((n2) => {
-            t2.push(this.Nr.indexManager.addToCollectionParentIndex(e, n2));
-          })), t2.push(this.Nr.updateMetadata(e, n)), PersistencePromise.waitFor(t2);
+            t3.push(this.Nr.indexManager.addToCollectionParentIndex(e, n2));
+          })), t3.push(this.Nr.updateMetadata(e, n)), PersistencePromise.waitFor(t3);
         }
-        getFromCache(e, t2) {
-          return this.Nr.vr(e, t2).next(((e2) => (this.Br.set(t2, {
+        getFromCache(e, t3) {
+          return this.Nr.vr(e, t3).next(((e2) => (this.Br.set(t3, {
             size: e2.size,
             readTime: e2.document.readTime
           }), e2.document)));
         }
-        getAllFromCache(e, t2) {
-          return this.Nr.Mr(e, t2).next((({ documents: e2, Or: t3 }) => (
+        getAllFromCache(e, t3) {
+          return this.Nr.Mr(e, t3).next((({ documents: e2, Or: t4 }) => (
             // Note: `getAllFromCache` returns two maps instead of a single map from
             // keys to `DocumentSizeEntry`s. This is to allow returning the
             // `MutableDocumentMap` directly, without a conversion.
-            (t3.forEach(((t4, n) => {
-              this.Br.set(t4, {
+            (t4.forEach(((t5, n) => {
+              this.Br.set(t5, {
                 size: n,
-                readTime: e2.get(t4).readTime
+                readTime: e2.get(t5).readTime
               });
             })), e2)
           )));
         }
       };
       OverlayedDocument = class {
-        constructor(e, t2) {
-          this.overlayedDocument = e, this.mutatedFields = t2;
+        constructor(e, t3) {
+          this.overlayedDocument = e, this.mutatedFields = t3;
         }
       };
       LocalDocumentsView = class {
-        constructor(e, t2, n, r) {
-          this.remoteDocumentCache = e, this.mutationQueue = t2, this.documentOverlayCache = n, this.indexManager = r;
+        constructor(e, t3, n, r) {
+          this.remoteDocumentCache = e, this.mutationQueue = t3, this.documentOverlayCache = n, this.indexManager = r;
         }
         /**
          * Get the local view of the document identified by `key`.
@@ -17977,9 +17977,9 @@ Total Duration: ${u - c}ms`);
          * @returns Local view of the document or null if we don't have any cached
          * state for it.
          */
-        getDocument(e, t2) {
+        getDocument(e, t3) {
           let n = null;
-          return this.documentOverlayCache.getOverlay(e, t2).next(((r) => (n = r, this.remoteDocumentCache.getEntry(e, t2)))).next(((e2) => (null !== n && __PRIVATE_mutationApplyToLocalView(n.mutation, e2, FieldMask.empty(), Timestamp.now()), e2)));
+          return this.documentOverlayCache.getOverlay(e, t3).next(((r) => (n = r, this.remoteDocumentCache.getEntry(e, t3)))).next(((e2) => (null !== n && __PRIVATE_mutationApplyToLocalView(n.mutation, e2, FieldMask.empty(), Timestamp.now()), e2)));
         }
         /**
          * Gets the local view of the documents identified by `keys`.
@@ -17987,8 +17987,8 @@ Total Duration: ${u - c}ms`);
          * If we don't have cached state for a document in `keys`, a NoDocument will
          * be stored for that key in the resulting set.
          */
-        getDocuments(e, t2) {
-          return this.remoteDocumentCache.getEntries(e, t2).next(((t3) => this.getLocalViewOfDocuments(e, t3, __PRIVATE_documentKeySet()).next((() => t3))));
+        getDocuments(e, t3) {
+          return this.remoteDocumentCache.getEntries(e, t3).next(((t4) => this.getLocalViewOfDocuments(e, t4, __PRIVATE_documentKeySet()).next((() => t4))));
         }
         /**
          * Similar to `getDocuments`, but creates the local view from the given
@@ -18000,13 +18000,13 @@ Total Duration: ${u - c}ms`);
          *   is changed. This is useful to determine if some documents overlay needs
          *   to be recalculated.
          */
-        getLocalViewOfDocuments(e, t2, n = __PRIVATE_documentKeySet()) {
+        getLocalViewOfDocuments(e, t3, n = __PRIVATE_documentKeySet()) {
           const r = __PRIVATE_newOverlayMap();
-          return this.populateOverlays(e, r, t2).next((() => this.computeViews(e, t2, r, n).next(((e2) => {
-            let t3 = documentMap();
+          return this.populateOverlays(e, r, t3).next((() => this.computeViews(e, t3, r, n).next(((e2) => {
+            let t4 = documentMap();
             return e2.forEach(((e3, n2) => {
-              t3 = t3.insert(e3, n2.overlayedDocument);
-            })), t3;
+              t4 = t4.insert(e3, n2.overlayedDocument);
+            })), t4;
           }))));
         }
         /**
@@ -18014,21 +18014,21 @@ Total Duration: ${u - c}ms`);
          * the local view of those documents and a `FieldMask` indicating which fields
          * are mutated locally, `null` if overlay is a Set or Delete mutation.
          */
-        getOverlayedDocuments(e, t2) {
+        getOverlayedDocuments(e, t3) {
           const n = __PRIVATE_newOverlayMap();
-          return this.populateOverlays(e, n, t2).next((() => this.computeViews(e, t2, n, __PRIVATE_documentKeySet())));
+          return this.populateOverlays(e, n, t3).next((() => this.computeViews(e, t3, n, __PRIVATE_documentKeySet())));
         }
         /**
          * Fetches the overlays for {@code docs} and adds them to provided overlay map
          * if the map does not already contain an entry for the given document key.
          */
-        populateOverlays(e, t2, n) {
+        populateOverlays(e, t3, n) {
           const r = [];
           return n.forEach(((e2) => {
-            t2.has(e2) || r.push(e2);
+            t3.has(e2) || r.push(e2);
           })), this.documentOverlayCache.getOverlays(e, r).next(((e2) => {
             e2.forEach(((e3, n2) => {
-              t2.set(e3, n2);
+              t3.set(e3, n2);
             }));
           }));
         }
@@ -18044,26 +18044,26 @@ Total Duration: ${u - c}ms`);
          *   overlays from mutation queues.
          * @return A map represents the local documents view.
          */
-        computeViews(e, t2, n, r) {
+        computeViews(e, t3, n, r) {
           let i = __PRIVATE_mutableDocumentMap();
           const s = __PRIVATE_newDocumentKeyMap(), o = (function __PRIVATE_newOverlayedDocumentMap() {
             return __PRIVATE_newDocumentKeyMap();
           })();
-          return t2.forEach(((e2, t3) => {
-            const o2 = n.get(t3.key);
-            r.has(t3.key) && (void 0 === o2 || o2.mutation instanceof __PRIVATE_PatchMutation) ? i = i.insert(t3.key, t3) : void 0 !== o2 ? (s.set(t3.key, o2.mutation.getFieldMask()), __PRIVATE_mutationApplyToLocalView(o2.mutation, t3, o2.mutation.getFieldMask(), Timestamp.now())) : (
+          return t3.forEach(((e2, t4) => {
+            const o2 = n.get(t4.key);
+            r.has(t4.key) && (void 0 === o2 || o2.mutation instanceof __PRIVATE_PatchMutation) ? i = i.insert(t4.key, t4) : void 0 !== o2 ? (s.set(t4.key, o2.mutation.getFieldMask()), __PRIVATE_mutationApplyToLocalView(o2.mutation, t4, o2.mutation.getFieldMask(), Timestamp.now())) : (
               // no overlay exists
               // Using EMPTY to indicate there is no overlay for the document.
-              s.set(t3.key, FieldMask.empty())
+              s.set(t4.key, FieldMask.empty())
             );
-          })), this.recalculateAndSaveOverlays(e, i).next(((e2) => (e2.forEach(((e3, t3) => s.set(e3, t3))), t2.forEach(((e3, t3) => o.set(e3, new OverlayedDocument(t3, s.get(e3) ?? null)))), o)));
+          })), this.recalculateAndSaveOverlays(e, i).next(((e2) => (e2.forEach(((e3, t4) => s.set(e3, t4))), t3.forEach(((e3, t4) => o.set(e3, new OverlayedDocument(t4, s.get(e3) ?? null)))), o)));
         }
-        recalculateAndSaveOverlays(e, t2) {
+        recalculateAndSaveOverlays(e, t3) {
           const n = __PRIVATE_newDocumentKeyMap();
-          let r = new SortedMap(((e2, t3) => e2 - t3)), i = __PRIVATE_documentKeySet();
-          return this.mutationQueue.getAllMutationBatchesAffectingDocumentKeys(e, t2).next(((e2) => {
+          let r = new SortedMap(((e2, t4) => e2 - t4)), i = __PRIVATE_documentKeySet();
+          return this.mutationQueue.getAllMutationBatchesAffectingDocumentKeys(e, t3).next(((e2) => {
             for (const i2 of e2) i2.keys().forEach(((e3) => {
-              const s = t2.get(e3);
+              const s = t3.get(e3);
               if (null === s) return;
               let o = n.get(e3) || FieldMask.empty();
               o = i2.applyToLocalView(s, o), n.set(e3, o);
@@ -18076,7 +18076,7 @@ Total Duration: ${u - c}ms`);
               const r2 = o.getNext(), _ = r2.key, a = r2.value, u = __PRIVATE_newMutationMap();
               a.forEach(((e2) => {
                 if (!i.has(e2)) {
-                  const r3 = __PRIVATE_calculateOverlayMutation(t2.get(e2), n.get(e2));
+                  const r3 = __PRIVATE_calculateOverlayMutation(t3.get(e2), n.get(e2));
                   null !== r3 && u.set(e2, r3), i = i.add(e2);
                 }
               })), s.push(this.documentOverlayCache.saveOverlays(e, _, u));
@@ -18088,8 +18088,8 @@ Total Duration: ${u - c}ms`);
          * Recalculates overlays by reading the documents from remote document cache
          * first, and saves them after they are calculated.
          */
-        recalculateAndSaveOverlaysForDocumentKeys(e, t2) {
-          return this.remoteDocumentCache.getEntries(e, t2).next(((t3) => this.recalculateAndSaveOverlays(e, t3)));
+        recalculateAndSaveOverlaysForDocumentKeys(e, t3) {
+          return this.remoteDocumentCache.getEntries(e, t3).next(((t4) => this.recalculateAndSaveOverlays(e, t4)));
         }
         /**
          * Performs a query against the local view of all documents.
@@ -18100,10 +18100,10 @@ Total Duration: ${u - c}ms`);
          * @param context - A optional tracker to keep a record of important details
          *   during database local query execution.
          */
-        getDocumentsMatchingQuery(e, t2, n, r) {
+        getDocumentsMatchingQuery(e, t3, n, r) {
           return (function __PRIVATE_isDocumentQuery$1(e2) {
             return DocumentKey.isDocumentKey(e2.path) && null === e2.collectionGroup && 0 === e2.filters.length;
-          })(t2) ? this.getDocumentsMatchingDocumentQuery(e, t2.path) : __PRIVATE_isCollectionGroupQuery(t2) ? this.getDocumentsMatchingCollectionGroupQuery(e, t2, n, r) : this.getDocumentsMatchingCollectionQuery(e, t2, n, r);
+          })(t3) ? this.getDocumentsMatchingDocumentQuery(e, t3.path) : __PRIVATE_isCollectionGroupQuery(t3) ? this.getDocumentsMatchingCollectionGroupQuery(e, t3, n, r) : this.getDocumentsMatchingCollectionQuery(e, t3, n, r);
         }
         /**
          * Given a collection group, returns the next documents that follow the provided offset, along
@@ -18120,31 +18120,31 @@ Total Duration: ${u - c}ms`);
          * @param count The number of documents to return
          * @return A LocalWriteResult with the documents that follow the provided offset and the last processed batch id.
          */
-        getNextDocuments(e, t2, n, r) {
-          return this.remoteDocumentCache.getAllFromCollectionGroup(e, t2, n, r).next(((i) => {
-            const s = r - i.size > 0 ? this.documentOverlayCache.getOverlaysForCollectionGroup(e, t2, n.largestBatchId, r - i.size) : PersistencePromise.resolve(__PRIVATE_newOverlayMap());
+        getNextDocuments(e, t3, n, r) {
+          return this.remoteDocumentCache.getAllFromCollectionGroup(e, t3, n, r).next(((i) => {
+            const s = r - i.size > 0 ? this.documentOverlayCache.getOverlaysForCollectionGroup(e, t3, n.largestBatchId, r - i.size) : PersistencePromise.resolve(__PRIVATE_newOverlayMap());
             let o = U, _ = i;
-            return s.next(((t3) => PersistencePromise.forEach(t3, ((t4, n2) => (o < n2.largestBatchId && (o = n2.largestBatchId), i.get(t4) ? PersistencePromise.resolve() : this.remoteDocumentCache.getEntry(e, t4).next(((e2) => {
-              _ = _.insert(t4, e2);
-            }))))).next((() => this.populateOverlays(e, t3, i))).next((() => this.computeViews(e, _, t3, __PRIVATE_documentKeySet()))).next(((e2) => ({
+            return s.next(((t4) => PersistencePromise.forEach(t4, ((t5, n2) => (o < n2.largestBatchId && (o = n2.largestBatchId), i.get(t5) ? PersistencePromise.resolve() : this.remoteDocumentCache.getEntry(e, t5).next(((e2) => {
+              _ = _.insert(t5, e2);
+            }))))).next((() => this.populateOverlays(e, t4, i))).next((() => this.computeViews(e, _, t4, __PRIVATE_documentKeySet()))).next(((e2) => ({
               batchId: o,
               changes: __PRIVATE_convertOverlayedDocumentMapToDocumentMap(e2)
             })))));
           }));
         }
-        getDocumentsMatchingDocumentQuery(e, t2) {
-          return this.getDocument(e, new DocumentKey(t2)).next(((e2) => {
-            let t3 = documentMap();
-            return e2.isFoundDocument() && (t3 = t3.insert(e2.key, e2)), t3;
+        getDocumentsMatchingDocumentQuery(e, t3) {
+          return this.getDocument(e, new DocumentKey(t3)).next(((e2) => {
+            let t4 = documentMap();
+            return e2.isFoundDocument() && (t4 = t4.insert(e2.key, e2)), t4;
           }));
         }
-        getDocumentsMatchingCollectionGroupQuery(e, t2, n, r) {
-          const i = t2.collectionGroup;
+        getDocumentsMatchingCollectionGroupQuery(e, t3, n, r) {
+          const i = t3.collectionGroup;
           let s = documentMap();
           return this.indexManager.getCollectionParents(e, i).next(((o) => PersistencePromise.forEach(o, ((o2) => {
-            const _ = (function __PRIVATE_asCollectionQueryAtPath(e2, t3) {
+            const _ = (function __PRIVATE_asCollectionQueryAtPath(e2, t4) {
               return new __PRIVATE_QueryImpl(
-                t3,
+                t4,
                 /*collectionGroup=*/
                 null,
                 e2.explicitOrderBy.slice(),
@@ -18154,18 +18154,18 @@ Total Duration: ${u - c}ms`);
                 e2.startAt,
                 e2.endAt
               );
-            })(t2, o2.child(i));
+            })(t3, o2.child(i));
             return this.getDocumentsMatchingCollectionQuery(e, _, n, r).next(((e2) => {
-              e2.forEach(((e3, t3) => {
-                s = s.insert(e3, t3);
+              e2.forEach(((e3, t4) => {
+                s = s.insert(e3, t4);
               }));
             }));
           })).next((() => s))));
         }
-        getDocumentsMatchingCollectionQuery(e, t2, n, r) {
+        getDocumentsMatchingCollectionQuery(e, t3, n, r) {
           let i;
-          return this.documentOverlayCache.getOverlaysForCollection(e, t2.path, n.largestBatchId).next(((s) => (i = s, this.remoteDocumentCache.getDocumentsMatchingQuery(e, t2, n, i, r)))).next(((e2) => {
-            i.forEach(((t3, n3) => {
+          return this.documentOverlayCache.getOverlaysForCollection(e, t3.path, n.largestBatchId).next(((s) => (i = s, this.remoteDocumentCache.getDocumentsMatchingQuery(e, t3, n, i, r)))).next(((e2) => {
+            i.forEach(((t4, n3) => {
               const r2 = n3.getKey();
               null === e2.get(r2) && (e2 = e2.insert(r2, MutableDocument.newInvalidDocument(r2)));
             }));
@@ -18173,7 +18173,7 @@ Total Duration: ${u - c}ms`);
             return e2.forEach(((e3, r2) => {
               const s = i.get(e3);
               void 0 !== s && __PRIVATE_mutationApplyToLocalView(s.mutation, r2, FieldMask.empty(), Timestamp.now()), // Finally, insert the documents that still match the query
-              __PRIVATE_queryMatches(t2, r2) && (n2 = n2.insert(e3, r2));
+              __PRIVATE_queryMatches(t3, r2) && (n2 = n2.insert(e3, r2));
             })), n2;
           }));
         }
@@ -18182,12 +18182,12 @@ Total Duration: ${u - c}ms`);
         constructor(e) {
           this.serializer = e, this.Lr = /* @__PURE__ */ new Map(), this.kr = /* @__PURE__ */ new Map();
         }
-        getBundleMetadata(e, t2) {
-          return PersistencePromise.resolve(this.Lr.get(t2));
+        getBundleMetadata(e, t3) {
+          return PersistencePromise.resolve(this.Lr.get(t3));
         }
-        saveBundleMetadata(e, t2) {
+        saveBundleMetadata(e, t3) {
           return this.Lr.set(
-            t2.id,
+            t3.id,
             /** Decodes a BundleMetadata proto into a BundleMetadata object. */
             (function __PRIVATE_fromBundleMetadata(e2) {
               return {
@@ -18195,78 +18195,78 @@ Total Duration: ${u - c}ms`);
                 version: e2.version,
                 createTime: __PRIVATE_fromVersion(e2.createTime)
               };
-            })(t2)
+            })(t3)
           ), PersistencePromise.resolve();
         }
-        getNamedQuery(e, t2) {
-          return PersistencePromise.resolve(this.kr.get(t2));
+        getNamedQuery(e, t3) {
+          return PersistencePromise.resolve(this.kr.get(t3));
         }
-        saveNamedQuery(e, t2) {
-          return this.kr.set(t2.name, (function __PRIVATE_fromProtoNamedQuery(e2) {
+        saveNamedQuery(e, t3) {
+          return this.kr.set(t3.name, (function __PRIVATE_fromProtoNamedQuery(e2) {
             return {
               name: e2.name,
               query: __PRIVATE_fromBundledQuery(e2.bundledQuery),
               readTime: __PRIVATE_fromVersion(e2.readTime)
             };
-          })(t2)), PersistencePromise.resolve();
+          })(t3)), PersistencePromise.resolve();
         }
       };
       __PRIVATE_MemoryDocumentOverlayCache = class {
         constructor() {
           this.overlays = new SortedMap(DocumentKey.comparator), this.qr = /* @__PURE__ */ new Map();
         }
-        getOverlay(e, t2) {
-          return PersistencePromise.resolve(this.overlays.get(t2));
+        getOverlay(e, t3) {
+          return PersistencePromise.resolve(this.overlays.get(t3));
         }
-        getOverlays(e, t2) {
+        getOverlays(e, t3) {
           const n = __PRIVATE_newOverlayMap();
-          return PersistencePromise.forEach(t2, ((t3) => this.getOverlay(e, t3).next(((e2) => {
-            null !== e2 && n.set(t3, e2);
+          return PersistencePromise.forEach(t3, ((t4) => this.getOverlay(e, t4).next(((e2) => {
+            null !== e2 && n.set(t4, e2);
           })))).next((() => n));
         }
-        saveOverlays(e, t2, n) {
+        saveOverlays(e, t3, n) {
           return n.forEach(((n2, r) => {
-            this.St(e, t2, r);
+            this.St(e, t3, r);
           })), PersistencePromise.resolve();
         }
-        removeOverlaysForBatchId(e, t2, n) {
+        removeOverlaysForBatchId(e, t3, n) {
           const r = this.qr.get(n);
           return void 0 !== r && (r.forEach(((e2) => this.overlays = this.overlays.remove(e2))), this.qr.delete(n)), PersistencePromise.resolve();
         }
-        getOverlaysForCollection(e, t2, n) {
-          const r = __PRIVATE_newOverlayMap(), i = t2.length + 1, s = new DocumentKey(t2.child("")), o = this.overlays.getIteratorFrom(s);
+        getOverlaysForCollection(e, t3, n) {
+          const r = __PRIVATE_newOverlayMap(), i = t3.length + 1, s = new DocumentKey(t3.child("")), o = this.overlays.getIteratorFrom(s);
           for (; o.hasNext(); ) {
             const e2 = o.getNext().value, s2 = e2.getKey();
-            if (!t2.isPrefixOf(s2.path)) break;
+            if (!t3.isPrefixOf(s2.path)) break;
             s2.path.length === i && (e2.largestBatchId > n && r.set(e2.getKey(), e2));
           }
           return PersistencePromise.resolve(r);
         }
-        getOverlaysForCollectionGroup(e, t2, n, r) {
-          let i = new SortedMap(((e2, t3) => e2 - t3));
+        getOverlaysForCollectionGroup(e, t3, n, r) {
+          let i = new SortedMap(((e2, t4) => e2 - t4));
           const s = this.overlays.getIterator();
           for (; s.hasNext(); ) {
             const e2 = s.getNext().value;
-            if (e2.getKey().getCollectionGroup() === t2 && e2.largestBatchId > n) {
-              let t3 = i.get(e2.largestBatchId);
-              null === t3 && (t3 = __PRIVATE_newOverlayMap(), i = i.insert(e2.largestBatchId, t3)), t3.set(e2.getKey(), e2);
+            if (e2.getKey().getCollectionGroup() === t3 && e2.largestBatchId > n) {
+              let t4 = i.get(e2.largestBatchId);
+              null === t4 && (t4 = __PRIVATE_newOverlayMap(), i = i.insert(e2.largestBatchId, t4)), t4.set(e2.getKey(), e2);
             }
           }
           const o = __PRIVATE_newOverlayMap(), _ = i.getIterator();
           for (; _.hasNext(); ) {
-            if (_.getNext().value.forEach(((e2, t3) => o.set(e2, t3))), o.size() >= r) break;
+            if (_.getNext().value.forEach(((e2, t4) => o.set(e2, t4))), o.size() >= r) break;
           }
           return PersistencePromise.resolve(o);
         }
-        St(e, t2, n) {
+        St(e, t3, n) {
           const r = this.overlays.get(n.key);
           if (null !== r) {
             const e2 = this.qr.get(r.largestBatchId).delete(n.key);
             this.qr.set(r.largestBatchId, e2);
           }
-          this.overlays = this.overlays.insert(n.key, new Overlay(t2, n));
-          let i = this.qr.get(t2);
-          void 0 === i && (i = __PRIVATE_documentKeySet(), this.qr.set(t2, i)), this.qr.set(t2, i.add(n.key));
+          this.overlays = this.overlays.insert(n.key, new Overlay(t3, n));
+          let i = this.qr.get(t3);
+          void 0 === i && (i = __PRIVATE_documentKeySet(), this.qr.set(t3, i)), this.qr.set(t3, i.add(n.key));
         }
       };
       __PRIVATE_MemoryGlobalsCache = class {
@@ -18276,8 +18276,8 @@ Total Duration: ${u - c}ms`);
         getSessionToken(e) {
           return PersistencePromise.resolve(this.sessionToken);
         }
-        setSessionToken(e, t2) {
-          return this.sessionToken = t2, PersistencePromise.resolve();
+        setSessionToken(e, t3) {
+          return this.sessionToken = t3, PersistencePromise.resolve();
         }
       };
       __PRIVATE_ReferenceSet = class {
@@ -18290,30 +18290,30 @@ Total Duration: ${u - c}ms`);
           return this.Qr.isEmpty();
         }
         /** Adds a reference to the given document key for the given ID. */
-        addReference(e, t2) {
-          const n = new __PRIVATE_DocReference(e, t2);
+        addReference(e, t3) {
+          const n = new __PRIVATE_DocReference(e, t3);
           this.Qr = this.Qr.add(n), this.Ur = this.Ur.add(n);
         }
         /** Add references to the given document keys for the given ID. */
-        Wr(e, t2) {
-          e.forEach(((e2) => this.addReference(e2, t2)));
+        Wr(e, t3) {
+          e.forEach(((e2) => this.addReference(e2, t3)));
         }
         /**
          * Removes a reference to the given document key for the given
          * ID.
          */
-        removeReference(e, t2) {
-          this.Gr(new __PRIVATE_DocReference(e, t2));
+        removeReference(e, t3) {
+          this.Gr(new __PRIVATE_DocReference(e, t3));
         }
-        zr(e, t2) {
-          e.forEach(((e2) => this.removeReference(e2, t2)));
+        zr(e, t3) {
+          e.forEach(((e2) => this.removeReference(e2, t3)));
         }
         /**
          * Clears all references with a given ID. Calls removeRef() for each key
          * removed.
          */
         jr(e) {
-          const t2 = new DocumentKey(new ResourcePath([])), n = new __PRIVATE_DocReference(t2, e), r = new __PRIVATE_DocReference(t2, e + 1), i = [];
+          const t3 = new DocumentKey(new ResourcePath([])), n = new __PRIVATE_DocReference(t3, e), r = new __PRIVATE_DocReference(t3, e + 1), i = [];
           return this.Ur.forEachInRange([n, r], ((e2) => {
             this.Gr(e2), i.push(e2.key);
           })), i;
@@ -18325,33 +18325,33 @@ Total Duration: ${u - c}ms`);
           this.Qr = this.Qr.delete(e), this.Ur = this.Ur.delete(e);
         }
         Hr(e) {
-          const t2 = new DocumentKey(new ResourcePath([])), n = new __PRIVATE_DocReference(t2, e), r = new __PRIVATE_DocReference(t2, e + 1);
+          const t3 = new DocumentKey(new ResourcePath([])), n = new __PRIVATE_DocReference(t3, e), r = new __PRIVATE_DocReference(t3, e + 1);
           let i = __PRIVATE_documentKeySet();
           return this.Ur.forEachInRange([n, r], ((e2) => {
             i = i.add(e2.key);
           })), i;
         }
         containsKey(e) {
-          const t2 = new __PRIVATE_DocReference(e, 0), n = this.Qr.firstAfterOrEqual(t2);
+          const t3 = new __PRIVATE_DocReference(e, 0), n = this.Qr.firstAfterOrEqual(t3);
           return null !== n && e.isEqual(n.key);
         }
       };
       __PRIVATE_DocReference = class {
-        constructor(e, t2) {
-          this.key = e, this.Yr = t2;
+        constructor(e, t3) {
+          this.key = e, this.Yr = t3;
         }
         /** Compare by key then by ID */
-        static $r(e, t2) {
-          return DocumentKey.comparator(e.key, t2.key) || __PRIVATE_primitiveComparator(e.Yr, t2.Yr);
+        static $r(e, t3) {
+          return DocumentKey.comparator(e.key, t3.key) || __PRIVATE_primitiveComparator(e.Yr, t3.Yr);
         }
         /** Compare by ID then by key */
-        static Kr(e, t2) {
-          return __PRIVATE_primitiveComparator(e.Yr, t2.Yr) || DocumentKey.comparator(e.key, t2.key);
+        static Kr(e, t3) {
+          return __PRIVATE_primitiveComparator(e.Yr, t3.Yr) || DocumentKey.comparator(e.key, t3.key);
         }
       };
       __PRIVATE_MemoryMutationQueue = class {
-        constructor(e, t2) {
-          this.indexManager = e, this.referenceDelegate = t2, /**
+        constructor(e, t3) {
+          this.indexManager = e, this.referenceDelegate = t3, /**
            * The set of all mutations that have been sent but not yet been applied to
            * the backend.
            */
@@ -18362,19 +18362,19 @@ Total Duration: ${u - c}ms`);
         checkEmpty(e) {
           return PersistencePromise.resolve(0 === this.mutationQueue.length);
         }
-        addMutationBatch(e, t2, n, r) {
+        addMutationBatch(e, t3, n, r) {
           const i = this.tr;
           this.tr++, this.mutationQueue.length > 0 && this.mutationQueue[this.mutationQueue.length - 1];
-          const s = new MutationBatch(i, t2, n, r);
+          const s = new MutationBatch(i, t3, n, r);
           this.mutationQueue.push(s);
-          for (const t3 of r) this.Zr = this.Zr.add(new __PRIVATE_DocReference(t3.key, i)), this.indexManager.addToCollectionParentIndex(e, t3.key.path.popLast());
+          for (const t4 of r) this.Zr = this.Zr.add(new __PRIVATE_DocReference(t4.key, i)), this.indexManager.addToCollectionParentIndex(e, t4.key.path.popLast());
           return PersistencePromise.resolve(s);
         }
-        lookupMutationBatch(e, t2) {
-          return PersistencePromise.resolve(this.Xr(t2));
+        lookupMutationBatch(e, t3) {
+          return PersistencePromise.resolve(this.Xr(t3));
         }
-        getNextMutationBatchAfterBatchId(e, t2) {
-          const n = t2 + 1, r = this.ei(n), i = r < 0 ? 0 : r;
+        getNextMutationBatchAfterBatchId(e, t3) {
+          const n = t3 + 1, r = this.ei(n), i = r < 0 ? 0 : r;
           return PersistencePromise.resolve(this.mutationQueue.length > i ? this.mutationQueue[i] : null);
         }
         getHighestUnacknowledgedBatchId() {
@@ -18383,50 +18383,50 @@ Total Duration: ${u - c}ms`);
         getAllMutationBatches(e) {
           return PersistencePromise.resolve(this.mutationQueue.slice());
         }
-        getAllMutationBatchesAffectingDocumentKey(e, t2) {
-          const n = new __PRIVATE_DocReference(t2, 0), r = new __PRIVATE_DocReference(t2, Number.POSITIVE_INFINITY), i = [];
+        getAllMutationBatchesAffectingDocumentKey(e, t3) {
+          const n = new __PRIVATE_DocReference(t3, 0), r = new __PRIVATE_DocReference(t3, Number.POSITIVE_INFINITY), i = [];
           return this.Zr.forEachInRange([n, r], ((e2) => {
-            const t3 = this.Xr(e2.Yr);
-            i.push(t3);
+            const t4 = this.Xr(e2.Yr);
+            i.push(t4);
           })), PersistencePromise.resolve(i);
         }
-        getAllMutationBatchesAffectingDocumentKeys(e, t2) {
+        getAllMutationBatchesAffectingDocumentKeys(e, t3) {
           let n = new SortedSet(__PRIVATE_primitiveComparator);
-          return t2.forEach(((e2) => {
-            const t3 = new __PRIVATE_DocReference(e2, 0), r = new __PRIVATE_DocReference(e2, Number.POSITIVE_INFINITY);
-            this.Zr.forEachInRange([t3, r], ((e3) => {
+          return t3.forEach(((e2) => {
+            const t4 = new __PRIVATE_DocReference(e2, 0), r = new __PRIVATE_DocReference(e2, Number.POSITIVE_INFINITY);
+            this.Zr.forEachInRange([t4, r], ((e3) => {
               n = n.add(e3.Yr);
             }));
           })), PersistencePromise.resolve(this.ti(n));
         }
-        getAllMutationBatchesAffectingQuery(e, t2) {
-          const n = t2.path, r = n.length + 1;
+        getAllMutationBatchesAffectingQuery(e, t3) {
+          const n = t3.path, r = n.length + 1;
           let i = n;
           DocumentKey.isDocumentKey(i) || (i = i.child(""));
           const s = new __PRIVATE_DocReference(new DocumentKey(i), 0);
           let o = new SortedSet(__PRIVATE_primitiveComparator);
           return this.Zr.forEachWhile(((e2) => {
-            const t3 = e2.key.path;
-            return !!n.isPrefixOf(t3) && // Rows with document keys more than one segment longer than the query
+            const t4 = e2.key.path;
+            return !!n.isPrefixOf(t4) && // Rows with document keys more than one segment longer than the query
             // path can't be matches. For example, a query on 'rooms' can't match
             // the document /rooms/abc/messages/xyx.
             // TODO(mcg): we'll need a different scanner when we implement
             // ancestor queries.
-            (t3.length === r && (o = o.add(e2.Yr)), true);
+            (t4.length === r && (o = o.add(e2.Yr)), true);
           }), s), PersistencePromise.resolve(this.ti(o));
         }
         ti(e) {
-          const t2 = [];
+          const t3 = [];
           return e.forEach(((e2) => {
             const n = this.Xr(e2);
-            null !== n && t2.push(n);
-          })), t2;
+            null !== n && t3.push(n);
+          })), t3;
         }
-        removeMutationBatch(e, t2) {
-          __PRIVATE_hardAssert(0 === this.ni(t2.batchId, "removed"), 55003), this.mutationQueue.shift();
+        removeMutationBatch(e, t3) {
+          __PRIVATE_hardAssert(0 === this.ni(t3.batchId, "removed"), 55003), this.mutationQueue.shift();
           let n = this.Zr;
-          return PersistencePromise.forEach(t2.mutations, ((r) => {
-            const i = new __PRIVATE_DocReference(r.key, t2.batchId);
+          return PersistencePromise.forEach(t3.mutations, ((r) => {
+            const i = new __PRIVATE_DocReference(r.key, t3.batchId);
             return n = n.delete(i), this.referenceDelegate.markPotentiallyOrphaned(e, r.key);
           })).next((() => {
             this.Zr = n;
@@ -18434,9 +18434,9 @@ Total Duration: ${u - c}ms`);
         }
         ir(e) {
         }
-        containsKey(e, t2) {
-          const n = new __PRIVATE_DocReference(t2, 0), r = this.Zr.firstAfterOrEqual(n);
-          return PersistencePromise.resolve(t2.isEqual(r && r.key));
+        containsKey(e, t3) {
+          const n = new __PRIVATE_DocReference(t3, 0), r = this.Zr.firstAfterOrEqual(n);
+          return PersistencePromise.resolve(t3.isEqual(r && r.key));
         }
         performConsistencyCheck(e) {
           return this.mutationQueue.length, PersistencePromise.resolve();
@@ -18449,7 +18449,7 @@ Total Duration: ${u - c}ms`);
          * @param action - A description of what the caller is doing, phrased in passive
          * form (e.g. "acknowledged" in a routine that acknowledges batches).
          */
-        ni(e, t2) {
+        ni(e, t3) {
           return this.ei(e);
         }
         /**
@@ -18471,9 +18471,9 @@ Total Duration: ${u - c}ms`);
          * other functions that uses this code easier to read and more efficient.
          */
         Xr(e) {
-          const t2 = this.ei(e);
-          if (t2 < 0 || t2 >= this.mutationQueue.length) return null;
-          return this.mutationQueue[t2];
+          const t3 = this.ei(e);
+          if (t3 < 0 || t3 >= this.mutationQueue.length) return null;
+          return this.mutationQueue[t3];
         }
       };
       __PRIVATE_MemoryRemoteDocumentCacheImpl = class {
@@ -18498,10 +18498,10 @@ Total Duration: ${u - c}ms`);
          * All calls of `addEntry`  are required to go through the RemoteDocumentChangeBuffer
          * returned by `newChangeBuffer()`.
          */
-        addEntry(e, t2) {
-          const n = t2.key, r = this.docs.get(n), i = r ? r.size : 0, s = this.ri(t2);
+        addEntry(e, t3) {
+          const n = t3.key, r = this.docs.get(n), i = r ? r.size : 0, s = this.ri(t3);
           return this.docs = this.docs.insert(n, {
-            document: t2.mutableCopy(),
+            document: t3.mutableCopy(),
             size: s
           }), this.size += s - i, this.indexManager.addToCollectionParentIndex(e, n.path.popLast());
         }
@@ -18512,35 +18512,35 @@ Total Duration: ${u - c}ms`);
          * returned by `newChangeBuffer()`.
          */
         removeEntry(e) {
-          const t2 = this.docs.get(e);
-          t2 && (this.docs = this.docs.remove(e), this.size -= t2.size);
+          const t3 = this.docs.get(e);
+          t3 && (this.docs = this.docs.remove(e), this.size -= t3.size);
         }
-        getEntry(e, t2) {
-          const n = this.docs.get(t2);
-          return PersistencePromise.resolve(n ? n.document.mutableCopy() : MutableDocument.newInvalidDocument(t2));
+        getEntry(e, t3) {
+          const n = this.docs.get(t3);
+          return PersistencePromise.resolve(n ? n.document.mutableCopy() : MutableDocument.newInvalidDocument(t3));
         }
-        getEntries(e, t2) {
+        getEntries(e, t3) {
           let n = __PRIVATE_mutableDocumentMap();
-          return t2.forEach(((e2) => {
-            const t3 = this.docs.get(e2);
-            n = n.insert(e2, t3 ? t3.document.mutableCopy() : MutableDocument.newInvalidDocument(e2));
+          return t3.forEach(((e2) => {
+            const t4 = this.docs.get(e2);
+            n = n.insert(e2, t4 ? t4.document.mutableCopy() : MutableDocument.newInvalidDocument(e2));
           })), PersistencePromise.resolve(n);
         }
-        getDocumentsMatchingQuery(e, t2, n, r) {
+        getDocumentsMatchingQuery(e, t3, n, r) {
           let i = __PRIVATE_mutableDocumentMap();
-          const s = t2.path, o = new DocumentKey(s.child("__id-9223372036854775808__")), _ = this.docs.getIteratorFrom(o);
+          const s = t3.path, o = new DocumentKey(s.child("__id-9223372036854775808__")), _ = this.docs.getIteratorFrom(o);
           for (; _.hasNext(); ) {
             const { key: e2, value: { document: o2 } } = _.getNext();
             if (!s.isPrefixOf(e2.path)) break;
-            e2.path.length > s.length + 1 || (__PRIVATE_indexOffsetComparator(__PRIVATE_newIndexOffsetFromDocument(o2), n) <= 0 || (r.has(o2.key) || __PRIVATE_queryMatches(t2, o2)) && (i = i.insert(o2.key, o2.mutableCopy())));
+            e2.path.length > s.length + 1 || (__PRIVATE_indexOffsetComparator(__PRIVATE_newIndexOffsetFromDocument(o2), n) <= 0 || (r.has(o2.key) || __PRIVATE_queryMatches(t3, o2)) && (i = i.insert(o2.key, o2.mutableCopy())));
           }
           return PersistencePromise.resolve(i);
         }
-        getAllFromCollectionGroup(e, t2, n, r) {
+        getAllFromCollectionGroup(e, t3, n, r) {
           fail(9500);
         }
-        ii(e, t2) {
-          return PersistencePromise.forEach(this.docs, ((e2) => t2(e2)));
+        ii(e, t3) {
+          return PersistencePromise.forEach(this.docs, ((e2) => t3(e2)));
         }
         newChangeBuffer(e) {
           return new __PRIVATE_MemoryRemoteDocumentChangeBuffer(this);
@@ -18554,16 +18554,16 @@ Total Duration: ${u - c}ms`);
           super(), this.Nr = e;
         }
         applyChanges(e) {
-          const t2 = [];
+          const t3 = [];
           return this.changes.forEach(((n, r) => {
-            r.isValidDocument() ? t2.push(this.Nr.addEntry(e, r)) : this.Nr.removeEntry(n);
-          })), PersistencePromise.waitFor(t2);
+            r.isValidDocument() ? t3.push(this.Nr.addEntry(e, r)) : this.Nr.removeEntry(n);
+          })), PersistencePromise.waitFor(t3);
         }
-        getFromCache(e, t2) {
-          return this.Nr.getEntry(e, t2);
+        getFromCache(e, t3) {
+          return this.Nr.getEntry(e, t3);
         }
-        getAllFromCache(e, t2) {
-          return this.Nr.getEntries(e, t2);
+        getAllFromCache(e, t3) {
+          return this.Nr.getEntries(e, t3);
         }
       };
       __PRIVATE_MemoryTargetCache = class {
@@ -18580,8 +18580,8 @@ Total Duration: ${u - c}ms`);
            */
           this._i = new __PRIVATE_ReferenceSet(), this.targetCount = 0, this.ai = __PRIVATE_TargetIdGenerator.ur();
         }
-        forEachTarget(e, t2) {
-          return this.si.forEach(((e2, n) => t2(n))), PersistencePromise.resolve();
+        forEachTarget(e, t3) {
+          return this.si.forEach(((e2, n) => t3(n))), PersistencePromise.resolve();
         }
         getLastRemoteSnapshotVersion(e) {
           return PersistencePromise.resolve(this.lastRemoteSnapshotVersion);
@@ -18592,56 +18592,56 @@ Total Duration: ${u - c}ms`);
         allocateTargetId(e) {
           return this.highestTargetId = this.ai.next(), PersistencePromise.resolve(this.highestTargetId);
         }
-        setTargetsMetadata(e, t2, n) {
-          return n && (this.lastRemoteSnapshotVersion = n), t2 > this.oi && (this.oi = t2), PersistencePromise.resolve();
+        setTargetsMetadata(e, t3, n) {
+          return n && (this.lastRemoteSnapshotVersion = n), t3 > this.oi && (this.oi = t3), PersistencePromise.resolve();
         }
         Pr(e) {
           this.si.set(e.target, e);
-          const t2 = e.targetId;
-          t2 > this.highestTargetId && (this.ai = new __PRIVATE_TargetIdGenerator(t2), this.highestTargetId = t2), e.sequenceNumber > this.oi && (this.oi = e.sequenceNumber);
+          const t3 = e.targetId;
+          t3 > this.highestTargetId && (this.ai = new __PRIVATE_TargetIdGenerator(t3), this.highestTargetId = t3), e.sequenceNumber > this.oi && (this.oi = e.sequenceNumber);
         }
-        addTargetData(e, t2) {
-          return this.Pr(t2), this.targetCount += 1, PersistencePromise.resolve();
+        addTargetData(e, t3) {
+          return this.Pr(t3), this.targetCount += 1, PersistencePromise.resolve();
         }
-        updateTargetData(e, t2) {
-          return this.Pr(t2), PersistencePromise.resolve();
+        updateTargetData(e, t3) {
+          return this.Pr(t3), PersistencePromise.resolve();
         }
-        removeTargetData(e, t2) {
-          return this.si.delete(t2.target), this._i.jr(t2.targetId), this.targetCount -= 1, PersistencePromise.resolve();
+        removeTargetData(e, t3) {
+          return this.si.delete(t3.target), this._i.jr(t3.targetId), this.targetCount -= 1, PersistencePromise.resolve();
         }
-        removeTargets(e, t2, n) {
+        removeTargets(e, t3, n) {
           let r = 0;
           const i = [];
           return this.si.forEach(((s, o) => {
-            o.sequenceNumber <= t2 && null === n.get(o.targetId) && (this.si.delete(s), i.push(this.removeMatchingKeysForTargetId(e, o.targetId)), r++);
+            o.sequenceNumber <= t3 && null === n.get(o.targetId) && (this.si.delete(s), i.push(this.removeMatchingKeysForTargetId(e, o.targetId)), r++);
           })), PersistencePromise.waitFor(i).next((() => r));
         }
         getTargetCount(e) {
           return PersistencePromise.resolve(this.targetCount);
         }
-        getTargetData(e, t2) {
-          const n = this.si.get(t2) || null;
+        getTargetData(e, t3) {
+          const n = this.si.get(t3) || null;
           return PersistencePromise.resolve(n);
         }
-        addMatchingKeys(e, t2, n) {
-          return this._i.Wr(t2, n), PersistencePromise.resolve();
+        addMatchingKeys(e, t3, n) {
+          return this._i.Wr(t3, n), PersistencePromise.resolve();
         }
-        removeMatchingKeys(e, t2, n) {
-          this._i.zr(t2, n);
+        removeMatchingKeys(e, t3, n) {
+          this._i.zr(t3, n);
           const r = this.persistence.referenceDelegate, i = [];
-          return r && t2.forEach(((t3) => {
-            i.push(r.markPotentiallyOrphaned(e, t3));
+          return r && t3.forEach(((t4) => {
+            i.push(r.markPotentiallyOrphaned(e, t4));
           })), PersistencePromise.waitFor(i);
         }
-        removeMatchingKeysForTargetId(e, t2) {
-          return this._i.jr(t2), PersistencePromise.resolve();
+        removeMatchingKeysForTargetId(e, t3) {
+          return this._i.jr(t3), PersistencePromise.resolve();
         }
-        getMatchingKeysForTargetId(e, t2) {
-          const n = this._i.Hr(t2);
+        getMatchingKeysForTargetId(e, t3) {
+          const n = this._i.Hr(t3);
           return PersistencePromise.resolve(n);
         }
-        containsKey(e, t2) {
-          return PersistencePromise.resolve(this._i.containsKey(t2));
+        containsKey(e, t3) {
+          return PersistencePromise.resolve(this._i.containsKey(t3));
         }
       };
       __PRIVATE_MemoryPersistence = class {
@@ -18651,11 +18651,11 @@ Total Duration: ${u - c}ms`);
          * each other without having nullable fields that would then need to be
          * checked or asserted on every access.
          */
-        constructor(e, t2) {
+        constructor(e, t3) {
           this.ui = {}, this.overlays = {}, this.ci = new __PRIVATE_ListenSequence(0), this.li = false, this.li = true, this.hi = new __PRIVATE_MemoryGlobalsCache(), this.referenceDelegate = e(this), this.Pi = new __PRIVATE_MemoryTargetCache(this);
           this.indexManager = new __PRIVATE_MemoryIndexManager(), this.remoteDocumentCache = (function __PRIVATE_newMemoryRemoteDocumentCache(e2) {
             return new __PRIVATE_MemoryRemoteDocumentCacheImpl(e2);
-          })(((e2) => this.referenceDelegate.Ti(e2))), this.serializer = new __PRIVATE_LocalSerializer(t2), this.Ii = new __PRIVATE_MemoryBundleCache(this.serializer);
+          })(((e2) => this.referenceDelegate.Ti(e2))), this.serializer = new __PRIVATE_LocalSerializer(t3), this.Ii = new __PRIVATE_MemoryBundleCache(this.serializer);
         }
         start() {
           return Promise.resolve();
@@ -18674,12 +18674,12 @@ Total Duration: ${u - c}ms`);
           return this.indexManager;
         }
         getDocumentOverlayCache(e) {
-          let t2 = this.overlays[e.toKey()];
-          return t2 || (t2 = new __PRIVATE_MemoryDocumentOverlayCache(), this.overlays[e.toKey()] = t2), t2;
+          let t3 = this.overlays[e.toKey()];
+          return t3 || (t3 = new __PRIVATE_MemoryDocumentOverlayCache(), this.overlays[e.toKey()] = t3), t3;
         }
-        getMutationQueue(e, t2) {
+        getMutationQueue(e, t3) {
           let n = this.ui[e.toKey()];
-          return n || (n = new __PRIVATE_MemoryMutationQueue(t2, this.referenceDelegate), this.ui[e.toKey()] = n), n;
+          return n || (n = new __PRIVATE_MemoryMutationQueue(t3, this.referenceDelegate), this.ui[e.toKey()] = n), n;
         }
         getGlobalsCache() {
           return this.hi;
@@ -18693,13 +18693,13 @@ Total Duration: ${u - c}ms`);
         getBundleCache() {
           return this.Ii;
         }
-        runTransaction(e, t2, n) {
+        runTransaction(e, t3, n) {
           __PRIVATE_logDebug("MemoryPersistence", "Starting transaction:", e);
           const r = new __PRIVATE_MemoryTransaction(this.ci.next());
           return this.referenceDelegate.Ei(), n(r).next(((e2) => this.referenceDelegate.di(r).next((() => e2)))).toPromise().then(((e2) => (r.raiseOnCommittedEvent(), e2)));
         }
-        Ai(e, t2) {
-          return PersistencePromise.or(Object.values(this.ui).map(((n) => () => n.containsKey(e, t2))));
+        Ai(e, t3) {
+          return PersistencePromise.or(Object.values(this.ui).map(((n) => () => n.containsKey(e, t3))));
         }
       };
       __PRIVATE_MemoryTransaction = class extends PersistenceTransaction {
@@ -18720,52 +18720,52 @@ Total Duration: ${u - c}ms`);
           if (this.Vi) return this.Vi;
           throw fail(60996);
         }
-        addReference(e, t2, n) {
-          return this.Ri.addReference(n, t2), this.fi.delete(n.toString()), PersistencePromise.resolve();
+        addReference(e, t3, n) {
+          return this.Ri.addReference(n, t3), this.fi.delete(n.toString()), PersistencePromise.resolve();
         }
-        removeReference(e, t2, n) {
-          return this.Ri.removeReference(n, t2), this.fi.add(n.toString()), PersistencePromise.resolve();
+        removeReference(e, t3, n) {
+          return this.Ri.removeReference(n, t3), this.fi.add(n.toString()), PersistencePromise.resolve();
         }
-        markPotentiallyOrphaned(e, t2) {
-          return this.fi.add(t2.toString()), PersistencePromise.resolve();
+        markPotentiallyOrphaned(e, t3) {
+          return this.fi.add(t3.toString()), PersistencePromise.resolve();
         }
-        removeTarget(e, t2) {
-          this.Ri.jr(t2.targetId).forEach(((e2) => this.fi.add(e2.toString())));
+        removeTarget(e, t3) {
+          this.Ri.jr(t3.targetId).forEach(((e2) => this.fi.add(e2.toString())));
           const n = this.persistence.getTargetCache();
-          return n.getMatchingKeysForTargetId(e, t2.targetId).next(((e2) => {
+          return n.getMatchingKeysForTargetId(e, t3.targetId).next(((e2) => {
             e2.forEach(((e3) => this.fi.add(e3.toString())));
-          })).next((() => n.removeTargetData(e, t2)));
+          })).next((() => n.removeTargetData(e, t3)));
         }
         Ei() {
           this.Vi = /* @__PURE__ */ new Set();
         }
         di(e) {
-          const t2 = this.persistence.getRemoteDocumentCache().newChangeBuffer();
+          const t3 = this.persistence.getRemoteDocumentCache().newChangeBuffer();
           return PersistencePromise.forEach(this.fi, ((n) => {
             const r = DocumentKey.fromPath(n);
             return this.gi(e, r).next(((e2) => {
-              e2 || t2.removeEntry(r, SnapshotVersion.min());
+              e2 || t3.removeEntry(r, SnapshotVersion.min());
             }));
-          })).next((() => (this.Vi = null, t2.apply(e))));
+          })).next((() => (this.Vi = null, t3.apply(e))));
         }
-        updateLimboDocument(e, t2) {
-          return this.gi(e, t2).next(((e2) => {
-            e2 ? this.fi.delete(t2.toString()) : this.fi.add(t2.toString());
+        updateLimboDocument(e, t3) {
+          return this.gi(e, t3).next(((e2) => {
+            e2 ? this.fi.delete(t3.toString()) : this.fi.add(t3.toString());
           }));
         }
         Ti(e) {
           return 0;
         }
-        gi(e, t2) {
-          return PersistencePromise.or([() => PersistencePromise.resolve(this.Ri.containsKey(t2)), () => this.persistence.getTargetCache().containsKey(e, t2), () => this.persistence.Ai(e, t2)]);
+        gi(e, t3) {
+          return PersistencePromise.or([() => PersistencePromise.resolve(this.Ri.containsKey(t3)), () => this.persistence.getTargetCache().containsKey(e, t3), () => this.persistence.Ai(e, t3)]);
         }
       };
       __PRIVATE_MemoryLruDelegate = class ___PRIVATE_MemoryLruDelegate {
-        constructor(e, t2) {
-          this.persistence = e, this.pi = new ObjectMap(((e2) => __PRIVATE_encodeResourcePath(e2.path)), ((e2, t3) => e2.isEqual(t3))), this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t2);
+        constructor(e, t3) {
+          this.persistence = e, this.pi = new ObjectMap(((e2) => __PRIVATE_encodeResourcePath(e2.path)), ((e2, t4) => e2.isEqual(t4))), this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t3);
         }
-        static mi(e, t2) {
-          return new ___PRIVATE_MemoryLruDelegate(e, t2);
+        static mi(e, t3) {
+          return new ___PRIVATE_MemoryLruDelegate(e, t3);
         }
         // No-ops, present so memory persistence doesn't have to care which delegate
         // it has.
@@ -18774,55 +18774,55 @@ Total Duration: ${u - c}ms`);
         di(e) {
           return PersistencePromise.resolve();
         }
-        forEachTarget(e, t2) {
-          return this.persistence.getTargetCache().forEachTarget(e, t2);
+        forEachTarget(e, t3) {
+          return this.persistence.getTargetCache().forEachTarget(e, t3);
         }
         gr(e) {
-          const t2 = this.wr(e);
-          return this.persistence.getTargetCache().getTargetCount(e).next(((e2) => t2.next(((t3) => e2 + t3))));
+          const t3 = this.wr(e);
+          return this.persistence.getTargetCache().getTargetCount(e).next(((e2) => t3.next(((t4) => e2 + t4))));
         }
         wr(e) {
-          let t2 = 0;
+          let t3 = 0;
           return this.pr(e, ((e2) => {
-            t2++;
-          })).next((() => t2));
+            t3++;
+          })).next((() => t3));
         }
-        pr(e, t2) {
-          return PersistencePromise.forEach(this.pi, ((n, r) => this.br(e, n, r).next(((e2) => e2 ? PersistencePromise.resolve() : t2(r)))));
+        pr(e, t3) {
+          return PersistencePromise.forEach(this.pi, ((n, r) => this.br(e, n, r).next(((e2) => e2 ? PersistencePromise.resolve() : t3(r)))));
         }
-        removeTargets(e, t2, n) {
-          return this.persistence.getTargetCache().removeTargets(e, t2, n);
+        removeTargets(e, t3, n) {
+          return this.persistence.getTargetCache().removeTargets(e, t3, n);
         }
-        removeOrphanedDocuments(e, t2) {
+        removeOrphanedDocuments(e, t3) {
           let n = 0;
           const r = this.persistence.getRemoteDocumentCache(), i = r.newChangeBuffer();
-          return r.ii(e, ((r2) => this.br(e, r2, t2).next(((e2) => {
+          return r.ii(e, ((r2) => this.br(e, r2, t3).next(((e2) => {
             e2 || (n++, i.removeEntry(r2, SnapshotVersion.min()));
           })))).next((() => i.apply(e))).next((() => n));
         }
-        markPotentiallyOrphaned(e, t2) {
-          return this.pi.set(t2, e.currentSequenceNumber), PersistencePromise.resolve();
+        markPotentiallyOrphaned(e, t3) {
+          return this.pi.set(t3, e.currentSequenceNumber), PersistencePromise.resolve();
         }
-        removeTarget(e, t2) {
-          const n = t2.withSequenceNumber(e.currentSequenceNumber);
+        removeTarget(e, t3) {
+          const n = t3.withSequenceNumber(e.currentSequenceNumber);
           return this.persistence.getTargetCache().updateTargetData(e, n);
         }
-        addReference(e, t2, n) {
+        addReference(e, t3, n) {
           return this.pi.set(n, e.currentSequenceNumber), PersistencePromise.resolve();
         }
-        removeReference(e, t2, n) {
+        removeReference(e, t3, n) {
           return this.pi.set(n, e.currentSequenceNumber), PersistencePromise.resolve();
         }
-        updateLimboDocument(e, t2) {
-          return this.pi.set(t2, e.currentSequenceNumber), PersistencePromise.resolve();
+        updateLimboDocument(e, t3) {
+          return this.pi.set(t3, e.currentSequenceNumber), PersistencePromise.resolve();
         }
         Ti(e) {
-          let t2 = e.key.toString().length;
-          return e.isFoundDocument() && (t2 += __PRIVATE_estimateByteSize(e.data.value)), t2;
+          let t3 = e.key.toString().length;
+          return e.isFoundDocument() && (t3 += __PRIVATE_estimateByteSize(e.data.value)), t3;
         }
-        br(e, t2, n) {
-          return PersistencePromise.or([() => this.persistence.Ai(e, t2), () => this.persistence.getTargetCache().containsKey(e, t2), () => {
-            const e2 = this.pi.get(t2);
+        br(e, t3, n) {
+          return PersistencePromise.or([() => this.persistence.Ai(e, t3), () => this.persistence.getTargetCache().containsKey(e, t3), () => {
+            const e2 = this.pi.get(t3);
             return PersistencePromise.resolve(void 0 !== e2 && e2 > n);
           }]);
         }
@@ -18841,19 +18841,19 @@ Total Duration: ${u - c}ms`);
          * to SCHEMA_VERSION. Different values of toVersion are only used for testing
          * and local feature development.
          */
-        k(e, t2, n, r) {
-          const i = new __PRIVATE_SimpleDbTransaction("createOrUpgrade", t2);
+        k(e, t3, n, r) {
+          const i = new __PRIVATE_SimpleDbTransaction("createOrUpgrade", t3);
           n < 1 && r >= 1 && (!(function __PRIVATE_createPrimaryClientStore(e2) {
             e2.createObjectStore(Y);
           })(e), (function __PRIVATE_createMutationQueue(e2) {
             e2.createObjectStore(X, {
               keyPath: ee
             });
-            const t3 = e2.createObjectStore(te, {
+            const t4 = e2.createObjectStore(te, {
               keyPath: ne,
               autoIncrement: true
             });
-            t3.createIndex(re, ie, {
+            t4.createIndex(re, ie, {
               unique: true
             }), e2.createObjectStore(oe);
           })(e), __PRIVATE_createQueryCache(e), (function __PRIVATE_createLegacyRemoteDocumentCache(e2) {
@@ -18871,13 +18871,13 @@ Total Duration: ${u - c}ms`);
             * @param txn - The version upgrade transaction for indexeddb
             */
             (function __PRIVATE_writeEmptyTargetGlobalEntry(e2) {
-              const t3 = e2.store(ge), n2 = {
+              const t4 = e2.store(ge), n2 = {
                 highestTargetId: 0,
                 highestListenSequenceNumber: 0,
                 lastRemoteSnapshotVersion: SnapshotVersion.min().toTimestamp(),
                 targetCount: 0
               };
-              return t3.put(fe, n2);
+              return t4.put(fe, n2);
             })(i)
           )))), n < 4 && r >= 4 && (0 !== n && // Schema version 3 uses auto-generated keys to generate globally unique
           // mutation batch IDs (this was previously ensured internally by the
@@ -18885,8 +18885,8 @@ Total Duration: ${u - c}ms`);
           // and write them back out. We preserve the existing batch IDs to guarantee
           // consistency with other object stores. Any further mutation batch IDs will
           // be auto-generated.
-          (s = s.next((() => (function __PRIVATE_upgradeMutationBatchSchemaAndMigrateData(e2, t3) {
-            const n2 = t3.store(te);
+          (s = s.next((() => (function __PRIVATE_upgradeMutationBatchSchemaAndMigrateData(e2, t4) {
+            const n2 = t4.store(te);
             return n2.J().next(((n3) => {
               e2.deleteObjectStore(te);
               e2.createObjectStore(te, {
@@ -18895,7 +18895,7 @@ Total Duration: ${u - c}ms`);
               }).createIndex(re, ie, {
                 unique: true
               });
-              const r2 = t3.store(te), i2 = n3.map(((e3) => r2.put(e3)));
+              const r2 = t4.store(te), i2 = n3.map(((e3) => r2.put(e3)));
               return PersistencePromise.waitFor(i2);
             }));
           })(e, i)))), s = s.next((() => {
@@ -18922,26 +18922,26 @@ Total Duration: ${u - c}ms`);
             })(e);
           }))), n < 12 && r >= 12 && (s = s.next((() => {
             !(function __PRIVATE_createDocumentOverlayStore(e2) {
-              const t3 = e2.createObjectStore(Ke, {
+              const t4 = e2.createObjectStore(Ke, {
                 keyPath: We
               });
-              t3.createIndex(Ge, ze, {
+              t4.createIndex(Ge, ze, {
                 unique: false
-              }), t3.createIndex(je, Je, {
+              }), t4.createIndex(je, Je, {
                 unique: false
               });
             })(e);
           }))), n < 13 && r >= 13 && (s = s.next((() => (function __PRIVATE_createRemoteDocumentCache(e2) {
-            const t3 = e2.createObjectStore(_e, {
+            const t4 = e2.createObjectStore(_e, {
               keyPath: ae
             });
-            t3.createIndex(ue, ce), t3.createIndex(le, he);
+            t4.createIndex(ue, ce), t4.createIndex(le, he);
           })(e))).next((() => this.Ci(e, i))).next((() => e.deleteObjectStore(H)))), n < 14 && r >= 14 && (s = s.next((() => this.Fi(e, i)))), n < 15 && r >= 15 && (s = s.next((() => (function __PRIVATE_createFieldIndex(e2) {
-            const t3 = e2.createObjectStore(Fe, {
+            const t4 = e2.createObjectStore(Fe, {
               keyPath: Me,
               autoIncrement: true
             });
-            t3.createIndex(xe, Oe, {
+            t4.createIndex(xe, Oe, {
               unique: false
             });
             const n2 = e2.createObjectStore(Ne, {
@@ -18958,9 +18958,9 @@ Total Duration: ${u - c}ms`);
             });
           })(e)))), n < 16 && r >= 16 && // Clear the object stores to remove possibly corrupted index entries
           (s = s.next((() => {
-            t2.objectStore(Ne).clear();
+            t3.objectStore(Ne).clear();
           })).next((() => {
-            t2.objectStore(qe).clear();
+            t3.objectStore(qe).clear();
           }))), n < 17 && r >= 17 && (s = s.next((() => {
             !(function __PRIVATE_createGlobalsStore(e2) {
               e2.createObjectStore(He, {
@@ -18968,32 +18968,32 @@ Total Duration: ${u - c}ms`);
               });
             })(e);
           }))), n < 18 && r >= 18 && isSafariOrWebkit() && (s = s.next((() => {
-            t2.objectStore(Ne).clear();
+            t3.objectStore(Ne).clear();
           })).next((() => {
-            t2.objectStore(qe).clear();
+            t3.objectStore(qe).clear();
           }))), s;
         }
         wi(e) {
-          let t2 = 0;
+          let t3 = 0;
           return e.store(H).ee(((e2, n) => {
-            t2 += __PRIVATE_dbDocumentSize(n);
+            t3 += __PRIVATE_dbDocumentSize(n);
           })).next((() => {
             const n = {
-              byteSize: t2
+              byteSize: t3
             };
             return e.store(Pe).put(Te, n);
           }));
         }
         yi(e) {
-          const t2 = e.store(X), n = e.store(te);
-          return t2.J().next(((t3) => PersistencePromise.forEach(t3, ((t4) => {
-            const r = IDBKeyRange.bound([t4.userId, j], [t4.userId, t4.lastAcknowledgedBatchId]);
+          const t3 = e.store(X), n = e.store(te);
+          return t3.J().next(((t4) => PersistencePromise.forEach(t4, ((t5) => {
+            const r = IDBKeyRange.bound([t5.userId, j], [t5.userId, t5.lastAcknowledgedBatchId]);
             return n.J(re, r).next(((n2) => PersistencePromise.forEach(n2, ((n3) => {
-              __PRIVATE_hardAssert(n3.userId === t4.userId, 18650, "Cannot process batch from unexpected user", {
+              __PRIVATE_hardAssert(n3.userId === t5.userId, 18650, "Cannot process batch from unexpected user", {
                 batchId: n3.batchId
               });
               const r2 = __PRIVATE_fromDbMutationBatch(this.serializer, n3);
-              return removeMutationBatch(e, t4.userId, r2).next((() => {
+              return removeMutationBatch(e, t5.userId, r2).next((() => {
               }));
             }))));
           }))));
@@ -19003,14 +19003,14 @@ Total Duration: ${u - c}ms`);
          * with a sequence number. Missing rows are given the most recently used sequence number.
          */
         Si(e) {
-          const t2 = e.store(Ae), n = e.store(H);
+          const t3 = e.store(Ae), n = e.store(H);
           return e.store(ge).get(fe).next(((e2) => {
             const r = [];
             return n.ee(((n2, i) => {
               const s = new ResourcePath(n2), o = (function __PRIVATE_sentinelKey(e3) {
                 return [0, __PRIVATE_encodeResourcePath(e3)];
               })(s);
-              r.push(t2.get(o).next(((n3) => n3 ? PersistencePromise.resolve() : ((n4) => t2.put({
+              r.push(t3.get(o).next(((n3) => n3 ? PersistencePromise.resolve() : ((n4) => t3.put({
                 targetId: 0,
                 path: __PRIVATE_encodeResourcePath(n4),
                 sequenceNumber: e2.highestListenSequenceNumber
@@ -19018,42 +19018,42 @@ Total Duration: ${u - c}ms`);
             })).next((() => PersistencePromise.waitFor(r)));
           }));
         }
-        bi(e, t2) {
+        bi(e, t3) {
           e.createObjectStore(pe, {
             keyPath: ye
           });
-          const n = t2.store(pe), r = new __PRIVATE_MemoryCollectionParentIndex(), addEntry = (e2) => {
+          const n = t3.store(pe), r = new __PRIVATE_MemoryCollectionParentIndex(), addEntry = (e2) => {
             if (r.add(e2)) {
-              const t3 = e2.lastSegment(), r2 = e2.popLast();
+              const t4 = e2.lastSegment(), r2 = e2.popLast();
               return n.put({
-                collectionId: t3,
+                collectionId: t4,
                 parent: __PRIVATE_encodeResourcePath(r2)
               });
             }
           };
-          return t2.store(H).ee({
+          return t3.store(H).ee({
             X: true
-          }, ((e2, t3) => {
+          }, ((e2, t4) => {
             const n2 = new ResourcePath(e2);
             return addEntry(n2.popLast());
-          })).next((() => t2.store(oe).ee({
+          })).next((() => t3.store(oe).ee({
             X: true
-          }, (([e2, t3, n2], r2) => {
-            const i = __PRIVATE_decodeResourcePath(t3);
+          }, (([e2, t4, n2], r2) => {
+            const i = __PRIVATE_decodeResourcePath(t4);
             return addEntry(i.popLast());
           }))));
         }
         Di(e) {
-          const t2 = e.store(Ie);
-          return t2.ee(((e2, n) => {
+          const t3 = e.store(Ie);
+          return t3.ee(((e2, n) => {
             const r = __PRIVATE_fromDbTarget(n), i = __PRIVATE_toDbTarget(this.serializer, r);
-            return t2.put(i);
+            return t3.put(i);
           }));
         }
-        Ci(e, t2) {
-          const n = t2.store(H), r = [];
+        Ci(e, t3) {
+          const n = t3.store(H), r = [];
           return n.ee(((e2, n2) => {
-            const i = t2.store(_e), s = (function __PRIVATE_extractKey(e3) {
+            const i = t3.store(_e), s = (function __PRIVATE_extractKey(e3) {
               return e3.document ? new DocumentKey(ResourcePath.fromString(e3.document.name).popFirst(5)) : e3.noDocument ? DocumentKey.fromSegments(e3.noDocument.path) : e3.unknownDocument ? DocumentKey.fromSegments(e3.unknownDocument.path) : fail(36783);
             })(n2).path.toArray(), o = {
               prefixPath: s.slice(0, s.length - 2),
@@ -19068,16 +19068,16 @@ Total Duration: ${u - c}ms`);
             r.push(i.put(o));
           })).next((() => PersistencePromise.waitFor(r)));
         }
-        Fi(e, t2) {
-          const n = t2.store(te), r = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), i = new __PRIVATE_MemoryPersistence(__PRIVATE_MemoryEagerDelegate.mi, this.serializer.yt);
+        Fi(e, t3) {
+          const n = t3.store(te), r = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), i = new __PRIVATE_MemoryPersistence(__PRIVATE_MemoryEagerDelegate.mi, this.serializer.yt);
           return n.J().next(((e2) => {
             const n2 = /* @__PURE__ */ new Map();
             return e2.forEach(((e3) => {
-              let t3 = n2.get(e3.userId) ?? __PRIVATE_documentKeySet();
-              __PRIVATE_fromDbMutationBatch(this.serializer, e3).keys().forEach(((e4) => t3 = t3.add(e4))), n2.set(e3.userId, t3);
+              let t4 = n2.get(e3.userId) ?? __PRIVATE_documentKeySet();
+              __PRIVATE_fromDbMutationBatch(this.serializer, e3).keys().forEach(((e4) => t4 = t4.add(e4))), n2.set(e3.userId, t4);
             })), PersistencePromise.forEach(n2, ((e3, n3) => {
               const s = new User(n3), o = __PRIVATE_IndexedDbDocumentOverlayCache.wt(this.serializer, s), _ = i.getIndexManager(s), a = __PRIVATE_IndexedDbMutationQueue.wt(s, this.serializer, _, i.referenceDelegate);
-              return new LocalDocumentsView(r, a, o, _).recalculateAndSaveOverlaysForDocumentKeys(new __PRIVATE_IndexedDbTransaction(t2, __PRIVATE_ListenSequence.ce), e3).next();
+              return new LocalDocumentsView(r, a, o, _).recalculateAndSaveOverlaysForDocumentKeys(new __PRIVATE_IndexedDbTransaction(t3, __PRIVATE_ListenSequence.ce), e3).next();
             }));
           }));
         }
@@ -19088,14 +19088,14 @@ Total Duration: ${u - c}ms`);
       Qt = "Failed to obtain exclusive access to the persistence layer. To allow shared access, multi-tab synchronization has to be enabled in all tabs. If you are using `experimentalForceOwningTab:true`, make sure that only one tab has persistence enabled at any given time.";
       $t = "main";
       __PRIVATE_IndexedDbPersistence = class ___PRIVATE_IndexedDbPersistence {
-        constructor(e, t2, n, r, i, s, o, _, a, u, c = 18) {
-          if (this.allowTabSynchronization = e, this.persistenceKey = t2, this.clientId = n, this.Mi = i, this.window = s, this.document = o, this.xi = a, this.Oi = u, this.Ni = c, this.ci = null, this.li = false, this.isPrimary = false, this.networkEnabled = true, /** Our window.unload handler, if registered. */
+        constructor(e, t3, n, r, i, s, o, _, a, u, c = 18) {
+          if (this.allowTabSynchronization = e, this.persistenceKey = t3, this.clientId = n, this.Mi = i, this.window = s, this.document = o, this.xi = a, this.Oi = u, this.Ni = c, this.ci = null, this.li = false, this.isPrimary = false, this.networkEnabled = true, /** Our window.unload handler, if registered. */
           this.Bi = null, this.inForeground = false, /** Our 'visibilitychange' listener if registered. */
           this.Li = null, /** The client metadata refresh task. */
           this.ki = null, /** The last time we garbage collected the client metadata object store. */
           this.qi = Number.NEGATIVE_INFINITY, /** A listener to notify on primary state changes. */
           this.Qi = (e2) => Promise.resolve(), !___PRIVATE_IndexedDbPersistence.v()) throw new FirestoreError(N.UNIMPLEMENTED, "This platform is either missing IndexedDB or is known to have an incomplete implementation. Offline persistence has been disabled.");
-          this.referenceDelegate = new __PRIVATE_IndexedDbLruDelegateImpl(this, r), this.$i = t2 + $t, this.serializer = new __PRIVATE_LocalSerializer(_), this.Ui = new __PRIVATE_SimpleDb(this.$i, this.Ni, new __PRIVATE_SchemaConverter(this.serializer)), this.hi = new __PRIVATE_IndexedDbGlobalsCache(), this.Pi = new __PRIVATE_IndexedDbTargetCache(this.referenceDelegate, this.serializer), this.remoteDocumentCache = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), this.Ii = new __PRIVATE_IndexedDbBundleCache(), this.window && this.window.localStorage ? this.Ki = this.window.localStorage : (this.Ki = null, false === u && __PRIVATE_logError(Lt, "LocalStorage is unavailable. As a result, persistence may not work reliably. In particular enablePersistence() could fail immediately after refreshing the page."));
+          this.referenceDelegate = new __PRIVATE_IndexedDbLruDelegateImpl(this, r), this.$i = t3 + $t, this.serializer = new __PRIVATE_LocalSerializer(_), this.Ui = new __PRIVATE_SimpleDb(this.$i, this.Ni, new __PRIVATE_SchemaConverter(this.serializer)), this.hi = new __PRIVATE_IndexedDbGlobalsCache(), this.Pi = new __PRIVATE_IndexedDbTargetCache(this.referenceDelegate, this.serializer), this.remoteDocumentCache = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), this.Ii = new __PRIVATE_IndexedDbBundleCache(), this.window && this.window.localStorage ? this.Ki = this.window.localStorage : (this.Ki = null, false === u && __PRIVATE_logError(Lt, "LocalStorage is unavailable. As a result, persistence may not work reliably. In particular enablePersistence() could fail immediately after refreshing the page."));
         }
         /**
          * Attempt to start IndexedDb persistence.
@@ -19121,8 +19121,8 @@ Total Duration: ${u - c}ms`);
          * PORTING NOTE: This is only used for Web multi-tab.
          */
         Ji(e) {
-          return this.Qi = async (t2) => {
-            if (this.started) return e(t2);
+          return this.Qi = async (t3) => {
+            if (this.started) return e(t3);
           }, e(this.isPrimary);
         }
         /**
@@ -19132,8 +19132,8 @@ Total Duration: ${u - c}ms`);
          * PORTING NOTE: This is only used for Web multi-tab.
          */
         setDatabaseDeletedListener(e) {
-          this.Ui.$((async (t2) => {
-            null === t2.newVersion && await e();
+          this.Ui.$((async (t3) => {
+            null === t3.newVersion && await e();
           }));
         }
         /**
@@ -19165,7 +19165,7 @@ Total Duration: ${u - c}ms`);
             if (this.isPrimary) return this.Hi(e).next(((e2) => {
               e2 || (this.isPrimary = false, this.Mi.enqueueRetryable((() => this.Qi(false))));
             }));
-          })).next((() => this.Yi(e))).next(((t2) => this.isPrimary && !t2 ? this.Zi(e).next((() => false)) : !!t2 && this.Xi(e).next((() => true)))))).catch(((e) => {
+          })).next((() => this.Yi(e))).next(((t3) => this.isPrimary && !t3 ? this.Zi(e).next((() => false)) : !!t3 && this.Xi(e).next((() => true)))))).catch(((e) => {
             if (__PRIVATE_isIndexedDbTransactionError(e))
               return __PRIVATE_logDebug(Lt, "Failed to extend owner lease: ", e), this.isPrimary;
             if (!this.allowTabSynchronization) throw e;
@@ -19190,13 +19190,13 @@ Total Duration: ${u - c}ms`);
           if (this.isPrimary && !this.rs(this.qi, kt)) {
             this.qi = Date.now();
             const e = await this.runTransaction("maybeGarbageCollectMultiClientState", "readwrite-primary", ((e2) => {
-              const t2 = __PRIVATE_getStore(e2, we);
-              return t2.J().next(((e3) => {
+              const t3 = __PRIVATE_getStore(e2, we);
+              return t3.J().next(((e3) => {
                 const n = this.ss(e3, kt), r = e3.filter(((e4) => -1 === n.indexOf(e4)));
-                return PersistencePromise.forEach(r, ((e4) => t2.delete(e4.clientId))).next((() => r));
+                return PersistencePromise.forEach(r, ((e4) => t3.delete(e4.clientId))).next((() => r));
               }));
             })).catch((() => []));
-            if (this.Ki) for (const t2 of e) this.Ki.removeItem(this._s(t2.clientId));
+            if (this.Ki) for (const t3 of e) this.Ki.removeItem(this._s(t3.clientId));
           }
         }
         /**
@@ -19219,19 +19219,19 @@ Total Duration: ${u - c}ms`);
          */
         Yi(e) {
           if (this.Oi) return PersistencePromise.resolve(true);
-          return __PRIVATE_primaryClientStore(e).get(Z).next(((t2) => {
-            if (null !== t2 && this.rs(t2.leaseTimestampMs, qt) && !this.us(t2.ownerId)) {
-              if (this.es(t2) && this.networkEnabled) return true;
-              if (!this.es(t2)) {
-                if (!t2.allowTabSynchronization)
+          return __PRIVATE_primaryClientStore(e).get(Z).next(((t3) => {
+            if (null !== t3 && this.rs(t3.leaseTimestampMs, qt) && !this.us(t3.ownerId)) {
+              if (this.es(t3) && this.networkEnabled) return true;
+              if (!this.es(t3)) {
+                if (!t3.allowTabSynchronization)
                   throw new FirestoreError(N.FAILED_PRECONDITION, Qt);
                 return false;
               }
             }
             return !(!this.networkEnabled || !this.inForeground) || __PRIVATE_clientMetadataStore(e).J().next(((e2) => void 0 === this.ss(e2, qt).find(((e3) => {
               if (this.clientId !== e3.clientId) {
-                const t3 = !this.networkEnabled && e3.networkEnabled, n = !this.inForeground && e3.inForeground, r = this.networkEnabled === e3.networkEnabled;
-                if (t3 || n && r) return true;
+                const t4 = !this.networkEnabled && e3.networkEnabled, n = !this.inForeground && e3.inForeground, r = this.networkEnabled === e3.networkEnabled;
+                if (t4 || n && r) return true;
               }
               return false;
             }))));
@@ -19241,8 +19241,8 @@ Total Duration: ${u - c}ms`);
           this.li = false, this.cs(), this.ki && (this.ki.cancel(), this.ki = null), this.ls(), this.hs(), // Use `SimpleDb.runTransaction` directly to avoid failing if another tab
           // has obtained the primary lease.
           await this.Ui.runTransaction("shutdown", "readwrite", [Y, we], ((e) => {
-            const t2 = new __PRIVATE_IndexedDbTransaction(e, __PRIVATE_ListenSequence.ce);
-            return this.Zi(t2).next((() => this.ts(t2)));
+            const t3 = new __PRIVATE_IndexedDbTransaction(e, __PRIVATE_ListenSequence.ce);
+            return this.Zi(t3).next((() => this.ts(t3)));
           })), this.Ui.close(), // Remove the entry marking the client as zombied from LocalStorage since
           // we successfully deleted its metadata from IndexedDb.
           this.Ps();
@@ -19251,8 +19251,8 @@ Total Duration: ${u - c}ms`);
          * Returns clients that are not zombied and have an updateTime within the
          * provided threshold.
          */
-        ss(e, t2) {
-          return e.filter(((e2) => this.rs(e2.updateTimeMs, t2) && !this.us(e2.clientId)));
+        ss(e, t3) {
+          return e.filter(((e2) => this.rs(e2.updateTimeMs, t3) && !this.us(e2.clientId)));
         }
         /**
          * Returns the IDs of the clients that are currently active. If multi-tab
@@ -19270,8 +19270,8 @@ Total Duration: ${u - c}ms`);
         getGlobalsCache() {
           return this.hi;
         }
-        getMutationQueue(e, t2) {
-          return __PRIVATE_IndexedDbMutationQueue.wt(e, this.serializer, t2, this.referenceDelegate);
+        getMutationQueue(e, t3) {
+          return __PRIVATE_IndexedDbMutationQueue.wt(e, this.serializer, t3, this.referenceDelegate);
         }
         getTargetCache() {
           return this.Pi;
@@ -19288,17 +19288,17 @@ Total Duration: ${u - c}ms`);
         getBundleCache() {
           return this.Ii;
         }
-        runTransaction(e, t2, n) {
+        runTransaction(e, t3, n) {
           __PRIVATE_logDebug(Lt, "Starting transaction:", e);
-          const r = "readonly" === t2 ? "readonly" : "readwrite", i = (
+          const r = "readonly" === t3 ? "readonly" : "readwrite", i = (
             /** Returns the object stores for the provided schema. */
             (function __PRIVATE_getObjectStores(e2) {
               return 18 === e2 ? st : 17 === e2 ? it : 16 === e2 ? rt : 15 === e2 ? nt : 14 === e2 ? tt : 13 === e2 ? et : 12 === e2 ? Xe : 11 === e2 ? Ze : void fail(60245);
             })(this.Ni)
           );
           let s;
-          return this.Ui.runTransaction(e, r, i, ((r2) => (s = new __PRIVATE_IndexedDbTransaction(r2, this.ci ? this.ci.next() : __PRIVATE_ListenSequence.ce), "readwrite-primary" === t2 ? this.Hi(s).next(((e2) => !!e2 || this.Yi(s))).next(((t3) => {
-            if (!t3) throw __PRIVATE_logError(`Failed to obtain primary lease for action '${e}'.`), this.isPrimary = false, this.Mi.enqueueRetryable((() => this.Qi(false))), new FirestoreError(N.FAILED_PRECONDITION, K);
+          return this.Ui.runTransaction(e, r, i, ((r2) => (s = new __PRIVATE_IndexedDbTransaction(r2, this.ci ? this.ci.next() : __PRIVATE_ListenSequence.ce), "readwrite-primary" === t3 ? this.Hi(s).next(((e2) => !!e2 || this.Yi(s))).next(((t4) => {
+            if (!t4) throw __PRIVATE_logError(`Failed to obtain primary lease for action '${e}'.`), this.isPrimary = false, this.Mi.enqueueRetryable((() => this.Qi(false))), new FirestoreError(N.FAILED_PRECONDITION, K);
             return n(s);
           })).next(((e2) => this.Xi(s).next((() => e2)))) : this.Is(s).next((() => n(s)))))).then(((e2) => (s.raiseOnCommittedEvent(), e2)));
         }
@@ -19318,25 +19318,25 @@ Total Duration: ${u - c}ms`);
          * method does not verify that the client is eligible for this lease.
          */
         Xi(e) {
-          const t2 = {
+          const t3 = {
             ownerId: this.clientId,
             allowTabSynchronization: this.allowTabSynchronization,
             leaseTimestampMs: Date.now()
           };
-          return __PRIVATE_primaryClientStore(e).put(Z, t2);
+          return __PRIVATE_primaryClientStore(e).put(Z, t3);
         }
         static v() {
           return __PRIVATE_SimpleDb.v();
         }
         /** Checks the primary lease and removes it if we are the current primary. */
         Zi(e) {
-          const t2 = __PRIVATE_primaryClientStore(e);
-          return t2.get(Z).next(((e2) => this.es(e2) ? (__PRIVATE_logDebug(Lt, "Releasing primary lease."), t2.delete(Z)) : PersistencePromise.resolve()));
+          const t3 = __PRIVATE_primaryClientStore(e);
+          return t3.get(Z).next(((e2) => this.es(e2) ? (__PRIVATE_logDebug(Lt, "Releasing primary lease."), t3.delete(Z)) : PersistencePromise.resolve()));
         }
         /** Verifies that `updateTimeMs` is within `maxAgeMs`. */
-        rs(e, t2) {
+        rs(e, t3) {
           const n = Date.now();
-          return !(e < n - t2) && (!(e > n) || (__PRIVATE_logError(`Detected an update time that is in the future: ${e} > ${n}`), false));
+          return !(e < n - t3) && (!(e > n) || (__PRIVATE_logError(`Detected an update time that is in the future: ${e} > ${n}`), false));
         }
         Gi() {
           null !== this.document && "function" == typeof this.document.addEventListener && (this.Li = () => {
@@ -19380,8 +19380,8 @@ Total Duration: ${u - c}ms`);
          */
         us(e) {
           try {
-            const t2 = null !== this.Ki?.getItem(this._s(e));
-            return __PRIVATE_logDebug(Lt, `Client '${e}' ${t2 ? "is" : "is not"} zombied in LocalStorage`), t2;
+            const t3 = null !== this.Ki?.getItem(this._s(e));
+            return __PRIVATE_logDebug(Lt, `Client '${e}' ${t3 ? "is" : "is not"} zombied in LocalStorage`), t3;
           } catch (e2) {
             return __PRIVATE_logError(Lt, "Failed to get zombied client id.", e2), false;
           }
@@ -19409,19 +19409,19 @@ Total Duration: ${u - c}ms`);
         }
       };
       __PRIVATE_LocalViewChanges = class ___PRIVATE_LocalViewChanges {
-        constructor(e, t2, n, r) {
-          this.targetId = e, this.fromCache = t2, this.Es = n, this.ds = r;
+        constructor(e, t3, n, r) {
+          this.targetId = e, this.fromCache = t3, this.Es = n, this.ds = r;
         }
-        static As(e, t2) {
+        static As(e, t3) {
           let n = __PRIVATE_documentKeySet(), r = __PRIVATE_documentKeySet();
-          for (const e2 of t2.docChanges) switch (e2.type) {
+          for (const e2 of t3.docChanges) switch (e2.type) {
             case 0:
               n = n.add(e2.doc.key);
               break;
             case 1:
               r = r.add(e2.doc.key);
           }
-          return new ___PRIVATE_LocalViewChanges(e, t2.fromCache, n, r);
+          return new ___PRIVATE_LocalViewChanges(e, t3.fromCache, n, r);
         }
       };
       QueryContext = class {
@@ -19452,61 +19452,61 @@ Total Duration: ${u - c}ms`);
           })();
         }
         /** Sets the document view to query against. */
-        initialize(e, t2) {
-          this.ps = e, this.indexManager = t2, this.Rs = true;
+        initialize(e, t3) {
+          this.ps = e, this.indexManager = t3, this.Rs = true;
         }
         /** Returns all local documents matching the specified query. */
-        getDocumentsMatchingQuery(e, t2, n, r) {
+        getDocumentsMatchingQuery(e, t3, n, r) {
           const i = {
             result: null
           };
-          return this.ys(e, t2).next(((e2) => {
+          return this.ys(e, t3).next(((e2) => {
             i.result = e2;
           })).next((() => {
-            if (!i.result) return this.ws(e, t2, r, n).next(((e2) => {
+            if (!i.result) return this.ws(e, t3, r, n).next(((e2) => {
               i.result = e2;
             }));
           })).next((() => {
             if (i.result) return;
             const n2 = new QueryContext();
-            return this.Ss(e, t2, n2).next(((r2) => {
-              if (i.result = r2, this.Vs) return this.bs(e, t2, n2, r2.size);
+            return this.Ss(e, t3, n2).next(((r2) => {
+              if (i.result = r2, this.Vs) return this.bs(e, t3, n2, r2.size);
             }));
           })).next((() => i.result));
         }
-        bs(e, t2, n, r) {
-          return n.documentReadCount < this.fs ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "SDK will not create cache indexes for query:", __PRIVATE_stringifyQuery(t2), "since it only creates cache indexes for collection contains", "more than or equal to", this.fs, "documents"), PersistencePromise.resolve()) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Query:", __PRIVATE_stringifyQuery(t2), "scans", n.documentReadCount, "local documents and returns", r, "documents as results."), n.documentReadCount > this.gs * r ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "The SDK decides to create cache indexes for query:", __PRIVATE_stringifyQuery(t2), "as using cache indexes may help improve performance."), this.indexManager.createTargetIndexes(e, __PRIVATE_queryToTarget(t2))) : PersistencePromise.resolve());
+        bs(e, t3, n, r) {
+          return n.documentReadCount < this.fs ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "SDK will not create cache indexes for query:", __PRIVATE_stringifyQuery(t3), "since it only creates cache indexes for collection contains", "more than or equal to", this.fs, "documents"), PersistencePromise.resolve()) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Query:", __PRIVATE_stringifyQuery(t3), "scans", n.documentReadCount, "local documents and returns", r, "documents as results."), n.documentReadCount > this.gs * r ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "The SDK decides to create cache indexes for query:", __PRIVATE_stringifyQuery(t3), "as using cache indexes may help improve performance."), this.indexManager.createTargetIndexes(e, __PRIVATE_queryToTarget(t3))) : PersistencePromise.resolve());
         }
         /**
          * Performs an indexed query that evaluates the query based on a collection's
          * persisted index values. Returns `null` if an index is not available.
          */
-        ys(e, t2) {
-          if (__PRIVATE_queryMatchesAllDocuments(t2))
+        ys(e, t3) {
+          if (__PRIVATE_queryMatchesAllDocuments(t3))
             return PersistencePromise.resolve(null);
-          let n = __PRIVATE_queryToTarget(t2);
-          return this.indexManager.getIndexType(e, n).next(((r) => 0 === r ? null : (null !== t2.limit && 1 === r && // We cannot apply a limit for targets that are served using a partial
+          let n = __PRIVATE_queryToTarget(t3);
+          return this.indexManager.getIndexType(e, n).next(((r) => 0 === r ? null : (null !== t3.limit && 1 === r && // We cannot apply a limit for targets that are served using a partial
           // index. If a partial index will be used to serve the target, the
           // query may return a superset of documents that match the target
           // (e.g. if the index doesn't include all the target's filters), or
           // may return the correct set of documents in the wrong order (e.g. if
           // the index doesn't include a segment for one of the orderBys).
           // Therefore, a limit should not be applied in such cases.
-          (t2 = __PRIVATE_queryWithLimit(
-            t2,
+          (t3 = __PRIVATE_queryWithLimit(
+            t3,
             null,
             "F"
             /* LimitType.First */
-          ), n = __PRIVATE_queryToTarget(t2)), this.indexManager.getDocumentsMatchingTarget(e, n).next(((r2) => {
+          ), n = __PRIVATE_queryToTarget(t3)), this.indexManager.getDocumentsMatchingTarget(e, n).next(((r2) => {
             const i = __PRIVATE_documentKeySet(...r2);
             return this.ps.getDocuments(e, i).next(((r3) => this.indexManager.getMinOffset(e, n).next(((n2) => {
-              const s = this.Ds(t2, r3);
-              return this.Cs(t2, s, i, n2.readTime) ? this.ys(e, __PRIVATE_queryWithLimit(
-                t2,
+              const s = this.Ds(t3, r3);
+              return this.Cs(t3, s, i, n2.readTime) ? this.ys(e, __PRIVATE_queryWithLimit(
+                t3,
                 null,
                 "F"
                 /* LimitType.First */
-              )) : this.vs(e, s, t2, n2);
+              )) : this.vs(e, s, t3, n2);
             }))));
           })))));
         }
@@ -19514,16 +19514,16 @@ Total Duration: ${u - c}ms`);
          * Performs a query based on the target's persisted query mapping. Returns
          * `null` if the mapping is not available or cannot be used.
          */
-        ws(e, t2, n, r) {
-          return __PRIVATE_queryMatchesAllDocuments(t2) || r.isEqual(SnapshotVersion.min()) ? PersistencePromise.resolve(null) : this.ps.getDocuments(e, n).next(((i) => {
-            const s = this.Ds(t2, i);
-            return this.Cs(t2, s, n, r) ? PersistencePromise.resolve(null) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Re-using previous result from %s to execute query: %s", r.toString(), __PRIVATE_stringifyQuery(t2)), this.vs(e, s, t2, __PRIVATE_newIndexOffsetSuccessorFromReadTime(r, U)).next(((e2) => e2)));
+        ws(e, t3, n, r) {
+          return __PRIVATE_queryMatchesAllDocuments(t3) || r.isEqual(SnapshotVersion.min()) ? PersistencePromise.resolve(null) : this.ps.getDocuments(e, n).next(((i) => {
+            const s = this.Ds(t3, i);
+            return this.Cs(t3, s, n, r) ? PersistencePromise.resolve(null) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Re-using previous result from %s to execute query: %s", r.toString(), __PRIVATE_stringifyQuery(t3)), this.vs(e, s, t3, __PRIVATE_newIndexOffsetSuccessorFromReadTime(r, U)).next(((e2) => e2)));
           }));
         }
         /** Applies the query filter and sorting to the provided documents.  */
-        Ds(e, t2) {
+        Ds(e, t3) {
           let n = new SortedSet(__PRIVATE_newQueryComparator(e));
-          return t2.forEach(((t3, r) => {
+          return t3.forEach(((t4, r) => {
             __PRIVATE_queryMatches(e, r) && (n = n.add(r));
           })), n;
         }
@@ -19539,26 +19539,26 @@ Total Duration: ${u - c}ms`);
          * @param limboFreeSnapshotVersion - The version of the snapshot when the
          * query was last synchronized.
          */
-        Cs(e, t2, n, r) {
+        Cs(e, t3, n, r) {
           if (null === e.limit)
             return false;
-          if (n.size !== t2.size)
+          if (n.size !== t3.size)
             return true;
-          const i = "F" === e.limitType ? t2.last() : t2.first();
+          const i = "F" === e.limitType ? t3.last() : t3.first();
           return !!i && (i.hasPendingWrites || i.version.compareTo(r) > 0);
         }
-        Ss(e, t2, n) {
-          return __PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Using full collection scan to execute query:", __PRIVATE_stringifyQuery(t2)), this.ps.getDocumentsMatchingQuery(e, t2, IndexOffset.min(), n);
+        Ss(e, t3, n) {
+          return __PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Using full collection scan to execute query:", __PRIVATE_stringifyQuery(t3)), this.ps.getDocumentsMatchingQuery(e, t3, IndexOffset.min(), n);
         }
         /**
          * Combines the results from an indexed execution with the remaining documents
          * that have not yet been indexed.
          */
-        vs(e, t2, n, r) {
+        vs(e, t3, n, r) {
           return this.ps.getDocumentsMatchingQuery(e, n, r).next(((e2) => (
             // Merge with existing results
-            (t2.forEach(((t3) => {
-              e2 = e2.insert(t3.key, t3);
+            (t3.forEach(((t4) => {
+              e2 = e2.insert(t4.key, t4);
             })), e2)
           )));
         }
@@ -19566,8 +19566,8 @@ Total Duration: ${u - c}ms`);
       Ut = "LocalStore";
       Kt = 3e8;
       __PRIVATE_LocalStoreImpl = class {
-        constructor(e, t2, n, r) {
-          this.persistence = e, this.Fs = t2, this.serializer = r, /**
+        constructor(e, t3, n, r) {
+          this.persistence = e, this.Fs = t3, this.serializer = r, /**
            * Maps a targetID to data about its target.
            *
            * PORTING NOTE: We are using an immutable data structure on Web to make re-runs
@@ -19587,7 +19587,7 @@ Total Duration: ${u - c}ms`);
           this.documentOverlayCache = this.persistence.getDocumentOverlayCache(e), this.indexManager = this.persistence.getIndexManager(e), this.mutationQueue = this.persistence.getMutationQueue(e, this.indexManager), this.localDocuments = new LocalDocumentsView(this.Ns, this.mutationQueue, this.documentOverlayCache, this.indexManager), this.Ns.setIndexManager(this.indexManager), this.Fs.initialize(this.localDocuments, this.indexManager);
         }
         collectGarbage(e) {
-          return this.persistence.runTransaction("Collect garbage", "readwrite-primary", ((t2) => e.collect(t2, this.Ms)));
+          return this.persistence.runTransaction("Collect garbage", "readwrite-primary", ((t3) => e.collect(t3, this.Ms)));
         }
       };
       __PRIVATE_LocalClientState = class {
@@ -19618,13 +19618,13 @@ Total Duration: ${u - c}ms`);
         }
         addPendingMutation(e) {
         }
-        updateMutationState(e, t2, n) {
+        updateMutationState(e, t3, n) {
         }
-        addLocalQueryTarget(e, t2 = true) {
-          return t2 && this.Mo.zs(e), this.xo[e] || "not-current";
+        addLocalQueryTarget(e, t3 = true) {
+          return t3 && this.Mo.zs(e), this.xo[e] || "not-current";
         }
-        updateQueryState(e, t2, n) {
-          this.xo[e] = t2;
+        updateQueryState(e, t3, n) {
+          this.xo[e] = t3;
         }
         removeLocalQueryTarget(e) {
           this.Mo.js(e);
@@ -19644,7 +19644,7 @@ Total Duration: ${u - c}ms`);
         start() {
           return this.Mo = new __PRIVATE_LocalClientState(), Promise.resolve();
         }
-        handleUserChange(e, t2, n) {
+        handleUserChange(e, t3, n) {
         }
         setOnlineState(e) {
         }
@@ -19710,11 +19710,11 @@ Total Duration: ${u - c}ms`);
         }
         constructor(e) {
           this.databaseInfo = e, this.databaseId = e.databaseId;
-          const t2 = e.ssl ? "https" : "http", n = encodeURIComponent(this.databaseId.projectId), r = encodeURIComponent(this.databaseId.database);
-          this.Uo = t2 + "://" + e.host, this.Ko = `projects/${n}/databases/${r}`, this.Wo = this.databaseId.database === lt ? `project_id=${n}` : `project_id=${n}&database_id=${r}`;
+          const t3 = e.ssl ? "https" : "http", n = encodeURIComponent(this.databaseId.projectId), r = encodeURIComponent(this.databaseId.database);
+          this.Uo = t3 + "://" + e.host, this.Ko = `projects/${n}/databases/${r}`, this.Wo = this.databaseId.database === lt ? `project_id=${n}` : `project_id=${n}&database_id=${r}`;
         }
-        Go(e, t2, n, r, i) {
-          const s = __PRIVATE_generateUniqueDebugId(), o = this.zo(e, t2.toUriEncodedString());
+        Go(e, t3, n, r, i) {
+          const s = __PRIVATE_generateUniqueDebugId(), o = this.zo(e, t3.toUriEncodedString());
           __PRIVATE_logDebug(Yt, `Sending RPC '${e}' ${s}:`, o, n);
           const _ = {
             "google-cloud-resource-prefix": this.Ko,
@@ -19722,18 +19722,18 @@ Total Duration: ${u - c}ms`);
           };
           this.jo(_, r, i);
           const { host: a } = new URL(o), u = isCloudWorkstation(a);
-          return this.Jo(e, o, _, n, u).then(((t3) => (__PRIVATE_logDebug(Yt, `Received RPC '${e}' ${s}: `, t3), t3)), ((t3) => {
-            throw __PRIVATE_logWarn(Yt, `RPC '${e}' ${s} failed with error: `, t3, "url: ", o, "request:", n), t3;
+          return this.Jo(e, o, _, n, u).then(((t4) => (__PRIVATE_logDebug(Yt, `Received RPC '${e}' ${s}: `, t4), t4)), ((t4) => {
+            throw __PRIVATE_logWarn(Yt, `RPC '${e}' ${s} failed with error: `, t4, "url: ", o, "request:", n), t4;
           }));
         }
-        Ho(e, t2, n, r, i, s) {
-          return this.Go(e, t2, n, r, i);
+        Ho(e, t3, n, r, i, s) {
+          return this.Go(e, t3, n, r, i);
         }
         /**
          * Modifies the headers for a request, adding any authorization token if
          * present and any additional headers for the request.
          */
-        jo(e, t2, n) {
+        jo(e, t3, n) {
           e["X-Goog-Api-Client"] = // SDK_VERSION is updated to different value at runtime depending on the entry point,
           // so we need to get its value when we need it in a function.
           (function __PRIVATE_getGoogApiClientValue() {
@@ -19742,11 +19742,11 @@ Total Duration: ${u - c}ms`);
           // mess with CORS and redirects by proxies. If we add custom headers
           // we will need to change this code to potentially use the $httpOverwrite
           // parameter supported by ESF to avoid triggering preflight requests.
-          e["Content-Type"] = "text/plain", this.databaseInfo.appId && (e["X-Firebase-GMPID"] = this.databaseInfo.appId), t2 && t2.headers.forEach(((t3, n2) => e[n2] = t3)), n && n.headers.forEach(((t3, n2) => e[n2] = t3));
+          e["Content-Type"] = "text/plain", this.databaseInfo.appId && (e["X-Firebase-GMPID"] = this.databaseInfo.appId), t3 && t3.headers.forEach(((t4, n2) => e[n2] = t4)), n && n.headers.forEach(((t4, n2) => e[n2] = t4));
         }
-        zo(e, t2) {
+        zo(e, t3) {
           const n = Zt[e];
-          return `${this.Uo}/v1/${t2}:${n}`;
+          return `${this.Uo}/v1/${t3}:${n}`;
         }
         /**
          * Closes and cleans up any resources associated with the connection. This
@@ -19797,7 +19797,7 @@ Total Duration: ${u - c}ms`);
           super(e), /** A collection of open WebChannel instances */
           this.c_ = [], this.forceLongPolling = e.forceLongPolling, this.autoDetectLongPolling = e.autoDetectLongPolling, this.useFetchStreams = e.useFetchStreams, this.longPollingOptions = e.longPollingOptions;
         }
-        Jo(e, t2, n, r, i) {
+        Jo(e, t3, n, r, i) {
           const s = __PRIVATE_generateUniqueDebugId();
           return new Promise(((i2, o) => {
             const _ = new XhrIo();
@@ -19805,8 +19805,8 @@ Total Duration: ${u - c}ms`);
               try {
                 switch (_.getLastErrorCode()) {
                   case ErrorCode.NO_ERROR:
-                    const t3 = _.getResponseJson();
-                    __PRIVATE_logDebug(Xt, `XHR for RPC '${e}' ${s} received:`, JSON.stringify(t3)), i2(t3);
+                    const t4 = _.getResponseJson();
+                    __PRIVATE_logDebug(Xt, `XHR for RPC '${e}' ${s} received:`, JSON.stringify(t4)), i2(t4);
                     break;
                   case ErrorCode.TIMEOUT:
                     __PRIVATE_logDebug(Xt, `RPC '${e}' ${s} timed out`), o(new FirestoreError(N.DEADLINE_EXCEEDED, "Request time out"));
@@ -19816,13 +19816,13 @@ Total Duration: ${u - c}ms`);
                     if (__PRIVATE_logDebug(Xt, `RPC '${e}' ${s} failed with status:`, n2, "response text:", _.getResponseText()), n2 > 0) {
                       let e2 = _.getResponseJson();
                       Array.isArray(e2) && (e2 = e2[0]);
-                      const t4 = e2?.error;
-                      if (t4 && t4.status && t4.message) {
+                      const t5 = e2?.error;
+                      if (t5 && t5.status && t5.message) {
                         const e3 = (function __PRIVATE_mapCodeFromHttpResponseErrorStatus(e4) {
-                          const t5 = e4.toLowerCase().replace(/_/g, "-");
-                          return Object.values(N).indexOf(t5) >= 0 ? t5 : N.UNKNOWN;
-                        })(t4.status);
-                        o(new FirestoreError(e3, t4.message));
+                          const t6 = e4.toLowerCase().replace(/_/g, "-");
+                          return Object.values(N).indexOf(t6) >= 0 ? t6 : N.UNKNOWN;
+                        })(t5.status);
+                        o(new FirestoreError(e3, t5.message));
                       } else o(new FirestoreError(N.UNKNOWN, "Server responded with status " + _.getStatus()));
                     } else
                       o(new FirestoreError(N.UNAVAILABLE, "Connection failed."));
@@ -19840,10 +19840,10 @@ Total Duration: ${u - c}ms`);
               }
             }));
             const a = JSON.stringify(r);
-            __PRIVATE_logDebug(Xt, `RPC '${e}' ${s} sending request:`, r), _.send(t2, "POST", a, n, 15);
+            __PRIVATE_logDebug(Xt, `RPC '${e}' ${s} sending request:`, r), _.send(t3, "POST", a, n, 15);
           }));
         }
-        T_(e, t2, n) {
+        T_(e, t3, n) {
           const r = __PRIVATE_generateUniqueDebugId(), i = [this.Uo, "/", "google.firestore.v1.Firestore", "/", e, "/channel"], s = createWebChannelTransport(), o = getStatEventTarget(), _ = {
             // Required for backend stickiness, routing behavior is based on this
             // parameter.
@@ -19868,7 +19868,7 @@ Total Duration: ${u - c}ms`);
             forceLongPolling: this.forceLongPolling,
             detectBufferingProxy: this.autoDetectLongPolling
           }, a = this.longPollingOptions.timeoutSeconds;
-          void 0 !== a && (_.longPollingTimeout = Math.round(1e3 * a)), this.useFetchStreams && (_.useFetchStreams = true), this.jo(_.initMessageHeaders, t2, n), // Sending the custom headers we just added to request.initMessageHeaders
+          void 0 !== a && (_.longPollingTimeout = Math.round(1e3 * a)), this.useFetchStreams && (_.useFetchStreams = true), this.jo(_.initMessageHeaders, t3, n), // Sending the custom headers we just added to request.initMessageHeaders
           // (Authorization, etc.) will trigger the browser to make a CORS preflight
           // request because the XHR will no longer meet the criteria for a "simple"
           // CORS request:
@@ -19884,12 +19884,12 @@ Total Duration: ${u - c}ms`);
           this.I_(c);
           let l = false, h = false;
           const P = new __PRIVATE_StreamBridge({
-            Yo: (t3) => {
-              h ? __PRIVATE_logDebug(Xt, `Not sending because RPC '${e}' stream ${r} is closed:`, t3) : (l || (__PRIVATE_logDebug(Xt, `Opening RPC '${e}' stream ${r} transport.`), c.open(), l = true), __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} sending:`, t3), c.send(t3));
+            Yo: (t4) => {
+              h ? __PRIVATE_logDebug(Xt, `Not sending because RPC '${e}' stream ${r} is closed:`, t4) : (l || (__PRIVATE_logDebug(Xt, `Opening RPC '${e}' stream ${r} transport.`), c.open(), l = true), __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} sending:`, t4), c.send(t4));
             },
             Zo: () => c.close()
-          }), __PRIVATE_unguardedEventListen = (e2, t3, n2) => {
-            e2.listen(t3, ((e3) => {
+          }), __PRIVATE_unguardedEventListen = (e2, t4, n2) => {
+            e2.listen(t4, ((e3) => {
               try {
                 n2(e3);
               } catch (e4) {
@@ -19903,16 +19903,16 @@ Total Duration: ${u - c}ms`);
             h || (__PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} transport opened.`), P.o_());
           })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.CLOSE, (() => {
             h || (h = true, __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} transport closed`), P.a_(), this.E_(c));
-          })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.ERROR, ((t3) => {
-            h || (h = true, __PRIVATE_logWarn(Xt, `RPC '${e}' stream ${r} transport errored. Name:`, t3.name, "Message:", t3.message), P.a_(new FirestoreError(N.UNAVAILABLE, "The operation could not be completed")));
-          })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.MESSAGE, ((t3) => {
+          })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.ERROR, ((t4) => {
+            h || (h = true, __PRIVATE_logWarn(Xt, `RPC '${e}' stream ${r} transport errored. Name:`, t4.name, "Message:", t4.message), P.a_(new FirestoreError(N.UNAVAILABLE, "The operation could not be completed")));
+          })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.MESSAGE, ((t4) => {
             if (!h) {
-              const n2 = t3.data[0];
+              const n2 = t4.data[0];
               __PRIVATE_hardAssert(!!n2, 16349);
               const i2 = n2, s2 = i2?.error || i2[0]?.error;
               if (s2) {
                 __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} received error:`, s2);
-                const t4 = s2.status;
+                const t5 = s2.status;
                 let n3 = (
                   /**
                   * Maps an error Code from a GRPC status identifier like 'NOT_FOUND'.
@@ -19921,16 +19921,16 @@ Total Duration: ${u - c}ms`);
                   *     there is no match.
                   */
                   (function __PRIVATE_mapCodeFromRpcStatus(e2) {
-                    const t5 = pt[e2];
-                    if (void 0 !== t5) return __PRIVATE_mapCodeFromRpcCode(t5);
-                  })(t4)
+                    const t6 = pt[e2];
+                    if (void 0 !== t6) return __PRIVATE_mapCodeFromRpcCode(t6);
+                  })(t5)
                 ), i3 = s2.message;
-                void 0 === n3 && (n3 = N.INTERNAL, i3 = "Unknown error status: " + t4 + " with message " + s2.message), // Mark closed so no further events are propagated
+                void 0 === n3 && (n3 = N.INTERNAL, i3 = "Unknown error status: " + t5 + " with message " + s2.message), // Mark closed so no further events are propagated
                 h = true, P.a_(new FirestoreError(n3, i3)), c.close();
               } else __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} received:`, n2), P.u_(n2);
             }
-          })), __PRIVATE_unguardedEventListen(o, Event.STAT_EVENT, ((t3) => {
-            t3.stat === Stat.PROXY ? __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} detected buffering proxy`) : t3.stat === Stat.NOPROXY && __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} detected no buffering proxy`);
+          })), __PRIVATE_unguardedEventListen(o, Event.STAT_EVENT, ((t4) => {
+            t4.stat === Stat.PROXY ? __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} detected buffering proxy`) : t4.stat === Stat.NOPROXY && __PRIVATE_logDebug(Xt, `RPC '${e}' stream ${r} detected no buffering proxy`);
           })), setTimeout((() => {
             P.__();
           }), 0), P;
@@ -19953,12 +19953,12 @@ Total Duration: ${u - c}ms`);
          * @param webChannel
          */
         E_(e) {
-          this.c_ = this.c_.filter(((t2) => t2 === e));
+          this.c_ = this.c_.filter(((t3) => t3 === e));
         }
       };
       __PRIVATE_ExponentialBackoff = class {
-        constructor(e, t2, n = 1e3, r = 1.5, i = 6e4) {
-          this.Mi = e, this.timerId = t2, this.d_ = n, this.A_ = r, this.R_ = i, this.V_ = 0, this.m_ = null, /** The last backoff attempt, as epoch milliseconds. */
+        constructor(e, t3, n = 1e3, r = 1.5, i = 6e4) {
+          this.Mi = e, this.timerId = t3, this.d_ = n, this.A_ = r, this.R_ = i, this.V_ = 0, this.m_ = null, /** The last backoff attempt, as epoch milliseconds. */
           this.f_ = Date.now(), this.reset();
         }
         /**
@@ -19985,8 +19985,8 @@ Total Duration: ${u - c}ms`);
          */
         p_(e) {
           this.cancel();
-          const t2 = Math.floor(this.V_ + this.y_()), n = Math.max(0, Date.now() - this.f_), r = Math.max(0, t2 - n);
-          r > 0 && __PRIVATE_logDebug("ExponentialBackoff", `Backing off for ${r} ms (base delay: ${this.V_} ms, delay with jitter: ${t2} ms, last attempt: ${n} ms ago)`), this.m_ = this.Mi.enqueueAfterDelay(this.timerId, r, (() => (this.f_ = Date.now(), e()))), // Apply backoff factor to determine next delay and ensure it is within
+          const t3 = Math.floor(this.V_ + this.y_()), n = Math.max(0, Date.now() - this.f_), r = Math.max(0, t3 - n);
+          r > 0 && __PRIVATE_logDebug("ExponentialBackoff", `Backing off for ${r} ms (base delay: ${this.V_} ms, delay with jitter: ${t3} ms, last attempt: ${n} ms ago)`), this.m_ = this.Mi.enqueueAfterDelay(this.timerId, r, (() => (this.f_ = Date.now(), e()))), // Apply backoff factor to determine next delay and ensure it is within
           // bounds.
           this.V_ *= this.A_, this.V_ < this.d_ && (this.V_ = this.d_), this.V_ > this.R_ && (this.V_ = this.R_);
         }
@@ -20003,7 +20003,7 @@ Total Duration: ${u - c}ms`);
       };
       en = "PersistentStream";
       __PRIVATE_PersistentStream = class {
-        constructor(e, t2, n, r, i, s, o, _) {
+        constructor(e, t3, n, r, i, s, o, _) {
           this.Mi = e, this.S_ = n, this.b_ = r, this.connection = i, this.authCredentialsProvider = s, this.appCheckCredentialsProvider = o, this.listener = _, this.state = 0, /**
            * A close count that's incremented every time the stream is closed; used by
            * getCloseGuardedDispatcher() to invalidate callbacks that happen after
@@ -20012,7 +20012,7 @@ Total Duration: ${u - c}ms`);
           this.D_ = 0, this.C_ = null, this.v_ = null, this.stream = null, /**
            * Count of response messages received.
            */
-          this.F_ = 0, this.M_ = new __PRIVATE_ExponentialBackoff(e, t2);
+          this.F_ = 0, this.M_ = new __PRIVATE_ExponentialBackoff(e, t3);
         }
         /**
          * Returns true if start() has been called and no error has occurred. True
@@ -20110,16 +20110,16 @@ Total Duration: ${u - c}ms`);
          * @param finalState - the intended state of the stream after closing.
          * @param error - the error the connection was closed with.
          */
-        async close(e, t2) {
+        async close(e, t3) {
           this.Q_(), this.U_(), this.M_.cancel(), // Invalidates any stream-related callbacks (e.g. from auth or the
           // underlying stream), guaranteeing they won't execute.
           this.D_++, 4 !== e ? (
             // If this is an intentional close ensure we don't delay our next connection attempt.
             this.M_.reset()
-          ) : t2 && t2.code === N.RESOURCE_EXHAUSTED ? (
+          ) : t3 && t3.code === N.RESOURCE_EXHAUSTED ? (
             // Log the error. (Probably either 'quota exceeded' or 'max queue length reached'.)
-            (__PRIVATE_logError(t2.toString()), __PRIVATE_logError("Using maximum backoff delay to prevent overloading the backend."), this.M_.g_())
-          ) : t2 && t2.code === N.UNAUTHENTICATED && 3 !== this.state && // "unauthenticated" error means the token was rejected. This should rarely
+            (__PRIVATE_logError(t3.toString()), __PRIVATE_logError("Using maximum backoff delay to prevent overloading the backend."), this.M_.g_())
+          ) : t3 && t3.code === N.UNAUTHENTICATED && 3 !== this.state && // "unauthenticated" error means the token was rejected. This should rarely
           // happen since both Auth and AppCheck ensure a sufficient TTL when we
           // request a token. If a user manually resets their system clock this can
           // fail, however. In this case, we should get a Code.UNAUTHENTICATED error
@@ -20129,7 +20129,7 @@ Total Duration: ${u - c}ms`);
           null !== this.stream && (this.K_(), this.stream.close(), this.stream = null), // This state must be assigned before calling onClose() to allow the callback to
           // inhibit backoff or otherwise manipulate the state in its non-started state.
           this.state = e, // Notify the listener that the stream closed.
-          await this.listener.r_(t2);
+          await this.listener.r_(t3);
         }
         /**
          * Can be overridden to perform additional cleanup before the stream is closed.
@@ -20139,22 +20139,22 @@ Total Duration: ${u - c}ms`);
         }
         auth() {
           this.state = 1;
-          const e = this.W_(this.D_), t2 = this.D_;
+          const e = this.W_(this.D_), t3 = this.D_;
           Promise.all([this.authCredentialsProvider.getToken(), this.appCheckCredentialsProvider.getToken()]).then((([e2, n]) => {
-            this.D_ === t2 && // Normally we'd have to schedule the callback on the AsyncQueue.
+            this.D_ === t3 && // Normally we'd have to schedule the callback on the AsyncQueue.
             // However, the following calls are safe to be called outside the
             // AsyncQueue since they don't chain asynchronous calls
             this.G_(e2, n);
-          }), ((t3) => {
+          }), ((t4) => {
             e((() => {
-              const e2 = new FirestoreError(N.UNKNOWN, "Fetching auth token failed: " + t3.message);
+              const e2 = new FirestoreError(N.UNKNOWN, "Fetching auth token failed: " + t4.message);
               return this.z_(e2);
             }));
           }));
         }
-        G_(e, t2) {
+        G_(e, t3) {
           const n = this.W_(this.D_);
-          this.stream = this.j_(e, t2), this.stream.Xo((() => {
+          this.stream = this.j_(e, t3), this.stream.Xo((() => {
             n((() => this.listener.Xo()));
           })), this.stream.t_((() => {
             n((() => (this.state = 2, this.v_ = this.Mi.enqueueAfterDelay(this.b_, 1e4, (() => (this.O_() && (this.state = 3), Promise.resolve()))), this.listener.t_())));
@@ -20180,29 +20180,29 @@ Total Duration: ${u - c}ms`);
          * re-opened, etc.
          */
         W_(e) {
-          return (t2) => {
-            this.Mi.enqueueAndForget((() => this.D_ === e ? t2() : (__PRIVATE_logDebug(en, "stream callback skipped by getCloseGuardedDispatcher."), Promise.resolve())));
+          return (t3) => {
+            this.Mi.enqueueAndForget((() => this.D_ === e ? t3() : (__PRIVATE_logDebug(en, "stream callback skipped by getCloseGuardedDispatcher."), Promise.resolve())));
           };
         }
       };
       __PRIVATE_PersistentListenStream = class extends __PRIVATE_PersistentStream {
-        constructor(e, t2, n, r, i, s) {
-          super(e, "listen_stream_connection_backoff", "listen_stream_idle", "health_check_timeout", t2, n, r, s), this.serializer = i;
+        constructor(e, t3, n, r, i, s) {
+          super(e, "listen_stream_connection_backoff", "listen_stream_idle", "health_check_timeout", t3, n, r, s), this.serializer = i;
         }
-        j_(e, t2) {
-          return this.connection.T_("Listen", e, t2);
+        j_(e, t3) {
+          return this.connection.T_("Listen", e, t3);
         }
         J_(e) {
           return this.onNext(e);
         }
         onNext(e) {
           this.M_.reset();
-          const t2 = __PRIVATE_fromWatchChange(this.serializer, e), n = (function __PRIVATE_versionFromListenResponse(e2) {
+          const t3 = __PRIVATE_fromWatchChange(this.serializer, e), n = (function __PRIVATE_versionFromListenResponse(e2) {
             if (!("targetChange" in e2)) return SnapshotVersion.min();
-            const t3 = e2.targetChange;
-            return t3.targetIds && t3.targetIds.length ? SnapshotVersion.min() : t3.readTime ? __PRIVATE_fromVersion(t3.readTime) : SnapshotVersion.min();
+            const t4 = e2.targetChange;
+            return t4.targetIds && t4.targetIds.length ? SnapshotVersion.min() : t4.readTime ? __PRIVATE_fromVersion(t4.readTime) : SnapshotVersion.min();
           })(e);
-          return this.listener.H_(t2, n);
+          return this.listener.H_(t3, n);
         }
         /**
          * Registers interest in the results of the given target. If the target
@@ -20211,40 +20211,40 @@ Total Duration: ${u - c}ms`);
          * reference the targetId.
          */
         Y_(e) {
-          const t2 = {};
-          t2.database = __PRIVATE_getEncodedDatabaseId(this.serializer), t2.addTarget = (function __PRIVATE_toTarget(e2, t3) {
+          const t3 = {};
+          t3.database = __PRIVATE_getEncodedDatabaseId(this.serializer), t3.addTarget = (function __PRIVATE_toTarget(e2, t4) {
             let n2;
-            const r = t3.target;
+            const r = t4.target;
             if (n2 = __PRIVATE_targetIsDocumentTarget(r) ? {
               documents: __PRIVATE_toDocumentsTarget(e2, r)
             } : {
               query: __PRIVATE_toQueryTarget(e2, r).ft
-            }, n2.targetId = t3.targetId, t3.resumeToken.approximateByteSize() > 0) {
-              n2.resumeToken = __PRIVATE_toBytes(e2, t3.resumeToken);
-              const r2 = __PRIVATE_toInt32Proto(e2, t3.expectedCount);
+            }, n2.targetId = t4.targetId, t4.resumeToken.approximateByteSize() > 0) {
+              n2.resumeToken = __PRIVATE_toBytes(e2, t4.resumeToken);
+              const r2 = __PRIVATE_toInt32Proto(e2, t4.expectedCount);
               null !== r2 && (n2.expectedCount = r2);
-            } else if (t3.snapshotVersion.compareTo(SnapshotVersion.min()) > 0) {
-              n2.readTime = toTimestamp(e2, t3.snapshotVersion.toTimestamp());
-              const r2 = __PRIVATE_toInt32Proto(e2, t3.expectedCount);
+            } else if (t4.snapshotVersion.compareTo(SnapshotVersion.min()) > 0) {
+              n2.readTime = toTimestamp(e2, t4.snapshotVersion.toTimestamp());
+              const r2 = __PRIVATE_toInt32Proto(e2, t4.expectedCount);
               null !== r2 && (n2.expectedCount = r2);
             }
             return n2;
           })(this.serializer, e);
           const n = __PRIVATE_toListenRequestLabels(this.serializer, e);
-          n && (t2.labels = n), this.q_(t2);
+          n && (t3.labels = n), this.q_(t3);
         }
         /**
          * Unregisters interest in the results of the target associated with the
          * given targetId.
          */
         Z_(e) {
-          const t2 = {};
-          t2.database = __PRIVATE_getEncodedDatabaseId(this.serializer), t2.removeTarget = e, this.q_(t2);
+          const t3 = {};
+          t3.database = __PRIVATE_getEncodedDatabaseId(this.serializer), t3.removeTarget = e, this.q_(t3);
         }
       };
       __PRIVATE_PersistentWriteStream = class extends __PRIVATE_PersistentStream {
-        constructor(e, t2, n, r, i, s) {
-          super(e, "write_stream_connection_backoff", "write_stream_idle", "health_check_timeout", t2, n, r, s), this.serializer = i;
+        constructor(e, t3, n, r, i, s) {
+          super(e, "write_stream_connection_backoff", "write_stream_idle", "health_check_timeout", t3, n, r, s), this.serializer = i;
         }
         /**
          * Tracks whether or not a handshake has been successfully exchanged and
@@ -20260,8 +20260,8 @@ Total Duration: ${u - c}ms`);
         K_() {
           this.X_ && this.ea([]);
         }
-        j_(e, t2) {
-          return this.connection.T_("Write", e, t2);
+        j_(e, t3) {
+          return this.connection.T_("Write", e, t3);
         }
         J_(e) {
           return __PRIVATE_hardAssert(!!e.streamToken, 31322), this.lastStreamToken = e.streamToken, // The first response is always the handshake response
@@ -20272,8 +20272,8 @@ Total Duration: ${u - c}ms`);
           // Note, that we could consider a successful handshake healthy, however,
           // the write itself might be causing an error we want to back off from.
           this.M_.reset();
-          const t2 = __PRIVATE_fromWriteResults(e.writeResults, e.commitTime), n = __PRIVATE_fromVersion(e.commitTime);
-          return this.listener.na(n, t2);
+          const t3 = __PRIVATE_fromWriteResults(e.writeResults, e.commitTime), n = __PRIVATE_fromVersion(e.commitTime);
+          return this.listener.na(n, t3);
         }
         /**
          * Sends an initial streamToken to the server, performing the handshake
@@ -20286,31 +20286,31 @@ Total Duration: ${u - c}ms`);
         }
         /** Sends a group of mutations to the Firestore backend to apply. */
         ea(e) {
-          const t2 = {
+          const t3 = {
             streamToken: this.lastStreamToken,
             writes: e.map(((e2) => toMutation(this.serializer, e2)))
           };
-          this.q_(t2);
+          this.q_(t3);
         }
       };
       Datastore = class {
       };
       __PRIVATE_DatastoreImpl = class extends Datastore {
-        constructor(e, t2, n, r) {
-          super(), this.authCredentials = e, this.appCheckCredentials = t2, this.connection = n, this.serializer = r, this.ia = false;
+        constructor(e, t3, n, r) {
+          super(), this.authCredentials = e, this.appCheckCredentials = t3, this.connection = n, this.serializer = r, this.ia = false;
         }
         sa() {
           if (this.ia) throw new FirestoreError(N.FAILED_PRECONDITION, "The client has already been terminated.");
         }
         /** Invokes the provided RPC with auth and AppCheck tokens. */
-        Go(e, t2, n, r) {
-          return this.sa(), Promise.all([this.authCredentials.getToken(), this.appCheckCredentials.getToken()]).then((([i, s]) => this.connection.Go(e, __PRIVATE_toResourcePath(t2, n), r, i, s))).catch(((e2) => {
+        Go(e, t3, n, r) {
+          return this.sa(), Promise.all([this.authCredentials.getToken(), this.appCheckCredentials.getToken()]).then((([i, s]) => this.connection.Go(e, __PRIVATE_toResourcePath(t3, n), r, i, s))).catch(((e2) => {
             throw "FirebaseError" === e2.name ? (e2.code === N.UNAUTHENTICATED && (this.authCredentials.invalidateToken(), this.appCheckCredentials.invalidateToken()), e2) : new FirestoreError(N.UNKNOWN, e2.toString());
           }));
         }
         /** Invokes the provided RPC with streamed results with auth and AppCheck tokens. */
-        Ho(e, t2, n, r, i) {
-          return this.sa(), Promise.all([this.authCredentials.getToken(), this.appCheckCredentials.getToken()]).then((([s, o]) => this.connection.Ho(e, __PRIVATE_toResourcePath(t2, n), r, s, o, i))).catch(((e2) => {
+        Ho(e, t3, n, r, i) {
+          return this.sa(), Promise.all([this.authCredentials.getToken(), this.appCheckCredentials.getToken()]).then((([s, o]) => this.connection.Ho(e, __PRIVATE_toResourcePath(t3, n), r, s, o, i))).catch(((e2) => {
             throw "FirebaseError" === e2.name ? (e2.code === N.UNAUTHENTICATED && (this.authCredentials.invalidateToken(), this.appCheckCredentials.invalidateToken()), e2) : new FirestoreError(N.UNKNOWN, e2.toString());
           }));
         }
@@ -20319,8 +20319,8 @@ Total Duration: ${u - c}ms`);
         }
       };
       __PRIVATE_OnlineStateTracker = class {
-        constructor(e, t2) {
-          this.asyncQueue = e, this.onlineStateHandler = t2, /** The current OnlineState. */
+        constructor(e, t3) {
+          this.asyncQueue = e, this.onlineStateHandler = t3, /** The current OnlineState. */
           this.state = "Unknown", /**
            * A count of consecutive failures to open the stream. If it reaches the
            * maximum defined by MAX_WATCH_STREAM_FAILURES, we'll set the OnlineState to
@@ -20385,9 +20385,9 @@ Total Duration: ${u - c}ms`);
           e !== this.state && (this.state = e, this.onlineStateHandler(e));
         }
         la(e) {
-          const t2 = `Could not reach Cloud Firestore backend. ${e}
+          const t3 = `Could not reach Cloud Firestore backend. ${e}
 This typically indicates that your device does not have a healthy Internet connection at the moment. The client will operate in offline mode until it is able to successfully connect to the backend.`;
-          this.aa ? (__PRIVATE_logError(t2), this.aa = false) : __PRIVATE_logDebug("OnlineStateTracker", t2);
+          this.aa ? (__PRIVATE_logError(t3), this.aa = false) : __PRIVATE_logDebug("OnlineStateTracker", t3);
         }
         Pa() {
           null !== this._a && (this._a.cancel(), this._a = null);
@@ -20395,8 +20395,8 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       tn = "RemoteStore";
       __PRIVATE_RemoteStoreImpl = class {
-        constructor(e, t2, n, r, i) {
-          this.localStore = e, this.datastore = t2, this.asyncQueue = n, this.remoteSyncer = {}, /**
+        constructor(e, t3, n, r, i) {
+          this.localStore = e, this.datastore = t3, this.asyncQueue = n, this.remoteSyncer = {}, /**
            * A list of up to MAX_PENDING_WRITES writes that we have fetched from the
            * LocalStore via fillWritePipeline() and have or will send to the write
            * stream.
@@ -20436,25 +20436,25 @@ This typically indicates that your device does not have a healthy Internet conne
           this.da = [], this.Aa = i, this.Aa.Oo(((e2) => {
             n.enqueueAndForget((async () => {
               __PRIVATE_canUseNetwork(this) && (__PRIVATE_logDebug(tn, "Restarting streams for network reachability change."), await (async function __PRIVATE_restartNetwork(e3) {
-                const t3 = __PRIVATE_debugCast(e3);
-                t3.Ea.add(
+                const t4 = __PRIVATE_debugCast(e3);
+                t4.Ea.add(
                   4
                   /* OfflineCause.ConnectivityChange */
-                ), await __PRIVATE_disableNetworkInternal(t3), t3.Ra.set(
+                ), await __PRIVATE_disableNetworkInternal(t4), t4.Ra.set(
                   "Unknown"
                   /* OnlineState.Unknown */
-                ), t3.Ea.delete(
+                ), t4.Ea.delete(
                   4
                   /* OfflineCause.ConnectivityChange */
-                ), await __PRIVATE_enableNetworkInternal(t3);
+                ), await __PRIVATE_enableNetworkInternal(t4);
               })(this));
             }));
           })), this.Ra = new __PRIVATE_OnlineStateTracker(n, r);
         }
       };
       DelayedOperation = class _DelayedOperation {
-        constructor(e, t2, n, r, i) {
-          this.asyncQueue = e, this.timerId = t2, this.targetTimeMs = n, this.op = r, this.removalCallback = i, this.deferred = new __PRIVATE_Deferred(), this.then = this.deferred.promise.then.bind(this.deferred.promise), // It's normal for the deferred promise to be canceled (due to cancellation)
+        constructor(e, t3, n, r, i) {
+          this.asyncQueue = e, this.timerId = t3, this.targetTimeMs = n, this.op = r, this.removalCallback = i, this.deferred = new __PRIVATE_Deferred(), this.then = this.deferred.promise.then.bind(this.deferred.promise), // It's normal for the deferred promise to be canceled (due to cancellation)
           // and so we attach a dummy catch callback to avoid
           // 'UnhandledPromiseRejectionWarning' log spam.
           this.deferred.promise.catch(((e2) => {
@@ -20477,8 +20477,8 @@ This typically indicates that your device does not have a healthy Internet conne
          *   PORTING NOTE: This exists to prevent making removeDelayedOperation() and
          *   the DelayedOperation class public.
          */
-        static createAndSchedule(e, t2, n, r, i) {
-          const s = Date.now() + n, o = new _DelayedOperation(e, t2, s, r, i);
+        static createAndSchedule(e, t3, n, r, i) {
+          const s = Date.now() + n, o = new _DelayedOperation(e, t3, s, r, i);
           return o.start(n), o;
         }
         /**
@@ -20522,7 +20522,7 @@ This typically indicates that your device does not have a healthy Internet conne
         }
         /** The default ordering is by key if the comparator is omitted */
         constructor(e) {
-          this.comparator = e ? (t2, n) => e(t2, n) || DocumentKey.comparator(t2.key, n.key) : (e2, t2) => DocumentKey.comparator(e2.key, t2.key), this.keyedMap = documentMap(), this.sortedSet = new SortedMap(this.comparator);
+          this.comparator = e ? (t3, n) => e(t3, n) || DocumentKey.comparator(t3.key, n.key) : (e2, t3) => DocumentKey.comparator(e2.key, t3.key), this.keyedMap = documentMap(), this.sortedSet = new SortedMap(this.comparator);
         }
         has(e) {
           return null != this.keyedMap.get(e);
@@ -20544,45 +20544,45 @@ This typically indicates that your device does not have a healthy Internet conne
          * document key is not present in the set;
          */
         indexOf(e) {
-          const t2 = this.keyedMap.get(e);
-          return t2 ? this.sortedSet.indexOf(t2) : -1;
+          const t3 = this.keyedMap.get(e);
+          return t3 ? this.sortedSet.indexOf(t3) : -1;
         }
         get size() {
           return this.sortedSet.size;
         }
         /** Iterates documents in order defined by "comparator" */
         forEach(e) {
-          this.sortedSet.inorderTraversal(((t2, n) => (e(t2), false)));
+          this.sortedSet.inorderTraversal(((t3, n) => (e(t3), false)));
         }
         /** Inserts or updates a document with the same key */
         add(e) {
-          const t2 = this.delete(e.key);
-          return t2.copy(t2.keyedMap.insert(e.key, e), t2.sortedSet.insert(e, null));
+          const t3 = this.delete(e.key);
+          return t3.copy(t3.keyedMap.insert(e.key, e), t3.sortedSet.insert(e, null));
         }
         /** Deletes a document with a given key */
         delete(e) {
-          const t2 = this.get(e);
-          return t2 ? this.copy(this.keyedMap.remove(e), this.sortedSet.remove(t2)) : this;
+          const t3 = this.get(e);
+          return t3 ? this.copy(this.keyedMap.remove(e), this.sortedSet.remove(t3)) : this;
         }
         isEqual(e) {
           if (!(e instanceof _DocumentSet)) return false;
           if (this.size !== e.size) return false;
-          const t2 = this.sortedSet.getIterator(), n = e.sortedSet.getIterator();
-          for (; t2.hasNext(); ) {
-            const e2 = t2.getNext().key, r = n.getNext().key;
+          const t3 = this.sortedSet.getIterator(), n = e.sortedSet.getIterator();
+          for (; t3.hasNext(); ) {
+            const e2 = t3.getNext().key, r = n.getNext().key;
             if (!e2.isEqual(r)) return false;
           }
           return true;
         }
         toString() {
           const e = [];
-          return this.forEach(((t2) => {
-            e.push(t2.toString());
+          return this.forEach(((t3) => {
+            e.push(t3.toString());
           })), 0 === e.length ? "DocumentSet ()" : "DocumentSet (\n  " + e.join("  \n") + "\n)";
         }
-        copy(e, t2) {
+        copy(e, t3) {
           const n = new _DocumentSet();
-          return n.comparator = this.comparator, n.keyedMap = e, n.sortedSet = t2, n;
+          return n.comparator = this.comparator, n.keyedMap = e, n.sortedSet = t3, n;
         }
       };
       __PRIVATE_DocumentChangeSet = class {
@@ -20590,22 +20590,22 @@ This typically indicates that your device does not have a healthy Internet conne
           this.ga = new SortedMap(DocumentKey.comparator);
         }
         track(e) {
-          const t2 = e.doc.key, n = this.ga.get(t2);
+          const t3 = e.doc.key, n = this.ga.get(t3);
           n ? (
             // Merge the new change with the existing change.
-            0 !== e.type && 3 === n.type ? this.ga = this.ga.insert(t2, e) : 3 === e.type && 1 !== n.type ? this.ga = this.ga.insert(t2, {
+            0 !== e.type && 3 === n.type ? this.ga = this.ga.insert(t3, e) : 3 === e.type && 1 !== n.type ? this.ga = this.ga.insert(t3, {
               type: n.type,
               doc: e.doc
-            }) : 2 === e.type && 2 === n.type ? this.ga = this.ga.insert(t2, {
+            }) : 2 === e.type && 2 === n.type ? this.ga = this.ga.insert(t3, {
               type: 2,
               doc: e.doc
-            }) : 2 === e.type && 0 === n.type ? this.ga = this.ga.insert(t2, {
+            }) : 2 === e.type && 0 === n.type ? this.ga = this.ga.insert(t3, {
               type: 0,
               doc: e.doc
-            }) : 1 === e.type && 0 === n.type ? this.ga = this.ga.remove(t2) : 1 === e.type && 2 === n.type ? this.ga = this.ga.insert(t2, {
+            }) : 1 === e.type && 0 === n.type ? this.ga = this.ga.remove(t3) : 1 === e.type && 2 === n.type ? this.ga = this.ga.insert(t3, {
               type: 1,
               doc: n.doc
-            }) : 0 === e.type && 1 === n.type ? this.ga = this.ga.insert(t2, {
+            }) : 0 === e.type && 1 === n.type ? this.ga = this.ga.insert(t3, {
               type: 2,
               doc: e.doc
             }) : (
@@ -20621,31 +20621,31 @@ This typically indicates that your device does not have a healthy Internet conne
                 pa: n
               })
             )
-          ) : this.ga = this.ga.insert(t2, e);
+          ) : this.ga = this.ga.insert(t3, e);
         }
         ya() {
           const e = [];
-          return this.ga.inorderTraversal(((t2, n) => {
+          return this.ga.inorderTraversal(((t3, n) => {
             e.push(n);
           })), e;
         }
       };
       ViewSnapshot = class _ViewSnapshot {
-        constructor(e, t2, n, r, i, s, o, _, a) {
-          this.query = e, this.docs = t2, this.oldDocs = n, this.docChanges = r, this.mutatedKeys = i, this.fromCache = s, this.syncStateChanged = o, this.excludesMetadataChanges = _, this.hasCachedResults = a;
+        constructor(e, t3, n, r, i, s, o, _, a) {
+          this.query = e, this.docs = t3, this.oldDocs = n, this.docChanges = r, this.mutatedKeys = i, this.fromCache = s, this.syncStateChanged = o, this.excludesMetadataChanges = _, this.hasCachedResults = a;
         }
         /** Returns a view snapshot as if all documents in the snapshot were added. */
-        static fromInitialDocuments(e, t2, n, r, i) {
+        static fromInitialDocuments(e, t3, n, r, i) {
           const s = [];
-          return t2.forEach(((e2) => {
+          return t3.forEach(((e2) => {
             s.push({
               type: 0,
               doc: e2
             });
           })), new _ViewSnapshot(
             e,
-            t2,
-            DocumentSet.emptySet(t2),
+            t3,
+            DocumentSet.emptySet(t3),
             s,
             n,
             r,
@@ -20661,9 +20661,9 @@ This typically indicates that your device does not have a healthy Internet conne
         }
         isEqual(e) {
           if (!(this.fromCache === e.fromCache && this.hasCachedResults === e.hasCachedResults && this.syncStateChanged === e.syncStateChanged && this.mutatedKeys.isEqual(e.mutatedKeys) && __PRIVATE_queryEquals(this.query, e.query) && this.docs.isEqual(e.docs) && this.oldDocs.isEqual(e.oldDocs))) return false;
-          const t2 = this.docChanges, n = e.docChanges;
-          if (t2.length !== n.length) return false;
-          for (let e2 = 0; e2 < t2.length; e2++) if (t2[e2].type !== n[e2].type || !t2[e2].doc.isEqual(n[e2].doc)) return false;
+          const t3 = this.docChanges, n = e.docChanges;
+          if (t3.length !== n.length) return false;
+          for (let e2 = 0; e2 < t3.length; e2++) if (t3[e2].type !== n[e2].type || !t3[e2].doc.isEqual(n[e2].doc)) return false;
           return true;
         }
       };
@@ -20681,10 +20681,10 @@ This typically indicates that your device does not have a healthy Internet conne
           this.queries = __PRIVATE_newQueriesObjectMap(), this.onlineState = "Unknown", this.Ca = /* @__PURE__ */ new Set();
         }
         terminate() {
-          !(function __PRIVATE_errorAllTargets(e, t2) {
+          !(function __PRIVATE_errorAllTargets(e, t3) {
             const n = __PRIVATE_debugCast(e), r = n.queries;
             n.queries = __PRIVATE_newQueriesObjectMap(), r.forEach(((e2, n2) => {
-              for (const e3 of n2.Sa) e3.onError(t2);
+              for (const e3 of n2.Sa) e3.onError(t3);
             }));
           })(this, new FirestoreError(N.ABORTED, "Firestore shutting down"));
         }
@@ -20692,8 +20692,8 @@ This typically indicates that your device does not have a healthy Internet conne
       (rn = nn || (nn = {})).Ma = "default", /** Listen to changes in cache only */
       rn.Cache = "cache";
       __PRIVATE_QueryListener = class {
-        constructor(e, t2, n) {
-          this.query = e, this.xa = t2, /**
+        constructor(e, t3, n) {
+          this.query = e, this.xa = t3, /**
            * Initial snapshots (e.g. from cache) may not be propagated to the wrapped
            * observer. This flag is set to true once we've actually raised an event.
            */
@@ -20707,13 +20707,13 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         Fa(e) {
           if (!this.options.includeMetadataChanges) {
-            const t3 = [];
-            for (const n of e.docChanges) 3 !== n.type && t3.push(n);
+            const t4 = [];
+            for (const n of e.docChanges) 3 !== n.type && t4.push(n);
             e = new ViewSnapshot(
               e.query,
               e.docs,
               e.oldDocs,
-              t3,
+              t4,
               e.mutatedKeys,
               e.fromCache,
               e.syncStateChanged,
@@ -20722,8 +20722,8 @@ This typically indicates that your device does not have a healthy Internet conne
               e.hasCachedResults
             );
           }
-          let t2 = false;
-          return this.Oa ? this.Ba(e) && (this.xa.next(e), t2 = true) : this.La(e, this.onlineState) && (this.ka(e), t2 = true), this.Na = e, t2;
+          let t3 = false;
+          return this.Oa ? this.Ba(e) && (this.xa.next(e), t3 = true) : this.La(e, this.onlineState) && (this.ka(e), t3 = true), this.Na = e, t3;
         }
         onError(e) {
           this.xa.error(e);
@@ -20731,19 +20731,19 @@ This typically indicates that your device does not have a healthy Internet conne
         /** Returns whether a snapshot was raised. */
         va(e) {
           this.onlineState = e;
-          let t2 = false;
-          return this.Na && !this.Oa && this.La(this.Na, e) && (this.ka(this.Na), t2 = true), t2;
+          let t3 = false;
+          return this.Na && !this.Oa && this.La(this.Na, e) && (this.ka(this.Na), t3 = true), t3;
         }
-        La(e, t2) {
+        La(e, t3) {
           if (!e.fromCache) return true;
           if (!this.Da()) return true;
-          const n = "Offline" !== t2;
-          return (!this.options.qa || !n) && (!e.docs.isEmpty() || e.hasCachedResults || "Offline" === t2);
+          const n = "Offline" !== t3;
+          return (!this.options.qa || !n) && (!e.docs.isEmpty() || e.hasCachedResults || "Offline" === t3);
         }
         Ba(e) {
           if (e.docChanges.length > 0) return true;
-          const t2 = this.Na && this.Na.hasPendingWrites !== e.hasPendingWrites;
-          return !(!e.syncStateChanged && !t2) && true === this.options.includeMetadataChanges;
+          const t3 = this.Na && this.Na.hasPendingWrites !== e.hasPendingWrites;
+          return !(!e.syncStateChanged && !t3) && true === this.options.includeMetadataChanges;
         }
         ka(e) {
           e = ViewSnapshot.fromInitialDocuments(e.query, e.docs, e.mutatedKeys, e.fromCache, e.hasCachedResults), this.Oa = true, this.xa.next(e);
@@ -20763,8 +20763,8 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       };
       __PRIVATE_View = class {
-        constructor(e, t2) {
-          this.query = e, this.Ya = t2, this.Za = null, this.hasCachedResults = false, /**
+        constructor(e, t3) {
+          this.query = e, this.Ya = t3, this.Za = null, this.hasCachedResults = false, /**
            * A flag whether the view is current with the backend. A view is considered
            * current after it has seen the current flag from the backend and did not
            * lose consistency within the watch stream (e.g. because of an existence
@@ -20791,12 +20791,12 @@ This typically indicates that your device does not have a healthy Internet conne
          *        with this set of docs and changes instead of the current view.
          * @returns a new set of docs, changes, and refill flag.
          */
-        ru(e, t2) {
-          const n = t2 ? t2.iu : new __PRIVATE_DocumentChangeSet(), r = t2 ? t2.tu : this.tu;
-          let i = t2 ? t2.mutatedKeys : this.mutatedKeys, s = r, o = false;
+        ru(e, t3) {
+          const n = t3 ? t3.iu : new __PRIVATE_DocumentChangeSet(), r = t3 ? t3.tu : this.tu;
+          let i = t3 ? t3.mutatedKeys : this.mutatedKeys, s = r, o = false;
           const _ = "F" === this.query.limitType && r.size === this.query.limit ? r.last() : null, a = "L" === this.query.limitType && r.size === this.query.limit ? r.first() : null;
-          if (e.inorderTraversal(((e2, t3) => {
-            const u = r.get(e2), c = __PRIVATE_queryMatches(this.query, t3) ? t3 : null, l = !!u && this.mutatedKeys.has(u.key), h = !!c && (c.hasLocalMutations || // We only consider committed mutations for documents that were
+          if (e.inorderTraversal(((e2, t4) => {
+            const u = r.get(e2), c = __PRIVATE_queryMatches(this.query, t4) ? t4 : null, l = !!u && this.mutatedKeys.has(u.key), h = !!c && (c.hasLocalMutations || // We only consider committed mutations for documents that were
             // mutated during the lifetime of the view.
             this.mutatedKeys.has(c.key) && c.hasCommittedMutations);
             let P = false;
@@ -20836,8 +20836,8 @@ This typically indicates that your device does not have a healthy Internet conne
             mutatedKeys: i
           };
         }
-        su(e, t2) {
-          return e.hasLocalMutations && t2.hasCommittedMutations && !t2.hasLocalMutations;
+        su(e, t3) {
+          return e.hasLocalMutations && t3.hasCommittedMutations && !t3.hasLocalMutations;
         }
         /**
          * Updates the view with the given ViewDocumentChanges and optionally updates
@@ -20853,11 +20853,11 @@ This typically indicates that your device does not have a healthy Internet conne
          * @returns A new ViewChange with the given docs, changes, and sync state.
          */
         // PORTING NOTE: The iOS/Android clients always compute limbo document changes.
-        applyChanges(e, t2, n, r) {
+        applyChanges(e, t3, n, r) {
           const i = this.tu;
           this.tu = e.tu, this.mutatedKeys = e.mutatedKeys;
           const s = e.iu.ya();
-          s.sort(((e2, t3) => (function __PRIVATE_compareChangeType(e3, t4) {
+          s.sort(((e2, t4) => (function __PRIVATE_compareChangeType(e3, t5) {
             const order = (e4) => {
               switch (e4) {
                 case 0:
@@ -20873,9 +20873,9 @@ This typically indicates that your device does not have a healthy Internet conne
                   });
               }
             };
-            return order(e3) - order(t4);
-          })(e2.type, t3.type) || this.eu(e2.doc, t3.doc))), this.ou(n), r = r ?? false;
-          const o = t2 && !r ? this._u() : [], _ = 0 === this.Xa.size && this.current && !r ? 1 : 0, a = _ !== this.Za;
+            return order(e3) - order(t5);
+          })(e2.type, t4.type) || this.eu(e2.doc, t4.doc))), this.ou(n), r = r ?? false;
+          const o = t3 && !r ? this._u() : [], _ = 0 === this.Xa.size && this.current && !r ? 1 : 0, a = _ !== this.Za;
           if (this.Za = _, 0 !== s.length || a) {
             return {
               snapshot: new ViewSnapshot(
@@ -20942,12 +20942,12 @@ This typically indicates that your device does not have a healthy Internet conne
           this.Xa = __PRIVATE_documentKeySet(), this.tu.forEach(((e2) => {
             this.uu(e2.key) && (this.Xa = this.Xa.add(e2.key));
           }));
-          const t2 = [];
+          const t3 = [];
           return e.forEach(((e2) => {
-            this.Xa.has(e2) || t2.push(new __PRIVATE_RemovedLimboDocument(e2));
+            this.Xa.has(e2) || t3.push(new __PRIVATE_RemovedLimboDocument(e2));
           })), this.Xa.forEach(((n) => {
-            e.has(n) || t2.push(new __PRIVATE_AddedLimboDocument(n));
-          })), t2;
+            e.has(n) || t3.push(new __PRIVATE_AddedLimboDocument(n));
+          })), t3;
         }
         /**
          * Update the in-memory state of the current view with the state read from
@@ -20971,9 +20971,9 @@ This typically indicates that your device does not have a healthy Internet conne
         // PORTING NOTE: Multi-tab only.
         cu(e) {
           this.Ya = e.Qs, this.Xa = __PRIVATE_documentKeySet();
-          const t2 = this.ru(e.documents);
+          const t3 = this.ru(e.documents);
           return this.applyChanges(
-            t2,
+            t3,
             /* limboResolutionEnabled= */
             true
           );
@@ -20990,8 +20990,8 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       sn = "SyncEngine";
       __PRIVATE_QueryView = class {
-        constructor(e, t2, n) {
-          this.query = e, this.targetId = t2, this.view = n;
+        constructor(e, t3, n) {
+          this.query = e, this.targetId = t3, this.view = n;
         }
       };
       LimboResolution = class {
@@ -21006,8 +21006,8 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       };
       __PRIVATE_SyncEngineImpl = class {
-        constructor(e, t2, n, r, i, s) {
-          this.localStore = e, this.remoteStore = t2, this.eventManager = n, this.sharedClientState = r, this.currentUser = i, this.maxConcurrentLimboResolutions = s, this.Pu = {}, this.Tu = new ObjectMap(((e2) => __PRIVATE_canonifyQuery(e2)), __PRIVATE_queryEquals), this.Iu = /* @__PURE__ */ new Map(), /**
+        constructor(e, t3, n, r, i, s) {
+          this.localStore = e, this.remoteStore = t3, this.eventManager = n, this.sharedClientState = r, this.currentUser = i, this.maxConcurrentLimboResolutions = s, this.Pu = {}, this.Tu = new ObjectMap(((e2) => __PRIVATE_canonifyQuery(e2)), __PRIVATE_queryEquals), this.Iu = /* @__PURE__ */ new Map(), /**
            * The keys of documents that are in limbo for which we haven't yet started a
            * limbo resolution query. The strings in this set are the result of calling
            * `key.path.canonicalString()` where `key` is a `DocumentKey` object.
@@ -21042,10 +21042,10 @@ This typically indicates that your device does not have a healthy Internet conne
         async initialize(e) {
           this.serializer = __PRIVATE_newSerializer(e.databaseInfo.databaseId), this.sharedClientState = this.Du(e), this.persistence = this.Cu(e), await this.persistence.start(), this.localStore = this.vu(e), this.gcScheduler = this.Fu(e, this.localStore), this.indexBackfillerScheduler = this.Mu(e, this.localStore);
         }
-        Fu(e, t2) {
+        Fu(e, t3) {
           return null;
         }
-        Mu(e, t2) {
+        Mu(e, t3) {
           return null;
         }
         vu(e) {
@@ -21068,19 +21068,19 @@ This typically indicates that your device does not have a healthy Internet conne
         constructor(e) {
           super(), this.cacheSizeBytes = e;
         }
-        Fu(e, t2) {
+        Fu(e, t3) {
           __PRIVATE_hardAssert(this.persistence.referenceDelegate instanceof __PRIVATE_MemoryLruDelegate, 46915);
           const n = this.persistence.referenceDelegate.garbageCollector;
-          return new __PRIVATE_LruScheduler(n, e.asyncQueue, t2);
+          return new __PRIVATE_LruScheduler(n, e.asyncQueue, t3);
         }
         Cu(e) {
-          const t2 = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
-          return new __PRIVATE_MemoryPersistence(((e2) => __PRIVATE_MemoryLruDelegate.mi(e2, t2)), this.serializer);
+          const t3 = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
+          return new __PRIVATE_MemoryPersistence(((e2) => __PRIVATE_MemoryLruDelegate.mi(e2, t3)), this.serializer);
         }
       };
       __PRIVATE_IndexedDbOfflineComponentProvider = class extends __PRIVATE_MemoryOfflineComponentProvider {
-        constructor(e, t2, n) {
-          super(), this.xu = e, this.cacheSizeBytes = t2, this.forceOwnership = n, this.kind = "persistent", this.synchronizeTabs = false;
+        constructor(e, t3, n) {
+          super(), this.xu = e, this.cacheSizeBytes = t3, this.forceOwnership = n, this.kind = "persistent", this.synchronizeTabs = false;
         }
         async initialize(e) {
           await super.initialize(e), await this.xu.initialize(this, e), // Enqueue writes from a previous session
@@ -21091,26 +21091,26 @@ This typically indicates that your device does not have a healthy Internet conne
         vu(e) {
           return __PRIVATE_newLocalStore(this.persistence, new __PRIVATE_QueryEngine(), e.initialUser, this.serializer);
         }
-        Fu(e, t2) {
+        Fu(e, t3) {
           const n = this.persistence.referenceDelegate.garbageCollector;
-          return new __PRIVATE_LruScheduler(n, e.asyncQueue, t2);
+          return new __PRIVATE_LruScheduler(n, e.asyncQueue, t3);
         }
-        Mu(e, t2) {
-          const n = new __PRIVATE_IndexBackfiller(t2, this.persistence);
+        Mu(e, t3) {
+          const n = new __PRIVATE_IndexBackfiller(t3, this.persistence);
           return new __PRIVATE_IndexBackfillerScheduler(e.asyncQueue, n);
         }
         Cu(e) {
-          const t2 = __PRIVATE_indexedDbStoragePrefix(e.databaseInfo.databaseId, e.databaseInfo.persistenceKey), n = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
-          return new __PRIVATE_IndexedDbPersistence(this.synchronizeTabs, t2, e.clientId, n, e.asyncQueue, __PRIVATE_getWindow(), getDocument(), this.serializer, this.sharedClientState, !!this.forceOwnership);
+          const t3 = __PRIVATE_indexedDbStoragePrefix(e.databaseInfo.databaseId, e.databaseInfo.persistenceKey), n = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
+          return new __PRIVATE_IndexedDbPersistence(this.synchronizeTabs, t3, e.clientId, n, e.asyncQueue, __PRIVATE_getWindow(), getDocument(), this.serializer, this.sharedClientState, !!this.forceOwnership);
         }
         Du(e) {
           return new __PRIVATE_MemorySharedClientState();
         }
       };
       OnlineComponentProvider = class {
-        async initialize(e, t2) {
-          this.localStore || (this.localStore = e.localStore, this.sharedClientState = e.sharedClientState, this.datastore = this.createDatastore(t2), this.remoteStore = this.createRemoteStore(t2), this.eventManager = this.createEventManager(t2), this.syncEngine = this.createSyncEngine(
-            t2,
+        async initialize(e, t3) {
+          this.localStore || (this.localStore = e.localStore, this.sharedClientState = e.sharedClientState, this.datastore = this.createDatastore(t3), this.remoteStore = this.createRemoteStore(t3), this.eventManager = this.createEventManager(t3), this.syncEngine = this.createSyncEngine(
+            t3,
             /* startAsPrimary=*/
             !e.synchronizeTabs
           ), this.sharedClientState.onlineStateHandler = (e2) => __PRIVATE_syncEngineApplyOnlineStateChange(
@@ -21126,16 +21126,16 @@ This typically indicates that your device does not have a healthy Internet conne
           })();
         }
         createDatastore(e) {
-          const t2 = __PRIVATE_newSerializer(e.databaseInfo.databaseId), n = (function __PRIVATE_newConnection(e2) {
+          const t3 = __PRIVATE_newSerializer(e.databaseInfo.databaseId), n = (function __PRIVATE_newConnection(e2) {
             return new __PRIVATE_WebChannelConnection(e2);
           })(e.databaseInfo);
-          return (function __PRIVATE_newDatastore(e2, t3, n2, r) {
-            return new __PRIVATE_DatastoreImpl(e2, t3, n2, r);
-          })(e.authCredentials, e.appCheckCredentials, n, t2);
+          return (function __PRIVATE_newDatastore(e2, t4, n2, r) {
+            return new __PRIVATE_DatastoreImpl(e2, t4, n2, r);
+          })(e.authCredentials, e.appCheckCredentials, n, t3);
         }
         createRemoteStore(e) {
-          return (function __PRIVATE_newRemoteStore(e2, t2, n, r, i) {
-            return new __PRIVATE_RemoteStoreImpl(e2, t2, n, r, i);
+          return (function __PRIVATE_newRemoteStore(e2, t3, n, r, i) {
+            return new __PRIVATE_RemoteStoreImpl(e2, t3, n, r, i);
           })(this.localStore, this.datastore, e.asyncQueue, ((e2) => __PRIVATE_syncEngineApplyOnlineStateChange(
             this.syncEngine,
             e2,
@@ -21145,21 +21145,21 @@ This typically indicates that your device does not have a healthy Internet conne
             return __PRIVATE_BrowserConnectivityMonitor.v() ? new __PRIVATE_BrowserConnectivityMonitor() : new __PRIVATE_NoopConnectivityMonitor();
           })());
         }
-        createSyncEngine(e, t2) {
-          return (function __PRIVATE_newSyncEngine(e2, t3, n, r, i, s, o) {
-            const _ = new __PRIVATE_SyncEngineImpl(e2, t3, n, r, i, s);
+        createSyncEngine(e, t3) {
+          return (function __PRIVATE_newSyncEngine(e2, t4, n, r, i, s, o) {
+            const _ = new __PRIVATE_SyncEngineImpl(e2, t4, n, r, i, s);
             return o && (_.gu = true), _;
-          })(this.localStore, this.remoteStore, this.eventManager, this.sharedClientState, e.initialUser, e.maxConcurrentLimboResolutions, t2);
+          })(this.localStore, this.remoteStore, this.eventManager, this.sharedClientState, e.initialUser, e.maxConcurrentLimboResolutions, t3);
         }
         async terminate() {
           await (async function __PRIVATE_remoteStoreShutdown(e) {
-            const t2 = __PRIVATE_debugCast(e);
-            __PRIVATE_logDebug(tn, "RemoteStore shutting down."), t2.Ea.add(
+            const t3 = __PRIVATE_debugCast(e);
+            __PRIVATE_logDebug(tn, "RemoteStore shutting down."), t3.Ea.add(
               5
               /* OfflineCause.Shutdown */
-            ), await __PRIVATE_disableNetworkInternal(t2), t2.Aa.shutdown(), // Set the OnlineState to Unknown (rather than Offline) to avoid potentially
+            ), await __PRIVATE_disableNetworkInternal(t3), t3.Aa.shutdown(), // Set the OnlineState to Unknown (rather than Offline) to avoid potentially
             // triggering spurious listener events with cached data, etc.
-            t2.Ra.set(
+            t3.Ra.set(
               "Unknown"
               /* OnlineState.Unknown */
             );
@@ -21186,16 +21186,16 @@ This typically indicates that your device does not have a healthy Internet conne
         Nu() {
           this.muted = true;
         }
-        Ou(e, t2) {
+        Ou(e, t3) {
           setTimeout((() => {
-            this.muted || e(t2);
+            this.muted || e(t3);
           }), 0);
         }
       };
       on = "FirestoreClient";
       FirestoreClient = class {
-        constructor(e, t2, n, r, i) {
-          this.authCredentials = e, this.appCheckCredentials = t2, this.asyncQueue = n, this.databaseInfo = r, this.user = User.UNAUTHENTICATED, this.clientId = __PRIVATE_AutoId.newId(), this.authCredentialListener = () => Promise.resolve(), this.appCheckCredentialListener = () => Promise.resolve(), this._uninitializedComponentsProvider = i, this.authCredentials.start(n, (async (e2) => {
+        constructor(e, t3, n, r, i) {
+          this.authCredentials = e, this.appCheckCredentials = t3, this.asyncQueue = n, this.databaseInfo = r, this.user = User.UNAUTHENTICATED, this.clientId = __PRIVATE_AutoId.newId(), this.authCredentialListener = () => Promise.resolve(), this.appCheckCredentialListener = () => Promise.resolve(), this._uninitializedComponentsProvider = i, this.authCredentials.start(n, (async (e2) => {
             __PRIVATE_logDebug(on, "Received user=", e2.uid), await this.authCredentialListener(e2), this.user = e2;
           })), this.appCheckCredentials.start(n, ((e2) => (__PRIVATE_logDebug(on, "Received new app check token=", e2), this.appCheckCredentialListener(e2, this.user))));
         }
@@ -21225,8 +21225,8 @@ This typically indicates that your device does not have a healthy Internet conne
               // RemoteStore as it will prevent the RemoteStore from retrieving auth
               // tokens.
               this.authCredentials.shutdown(), this.appCheckCredentials.shutdown(), e.resolve();
-            } catch (t2) {
-              const n = __PRIVATE_wrapInUserErrorIfRecoverable(t2, "Failed to shutdown persistence");
+            } catch (t3) {
+              const n = __PRIVATE_wrapInUserErrorIfRecoverable(t3, "Failed to shutdown persistence");
               e.reject(n);
             }
           })), e.promise;
@@ -21260,15 +21260,15 @@ This typically indicates that your device does not have a healthy Internet conne
           })(this.experimentalLongPollingOptions), this.useFetchStreams = !!e.useFetchStreams;
         }
         isEqual(e) {
-          return this.host === e.host && this.ssl === e.ssl && this.credentials === e.credentials && this.cacheSizeBytes === e.cacheSizeBytes && this.experimentalForceLongPolling === e.experimentalForceLongPolling && this.experimentalAutoDetectLongPolling === e.experimentalAutoDetectLongPolling && (function __PRIVATE_longPollingOptionsEqual(e2, t2) {
-            return e2.timeoutSeconds === t2.timeoutSeconds;
+          return this.host === e.host && this.ssl === e.ssl && this.credentials === e.credentials && this.cacheSizeBytes === e.cacheSizeBytes && this.experimentalForceLongPolling === e.experimentalForceLongPolling && this.experimentalAutoDetectLongPolling === e.experimentalAutoDetectLongPolling && (function __PRIVATE_longPollingOptionsEqual(e2, t3) {
+            return e2.timeoutSeconds === t3.timeoutSeconds;
           })(this.experimentalLongPollingOptions, e.experimentalLongPollingOptions) && this.ignoreUndefinedProperties === e.ignoreUndefinedProperties && this.useFetchStreams === e.useFetchStreams;
         }
       };
       Firestore$1 = class {
         /** @hideconstructor */
-        constructor(e, t2, n, r) {
-          this._authCredentials = e, this._appCheckCredentials = t2, this._databaseId = n, this._app = r, /**
+        constructor(e, t3, n, r) {
+          this._authCredentials = e, this._appCheckCredentials = t3, this._databaseId = n, this._app = r, /**
            * Whether it's a Firestore or Firestore Lite instance.
            */
           this.type = "firestore-lite", this._persistenceKey = "(lite)", this._settings = new FirestoreSettingsImpl({}), this._settingsFrozen = false, this._emulatorOptions = {}, // A task that is assigned when the terminate() is invoked and resolved when
@@ -21337,16 +21337,16 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         _terminate() {
           return (function __PRIVATE_removeComponents(e) {
-            const t2 = _n.get(e);
-            t2 && (__PRIVATE_logDebug("ComponentProvider", "Removing Datastore"), _n.delete(e), t2.terminate());
+            const t3 = _n.get(e);
+            t3 && (__PRIVATE_logDebug("ComponentProvider", "Removing Datastore"), _n.delete(e), t3.terminate());
           })(this), Promise.resolve();
         }
       };
       Query = class _Query {
         // This is the lite version of the Query class in the main SDK.
         /** @hideconstructor protected */
-        constructor(e, t2, n) {
-          this.converter = t2, this._query = n, /** The type of this Firestore reference. */
+        constructor(e, t3, n) {
+          this.converter = t3, this._query = n, /** The type of this Firestore reference. */
           this.type = "query", this.firestore = e;
         }
         withConverter(e) {
@@ -21355,8 +21355,8 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       DocumentReference = class _DocumentReference {
         /** @hideconstructor */
-        constructor(e, t2, n) {
-          this.converter = t2, this._key = n, /** The type of this Firestore reference. */
+        constructor(e, t3, n) {
+          this.converter = t3, this._key = n, /** The type of this Firestore reference. */
           this.type = "document", this.firestore = e;
         }
         get _path() {
@@ -21395,8 +21395,8 @@ This typically indicates that your device does not have a healthy Internet conne
             referencePath: this._key.toString()
           };
         }
-        static fromJSON(e, t2, n) {
-          if (__PRIVATE_validateJSON(t2, _DocumentReference._jsonSchema)) return new _DocumentReference(e, n || null, new DocumentKey(ResourcePath.fromString(t2.referencePath)));
+        static fromJSON(e, t3, n) {
+          if (__PRIVATE_validateJSON(t3, _DocumentReference._jsonSchema)) return new _DocumentReference(e, n || null, new DocumentKey(ResourcePath.fromString(t3.referencePath)));
         }
       };
       DocumentReference._jsonSchemaVersion = "firestore/documentReference/1.0", DocumentReference._jsonSchema = {
@@ -21405,8 +21405,8 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       CollectionReference = class _CollectionReference extends Query {
         /** @hideconstructor */
-        constructor(e, t2, n) {
-          super(e, t2, __PRIVATE_newQueryForPath(n)), this._path = n, /** The type of this Firestore reference. */
+        constructor(e, t3, n) {
+          super(e, t3, __PRIVATE_newQueryForPath(n)), this._path = n, /** The type of this Firestore reference. */
           this.type = "collection";
         }
         /** The collection's identifier. */
@@ -21461,8 +21461,8 @@ This typically indicates that your device does not have a healthy Internet conne
             const e2 = getDocument();
             e2 && __PRIVATE_logDebug(cn, "Visibility state changed to " + e2.visibilityState), this.M_.w_();
           }, this.ac = e;
-          const t2 = getDocument();
-          t2 && "function" == typeof t2.addEventListener && t2.addEventListener("visibilitychange", this._c);
+          const t3 = getDocument();
+          t3 && "function" == typeof t3.addEventListener && t3.addEventListener("visibilitychange", this._c);
         }
         get isShuttingDown() {
           return this.ec;
@@ -21481,16 +21481,16 @@ This typically indicates that your device does not have a healthy Internet conne
         enterRestrictedMode(e) {
           if (!this.ec) {
             this.ec = true, this.sc = e || false;
-            const t2 = getDocument();
-            t2 && "function" == typeof t2.removeEventListener && t2.removeEventListener("visibilitychange", this._c);
+            const t3 = getDocument();
+            t3 && "function" == typeof t3.removeEventListener && t3.removeEventListener("visibilitychange", this._c);
           }
         }
         enqueue(e) {
           if (this.uc(), this.ec)
             return new Promise((() => {
             }));
-          const t2 = new __PRIVATE_Deferred();
-          return this.cc((() => this.ec && this.sc ? Promise.resolve() : (e().then(t2.resolve, t2.reject), t2.promise))).then((() => t2.promise));
+          const t3 = new __PRIVATE_Deferred();
+          return this.cc((() => this.ec && this.sc ? Promise.resolve() : (e().then(t3.resolve, t3.reject), t3.promise))).then((() => t3.promise));
         }
         enqueueRetryable(e) {
           this.enqueueAndForget((() => (this.Xu.push(e), this.lc())));
@@ -21521,16 +21521,16 @@ This typically indicates that your device does not have a healthy Internet conne
           }
         }
         cc(e) {
-          const t2 = this.ac.then((() => (this.rc = true, e().catch(((e2) => {
+          const t3 = this.ac.then((() => (this.rc = true, e().catch(((e2) => {
             this.nc = e2, this.rc = false;
             throw __PRIVATE_logError("INTERNAL UNHANDLED ERROR: ", __PRIVATE_getMessageOrStack(e2)), e2;
           })).then(((e2) => (this.rc = false, e2))))));
-          return this.ac = t2, t2;
+          return this.ac = t3, t3;
         }
-        enqueueAfterDelay(e, t2, n) {
+        enqueueAfterDelay(e, t3, n) {
           this.uc(), // Fast-forward delays for timerIds that have been overridden.
-          this.oc.indexOf(e) > -1 && (t2 = 0);
-          const r = DelayedOperation.createAndSchedule(this, e, t2, n, ((e2) => this.hc(e2)));
+          this.oc.indexOf(e) > -1 && (t3 = 0);
+          const r = DelayedOperation.createAndSchedule(this, e, t3, n, ((e2) => this.hc(e2)));
           return this.tc.push(r), r;
         }
         uc() {
@@ -21555,7 +21555,7 @@ This typically indicates that your device does not have a healthy Internet conne
          * exists.
          */
         Ic(e) {
-          for (const t2 of this.tc) if (t2.timerId === e) return true;
+          for (const t3 of this.tc) if (t3.timerId === e) return true;
           return false;
         }
         /**
@@ -21567,8 +21567,8 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         Ec(e) {
           return this.Tc().then((() => {
-            this.tc.sort(((e2, t2) => e2.targetTimeMs - t2.targetTimeMs));
-            for (const t2 of this.tc) if (t2.skipDelay(), "all" !== e && t2.timerId === e) break;
+            this.tc.sort(((e2, t3) => e2.targetTimeMs - t3.targetTimeMs));
+            for (const t3 of this.tc) if (t3.skipDelay(), "all" !== e && t3.timerId === e) break;
             return this.Tc();
           }));
         }
@@ -21580,14 +21580,14 @@ This typically indicates that your device does not have a healthy Internet conne
         }
         /** Called once a DelayedOperation is run or canceled. */
         hc(e) {
-          const t2 = this.tc.indexOf(e);
-          this.tc.splice(t2, 1);
+          const t3 = this.tc.indexOf(e);
+          this.tc.splice(t3, 1);
         }
       };
       Firestore = class extends Firestore$1 {
         /** @hideconstructor */
-        constructor(e, t2, n, r) {
-          super(e, t2, n, r), /**
+        constructor(e, t3, n, r) {
+          super(e, t3, n, r), /**
            * Whether it's a {@link Firestore} or Firestore Lite instance.
            */
           this.type = "firestore", this._queue = new __PRIVATE_AsyncQueueImpl(), this._persistenceKey = r?.name || "[DEFAULT]";
@@ -21692,7 +21692,7 @@ This typically indicates that your device does not have a healthy Internet conne
          * @param fieldNames - A list of field names.
          */
         constructor(...e) {
-          for (let t2 = 0; t2 < e.length; ++t2) if (0 === e[t2].length) throw new FirestoreError(N.INVALID_ARGUMENT, "Invalid field name at argument $(i + 1). Field names must not be empty.");
+          for (let t3 = 0; t3 < e.length; ++t3) if (0 === e[t3].length) throw new FirestoreError(N.INVALID_ARGUMENT, "Invalid field name at argument $(i + 1). Field names must not be empty.");
           this._internalPath = new FieldPath$1(e);
         }
         /**
@@ -21721,10 +21721,10 @@ This typically indicates that your device does not have a healthy Internet conne
          * @param latitude - The latitude as number between -90 and 90.
          * @param longitude - The longitude as number between -180 and 180.
          */
-        constructor(e, t2) {
+        constructor(e, t3) {
           if (!isFinite(e) || e < -90 || e > 90) throw new FirestoreError(N.INVALID_ARGUMENT, "Latitude must be a number between -90 and 90, but was: " + e);
-          if (!isFinite(t2) || t2 < -180 || t2 > 180) throw new FirestoreError(N.INVALID_ARGUMENT, "Longitude must be a number between -180 and 180, but was: " + t2);
-          this._lat = e, this._long = t2;
+          if (!isFinite(t3) || t3 < -180 || t3 > 180) throw new FirestoreError(N.INVALID_ARGUMENT, "Longitude must be a number between -180 and 180, but was: " + t3);
+          this._lat = e, this._long = t3;
         }
         /**
          * The latitude of this `GeoPoint` instance.
@@ -21800,9 +21800,9 @@ This typically indicates that your device does not have a healthy Internet conne
          * Returns `true` if the two `VectorValue` values have the same raw number arrays, returns `false` otherwise.
          */
         isEqual(e) {
-          return (function __PRIVATE_isPrimitiveArrayEqual(e2, t2) {
-            if (e2.length !== t2.length) return false;
-            for (let n = 0; n < e2.length; ++n) if (e2[n] !== t2[n]) return false;
+          return (function __PRIVATE_isPrimitiveArrayEqual(e2, t3) {
+            if (e2.length !== t3.length) return false;
+            for (let n = 0; n < e2.length; ++n) if (e2[n] !== t3[n]) return false;
             return true;
           })(this._values, e._values);
         }
@@ -21837,19 +21837,19 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       hn = /^__.*__$/;
       ParsedSetData = class {
-        constructor(e, t2, n) {
-          this.data = e, this.fieldMask = t2, this.fieldTransforms = n;
+        constructor(e, t3, n) {
+          this.data = e, this.fieldMask = t3, this.fieldTransforms = n;
         }
-        toMutation(e, t2) {
-          return null !== this.fieldMask ? new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t2, this.fieldTransforms) : new __PRIVATE_SetMutation(e, this.data, t2, this.fieldTransforms);
+        toMutation(e, t3) {
+          return null !== this.fieldMask ? new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t3, this.fieldTransforms) : new __PRIVATE_SetMutation(e, this.data, t3, this.fieldTransforms);
         }
       };
       ParsedUpdateData = class {
-        constructor(e, t2, n) {
-          this.data = e, this.fieldMask = t2, this.fieldTransforms = n;
+        constructor(e, t3, n) {
+          this.data = e, this.fieldMask = t3, this.fieldTransforms = n;
         }
-        toMutation(e, t2) {
-          return new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t2, this.fieldTransforms);
+        toMutation(e, t3) {
+          return new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t3, this.fieldTransforms);
         }
       };
       __PRIVATE_ParseContextImpl = class ___PRIVATE_ParseContextImpl {
@@ -21871,8 +21871,8 @@ This typically indicates that your device does not have a healthy Internet conne
          * which case certain features will not work and errors will be somewhat
          * compromised).
          */
-        constructor(e, t2, n, r, i, s) {
-          this.settings = e, this.databaseId = t2, this.serializer = n, this.ignoreUndefinedProperties = r, // Minor hack: If fieldTransforms is undefined, we assume this is an
+        constructor(e, t3, n, r, i, s) {
+          this.settings = e, this.databaseId = t3, this.serializer = n, this.ignoreUndefinedProperties = r, // Minor hack: If fieldTransforms is undefined, we assume this is an
           // external call and we need to validate the entire path.
           void 0 === i && this.Rc(), this.fieldTransforms = i || [], this.fieldMask = s || [];
         }
@@ -21890,15 +21890,15 @@ This typically indicates that your device does not have a healthy Internet conne
           }, this.databaseId, this.serializer, this.ignoreUndefinedProperties, this.fieldTransforms, this.fieldMask);
         }
         mc(e) {
-          const t2 = this.path?.child(e), n = this.Vc({
-            path: t2,
+          const t3 = this.path?.child(e), n = this.Vc({
+            path: t3,
             fc: false
           });
           return n.gc(e), n;
         }
         yc(e) {
-          const t2 = this.path?.child(e), n = this.Vc({
-            path: t2,
+          const t3 = this.path?.child(e), n = this.Vc({
+            path: t3,
             fc: false
           });
           return n.Rc(), n;
@@ -21914,7 +21914,7 @@ This typically indicates that your device does not have a healthy Internet conne
         }
         /** Returns 'true' if 'fieldPath' was traversed when creating this context. */
         contains(e) {
-          return void 0 !== this.fieldMask.find(((t2) => e.isPrefixOf(t2))) || void 0 !== this.fieldTransforms.find(((t2) => e.isPrefixOf(t2.field)));
+          return void 0 !== this.fieldMask.find(((t3) => e.isPrefixOf(t3))) || void 0 !== this.fieldTransforms.find(((t3) => e.isPrefixOf(t3.field)));
         }
         Rc() {
           if (this.path) for (let e = 0; e < this.path.length; e++) this.gc(this.path.get(e));
@@ -21925,14 +21925,14 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       };
       __PRIVATE_UserDataReader = class {
-        constructor(e, t2, n) {
-          this.databaseId = e, this.ignoreUndefinedProperties = t2, this.serializer = n || __PRIVATE_newSerializer(e);
+        constructor(e, t3, n) {
+          this.databaseId = e, this.ignoreUndefinedProperties = t3, this.serializer = n || __PRIVATE_newSerializer(e);
         }
         /** Creates a new top-level parse context. */
-        Cc(e, t2, n, r = false) {
+        Cc(e, t3, n, r = false) {
           return new __PRIVATE_ParseContextImpl({
             Ac: e,
-            methodName: t2,
+            methodName: t3,
             Dc: n,
             path: FieldPath$1.emptyPath(),
             fc: false,
@@ -21956,8 +21956,8 @@ This typically indicates that your device does not have a healthy Internet conne
         // - No support for SnapshotMetadata.
         // - No support for SnapshotOptions.
         /** @hideconstructor protected */
-        constructor(e, t2, n, r, i) {
-          this._firestore = e, this._userDataWriter = t2, this._key = n, this._document = r, this._converter = i;
+        constructor(e, t3, n, r, i) {
+          this._firestore = e, this._userDataWriter = t3, this._key = n, this._document = r, this._converter = i;
         }
         /** Property of the `DocumentSnapshot` that provides the document's ID. */
         get id() {
@@ -22013,8 +22013,8 @@ This typically indicates that your device does not have a healthy Internet conne
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         get(e) {
           if (this._document) {
-            const t2 = this._document.data.field(__PRIVATE_fieldPathFromArgument("DocumentSnapshot.get", e));
-            if (null !== t2) return this._userDataWriter.convertValue(t2);
+            const t3 = this._document.data.field(__PRIVATE_fieldPathFromArgument("DocumentSnapshot.get", e));
+            if (null !== t3) return this._userDataWriter.convertValue(t3);
           }
         }
       };
@@ -22037,42 +22037,42 @@ This typically indicates that your device does not have a healthy Internet conne
         /**
          * @internal
          */
-        constructor(e, t2, n) {
-          super(), this._field = e, this._op = t2, this._value = n, /** The type of this query constraint */
+        constructor(e, t3, n) {
+          super(), this._field = e, this._op = t3, this._value = n, /** The type of this query constraint */
           this.type = "where";
         }
-        static _create(e, t2, n) {
-          return new _QueryFieldFilterConstraint(e, t2, n);
+        static _create(e, t3, n) {
+          return new _QueryFieldFilterConstraint(e, t3, n);
         }
         _apply(e) {
-          const t2 = this._parse(e);
-          return __PRIVATE_validateNewFieldFilter(e._query, t2), new Query(e.firestore, e.converter, __PRIVATE_queryWithAddedFilter(e._query, t2));
+          const t3 = this._parse(e);
+          return __PRIVATE_validateNewFieldFilter(e._query, t3), new Query(e.firestore, e.converter, __PRIVATE_queryWithAddedFilter(e._query, t3));
         }
         _parse(e) {
-          const t2 = __PRIVATE_newUserDataReader(e.firestore), n = (function __PRIVATE_newQueryFilter(e2, t3, n2, r, i, s, o) {
+          const t3 = __PRIVATE_newUserDataReader(e.firestore), n = (function __PRIVATE_newQueryFilter(e2, t4, n2, r, i, s, o) {
             let _;
             if (i.isKeyField()) {
               if ("array-contains" === s || "array-contains-any" === s) throw new FirestoreError(N.INVALID_ARGUMENT, `Invalid Query. You can't perform '${s}' queries on documentId().`);
               if ("in" === s || "not-in" === s) {
                 __PRIVATE_validateDisjunctiveFilterElements(o, s);
-                const t4 = [];
-                for (const n3 of o) t4.push(__PRIVATE_parseDocumentIdValue(r, e2, n3));
+                const t5 = [];
+                for (const n3 of o) t5.push(__PRIVATE_parseDocumentIdValue(r, e2, n3));
                 _ = {
                   arrayValue: {
-                    values: t4
+                    values: t5
                   }
                 };
               } else _ = __PRIVATE_parseDocumentIdValue(r, e2, o);
             } else "in" !== s && "not-in" !== s && "array-contains-any" !== s || __PRIVATE_validateDisjunctiveFilterElements(o, s), _ = __PRIVATE_parseQueryValue(
               n2,
-              t3,
+              t4,
               o,
               /* allowArrays= */
               "in" === s || "not-in" === s
             );
             const a = FieldFilter.create(i, s, _);
             return a;
-          })(e._query, "where", t2, e.firestore._databaseId, this._field, this._op, this._value);
+          })(e._query, "where", t3, e.firestore._databaseId, this._field, this._op, this._value);
           return n;
         }
       };
@@ -22080,23 +22080,23 @@ This typically indicates that your device does not have a healthy Internet conne
         /**
          * @internal
          */
-        constructor(e, t2) {
-          super(), this.type = e, this._queryConstraints = t2;
+        constructor(e, t3) {
+          super(), this.type = e, this._queryConstraints = t3;
         }
-        static _create(e, t2) {
-          return new _QueryCompositeFilterConstraint(e, t2);
+        static _create(e, t3) {
+          return new _QueryCompositeFilterConstraint(e, t3);
         }
         _parse(e) {
-          const t2 = this._queryConstraints.map(((t3) => t3._parse(e))).filter(((e2) => e2.getFilters().length > 0));
-          return 1 === t2.length ? t2[0] : CompositeFilter.create(t2, this._getOperator());
+          const t3 = this._queryConstraints.map(((t4) => t4._parse(e))).filter(((e2) => e2.getFilters().length > 0));
+          return 1 === t3.length ? t3[0] : CompositeFilter.create(t3, this._getOperator());
         }
         _apply(e) {
-          const t2 = this._parse(e);
-          return 0 === t2.getFilters().length ? e : ((function __PRIVATE_validateNewFilter(e2, t3) {
+          const t3 = this._parse(e);
+          return 0 === t3.getFilters().length ? e : ((function __PRIVATE_validateNewFilter(e2, t4) {
             let n = e2;
-            const r = t3.getFlattenedFilters();
+            const r = t4.getFlattenedFilters();
             for (const e3 of r) __PRIVATE_validateNewFieldFilter(n, e3), n = __PRIVATE_queryWithAddedFilter(n, e3);
-          })(e._query, t2), new Query(e.firestore, e.converter, __PRIVATE_queryWithAddedFilter(e._query, t2)));
+          })(e._query, t3), new Query(e.firestore, e.converter, __PRIVATE_queryWithAddedFilter(e._query, t3)));
         }
         _getQueryConstraints() {
           return this._queryConstraints;
@@ -22109,35 +22109,35 @@ This typically indicates that your device does not have a healthy Internet conne
         /**
          * @internal
          */
-        constructor(e, t2) {
-          super(), this._field = e, this._direction = t2, /** The type of this query constraint */
+        constructor(e, t3) {
+          super(), this._field = e, this._direction = t3, /** The type of this query constraint */
           this.type = "orderBy";
         }
-        static _create(e, t2) {
-          return new _QueryOrderByConstraint(e, t2);
+        static _create(e, t3) {
+          return new _QueryOrderByConstraint(e, t3);
         }
         _apply(e) {
-          const t2 = (function __PRIVATE_newQueryOrderBy(e2, t3, n) {
+          const t3 = (function __PRIVATE_newQueryOrderBy(e2, t4, n) {
             if (null !== e2.startAt) throw new FirestoreError(N.INVALID_ARGUMENT, "Invalid query. You must not call startAt() or startAfter() before calling orderBy().");
             if (null !== e2.endAt) throw new FirestoreError(N.INVALID_ARGUMENT, "Invalid query. You must not call endAt() or endBefore() before calling orderBy().");
-            const r = new OrderBy(t3, n);
+            const r = new OrderBy(t4, n);
             return r;
           })(e._query, this._field, this._direction);
-          return new Query(e.firestore, e.converter, (function __PRIVATE_queryWithAddedOrderBy(e2, t3) {
-            const n = e2.explicitOrderBy.concat([t3]);
+          return new Query(e.firestore, e.converter, (function __PRIVATE_queryWithAddedOrderBy(e2, t4) {
+            const n = e2.explicitOrderBy.concat([t4]);
             return new __PRIVATE_QueryImpl(e2.path, e2.collectionGroup, n, e2.filters.slice(), e2.limit, e2.limitType, e2.startAt, e2.endAt);
-          })(e._query, t2));
+          })(e._query, t3));
         }
       };
       QueryLimitConstraint = class _QueryLimitConstraint extends QueryConstraint {
         /**
          * @internal
          */
-        constructor(e, t2, n) {
-          super(), this.type = e, this._limit = t2, this._limitType = n;
+        constructor(e, t3, n) {
+          super(), this.type = e, this._limit = t3, this._limitType = n;
         }
-        static _create(e, t2, n) {
-          return new _QueryLimitConstraint(e, t2, n);
+        static _create(e, t3, n) {
+          return new _QueryLimitConstraint(e, t3, n);
         }
         _apply(e) {
           return new Query(e.firestore, e.converter, __PRIVATE_queryWithLimit(e._query, this._limit, this._limitType));
@@ -22147,21 +22147,21 @@ This typically indicates that your device does not have a healthy Internet conne
         /**
          * @internal
          */
-        constructor(e, t2, n) {
-          super(), this.type = e, this._docOrFields = t2, this._inclusive = n;
+        constructor(e, t3, n) {
+          super(), this.type = e, this._docOrFields = t3, this._inclusive = n;
         }
-        static _create(e, t2, n) {
-          return new _QueryStartAtConstraint(e, t2, n);
+        static _create(e, t3, n) {
+          return new _QueryStartAtConstraint(e, t3, n);
         }
         _apply(e) {
-          const t2 = __PRIVATE_newQueryBoundFromDocOrFields(e, this.type, this._docOrFields, this._inclusive);
-          return new Query(e.firestore, e.converter, (function __PRIVATE_queryWithStartAt(e2, t3) {
-            return new __PRIVATE_QueryImpl(e2.path, e2.collectionGroup, e2.explicitOrderBy.slice(), e2.filters.slice(), e2.limit, e2.limitType, t3, e2.endAt);
-          })(e._query, t2));
+          const t3 = __PRIVATE_newQueryBoundFromDocOrFields(e, this.type, this._docOrFields, this._inclusive);
+          return new Query(e.firestore, e.converter, (function __PRIVATE_queryWithStartAt(e2, t4) {
+            return new __PRIVATE_QueryImpl(e2.path, e2.collectionGroup, e2.explicitOrderBy.slice(), e2.filters.slice(), e2.limit, e2.limitType, t4, e2.endAt);
+          })(e._query, t3));
         }
       };
       AbstractUserDataWriter = class {
-        convertValue(e, t2 = "none") {
+        convertValue(e, t3 = "none") {
           switch (__PRIVATE_typeOrder(e)) {
             case 0:
               return null;
@@ -22172,7 +22172,7 @@ This typically indicates that your device does not have a healthy Internet conne
             case 3:
               return this.convertTimestamp(e.timestampValue);
             case 4:
-              return this.convertServerTimestamp(e, t2);
+              return this.convertServerTimestamp(e, t3);
             case 5:
               return e.stringValue;
             case 6:
@@ -22182,9 +22182,9 @@ This typically indicates that your device does not have a healthy Internet conne
             case 8:
               return this.convertGeoPoint(e.geoPointValue);
             case 9:
-              return this.convertArray(e.arrayValue, t2);
+              return this.convertArray(e.arrayValue, t3);
             case 11:
-              return this.convertObject(e.mapValue, t2);
+              return this.convertObject(e.mapValue, t3);
             case 10:
               return this.convertVectorValue(e.mapValue);
             default:
@@ -22193,36 +22193,36 @@ This typically indicates that your device does not have a healthy Internet conne
               });
           }
         }
-        convertObject(e, t2) {
-          return this.convertObjectMap(e.fields, t2);
+        convertObject(e, t3) {
+          return this.convertObjectMap(e.fields, t3);
         }
         /**
          * @internal
          */
-        convertObjectMap(e, t2 = "none") {
+        convertObjectMap(e, t3 = "none") {
           const n = {};
           return forEach(e, ((e2, r) => {
-            n[e2] = this.convertValue(r, t2);
+            n[e2] = this.convertValue(r, t3);
           })), n;
         }
         /**
          * @internal
          */
         convertVectorValue(e) {
-          const t2 = e.fields?.[Et].arrayValue?.values?.map(((e2) => __PRIVATE_normalizeNumber(e2.doubleValue)));
-          return new VectorValue(t2);
+          const t3 = e.fields?.[Et].arrayValue?.values?.map(((e2) => __PRIVATE_normalizeNumber(e2.doubleValue)));
+          return new VectorValue(t3);
         }
         convertGeoPoint(e) {
           return new GeoPoint(__PRIVATE_normalizeNumber(e.latitude), __PRIVATE_normalizeNumber(e.longitude));
         }
-        convertArray(e, t2) {
-          return (e.values || []).map(((e2) => this.convertValue(e2, t2)));
+        convertArray(e, t3) {
+          return (e.values || []).map(((e2) => this.convertValue(e2, t3)));
         }
-        convertServerTimestamp(e, t2) {
-          switch (t2) {
+        convertServerTimestamp(e, t3) {
+          switch (t3) {
             case "previous":
               const n = __PRIVATE_getPreviousValue(e);
-              return null == n ? null : this.convertValue(n, t2);
+              return null == n ? null : this.convertValue(n, t3);
             case "estimate":
               return this.convertTimestamp(__PRIVATE_getLocalWriteTime(e));
             default:
@@ -22230,23 +22230,23 @@ This typically indicates that your device does not have a healthy Internet conne
           }
         }
         convertTimestamp(e) {
-          const t2 = __PRIVATE_normalizeTimestamp(e);
-          return new Timestamp(t2.seconds, t2.nanos);
+          const t3 = __PRIVATE_normalizeTimestamp(e);
+          return new Timestamp(t3.seconds, t3.nanos);
         }
-        convertDocumentKey(e, t2) {
+        convertDocumentKey(e, t3) {
           const n = ResourcePath.fromString(e);
           __PRIVATE_hardAssert(__PRIVATE_isValidResourceName(n), 9688, {
             name: e
           });
           const r = new DatabaseId(n.get(1), n.get(3)), i = new DocumentKey(n.popFirst(5));
-          return r.isEqual(t2) || // TODO(b/64130202): Somehow support foreign references.
-          __PRIVATE_logError(`Document ${i} contains a document reference within a different database (${r.projectId}/${r.database}) which is not supported. It will be treated as a reference in the current database (${t2.projectId}/${t2.database}) instead.`), i;
+          return r.isEqual(t3) || // TODO(b/64130202): Somehow support foreign references.
+          __PRIVATE_logError(`Document ${i} contains a document reference within a different database (${r.projectId}/${r.database}) which is not supported. It will be treated as a reference in the current database (${t3.projectId}/${t3.database}) instead.`), i;
         }
       };
       SnapshotMetadata = class {
         /** @hideconstructor */
-        constructor(e, t2) {
-          this.hasPendingWrites = e, this.fromCache = t2;
+        constructor(e, t3) {
+          this.hasPendingWrites = e, this.fromCache = t3;
         }
         /**
          * Returns true if this `SnapshotMetadata` is equal to the provided one.
@@ -22260,8 +22260,8 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       DocumentSnapshot = class _DocumentSnapshot extends DocumentSnapshot$1 {
         /** @hideconstructor protected */
-        constructor(e, t2, n, r, i, s) {
-          super(e, t2, n, r, s), this._firestore = e, this._firestoreImpl = e, this.metadata = i;
+        constructor(e, t3, n, r, i, s) {
+          super(e, t3, n, r, s), this._firestore = e, this._firestoreImpl = e, this.metadata = i;
         }
         /**
          * Returns whether or not the data exists. True if the document exists.
@@ -22286,7 +22286,7 @@ This typically indicates that your device does not have a healthy Internet conne
         data(e = {}) {
           if (this._document) {
             if (this._converter) {
-              const t2 = new QueryDocumentSnapshot(
+              const t3 = new QueryDocumentSnapshot(
                 this._firestore,
                 this._userDataWriter,
                 this._key,
@@ -22295,7 +22295,7 @@ This typically indicates that your device does not have a healthy Internet conne
                 /* converter= */
                 null
               );
-              return this._converter.fromFirestore(t2, e);
+              return this._converter.fromFirestore(t3, e);
             }
             return this._userDataWriter.convertValue(this._document.data.value, e.serverTimestamps);
           }
@@ -22318,10 +22318,10 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         // We are using `any` here to avoid an explicit cast by our users.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        get(e, t2 = {}) {
+        get(e, t3 = {}) {
           if (this._document) {
             const n = this._document.data.field(__PRIVATE_fieldPathFromArgument("DocumentSnapshot.get", e));
-            if (null !== n) return this._userDataWriter.convertValue(n, t2.serverTimestamps);
+            if (null !== n) return this._userDataWriter.convertValue(n, t3.serverTimestamps);
           }
         }
         /**
@@ -22332,10 +22332,10 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         toJSON() {
           if (this.metadata.hasPendingWrites) throw new FirestoreError(N.FAILED_PRECONDITION, "DocumentSnapshot.toJSON() attempted to serialize a document with pending writes. Await waitForPendingWrites() before invoking toJSON().");
-          const e = this._document, t2 = {};
-          if (t2.type = _DocumentSnapshot._jsonSchemaVersion, t2.bundle = "", t2.bundleSource = "DocumentSnapshot", t2.bundleName = this._key.toString(), !e || !e.isValidDocument() || !e.isFoundDocument()) return t2;
+          const e = this._document, t3 = {};
+          if (t3.type = _DocumentSnapshot._jsonSchemaVersion, t3.bundle = "", t3.bundleSource = "DocumentSnapshot", t3.bundleName = this._key.toString(), !e || !e.isValidDocument() || !e.isFoundDocument()) return t3;
           this._userDataWriter.convertObjectMap(e.data.value.mapValue.fields, "previous");
-          return t2.bundle = (this._firestore, this.ref.path, "NOT SUPPORTED"), t2;
+          return t3.bundle = (this._firestore, this.ref.path, "NOT SUPPORTED"), t3;
         }
       };
       DocumentSnapshot._jsonSchemaVersion = "firestore/documentSnapshot/1.0", DocumentSnapshot._jsonSchema = {
@@ -22364,13 +22364,13 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       QuerySnapshot = class _QuerySnapshot {
         /** @hideconstructor */
-        constructor(e, t2, n, r) {
-          this._firestore = e, this._userDataWriter = t2, this._snapshot = r, this.metadata = new SnapshotMetadata(r.hasPendingWrites, r.fromCache), this.query = n;
+        constructor(e, t3, n, r) {
+          this._firestore = e, this._userDataWriter = t3, this._snapshot = r, this.metadata = new SnapshotMetadata(r.hasPendingWrites, r.fromCache), this.query = n;
         }
         /** An array of all the documents in the `QuerySnapshot`. */
         get docs() {
           const e = [];
-          return this.forEach(((t2) => e.push(t2))), e;
+          return this.forEach(((t3) => e.push(t3))), e;
         }
         /** The number of documents in the `QuerySnapshot`. */
         get size() {
@@ -22387,9 +22387,9 @@ This typically indicates that your device does not have a healthy Internet conne
          * each document in the snapshot.
          * @param thisArg - The `this` binding for the callback.
          */
-        forEach(e, t2) {
+        forEach(e, t3) {
           this._snapshot.docs.forEach(((n) => {
-            e.call(t2, new QueryDocumentSnapshot(this._firestore, this._userDataWriter, n.key, n, new SnapshotMetadata(this._snapshot.mutatedKeys.has(n.key), this._snapshot.fromCache), this.query.converter));
+            e.call(t3, new QueryDocumentSnapshot(this._firestore, this._userDataWriter, n.key, n, new SnapshotMetadata(this._snapshot.mutatedKeys.has(n.key), this._snapshot.fromCache), this.query.converter));
           }));
         }
         /**
@@ -22402,36 +22402,36 @@ This typically indicates that your device does not have a healthy Internet conne
          * snapshot events.
          */
         docChanges(e = {}) {
-          const t2 = !!e.includeMetadataChanges;
-          if (t2 && this._snapshot.excludesMetadataChanges) throw new FirestoreError(N.INVALID_ARGUMENT, "To include metadata changes with your document changes, you must also pass { includeMetadataChanges:true } to onSnapshot().");
-          return this._cachedChanges && this._cachedChangesIncludeMetadataChanges === t2 || (this._cachedChanges = /** Calculates the array of `DocumentChange`s for a given `ViewSnapshot`. */
-          (function __PRIVATE_changesFromSnapshot(e2, t3) {
+          const t3 = !!e.includeMetadataChanges;
+          if (t3 && this._snapshot.excludesMetadataChanges) throw new FirestoreError(N.INVALID_ARGUMENT, "To include metadata changes with your document changes, you must also pass { includeMetadataChanges:true } to onSnapshot().");
+          return this._cachedChanges && this._cachedChangesIncludeMetadataChanges === t3 || (this._cachedChanges = /** Calculates the array of `DocumentChange`s for a given `ViewSnapshot`. */
+          (function __PRIVATE_changesFromSnapshot(e2, t4) {
             if (e2._snapshot.oldDocs.isEmpty()) {
-              let t4 = 0;
+              let t5 = 0;
               return e2._snapshot.docChanges.map(((n) => {
                 const r = new QueryDocumentSnapshot(e2._firestore, e2._userDataWriter, n.doc.key, n.doc, new SnapshotMetadata(e2._snapshot.mutatedKeys.has(n.doc.key), e2._snapshot.fromCache), e2.query.converter);
                 return n.doc, {
                   type: "added",
                   doc: r,
                   oldIndex: -1,
-                  newIndex: t4++
+                  newIndex: t5++
                 };
               }));
             }
             {
               let n = e2._snapshot.oldDocs;
-              return e2._snapshot.docChanges.filter(((e3) => t3 || 3 !== e3.type)).map(((t4) => {
-                const r = new QueryDocumentSnapshot(e2._firestore, e2._userDataWriter, t4.doc.key, t4.doc, new SnapshotMetadata(e2._snapshot.mutatedKeys.has(t4.doc.key), e2._snapshot.fromCache), e2.query.converter);
+              return e2._snapshot.docChanges.filter(((e3) => t4 || 3 !== e3.type)).map(((t5) => {
+                const r = new QueryDocumentSnapshot(e2._firestore, e2._userDataWriter, t5.doc.key, t5.doc, new SnapshotMetadata(e2._snapshot.mutatedKeys.has(t5.doc.key), e2._snapshot.fromCache), e2.query.converter);
                 let i = -1, s = -1;
-                return 0 !== t4.type && (i = n.indexOf(t4.doc.key), n = n.delete(t4.doc.key)), 1 !== t4.type && (n = n.add(t4.doc), s = n.indexOf(t4.doc.key)), {
-                  type: __PRIVATE_resultChangeType(t4.type),
+                return 0 !== t5.type && (i = n.indexOf(t5.doc.key), n = n.delete(t5.doc.key)), 1 !== t5.type && (n = n.add(t5.doc), s = n.indexOf(t5.doc.key)), {
+                  type: __PRIVATE_resultChangeType(t5.type),
                   doc: r,
                   oldIndex: i,
                   newIndex: s
                 };
               }));
             }
-          })(this, t2), this._cachedChangesIncludeMetadataChanges = t2), this._cachedChanges;
+          })(this, t3), this._cachedChangesIncludeMetadataChanges = t3), this._cachedChanges;
         }
         /**
          * Returns a JSON-serializable representation of this `QuerySnapshot` instance.
@@ -22443,9 +22443,9 @@ This typically indicates that your device does not have a healthy Internet conne
           if (this.metadata.hasPendingWrites) throw new FirestoreError(N.FAILED_PRECONDITION, "QuerySnapshot.toJSON() attempted to serialize a document with pending writes. Await waitForPendingWrites() before invoking toJSON().");
           const e = {};
           e.type = _QuerySnapshot._jsonSchemaVersion, e.bundleSource = "QuerySnapshot", e.bundleName = __PRIVATE_AutoId.newId(), this._firestore._databaseId.database, this._firestore._databaseId.projectId;
-          const t2 = [], n = [], r = [];
+          const t3 = [], n = [], r = [];
           return this.docs.forEach(((e2) => {
-            null !== e2._document && (t2.push(e2._document), n.push(this._userDataWriter.convertObjectMap(e2._document.data.value.mapValue.fields, "previous")), r.push(e2.ref.path));
+            null !== e2._document && (t3.push(e2._document), n.push(this._userDataWriter.convertObjectMap(e2._document.data.value.mapValue.fields, "previous")), r.push(e2.ref.path));
           })), e.bundle = (this._firestore, this.query._query, e.bundleName, "NOT SUPPORTED"), e;
         }
       };
@@ -22463,19 +22463,19 @@ This typically indicates that your device does not have a healthy Internet conne
           return new Bytes(e);
         }
         convertReference(e) {
-          const t2 = this.convertDocumentKey(e, this.firestore._databaseId);
+          const t3 = this.convertDocumentKey(e, this.firestore._databaseId);
           return new DocumentReference(
             this.firestore,
             /* converter= */
             null,
-            t2
+            t3
           );
         }
       };
       __PRIVATE_PersistentLocalCacheImpl = class {
         constructor(e) {
-          let t2;
-          this.kind = "persistent", e?.tabManager ? (e.tabManager._initialize(e), t2 = e.tabManager) : (t2 = persistentSingleTabManager(void 0), t2._initialize(e)), this._onlineComponentProvider = t2._onlineComponentProvider, this._offlineComponentProvider = t2._offlineComponentProvider;
+          let t3;
+          this.kind = "persistent", e?.tabManager ? (e.tabManager._initialize(e), t3 = e.tabManager) : (t3 = persistentSingleTabManager(void 0), t3._initialize(e)), this._onlineComponentProvider = t3._onlineComponentProvider, this._offlineComponentProvider = t3._offlineComponentProvider;
         }
         toJSON() {
           return {
@@ -22497,25 +22497,25 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         _initialize(e) {
           this._onlineComponentProvider = OnlineComponentProvider.provider, this._offlineComponentProvider = {
-            build: (t2) => new __PRIVATE_IndexedDbOfflineComponentProvider(t2, e?.cacheSizeBytes, this.forceOwnership)
+            build: (t3) => new __PRIVATE_IndexedDbOfflineComponentProvider(t3, e?.cacheSizeBytes, this.forceOwnership)
           };
         }
       };
       WriteBatch = class {
         /** @hideconstructor */
-        constructor(e, t2) {
-          this._firestore = e, this._commitHandler = t2, this._mutations = [], this._committed = false, this._dataReader = __PRIVATE_newUserDataReader(e);
+        constructor(e, t3) {
+          this._firestore = e, this._commitHandler = t3, this._mutations = [], this._committed = false, this._dataReader = __PRIVATE_newUserDataReader(e);
         }
-        set(e, t2, n) {
+        set(e, t3, n) {
           this._verifyNotCommitted();
-          const r = __PRIVATE_validateReference(e, this._firestore), i = __PRIVATE_applyFirestoreDataConverter(r.converter, t2, n), s = __PRIVATE_parseSetData(this._dataReader, "WriteBatch.set", r._key, i, null !== r.converter, n);
+          const r = __PRIVATE_validateReference(e, this._firestore), i = __PRIVATE_applyFirestoreDataConverter(r.converter, t3, n), s = __PRIVATE_parseSetData(this._dataReader, "WriteBatch.set", r._key, i, null !== r.converter, n);
           return this._mutations.push(s.toMutation(r._key, Precondition.none())), this;
         }
-        update(e, t2, n, ...r) {
+        update(e, t3, n, ...r) {
           this._verifyNotCommitted();
           const i = __PRIVATE_validateReference(e, this._firestore);
           let s;
-          return s = "string" == typeof (t2 = getModularInstance(t2)) || t2 instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "WriteBatch.update", i._key, t2, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "WriteBatch.update", i._key, t2), this._mutations.push(s.toMutation(i._key, Precondition.exists(true))), this;
+          return s = "string" == typeof (t3 = getModularInstance(t3)) || t3 instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "WriteBatch.update", i._key, t3, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "WriteBatch.update", i._key, t3), this._mutations.push(s.toMutation(i._key, Precondition.exists(true))), this;
         }
         /**
          * Deletes the document referred to by the provided {@link DocumentReference}.
@@ -22525,8 +22525,8 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         delete(e) {
           this._verifyNotCommitted();
-          const t2 = __PRIVATE_validateReference(e, this._firestore);
-          return this._mutations = this._mutations.concat(new __PRIVATE_DeleteMutation(t2._key, Precondition.none())), this;
+          const t3 = __PRIVATE_validateReference(e, this._firestore);
+          return this._mutations = this._mutations.concat(new __PRIVATE_DeleteMutation(t3._key, Precondition.none())), this;
         }
         /**
          * Commits all of the writes in this write batch as a single atomic unit.
@@ -22547,16 +22547,16 @@ This typically indicates that your device does not have a healthy Internet conne
           if (this._committed) throw new FirestoreError(N.FAILED_PRECONDITION, "A write batch can no longer be used after commit() has been called.");
         }
       };
-      !(function __PRIVATE_registerFirestore(e, t2 = true) {
+      !(function __PRIVATE_registerFirestore(e, t3 = true) {
         !(function __PRIVATE_setSDKVersion(e2) {
           x = e2;
         })(SDK_VERSION), _registerComponent(new Component("firestore", ((e2, { instanceIdentifier: n, options: r }) => {
-          const i = e2.getProvider("app").getImmediate(), s = new Firestore(new __PRIVATE_FirebaseAuthCredentialsProvider(e2.getProvider("auth-internal")), new __PRIVATE_FirebaseAppCheckTokenProvider(i, e2.getProvider("app-check-internal")), (function __PRIVATE_databaseIdFromApp(e3, t3) {
+          const i = e2.getProvider("app").getImmediate(), s = new Firestore(new __PRIVATE_FirebaseAuthCredentialsProvider(e2.getProvider("auth-internal")), new __PRIVATE_FirebaseAppCheckTokenProvider(i, e2.getProvider("app-check-internal")), (function __PRIVATE_databaseIdFromApp(e3, t4) {
             if (!Object.prototype.hasOwnProperty.apply(e3.options, ["projectId"])) throw new FirestoreError(N.INVALID_ARGUMENT, '"projectId" not provided in firebase.initializeApp.');
-            return new DatabaseId(e3.options.projectId, t3);
+            return new DatabaseId(e3.options.projectId, t4);
           })(i, n), i);
           return r = {
-            useFetchStreams: t2,
+            useFetchStreams: t3,
             ...r
           }, s._setSettings(r), s;
         }), "PUBLIC").setMultipleInstances(true)), registerVersion(F, M, e), // BUILD_TARGET will be replaced by values like esm, cjs, etc during the compilation
@@ -24506,7 +24506,11 @@ ${this.customData.serverResponse}`;
           call_from_device: "Call from device",
           call_btn: "Call",
           call_phone_hint: "Or type a number manually",
-          toast_refreshing: "Refreshing..."
+          toast_refreshing: "Refreshing...",
+          device_sync_label: "Sync:",
+          device_sync_sms: "SMS",
+          device_sync_calls: "Calls",
+          device_sync_notifications: "Notifications"
         },
         ar: {
           nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
@@ -24624,6 +24628,10 @@ ${this.customData.serverResponse}`;
           call_from_device: "\u0627\u062A\u0635\u0644 \u0645\u0646 \u062C\u0647\u0627\u0632",
           call_btn: "\u0627\u062A\u0635\u0627\u0644",
           call_phone_hint: "\u0623\u0648 \u0627\u0643\u062A\u0628 \u0631\u0642\u0645\u064B\u0627 \u064A\u062F\u0648\u064A\u064B\u0627",
+          device_sync_label: "\u0645\u0632\u0627\u0645\u0646\u0629:",
+          device_sync_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          device_sync_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
+          device_sync_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
       };
@@ -24870,7 +24878,7 @@ ${this.customData.serverResponse}`;
   }
   function getCallsCount(deviceId) {
     if (!callsDataConfirmed) return 0;
-    if (deviceId === "all") return devices.reduce((t2, d) => t2 + getCallsCount(d.id), 0);
+    if (deviceId === "all") return devices.reduce((t3, d) => t3 + getCallsCount(d.id), 0);
     return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
   }
   function getNotifsCount(deviceId) {
@@ -29456,9 +29464,9 @@ ${this.customData.serverResponse}`;
             let oldestRaw = null;
             let oldestMs = null;
             for (const n of all) {
-              const t2 = tsMs(n.timestamp) || n.receivedAt || 0;
-              if (t2 > 0 && (oldestMs === null || t2 < oldestMs)) {
-                oldestMs = t2;
+              const t3 = tsMs(n.timestamp) || n.receivedAt || 0;
+              if (t3 > 0 && (oldestMs === null || t3 < oldestMs)) {
+                oldestMs = t3;
                 oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
               }
             }
@@ -29683,9 +29691,9 @@ ${this.customData.serverResponse}`;
             let oldestRaw = null;
             let oldestMs = null;
             for (const n of newNotifs) {
-              const t2 = tsMs(n.timestamp) || n.receivedAt || 0;
-              if (t2 > 0 && (oldestMs === null || t2 < oldestMs)) {
-                oldestMs = t2;
+              const t3 = tsMs(n.timestamp) || n.receivedAt || 0;
+              if (t3 > 0 && (oldestMs === null || t3 < oldestMs)) {
+                oldestMs = t3;
                 oldestRaw = n.timestamp != null ? n.timestamp : n.receivedAt;
               }
             }
@@ -30397,7 +30405,7 @@ ${this.customData.serverResponse}`;
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
         const tabName = tab.dataset.tab;
-        tabs.forEach((t2) => t2.classList.remove("active"));
+        tabs.forEach((t3) => t3.classList.remove("active"));
         tab.classList.add("active");
         tabContents.forEach((content) => {
           content.classList.remove("active");
@@ -30595,13 +30603,13 @@ ${this.customData.serverResponse}`;
   }
   var _enc = new TextEncoder();
   var _CRC32 = (() => {
-    const t2 = new Uint32Array(256);
+    const t3 = new Uint32Array(256);
     for (let i = 0; i < 256; i++) {
       let c = i;
       for (let j2 = 0; j2 < 8; j2++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
-      t2[i] = c;
+      t3[i] = c;
     }
-    return t2;
+    return t3;
   })();
   function _crc32(b) {
     let c = 4294967295;
@@ -31416,6 +31424,10 @@ ${this.customData.serverResponse}`;
   init_notifications();
   init_calls();
   init_sms();
+  function t2(key) {
+    const lang = getCurrentLanguage();
+    return translations[lang]?.[key] || translations["en"][key] || key;
+  }
   var _deviceVersionCache = {};
   async function _loadVersionCache() {
     try {
@@ -31597,18 +31609,18 @@ ${this.customData.serverResponse}`;
         <div class="device-id-info">${escapeHtml(device.id)}</div>
         ${isMobileDevice ? `
         <div class="device-sync-prefs">
-          <span class="sync-pref-title">Sync:</span>
+          <span class="sync-pref-title">${t2("device_sync_label")}</span>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="sms" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "sms") ? " checked" : ""}>
-            <span>SMS</span>
+            <span>${t2("device_sync_sms")}</span>
           </label>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="calls" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "calls") ? " checked" : ""}>
-            <span>Calls</span>
+            <span>${t2("device_sync_calls")}</span>
           </label>
           <label class="sync-pref-label">
             <input type="checkbox" class="sync-pref-cb" data-sync-type="notifications" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "notifications") ? " checked" : ""}>
-            <span>Notifications</span>
+            <span>${t2("device_sync_notifications")}</span>
           </label>
         </div>` : ""}
       </div>
@@ -31714,7 +31726,7 @@ ${this.customData.serverResponse}`;
   `;
     chatDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
-        chatDeviceTabs.querySelectorAll(".device-tab").forEach((t2) => t2.classList.remove("active"));
+        chatDeviceTabs.querySelectorAll(".device-tab").forEach((t3) => t3.classList.remove("active"));
         tab.classList.add("active");
         const chatModule = await Promise.resolve().then(() => (init_chat(), chat_exports));
         if (cachedChatMessages.length > 0) {
@@ -31729,15 +31741,15 @@ ${this.customData.serverResponse}`;
     );
   }
   function getSmsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t2, d) => t2 + getSmsDeviceCount(d.id), 0);
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getSmsDeviceCount(d.id), 0);
     return (allSMS[deviceId] || []).filter((m) => !m.read).length;
   }
   function getCallsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t2, d) => t2 + getCallsDeviceCount(d.id), 0);
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getCallsDeviceCount(d.id), 0);
     return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
   }
   function getNotifsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t2, d) => t2 + getNotifsDeviceCount(d.id), 0);
+    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getNotifsDeviceCount(d.id), 0);
     return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
   }
   function updateSmsDeviceTabs() {
@@ -31778,7 +31790,7 @@ ${this.customData.serverResponse}`;
   `;
     smsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
-        smsDeviceTabs.querySelectorAll(".device-tab").forEach((t2) => t2.classList.remove("active"));
+        smsDeviceTabs.querySelectorAll(".device-tab").forEach((t3) => t3.classList.remove("active"));
         tab.classList.add("active");
         if (currentConversation) {
           document.getElementById("smsList")?.classList.remove("conversation-open");
@@ -31838,7 +31850,7 @@ ${this.customData.serverResponse}`;
   `;
     callsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
-        callsDeviceTabs.querySelectorAll(".device-tab").forEach((t2) => t2.classList.remove("active"));
+        callsDeviceTabs.querySelectorAll(".device-tab").forEach((t3) => t3.classList.remove("active"));
         tab.classList.add("active");
         const callsModule = await Promise.resolve().then(() => (init_calls(), calls_exports));
         if (allCallsData && allCallsData.length > 0) {
@@ -31885,7 +31897,7 @@ ${this.customData.serverResponse}`;
   `;
     notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
-        notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((t2) => t2.classList.remove("active"));
+        notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((t3) => t3.classList.remove("active"));
         tab.classList.add("active");
         const detailView = document.getElementById("notifDetailView");
         const mainView = document.getElementById("notifMainView");
