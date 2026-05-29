@@ -2771,6 +2771,142 @@ body[dir="rtl"] .device-tag {
 .sync-pref-label span {
   line-height: 1;
 }
+
+/* ── Device Sharing ────────────────────────────────────────────────── */
+.share-device-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+}
+.share-device-btn:hover {
+  color: var(--primary);
+  background: var(--hover);
+}
+
+.device-shared-item {
+  border-left: 3px solid var(--primary);
+  opacity: 0.92;
+}
+
+.device-shared-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.shared-devices-section {
+  margin-top: 12px;
+}
+
+.shared-devices-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 4px 4px;
+  border-top: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.remove-shared-device-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+}
+.remove-shared-device-btn:hover {
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.08);
+}
+
+.share-perms-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.share-existing-list {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.share-existing-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.share-existing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.share-existing-row:last-child {
+  border-bottom: none;
+}
+.share-existing-email {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  flex: 1;
+}
+.share-existing-perms {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.btn-danger-small {
+  background: rgba(229, 62, 62, 0.1);
+  color: #e53e3e;
+  border: 1px solid rgba(229, 62, 62, 0.3);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-danger-small:hover {
+  background: rgba(229, 62, 62, 0.2);
+}
+
+.share-error {
+  font-size: 12px;
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.08);
+  border: 1px solid rgba(229, 62, 62, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+}
 /* Settings Styles */
 .settings-container {
   display: flex;

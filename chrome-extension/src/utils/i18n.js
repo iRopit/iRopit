@@ -125,6 +125,10 @@ export const translations = {
     device_sync_sms: "SMS",
     device_sync_calls: "Calls",
     device_sync_notifications: "Notifications",
+    device_share: "Share device",
+    device_stop_sharing: "Remove shared device",
+    device_shared_badge: "Shared",
+    device_shared_with_me: "Shared with me",
   },
   ar: {
     nav_sms: "الرسائل",
@@ -246,6 +250,10 @@ export const translations = {
     device_sync_sms: "الرسائل",
     device_sync_calls: "المكالمات",
     device_sync_notifications: "الإشعارات",
+    device_share: "مشاركة الجهاز",
+    device_stop_sharing: "إزالة الجهاز المشترك",
+    device_shared_badge: "مشترك",
+    device_shared_with_me: "مشارك معي",
     toast_refreshing: "...جارٍ التحديث",
   },
 }

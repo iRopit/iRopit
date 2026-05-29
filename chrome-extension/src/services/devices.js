@@ -17,6 +17,7 @@ import {
   where,
   onSnapshot,
   signOut,
+  addDoc,
 } from "../config/firebase.js";
 
 import { devicesList } from "../ui/dom.js";
@@ -210,6 +211,35 @@ export async function loadDevices() {
   );
 
   state.addUnsubscriber(unsub);
+
+  // ── Subscribe to devices shared WITH the current user ──────────────────────
+  const sharesQ = query(
+    collection(db, "deviceShares"),
+    where("sharedWithUid", "==", user.uid),
+  );
+  const sharesUnsub = onSnapshot(
+    sharesQ,
+    async (snapshot) => {
+      const shares = [];
+      for (const shareDoc of snapshot.docs) {
+        const share = { shareId: shareDoc.id, ...shareDoc.data() };
+        // Fetch the live device document
+        try {
+          const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+          share.device = deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null;
+        } catch (_) {
+          share.device = null;
+        }
+        shares.push(share);
+      }
+      state.setSharedWithMeDevices(shares);
+      renderDevices();
+    },
+    (error) => {
+      console.error("[Device] shared-with-me snapshot error:", error?.code);
+    },
+  );
+  state.addUnsubscriber(sharesUnsub);
 }
 
 /**
@@ -319,6 +349,13 @@ export function renderDevices() {
         <span class="list-item-time">${formatTime(
           device.lastActiveAt || device.lastSeen,
         )}</span>
+        <button class="share-device-btn" data-device-id="${escapeHtml(device.id)}" data-device-doc-id="${escapeHtml(device.docId)}" title="${t("device_share")}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
         <button class="delete-device-btn" data-device-id="${
           device.id
         }" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="${getCurrentLanguage() === 'ar' ? 'حذف الجهاز' : 'Delete device'}">
@@ -331,6 +368,58 @@ export function renderDevices() {
   `;
     })
     .join("");
+
+  // ── Append shared-with-me section ─────────────────────────────────────────
+  const shared = state.sharedWithMeDevices;
+  if (shared.length > 0) {
+    const isAr = getCurrentLanguage() === "ar";
+    const sharedHtml = shared.map((share) => {
+      const d = share.device;
+      const displayName = d
+        ? escapeHtml(getFriendlyDeviceName(d))
+        : escapeHtml(share.deviceName || share.deviceId);
+      const perms = share.permissions || {};
+      const permList = [
+        perms.sms && t("device_sync_sms"),
+        perms.calls && t("device_sync_calls"),
+        perms.notifications && t("device_sync_notifications"),
+      ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+      return `
+    <div class="list-item device-item device-shared-item" data-share-id="${escapeHtml(share.shareId)}">
+      <div class="list-item-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </div>
+      <div class="list-item-content">
+        <div class="list-item-title">
+          <span class="device-nickname">${displayName}</span>
+          <span class="device-shared-badge">${t("device_shared_badge")}</span>
+        </div>
+        <div class="list-item-subtitle">
+          ${isAr ? "مشارك من:" : "Shared by:"} ${escapeHtml(share.ownerEmail)} &nbsp;|&nbsp; ${t("device_sync_label")} ${permList}
+        </div>
+        ${d ? `<div class="device-id-info">${escapeHtml(d.id)}</div>` : ""}
+      </div>
+      <div class="device-actions">
+        <button class="remove-shared-device-btn" data-share-id="${escapeHtml(share.shareId)}" title="${t("device_stop_sharing")}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+      `;
+    }).join("");
+    devicesList.innerHTML += `
+      <div class="shared-devices-section">
+        <div class="shared-devices-header">${t("device_shared_with_me")}</div>
+        ${sharedHtml}
+      </div>
+    `;
+  }
 
   // Add delete handlers
   document.querySelectorAll(".delete-device-btn").forEach((btn) => {
@@ -357,6 +446,38 @@ export function renderDevices() {
       const device = state.devices.find((d) => d.docId === docId);
       if (device) {
         showEditDeviceNameModal(device);
+      }
+    });
+  });
+
+  // Add share button handlers
+  document.querySelectorAll(".share-device-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const deviceId = btn.dataset.deviceId;
+      const docId = btn.dataset.deviceDocId;
+      const device = state.devices.find((d) => d.docId === docId);
+      if (device) showShareDeviceModal(device);
+    });
+  });
+
+  // Add stop-sharing handlers (recipient side — remove share from their list)
+  document.querySelectorAll(".remove-shared-device-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const shareId = btn.dataset.shareId;
+      const isAr = getCurrentLanguage() === "ar";
+      const msg = isAr
+        ? "إزالة هذا الجهاز المشترك من قائمتك؟"
+        : "Remove this shared device from your list?";
+      if (await showConfirmDialog(msg)) {
+        try {
+          await deleteDoc(doc(db, "deviceShares", shareId));
+          showToast(isAr ? "تمت إزالة الجهاز المشترك" : "Shared device removed", "success");
+        } catch (err) {
+          console.error("[Share] remove shared device error:", err);
+          showToast(isAr ? "فشل في الإزالة" : "Failed to remove", "error");
+        }
       }
     });
   });
@@ -946,4 +1067,199 @@ export async function updateDeviceName(docId, newName) {
     showToast("Failed to update device name", "error");
   }
   hideLoading();
+}
+
+// ── Device Sharing ────────────────────────────────────────────────────────────
+
+/**
+ * Show the share device modal
+ */
+export async function showShareDeviceModal(device) {
+  const user = state.currentUser;
+  if (!user) return;
+
+  const isAr = getCurrentLanguage() === "ar";
+  const deviceName = getFriendlyDeviceName(device);
+
+  // Fetch existing shares for this device
+  let existingShares = [];
+  try {
+    const sharesSnap = await getDocs(
+      query(
+        collection(db, "deviceShares"),
+        where("ownerUid", "==", user.uid),
+        where("deviceId", "==", device.id),
+      )
+    );
+    existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
+  } catch (_) {}
+
+  const existingSharesHtml = existingShares.length === 0 ? "" : `
+    <div class="share-existing-list">
+      <div class="share-existing-title">${isAr ? "مشارك حالياً مع:" : "Currently shared with:"}</div>
+      ${existingShares.map((s) => {
+        const perms = s.permissions || {};
+        const pList = [
+          perms.sms && (isAr ? "الرسائل" : "SMS"),
+          perms.calls && (isAr ? "المكالمات" : "Calls"),
+          perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
+        ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+        return `
+          <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
+            <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
+            <span class="share-existing-perms">(${pList})</span>
+            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}">
+              ${isAr ? "إيقاف المشاركة" : "Stop Sharing"}
+            </button>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.id = "shareDeviceModal";
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${isAr ? "مشاركة الجهاز" : "Share Device"}: ${escapeHtml(deviceName)}</h3>
+        <button class="modal-close" id="closeShareModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        ${existingSharesHtml}
+        <div class="form-group">
+          <label for="shareEmail">${isAr ? "البريد الإلكتروني للمستخدم" : "Recipient iRopit account (email)"}</label>
+          <input type="email" id="shareEmail" placeholder="${isAr ? "example@email.com" : "example@email.com"}" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>${isAr ? "ما الذي تريد مشاركته؟" : "What to share?"}</label>
+          <div class="share-perms-row">
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareSms" checked>
+              <span>${isAr ? "الرسائل" : "SMS"}</span>
+            </label>
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareCalls" checked>
+              <span>${isAr ? "المكالمات" : "Calls"}</span>
+            </label>
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareNotifications" checked>
+              <span>${isAr ? "الإشعارات" : "Notifications"}</span>
+            </label>
+          </div>
+        </div>
+        <div id="shareError" class="share-error" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelShare">${isAr ? "إلغاء" : "Cancel"}</button>
+        <button class="btn btn-primary" id="confirmShare">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          ${isAr ? "مشاركة" : "Share"}
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  document.getElementById("shareEmail").focus();
+
+  // Close handlers
+  document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
+  document.getElementById("cancelShare").addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+
+  // Stop sharing handlers
+  modal.querySelectorAll(".stop-sharing-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const shareId = btn.dataset.shareId;
+      const email = btn.dataset.email;
+      const msg = isAr
+        ? `إيقاف مشاركة الجهاز مع "${email}"؟`
+        : `Stop sharing with "${email}"?`;
+      if (await showConfirmDialog(msg)) {
+        try {
+          await deleteDoc(doc(db, "deviceShares", shareId));
+          btn.closest(".share-existing-row").remove();
+          showToast(isAr ? "تم إيقاف المشاركة" : "Sharing stopped", "success");
+        } catch (err) {
+          console.error("[Share] stop sharing error:", err);
+          showToast(isAr ? "فشل إيقاف المشاركة" : "Failed to stop sharing", "error");
+        }
+      }
+    });
+  });
+
+  // Confirm share handler
+  document.getElementById("confirmShare").addEventListener("click", async () => {
+    const email = document.getElementById("shareEmail").value.trim().toLowerCase();
+    const shareSms = document.getElementById("shareSms").checked;
+    const shareCalls = document.getElementById("shareCalls").checked;
+    const shareNotifs = document.getElementById("shareNotifications").checked;
+    const errorEl = document.getElementById("shareError");
+
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.style.display = "block"; };
+    errorEl.style.display = "none";
+
+    if (!email) {
+      showError(isAr ? "يرجى إدخال البريد الإلكتروني." : "Please enter a recipient email.");
+      return;
+    }
+    if (email === user.email?.toLowerCase()) {
+      showError(isAr ? "لا يمكنك مشاركة الجهاز مع نفسك." : "You cannot share a device with yourself.");
+      return;
+    }
+    if (!shareSms && !shareCalls && !shareNotifs) {
+      showError(isAr ? "يرجى تحديد نوع واحد على الأقل للمشاركة." : "Select at least one item to share.");
+      return;
+    }
+
+    const confirmBtn = document.getElementById("confirmShare");
+    confirmBtn.disabled = true;
+
+    try {
+      // Look up recipient by email
+      const usersSnap = await getDocs(
+        query(collection(db, "users"), where("email", "==", email))
+      );
+      if (usersSnap.empty) {
+        showError(isAr ? "لم يتم العثور على مستخدم بهذا البريد الإلكتروني." : "No iRopit user found with this email.");
+        confirmBtn.disabled = false;
+        return;
+      }
+
+      const recipientDoc = usersSnap.docs[0];
+      const recipientUid = recipientDoc.data().uid || recipientDoc.id;
+
+      // Check if already shared with this user
+      const existing = existingShares.find((s) => s.sharedWithEmail === email);
+      if (existing) {
+        showError(isAr ? "الجهاز مشارك بالفعل مع هذا المستخدم." : "Device is already shared with this user.");
+        confirmBtn.disabled = false;
+        return;
+      }
+
+      await addDoc(collection(db, "deviceShares"), {
+        ownerUid: user.uid,
+        ownerEmail: user.email,
+        deviceId: device.id,
+        deviceDocId: device.docId,
+        deviceName: getFriendlyDeviceName(device),
+        sharedWithEmail: email,
+        sharedWithUid: recipientUid,
+        permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
+        createdAt: Date.now(),
+      });
+
+      showToast(isAr ? `تم مشاركة الجهاز مع ${email}` : `Device shared with ${email}`, "success");
+      modal.remove();
+    } catch (err) {
+      console.error("[Share] share device error:", err);
+      showError(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
+      confirmBtn.disabled = false;
+    }
+  });
 }

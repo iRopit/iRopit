@@ -24262,6 +24262,9 @@ ${this.customData.serverResponse}`;
   function setDeviceSyncPrefs(prefs) {
     deviceSyncPrefs = prefs || {};
   }
+  function setSharedWithMeDevices(list) {
+    sharedWithMeDevices = list || [];
+  }
   function getDeviceSyncPref(deviceId, type) {
     if (!deviceId) return true;
     return deviceSyncPrefs[deviceId]?.[type] !== false;
@@ -24283,8 +24286,9 @@ ${this.customData.serverResponse}`;
     allContacts = {};
     phoneToContactMap = {};
     deviceSyncPrefs = {};
+    sharedWithMeDevices = [];
   }
-  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap, deviceSyncPrefs;
+  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap, deviceSyncPrefs, sharedWithMeDevices;
   var init_state = __esm({
     "src/state/index.js"() {
       currentUser = null;
@@ -24305,6 +24309,7 @@ ${this.customData.serverResponse}`;
       allContacts = {};
       phoneToContactMap = {};
       deviceSyncPrefs = {};
+      sharedWithMeDevices = [];
     }
   });
 
@@ -24510,7 +24515,11 @@ ${this.customData.serverResponse}`;
           device_sync_label: "Sync:",
           device_sync_sms: "SMS",
           device_sync_calls: "Calls",
-          device_sync_notifications: "Notifications"
+          device_sync_notifications: "Notifications",
+          device_share: "Share device",
+          device_stop_sharing: "Remove shared device",
+          device_shared_badge: "Shared",
+          device_shared_with_me: "Shared with me"
         },
         ar: {
           nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
@@ -24632,6 +24641,10 @@ ${this.customData.serverResponse}`;
           device_sync_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           device_sync_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           device_sync_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          device_share: "\u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632",
+          device_stop_sharing: "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643",
+          device_shared_badge: "\u0645\u0634\u062A\u0631\u0643",
+          device_shared_with_me: "\u0645\u0634\u0627\u0631\u0643 \u0645\u0639\u064A",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
       };
@@ -31550,6 +31563,32 @@ ${this.customData.serverResponse}`;
       }
     );
     addUnsubscriber(unsub);
+    const sharesQ = query(
+      collection(db, "deviceShares"),
+      where("sharedWithUid", "==", user.uid)
+    );
+    const sharesUnsub = onSnapshot(
+      sharesQ,
+      async (snapshot) => {
+        const shares = [];
+        for (const shareDoc of snapshot.docs) {
+          const share = { shareId: shareDoc.id, ...shareDoc.data() };
+          try {
+            const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+            share.device = deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null;
+          } catch (_) {
+            share.device = null;
+          }
+          shares.push(share);
+        }
+        setSharedWithMeDevices(shares);
+        renderDevices();
+      },
+      (error) => {
+        console.error("[Device] shared-with-me snapshot error:", error?.code);
+      }
+    );
+    addUnsubscriber(sharesUnsub);
   }
   function renderDevices() {
     const devices2 = devices;
@@ -31628,6 +31667,13 @@ ${this.customData.serverResponse}`;
         <span class="list-item-time">${formatTime(
         device.lastActiveAt || device.lastSeen
       )}</span>
+        <button class="share-device-btn" data-device-id="${escapeHtml(device.id)}" data-device-doc-id="${escapeHtml(device.docId)}" title="${t2("device_share")}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
         <button class="delete-device-btn" data-device-id="${device.id}" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632" : "Delete device"}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
@@ -31637,6 +31683,54 @@ ${this.customData.serverResponse}`;
     </div>
   `;
     }).join("");
+    const shared = sharedWithMeDevices;
+    if (shared.length > 0) {
+      const isAr = getCurrentLanguage() === "ar";
+      const sharedHtml = shared.map((share) => {
+        const d = share.device;
+        const displayName = d ? escapeHtml(getFriendlyDeviceName(d)) : escapeHtml(share.deviceName || share.deviceId);
+        const perms = share.permissions || {};
+        const permList = [
+          perms.sms && t2("device_sync_sms"),
+          perms.calls && t2("device_sync_calls"),
+          perms.notifications && t2("device_sync_notifications")
+        ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+        return `
+    <div class="list-item device-item device-shared-item" data-share-id="${escapeHtml(share.shareId)}">
+      <div class="list-item-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </div>
+      <div class="list-item-content">
+        <div class="list-item-title">
+          <span class="device-nickname">${displayName}</span>
+          <span class="device-shared-badge">${t2("device_shared_badge")}</span>
+        </div>
+        <div class="list-item-subtitle">
+          ${isAr ? "\u0645\u0634\u0627\u0631\u0643 \u0645\u0646:" : "Shared by:"} ${escapeHtml(share.ownerEmail)} &nbsp;|&nbsp; ${t2("device_sync_label")} ${permList}
+        </div>
+        ${d ? `<div class="device-id-info">${escapeHtml(d.id)}</div>` : ""}
+      </div>
+      <div class="device-actions">
+        <button class="remove-shared-device-btn" data-share-id="${escapeHtml(share.shareId)}" title="${t2("device_stop_sharing")}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+      `;
+      }).join("");
+      devicesList.innerHTML += `
+      <div class="shared-devices-section">
+        <div class="shared-devices-header">${t2("device_shared_with_me")}</div>
+        ${sharedHtml}
+      </div>
+    `;
+    }
     document.querySelectorAll(".delete-device-btn").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -31657,6 +31751,32 @@ ${this.customData.serverResponse}`;
         const device = devices.find((d) => d.docId === docId);
         if (device) {
           showEditDeviceNameModal(device);
+        }
+      });
+    });
+    document.querySelectorAll(".share-device-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const deviceId = btn.dataset.deviceId;
+        const docId = btn.dataset.deviceDocId;
+        const device = devices.find((d) => d.docId === docId);
+        if (device) showShareDeviceModal(device);
+      });
+    });
+    document.querySelectorAll(".remove-shared-device-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const shareId = btn.dataset.shareId;
+        const isAr = getCurrentLanguage() === "ar";
+        const msg = isAr ? "\u0625\u0632\u0627\u0644\u0629 \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643 \u0645\u0646 \u0642\u0627\u0626\u0645\u062A\u0643\u061F" : "Remove this shared device from your list?";
+        if (await showConfirmDialog(msg)) {
+          try {
+            await deleteDoc(doc(db, "deviceShares", shareId));
+            showToast(isAr ? "\u062A\u0645\u062A \u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643" : "Shared device removed", "success");
+          } catch (err) {
+            console.error("[Share] remove shared device error:", err);
+            showToast(isAr ? "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0625\u0632\u0627\u0644\u0629" : "Failed to remove", "error");
+          }
         }
       });
     });
@@ -32057,6 +32177,177 @@ ${this.customData.serverResponse}`;
       showToast("Failed to update device name", "error");
     }
     hideLoading();
+  }
+  async function showShareDeviceModal(device) {
+    const user = currentUser;
+    if (!user) return;
+    const isAr = getCurrentLanguage() === "ar";
+    const deviceName = getFriendlyDeviceName(device);
+    let existingShares = [];
+    try {
+      const sharesSnap = await getDocs(
+        query(
+          collection(db, "deviceShares"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id)
+        )
+      );
+      existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
+    } catch (_) {
+    }
+    const existingSharesHtml = existingShares.length === 0 ? "" : `
+    <div class="share-existing-list">
+      <div class="share-existing-title">${isAr ? "\u0645\u0634\u0627\u0631\u0643 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0639:" : "Currently shared with:"}</div>
+      ${existingShares.map((s) => {
+      const perms = s.permissions || {};
+      const pList = [
+        perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
+        perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
+        perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
+      ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+      return `
+          <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
+            <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
+            <span class="share-existing-perms">(${pList})</span>
+            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}">
+              ${isAr ? "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Stop Sharing"}
+            </button>
+          </div>
+        `;
+    }).join("")}
+    </div>
+  `;
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.id = "shareDeviceModal";
+    modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${isAr ? "\u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632" : "Share Device"}: ${escapeHtml(deviceName)}</h3>
+        <button class="modal-close" id="closeShareModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        ${existingSharesHtml}
+        <div class="form-group">
+          <label for="shareEmail">${isAr ? "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "Recipient iRopit account (email)"}</label>
+          <input type="email" id="shareEmail" placeholder="${isAr ? "example@email.com" : "example@email.com"}" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>${isAr ? "\u0645\u0627 \u0627\u0644\u0630\u064A \u062A\u0631\u064A\u062F \u0645\u0634\u0627\u0631\u0643\u062A\u0647\u061F" : "What to share?"}</label>
+          <div class="share-perms-row">
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareSms" checked>
+              <span>${isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"}</span>
+            </label>
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareCalls" checked>
+              <span>${isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"}</span>
+            </label>
+            <label class="sync-pref-label">
+              <input type="checkbox" id="shareNotifications" checked>
+              <span>${isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications"}</span>
+            </label>
+          </div>
+        </div>
+        <div id="shareError" class="share-error" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelShare">${isAr ? "\u0625\u0644\u063A\u0627\u0621" : "Cancel"}</button>
+        <button class="btn btn-primary" id="confirmShare">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          ${isAr ? "\u0645\u0634\u0627\u0631\u0643\u0629" : "Share"}
+        </button>
+      </div>
+    </div>
+  `;
+    document.body.appendChild(modal);
+    document.getElementById("shareEmail").focus();
+    document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
+    document.getElementById("cancelShare").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.remove();
+    });
+    modal.querySelectorAll(".stop-sharing-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const shareId = btn.dataset.shareId;
+        const email = btn.dataset.email;
+        const msg = isAr ? `\u0625\u064A\u0642\u0627\u0641 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 "${email}"\u061F` : `Stop sharing with "${email}"?`;
+        if (await showConfirmDialog(msg)) {
+          try {
+            await deleteDoc(doc(db, "deviceShares", shareId));
+            btn.closest(".share-existing-row").remove();
+            showToast(isAr ? "\u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Sharing stopped", "success");
+          } catch (err) {
+            console.error("[Share] stop sharing error:", err);
+            showToast(isAr ? "\u0641\u0634\u0644 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Failed to stop sharing", "error");
+          }
+        }
+      });
+    });
+    document.getElementById("confirmShare").addEventListener("click", async () => {
+      const email = document.getElementById("shareEmail").value.trim().toLowerCase();
+      const shareSms = document.getElementById("shareSms").checked;
+      const shareCalls = document.getElementById("shareCalls").checked;
+      const shareNotifs = document.getElementById("shareNotifications").checked;
+      const errorEl = document.getElementById("shareError");
+      const showError = (msg) => {
+        errorEl.textContent = msg;
+        errorEl.style.display = "block";
+      };
+      errorEl.style.display = "none";
+      if (!email) {
+        showError(isAr ? "\u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A." : "Please enter a recipient email.");
+        return;
+      }
+      if (email === user.email?.toLowerCase()) {
+        showError(isAr ? "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 \u0646\u0641\u0633\u0643." : "You cannot share a device with yourself.");
+        return;
+      }
+      if (!shareSms && !shareCalls && !shareNotifs) {
+        showError(isAr ? "\u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062F \u0646\u0648\u0639 \u0648\u0627\u062D\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0644\u0644\u0645\u0634\u0627\u0631\u0643\u0629." : "Select at least one item to share.");
+        return;
+      }
+      const confirmBtn = document.getElementById("confirmShare");
+      confirmBtn.disabled = true;
+      try {
+        const usersSnap = await getDocs(
+          query(collection(db, "users"), where("email", "==", email))
+        );
+        if (usersSnap.empty) {
+          showError(isAr ? "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A." : "No iRopit user found with this email.");
+          confirmBtn.disabled = false;
+          return;
+        }
+        const recipientDoc = usersSnap.docs[0];
+        const recipientUid = recipientDoc.data().uid || recipientDoc.id;
+        const existing = existingShares.find((s) => s.sharedWithEmail === email);
+        if (existing) {
+          showError(isAr ? "\u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0634\u0627\u0631\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u0639 \u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645." : "Device is already shared with this user.");
+          confirmBtn.disabled = false;
+          return;
+        }
+        await addDoc(collection(db, "deviceShares"), {
+          ownerUid: user.uid,
+          ownerEmail: user.email,
+          deviceId: device.id,
+          deviceDocId: device.docId,
+          deviceName: getFriendlyDeviceName(device),
+          sharedWithEmail: email,
+          sharedWithUid: recipientUid,
+          permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
+          createdAt: Date.now()
+        });
+        showToast(isAr ? `\u062A\u0645 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 ${email}` : `Device shared with ${email}`, "success");
+        modal.remove();
+      } catch (err) {
+        console.error("[Share] share device error:", err);
+        showError(isAr ? "\u062D\u062F\u062B \u062E\u0637\u0623. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." : "An error occurred. Please try again.");
+        confirmBtn.disabled = false;
+      }
+    });
   }
 
   // src/popup.js

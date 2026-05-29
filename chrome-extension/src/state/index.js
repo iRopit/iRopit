@@ -43,6 +43,10 @@ export let phoneToContactMap = {}; // { normalizedPhone: contactName }
 // Default (key absent) = all enabled
 export let deviceSyncPrefs = {};
 
+// Devices shared WITH the current user by other accounts
+// Each entry: { shareId, ownerUid, ownerEmail, deviceId, deviceDocId, deviceName, permissions, device }
+export let sharedWithMeDevices = [];
+
 // State setters
 export function setCurrentUser(user) {
   currentUser = user;
@@ -155,6 +159,10 @@ export function setDeviceSyncPrefs(prefs) {
   deviceSyncPrefs = prefs || {};
 }
 
+export function setSharedWithMeDevices(list) {
+  sharedWithMeDevices = list || [];
+}
+
 /**
  * Returns true if the given sync type is enabled for a device.
  * Defaults to true when no preference has been set (backward-compatible).
@@ -184,4 +192,5 @@ export function resetState() {
   allContacts = {};
   phoneToContactMap = {};
   deviceSyncPrefs = {};
+  sharedWithMeDevices = [];
 }
