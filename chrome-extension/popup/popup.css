@@ -2893,10 +2893,18 @@ body[dir="rtl"] .device-tag {
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 .btn-danger-small:hover {
   background: rgba(229, 62, 62, 0.2);
+}
+html.dark .btn-danger-small {
+  background: rgba(229, 62, 62, 0.25);
+  color: #fff;
+  border-color: rgba(229, 62, 62, 0.5);
+}
+html.dark .btn-danger-small:hover {
+  background: rgba(229, 62, 62, 0.4);
 }
 
 .share-error {
