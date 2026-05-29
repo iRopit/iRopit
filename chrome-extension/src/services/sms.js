@@ -1263,11 +1263,18 @@ export function renderSMS(messages) {
   smsListElement.innerHTML = conversations
     .map(
       (conv) => {
-    // Extract a real phone number for hover actions
+    // Extract a real phone number for hover actions — use the most recent message's phone so
+    // that multi-number contacts show the number that most recently sent a message
     let hoverPhone = conv.phoneNumber;
     if (!hoverPhone || hoverPhone.startsWith("contact_") || !isPhoneNumberLike(hoverPhone)) {
-      const msgWithPhone = conv.messages.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber));
-      hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+      // Prefer lastMessage phone (already the most recent), then fall back to first found
+      const lm = conv.lastMessage;
+      if (lm && lm.phoneNumber && isPhoneNumberLike(lm.phoneNumber)) {
+        hoverPhone = lm.phoneNumber;
+      } else {
+        const msgWithPhone = conv.messages.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber));
+        hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+      }
     }
     const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike(hoverPhone);
     return `
@@ -1636,10 +1643,14 @@ export function showConversation(phoneNumber) {
     conversation[0].phoneNumber ||
     phoneNumber;
   // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
-  const realPhoneNumber = conversation.find(m => {
-    const p = m.phoneNumber || m.sender || "";
-    return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
-  });
+  // Use the most recent message's phone so we reflect the actual last sender (a contact
+  // may have multiple numbers; conversation is sorted ascending so we search from the end)
+  const realPhoneNumber = [...conversation]
+    .reverse()
+    .find(m => {
+      const p = m.phoneNumber || m.sender || "";
+      return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
+    });
   const displayPhone = realPhoneNumber ? (realPhoneNumber.phoneNumber || realPhoneNumber.sender || "") : "";
   state.setCurrentConversation(phoneNumber);
 

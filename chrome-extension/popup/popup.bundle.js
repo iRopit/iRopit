@@ -28103,8 +28103,13 @@ ${this.customData.serverResponse}`;
       (conv) => {
         let hoverPhone = conv.phoneNumber;
         if (!hoverPhone || hoverPhone.startsWith("contact_") || !isPhoneNumberLike2(hoverPhone)) {
-          const msgWithPhone = conv.messages.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber));
-          hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+          const lm = conv.lastMessage;
+          if (lm && lm.phoneNumber && isPhoneNumberLike2(lm.phoneNumber)) {
+            hoverPhone = lm.phoneNumber;
+          } else {
+            const msgWithPhone = conv.messages.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber));
+            hoverPhone = msgWithPhone ? msgWithPhone.phoneNumber : "";
+          }
         }
         const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike2(hoverPhone);
         return `
@@ -28374,7 +28379,7 @@ ${this.customData.serverResponse}`;
     }
     markConversationAsRead(conversation);
     const contactName = conversation.find((m) => m.contactName && m.contactName.trim() && !isPhoneNumberLike2(m.contactName))?.contactName || conversation.find((m) => m.title && m.title.trim() && !isPhoneNumberLike2(m.title))?.title || getContactName(conversation.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber))?.phoneNumber || phoneNumber) || (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) || conversation[0].phoneNumber || phoneNumber;
-    const realPhoneNumber = conversation.find((m) => {
+    const realPhoneNumber = [...conversation].reverse().find((m) => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
     });
