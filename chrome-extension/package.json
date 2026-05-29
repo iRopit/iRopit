@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension",
-  "version": "1.2.8.4",
+  "version": "1.2.8.5",
   "description": "",
   "main": "index.js",
   "scripts": {
