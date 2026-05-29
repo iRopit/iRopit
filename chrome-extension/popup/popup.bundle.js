@@ -24519,7 +24519,8 @@ ${this.customData.serverResponse}`;
           device_share: "Share device",
           device_stop_sharing: "Remove shared device",
           device_shared_badge: "Shared",
-          device_shared_with_me: "Shared with me"
+          device_shared_with_me: "Shared with me",
+          device_edit_name: "Edit name"
         },
         ar: {
           nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
@@ -24645,6 +24646,7 @@ ${this.customData.serverResponse}`;
           device_stop_sharing: "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643",
           device_shared_badge: "\u0645\u0634\u062A\u0631\u0643",
           device_shared_with_me: "\u0645\u0634\u0627\u0631\u0643 \u0645\u0639\u064A",
+          device_edit_name: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0627\u0633\u0645",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
       };
@@ -31633,7 +31635,7 @@ ${this.customData.serverResponse}`;
           <span class="device-nickname">${escapeHtml(getFriendlyDeviceName(device))}</span>
           <button class="edit-name-btn" data-device-doc-id="${escapeHtml(
         device.docId
-      )}" title="Edit name">
+      )}" title="${t2("device_edit_name")}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>

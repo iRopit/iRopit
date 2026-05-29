@@ -129,6 +129,7 @@ export const translations = {
     device_stop_sharing: "Remove shared device",
     device_shared_badge: "Shared",
     device_shared_with_me: "Shared with me",
+    device_edit_name: "Edit name",
   },
   ar: {
     nav_sms: "الرسائل",
@@ -254,6 +255,7 @@ export const translations = {
     device_stop_sharing: "إزالة الجهاز المشترك",
     device_shared_badge: "مشترك",
     device_shared_with_me: "مشارك معي",
+    device_edit_name: "تعديل الاسم",
     toast_refreshing: "...جارٍ التحديث",
   },
 }
