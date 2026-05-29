@@ -24530,7 +24530,7 @@ ${this.customData.serverResponse}`;
           device_stop_sharing: "Remove shared device",
           device_shared_badge: "(Shared)",
           device_shared_with_me: "Shared with me",
-          device_pending_badge: "Pending",
+          device_pending_badge: "(Pending)",
           device_edit_name: "Edit name"
         },
         ar: {
@@ -24657,7 +24657,7 @@ ${this.customData.serverResponse}`;
           device_stop_sharing: "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643",
           device_shared_badge: "(\u0645\u0634\u062A\u0631\u0643)",
           device_shared_with_me: "\u0645\u0634\u0627\u0631\u0643 \u0645\u0639\u064A",
-          device_pending_badge: "\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631",
+          device_pending_badge: "(\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631)",
           device_edit_name: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0627\u0633\u0645",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
