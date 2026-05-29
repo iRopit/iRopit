@@ -1414,3 +1414,40 @@ export function exportNotificationsToCSV() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Load notifications for all shared devices and merge them into the notifications list.
+ */
+export async function loadSharedDevicesNotifications(shares) {
+  const user = state.currentUser;
+  if (!user) return;
+  const notifShares = (shares || []).filter(
+    (s) => s.permissions?.notifications && s.deviceId && s.ownerUid,
+  );
+  if (notifShares.length === 0) return;
+  for (const share of notifShares) {
+    try {
+      const q = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+      const snapshot = await getDocs(q);
+      const notifs = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          let data = docSnap.data();
+          data = await decryptNotification(data, share.ownerUid);
+          return {
+            ...data,
+            id: docSnap.id,
+            deviceId: share.deviceId,
+            deviceName: share.deviceName || "",
+          };
+        }),
+      );
+      updateNotificationsList(share.deviceId, notifs);
+    } catch (err) {
+      console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
+    }
+  }
+}

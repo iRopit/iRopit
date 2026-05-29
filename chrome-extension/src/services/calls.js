@@ -1328,3 +1328,35 @@ export function exportCallsToCSV() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Load call logs for all shared devices and merge them into the calls list.
+ */
+export async function loadSharedDevicesCalls(shares) {
+  const user = state.currentUser;
+  if (!user) return;
+  const callShares = (shares || []).filter(
+    (s) => s.permissions?.calls && s.deviceId && s.ownerUid,
+  );
+  if (callShares.length === 0) return;
+  for (const share of callShares) {
+    try {
+      const q = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
+        orderBy("timestamp", "desc"),
+        limit(200),
+      );
+      const snapshot = await getDocs(q);
+      const calls = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          let data = docSnap.data();
+          data = await decryptCall(data, share.ownerUid);
+          return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+        }),
+      );
+      updateCallsList(share.deviceId, calls);
+    } catch (err) {
+      console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+    }
+  }
+}

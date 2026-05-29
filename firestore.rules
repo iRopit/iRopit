@@ -15,6 +15,9 @@ service cloud.firestore {
         // Notifications (SMS, calls) under each device
         match /notifications/{notifId} {
           allow read, write: if request.auth != null && request.auth.uid == userId;
+          // Recipient of a device share can also read
+          allow read: if request.auth != null &&
+            exists(/databases/$(database)/documents/deviceShareIndex/$(deviceId + '_' + request.auth.uid));
         }
 
         // Contacts under each device
@@ -25,6 +28,9 @@ service cloud.firestore {
         // Calls under each device
         match /calls/{callId} {
           allow read, write: if request.auth != null && request.auth.uid == userId;
+          // Recipient of a device share can also read
+          allow read: if request.auth != null &&
+            exists(/databases/$(database)/documents/deviceShareIndex/$(deviceId + '_' + request.auth.uid));
         }
 
         // Live ringing call state (written by mobile, read by extension)
@@ -106,6 +112,14 @@ service cloud.firestore {
 
     match /calls/{docId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Device share access index (deterministic IDs: {deviceId}_{sharedWithUid})
+    // Used by Firestore security rules to efficiently check share access
+    match /deviceShareIndex/{entryId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
 
     // Device sharing

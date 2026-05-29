@@ -26065,6 +26065,7 @@ ${this.customData.serverResponse}`;
     initiateDialRequest: () => initiateDialRequest,
     isCallsSyncing: () => isCallsSyncing,
     loadCalls: () => loadCalls,
+    loadSharedDevicesCalls: () => loadSharedDevicesCalls,
     markAllCallsAsViewed: () => markAllCallsAsViewed,
     renderCalls: () => renderCalls,
     setCallsSelectAll: () => setCallsSelectAll,
@@ -27018,6 +27019,34 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
+  async function loadSharedDevicesCalls(shares) {
+    const user = currentUser;
+    if (!user) return;
+    const callShares = (shares || []).filter(
+      (s) => s.permissions?.calls && s.deviceId && s.ownerUid
+    );
+    if (callShares.length === 0) return;
+    for (const share of callShares) {
+      try {
+        const q2 = query(
+          collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
+          orderBy("timestamp", "desc"),
+          limit(200)
+        );
+        const snapshot = await getDocs(q2);
+        const calls = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptCall(data, share.ownerUid);
+            return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+          })
+        );
+        updateCallsList(share.deviceId, calls);
+      } catch (err) {
+        console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+      }
+    }
+  }
   var callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls;
   var init_calls = __esm({
     "src/services/calls.js"() {
@@ -27220,6 +27249,7 @@ ${this.customData.serverResponse}`;
     isSMSSyncing: () => isSMSSyncing,
     loadMoreSMS: () => loadMoreSMS,
     loadSMS: () => loadSMS,
+    loadSharedDevicesSMS: () => loadSharedDevicesSMS,
     markAllSmsAsRead: () => markAllSmsAsRead,
     renderSMS: () => renderSMS,
     setSelectAll: () => setSelectAll,
@@ -29102,6 +29132,46 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
+  async function loadSharedDevicesSMS(shares) {
+    const user = currentUser;
+    if (!user) return;
+    const smsShares = (shares || []).filter(
+      (s) => s.permissions?.sms && s.deviceId && s.ownerUid
+    );
+    if (smsShares.length === 0) return;
+    for (const share of smsShares) {
+      try {
+        const q2 = query(
+          collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+          where("type", "==", "sms"),
+          orderBy("timestamp", "desc"),
+          limit(PAGE_SIZE)
+        );
+        const snapshot = await getDocs(q2);
+        const messages = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptSMS(data, share.ownerUid);
+            const resolvedPhone = resolvePhoneNumber(data);
+            const resolvedContact = resolveContactName(data, resolvedPhone);
+            return {
+              ...data,
+              id: docSnap.id,
+              docId: docSnap.id,
+              docRef: docSnap.ref,
+              deviceId: share.deviceId,
+              deviceName: share.deviceName || "",
+              phoneNumber: resolvedPhone || data.phoneNumber || "",
+              contactName: resolvedContact || ""
+            };
+          })
+        );
+        updateSMSList(share.deviceId, messages);
+      } catch (err) {
+        console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
+      }
+    }
+  }
   var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler;
   var init_sms = __esm({
     "src/services/sms.js"() {
@@ -29285,6 +29355,7 @@ ${this.customData.serverResponse}`;
     deleteSelectedNotifications: () => deleteSelectedNotifications,
     exportNotificationsToCSV: () => exportNotificationsToCSV,
     loadNotifications: () => loadNotifications,
+    loadSharedDevicesNotifications: () => loadSharedDevicesNotifications,
     markAllNotificationsAsRead: () => markAllNotificationsAsRead,
     reRenderNotifications: () => reRenderNotifications,
     setNotifSelectAll: () => setNotifSelectAll,
@@ -30378,6 +30449,39 @@ ${this.customData.serverResponse}`;
     a.download = `iRopit-Notifications-${localStamp}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+  async function loadSharedDevicesNotifications(shares) {
+    const user = currentUser;
+    if (!user) return;
+    const notifShares = (shares || []).filter(
+      (s) => s.permissions?.notifications && s.deviceId && s.ownerUid
+    );
+    if (notifShares.length === 0) return;
+    for (const share of notifShares) {
+      try {
+        const q2 = query(
+          collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+          orderBy("timestamp", "desc"),
+          limit(200)
+        );
+        const snapshot = await getDocs(q2);
+        const notifs = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptNotification(data, share.ownerUid);
+            return {
+              ...data,
+              id: docSnap.id,
+              deviceId: share.deviceId,
+              deviceName: share.deviceName || ""
+            };
+          })
+        );
+        updateNotificationsList(share.deviceId, notifs);
+      } catch (err) {
+        console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
+      }
+    }
   }
   var isSyncingNotif, pendingNotifSnapshots, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
@@ -31585,6 +31689,21 @@ ${this.customData.serverResponse}`;
         }
         setSharedWithMeDevices(shares);
         renderDevices();
+        updateDeviceSelects();
+        Promise.all([
+          Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
+            if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares);
+          }).catch(() => {
+          }),
+          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
+            if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(shares);
+          }).catch(() => {
+          }),
+          Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => {
+            if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(shares);
+          }).catch(() => {
+          })
+        ]);
       },
       (error) => {
         console.error("[Device] shared-with-me snapshot error:", error?.code);
@@ -31863,15 +31982,27 @@ ${this.customData.serverResponse}`;
     );
   }
   function getSmsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getSmsDeviceCount(d.id), 0);
+    if (deviceId === "all") {
+      const ownCount = mobileDevicesOnly().reduce((t3, d) => t3 + getSmsDeviceCount(d.id), 0);
+      const sharedCount = (sharedWithMeDevices || []).filter((s) => s.permissions?.sms).reduce((t3, s) => t3 + (allSMS[s.deviceId] || []).filter((m) => !m.read).length, 0);
+      return ownCount + sharedCount;
+    }
     return (allSMS[deviceId] || []).filter((m) => !m.read).length;
   }
   function getCallsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getCallsDeviceCount(d.id), 0);
+    if (deviceId === "all") {
+      const ownCount = mobileDevicesOnly().reduce((t3, d) => t3 + getCallsDeviceCount(d.id), 0);
+      const sharedCount = (sharedWithMeDevices || []).filter((s) => s.permissions?.calls).reduce((t3, s) => t3 + (allCallsData || []).filter((c) => c.deviceId === s.deviceId && c.type === "missed" && !c.viewed).length, 0);
+      return ownCount + sharedCount;
+    }
     return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
   }
   function getNotifsDeviceCount(deviceId) {
-    if (deviceId === "all") return mobileDevicesOnly().reduce((t3, d) => t3 + getNotifsDeviceCount(d.id), 0);
+    if (deviceId === "all") {
+      const ownCount = mobileDevicesOnly().reduce((t3, d) => t3 + getNotifsDeviceCount(d.id), 0);
+      const sharedCount = (sharedWithMeDevices || []).filter((s) => s.permissions?.notifications).reduce((t3, s) => t3 + (allNotifications[s.deviceId] || []).filter((n) => !n.read).length, 0);
+      return ownCount + sharedCount;
+    }
     return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
   }
   function updateSmsDeviceTabs() {
@@ -31895,11 +32026,27 @@ ${this.customData.serverResponse}`;
         </button>
       `;
     }).join("");
+    const sharedSmsDevices = (sharedWithMeDevices || []).filter((s) => s.permissions?.sms && s.deviceId);
+    const sharedSmsTabsHTML = sharedSmsDevices.map((s) => {
+      const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+      const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+      const isActive = currentSelected === s.deviceId ? " active" : "";
+      const count = (allSMS[s.deviceId] || []).filter((m) => !m.read).length;
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+      return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+    }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
     const allCount = getSmsDeviceCount("all");
     const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+    const isCurrentOwn = mobileDevices.some((d) => d.id === currentSelected);
+    const isCurrentShared = sharedSmsDevices.some((s) => s.deviceId === currentSelected);
     smsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || (!isCurrentOwn && !isCurrentShared ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -31909,6 +32056,7 @@ ${this.customData.serverResponse}`;
       <span>${getCurrentLanguage() === "ar" ? "\u0643\u0644 \u0627\u0644\u0623\u062C\u0647\u0632\u0629" : "All Devices"}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedSmsTabsHTML}
   `;
     smsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
@@ -31955,11 +32103,27 @@ ${this.customData.serverResponse}`;
         </button>
       `;
     }).join("");
+    const sharedCallsDevices = (sharedWithMeDevices || []).filter((s) => s.permissions?.calls && s.deviceId);
+    const sharedCallsTabsHTML = sharedCallsDevices.map((s) => {
+      const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+      const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+      const isActive = currentSelected === s.deviceId ? " active" : "";
+      const count = (allCallsData || []).filter((c) => c.deviceId === s.deviceId && c.type === "missed" && !c.viewed).length;
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+      return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+    }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
     const allCount = getCallsDeviceCount("all");
     const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+    const isCurrentCallsOwn = mobileDevices.some((d) => d.id === currentSelected);
+    const isCurrentCallsShared = sharedCallsDevices.some((s) => s.deviceId === currentSelected);
     callsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || (!isCurrentCallsOwn && !isCurrentCallsShared ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -31969,6 +32133,7 @@ ${this.customData.serverResponse}`;
       <span>${getCurrentLanguage() === "ar" ? "\u0643\u0644 \u0627\u0644\u0623\u062C\u0647\u0632\u0629" : "All Devices"}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedCallsTabsHTML}
   `;
     callsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
@@ -32002,11 +32167,27 @@ ${this.customData.serverResponse}`;
         </button>
       `;
     }).join("");
+    const sharedNotifsDevices = (sharedWithMeDevices || []).filter((s) => s.permissions?.notifications && s.deviceId);
+    const sharedNotifsTabsHTML = sharedNotifsDevices.map((s) => {
+      const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+      const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+      const isActive = currentSelected === s.deviceId ? " active" : "";
+      const count = (allNotifications[s.deviceId] || []).filter((n) => !n.read).length;
+      const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+      return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+    }).join("");
     const allActive = currentSelected === "all" ? " active" : "";
     const allCount = getNotifsDeviceCount("all");
     const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+    const isCurrentNotifsOwn = mobileDevices.some((d) => d.id === currentSelected);
+    const isCurrentNotifsShared = sharedNotifsDevices.some((s) => s.deviceId === currentSelected);
     notificationsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || (!isCurrentNotifsOwn && !isCurrentNotifsShared ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -32016,6 +32197,7 @@ ${this.customData.serverResponse}`;
       <span>${getCurrentLanguage() === "ar" ? "\u0643\u0644 \u0627\u0644\u0623\u062C\u0647\u0632\u0629" : "All Devices"}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedNotifsTabsHTML}
   `;
     notificationsDeviceTabs.querySelectorAll(".device-tab").forEach((tab) => {
       tab.addEventListener("click", async () => {
@@ -32211,7 +32393,7 @@ ${this.customData.serverResponse}`;
           <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
             <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
             <span class="share-existing-perms">(${pList})</span>
-            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}">
+            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
               ${isAr ? "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Stop Sharing"}
             </button>
           </div>
@@ -32280,6 +32462,10 @@ ${this.customData.serverResponse}`;
         if (await showConfirmDialog(msg)) {
           try {
             await deleteDoc(doc(db, "deviceShares", shareId));
+            if (btn.dataset.deviceId && btn.dataset.sharedUid) {
+              deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {
+              });
+            }
             btn.closest(".share-existing-row").remove();
             showToast(isAr ? "\u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Sharing stopped", "success");
           } catch (err) {
@@ -32341,6 +32527,11 @@ ${this.customData.serverResponse}`;
           sharedWithUid: recipientUid,
           permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
           createdAt: Date.now()
+        });
+        await setDoc(doc(db, "deviceShareIndex", `${device.id}_${recipientUid}`), {
+          ownerUid: user.uid,
+          deviceId: device.id,
+          sharedWithUid: recipientUid
         });
         showToast(isAr ? `\u062A\u0645 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 ${email}` : `Device shared with ${email}`, "success");
         modal.remove();

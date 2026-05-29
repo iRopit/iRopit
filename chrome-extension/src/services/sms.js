@@ -2697,3 +2697,47 @@ export function exportSMSToCSV() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Load SMS messages for all shared devices and merge them into the SMS list.
+ */
+export async function loadSharedDevicesSMS(shares) {
+  const user = state.currentUser;
+  if (!user) return;
+  const smsShares = (shares || []).filter(
+    (s) => s.permissions?.sms && s.deviceId && s.ownerUid,
+  );
+  if (smsShares.length === 0) return;
+  for (const share of smsShares) {
+    try {
+      const q = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("timestamp", "desc"),
+        limit(PAGE_SIZE),
+      );
+      const snapshot = await getDocs(q);
+      const messages = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          let data = docSnap.data();
+          data = await decryptSMS(data, share.ownerUid);
+          const resolvedPhone = resolvePhoneNumber(data);
+          const resolvedContact = resolveContactName(data, resolvedPhone);
+          return {
+            ...data,
+            id: docSnap.id,
+            docId: docSnap.id,
+            docRef: docSnap.ref,
+            deviceId: share.deviceId,
+            deviceName: share.deviceName || "",
+            phoneNumber: resolvedPhone || data.phoneNumber || "",
+            contactName: resolvedContact || "",
+          };
+        }),
+      );
+      updateSMSList(share.deviceId, messages);
+    } catch (err) {
+      console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
+    }
+  }
+}

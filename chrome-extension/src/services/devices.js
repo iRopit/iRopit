@@ -234,6 +234,13 @@ export async function loadDevices() {
       }
       state.setSharedWithMeDevices(shares);
       renderDevices();
+      updateDeviceSelects(); // Rebuild filter tabs to include shared devices
+      // Load SMS/Calls/Notifications data for shared devices
+      Promise.all([
+        import("./sms.js").then(m => { if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares); }).catch(() => {}),
+        import("./calls.js").then(m => { if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(shares); }).catch(() => {}),
+        import("./notifications.js").then(m => { if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(shares); }).catch(() => {}),
+      ]);
     },
     (error) => {
       console.error("[Device] shared-with-me snapshot error:", error?.code);
@@ -614,18 +621,36 @@ function mobileDevicesOnly() {
 }
 
 function getSmsDeviceCount(deviceId) {
-  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getSmsDeviceCount(d.id), 0);
+  if (deviceId === "all") {
+    const ownCount = mobileDevicesOnly().reduce((t, d) => t + getSmsDeviceCount(d.id), 0);
+    const sharedCount = (state.sharedWithMeDevices || [])
+      .filter(s => s.permissions?.sms)
+      .reduce((t, s) => t + (state.allSMS[s.deviceId] || []).filter(m => !m.read).length, 0);
+    return ownCount + sharedCount;
+  }
   return (state.allSMS[deviceId] || []).filter(m => !m.read).length;
 }
 
 function getCallsDeviceCount(deviceId) {
-  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getCallsDeviceCount(d.id), 0);
+  if (deviceId === "all") {
+    const ownCount = mobileDevicesOnly().reduce((t, d) => t + getCallsDeviceCount(d.id), 0);
+    const sharedCount = (state.sharedWithMeDevices || [])
+      .filter(s => s.permissions?.calls)
+      .reduce((t, s) => t + (state.allCallsData || []).filter(c => c.deviceId === s.deviceId && c.type === "missed" && !c.viewed).length, 0);
+    return ownCount + sharedCount;
+  }
   // Use allCallsData (render source) to stay in sync with what's actually displayed
   return (state.allCallsData || []).filter(c => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
 }
 
 function getNotifsDeviceCount(deviceId) {
-  if (deviceId === "all") return mobileDevicesOnly().reduce((t, d) => t + getNotifsDeviceCount(d.id), 0);
+  if (deviceId === "all") {
+    const ownCount = mobileDevicesOnly().reduce((t, d) => t + getNotifsDeviceCount(d.id), 0);
+    const sharedCount = (state.sharedWithMeDevices || [])
+      .filter(s => s.permissions?.notifications)
+      .reduce((t, s) => t + (state.allNotifications[s.deviceId] || []).filter(n => !n.read).length, 0);
+    return ownCount + sharedCount;
+  }
   return (state.allNotifications[deviceId] || []).filter(n => !n.read).length;
 }
 
@@ -668,12 +693,30 @@ export function updateSmsDeviceTabs() {
     })
     .join("");
 
+  // Shared devices with SMS permission
+  const sharedSmsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.sms && s.deviceId);
+  const sharedSmsTabsHTML = sharedSmsDevices.map(s => {
+    const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+    const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+    const isActive = currentSelected === s.deviceId ? " active" : "";
+    const count = (state.allSMS[s.deviceId] || []).filter(m => !m.read).length;
+    const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+    return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+  }).join("");
+
   const allActive = currentSelected === "all" ? " active" : "";
   const allCount = getSmsDeviceCount("all");
   const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+  const isCurrentOwn = mobileDevices.some(d => d.id === currentSelected);
+  const isCurrentShared = sharedSmsDevices.some(s => s.deviceId === currentSelected);
 
   smsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || ((!isCurrentOwn && !isCurrentShared) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -683,6 +726,7 @@ export function updateSmsDeviceTabs() {
       <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedSmsTabsHTML}
   `;
 
   // Add click handlers to tabs
@@ -757,12 +801,30 @@ export function updateCallsDeviceTabs() {
     })
     .join("");
 
+  // Shared devices with Calls permission
+  const sharedCallsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.calls && s.deviceId);
+  const sharedCallsTabsHTML = sharedCallsDevices.map(s => {
+    const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+    const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+    const isActive = currentSelected === s.deviceId ? " active" : "";
+    const count = (state.allCallsData || []).filter(c => c.deviceId === s.deviceId && c.type === "missed" && !c.viewed).length;
+    const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+    return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+  }).join("");
+
   const allActive = currentSelected === "all" ? " active" : "";
   const allCount = getCallsDeviceCount("all");
   const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+  const isCurrentCallsOwn = mobileDevices.some(d => d.id === currentSelected);
+  const isCurrentCallsShared = sharedCallsDevices.some(s => s.deviceId === currentSelected);
 
   callsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || ((!isCurrentCallsOwn && !isCurrentCallsShared) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -772,6 +834,7 @@ export function updateCallsDeviceTabs() {
       <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedCallsTabsHTML}
   `;
 
   // Add click handlers to tabs
@@ -829,12 +892,30 @@ export function updateNotificationsDeviceTabs() {
     })
     .join("");
 
+  // Shared devices with Notifications permission
+  const sharedNotifsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.notifications && s.deviceId);
+  const sharedNotifsTabsHTML = sharedNotifsDevices.map(s => {
+    const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
+    const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
+    const isActive = currentSelected === s.deviceId ? " active" : "";
+    const count = (state.allNotifications[s.deviceId] || []).filter(n => !n.read).length;
+    const countHtml = count > 0 ? ` <span class="device-tab-count">(${count})</span>` : "";
+    return `
+      <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
+        ${platformIcon}
+        <span>${escapeHtml(deviceName)}</span>${countHtml}
+      </button>
+    `;
+  }).join("");
+
   const allActive = currentSelected === "all" ? " active" : "";
   const allCount = getNotifsDeviceCount("all");
   const allCountHtml = allCount > 0 ? ` <span class="device-tab-count">(${allCount})</span>` : "";
+  const isCurrentNotifsOwn = mobileDevices.some(d => d.id === currentSelected);
+  const isCurrentNotifsShared = sharedNotifsDevices.some(s => s.deviceId === currentSelected);
 
   notificationsDeviceTabs.innerHTML = `
-    <button class="device-tab${allActive || (!mobileDevices.some((d) => d.id === currentSelected) ? " active" : "")}" data-device="all">
+    <button class="device-tab${allActive || ((!isCurrentNotifsOwn && !isCurrentNotifsShared) ? " active" : "")}" data-device="all">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
         <circle cx="9" cy="7" r="4"/>
@@ -844,6 +925,7 @@ export function updateNotificationsDeviceTabs() {
       <span>${getCurrentLanguage() === 'ar' ? 'كل الأجهزة' : 'All Devices'}</span>${allCountHtml}
     </button>
     ${deviceTabsHTML}
+    ${sharedNotifsTabsHTML}
   `;
 
   // Add click handlers to tabs
@@ -1108,7 +1190,7 @@ export async function showShareDeviceModal(device) {
           <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
             <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
             <span class="share-existing-perms">(${pList})</span>
-            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}">
+            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
               ${isAr ? "إيقاف المشاركة" : "Stop Sharing"}
             </button>
           </div>
@@ -1183,6 +1265,10 @@ export async function showShareDeviceModal(device) {
       if (await showConfirmDialog(msg)) {
         try {
           await deleteDoc(doc(db, "deviceShares", shareId));
+          // Also remove from deviceShareIndex (for Firestore rules)
+          if (btn.dataset.deviceId && btn.dataset.sharedUid) {
+            deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {});
+          }
           btn.closest(".share-existing-row").remove();
           showToast(isAr ? "تم إيقاف المشاركة" : "Sharing stopped", "success");
         } catch (err) {
@@ -1252,6 +1338,12 @@ export async function showShareDeviceModal(device) {
         sharedWithUid: recipientUid,
         permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
         createdAt: Date.now(),
+      });
+      // Write deviceShareIndex entry (deterministic ID) for Firestore security rules
+      await setDoc(doc(db, "deviceShareIndex", `${device.id}_${recipientUid}`), {
+        ownerUid: user.uid,
+        deviceId: device.id,
+        sharedWithUid: recipientUid,
       });
 
       showToast(isAr ? `تم مشاركة الجهاز مع ${email}` : `Device shared with ${email}`, "success");
