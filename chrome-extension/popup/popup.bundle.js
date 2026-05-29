@@ -32652,11 +32652,32 @@ ${this.customData.serverResponse}`;
           status: "pending",
           createdAt: Date.now()
         });
-        showToast(
-          isAr ? `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629 \u0625\u0644\u0649 ${email}` : `Share request sent to ${email}`,
-          "success"
-        );
-        modal.remove();
+        const modalContent = modal.querySelector(".modal-content");
+        modalContent.innerHTML = `
+        <div class="modal-header">
+          <h3>${isAr ? "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628" : "Request Sent"}</h3>
+        </div>
+        <div class="modal-body" style="text-align:center;padding:24px 20px 16px;">
+          <div style="font-size:40px;margin-bottom:12px;">\u{1F4E4}</div>
+          <p style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;">
+            ${isAr ? `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062C\u0647\u0627\u0632 <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong>` : `A share request for <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong> has been sent`}
+          </p>
+          <p style="font-size:13px;color:var(--text-secondary);">
+            ${isAr ? `\u0625\u0644\u0649 \u0627\u0644\u062D\u0633\u0627\u0628: <strong>${escapeHtml(email)}</strong>` : `to account: <strong>${escapeHtml(email)}</strong>`}
+          </p>
+          <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;opacity:0.8;">
+            ${isAr ? "\u0633\u064A\u062A\u0645\u0643\u0646\u0648\u0646 \u0645\u0646 \u0642\u0628\u0648\u0644 \u0623\u0648 \u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628." : "They can accept or decline the request."}
+          </p>
+        </div>
+        <div class="modal-footer" style="justify-content:center;">
+          <button class="btn btn-primary" id="shareSuccessOkBtn" style="min-width:100px;">
+            ${isAr ? "\u062D\u0633\u0646\u0627\u064B" : "OK"}
+          </button>
+        </div>
+      `;
+        document.getElementById("shareSuccessOkBtn").addEventListener("click", () => {
+          modal.remove();
+        });
       } catch (err) {
         console.error("[Share] share device error:", err);
         showError(isAr ? "\u062D\u062F\u062B \u062E\u0637\u0623. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." : "An error occurred. Please try again.");

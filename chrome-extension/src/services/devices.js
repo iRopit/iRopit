@@ -1457,11 +1457,39 @@ export async function showShareDeviceModal(device) {
         createdAt: Date.now(),
       });
 
-      showToast(
-        isAr ? `تم إرسال طلب المشاركة إلى ${email}` : `Share request sent to ${email}`,
-        "success",
-      );
-      modal.remove();
+      // Replace modal content with a success confirmation the user must dismiss
+      const modalContent = modal.querySelector(".modal-content");
+      modalContent.innerHTML = `
+        <div class="modal-header">
+          <h3>${isAr ? "تم إرسال الطلب" : "Request Sent"}</h3>
+        </div>
+        <div class="modal-body" style="text-align:center;padding:24px 20px 16px;">
+          <div style="font-size:40px;margin-bottom:12px;">📤</div>
+          <p style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;">
+            ${isAr
+              ? `تم إرسال طلب مشاركة جهاز <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong>`
+              : `A share request for <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong> has been sent`}
+          </p>
+          <p style="font-size:13px;color:var(--text-secondary);">
+            ${isAr
+              ? `إلى الحساب: <strong>${escapeHtml(email)}</strong>`
+              : `to account: <strong>${escapeHtml(email)}</strong>`}
+          </p>
+          <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;opacity:0.8;">
+            ${isAr
+              ? "سيتمكنون من قبول أو رفض الطلب."
+              : "They can accept or decline the request."}
+          </p>
+        </div>
+        <div class="modal-footer" style="justify-content:center;">
+          <button class="btn btn-primary" id="shareSuccessOkBtn" style="min-width:100px;">
+            ${isAr ? "حسناً" : "OK"}
+          </button>
+        </div>
+      `;
+      document.getElementById("shareSuccessOkBtn").addEventListener("click", () => {
+        modal.remove();
+      });
     } catch (err) {
       console.error("[Share] share device error:", err);
       showError(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
