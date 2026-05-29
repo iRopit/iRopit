@@ -32748,6 +32748,7 @@ ${this.customData.serverResponse}`;
       acceptBtn.disabled = true;
       rejectBtn.disabled = true;
       try {
+        console.log("[ShareReq] step1: creating deviceShares doc, sharedWithUid=", req.sharedWithUid, "user.uid=", user.uid);
         await addDoc(collection(db, "deviceShares"), {
           ownerUid: req.ownerUid,
           ownerEmail: req.ownerEmail,
@@ -32755,15 +32756,17 @@ ${this.customData.serverResponse}`;
           deviceDocId: req.deviceDocId,
           deviceName: req.deviceName || "",
           sharedWithEmail: req.sharedWithEmail,
-          sharedWithUid: req.sharedWithUid,
+          sharedWithUid: user.uid,
           permissions: req.permissions || {},
           createdAt: Date.now()
         });
+        console.log("[ShareReq] step2: creating deviceShareIndex");
         await setDoc(doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`), {
           ownerUid: req.ownerUid,
           deviceId: req.deviceId,
           sharedWithUid: user.uid
         });
+        console.log("[ShareReq] step3: updating deviceShareRequests status");
         await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "accepted" });
         setStatus(isAr ? "\u062A\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u0637\u0644\u0628" : "Request accepted!", false);
         setTimeout(() => modal.remove(), 1500);

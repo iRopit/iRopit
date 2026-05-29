@@ -1576,6 +1576,7 @@ async function _showIncomingShareRequestModal(req) {
     rejectBtn.disabled = true;
     try {
       // Create the active deviceShare doc
+      console.log("[ShareReq] step1: creating deviceShares doc, sharedWithUid=", req.sharedWithUid, "user.uid=", user.uid);
       await addDoc(collection(db, "deviceShares"), {
         ownerUid: req.ownerUid,
         ownerEmail: req.ownerEmail,
@@ -1583,17 +1584,19 @@ async function _showIncomingShareRequestModal(req) {
         deviceDocId: req.deviceDocId,
         deviceName: req.deviceName || "",
         sharedWithEmail: req.sharedWithEmail,
-        sharedWithUid: req.sharedWithUid,
+        sharedWithUid: user.uid,
         permissions: req.permissions || {},
         createdAt: Date.now(),
       });
       // Create deviceShareIndex entry for Firestore security rules
+      console.log("[ShareReq] step2: creating deviceShareIndex");
       await setDoc(doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`), {
         ownerUid: req.ownerUid,
         deviceId: req.deviceId,
         sharedWithUid: user.uid,
       });
       // Set status to "accepted" so owner's listener shows a toast
+      console.log("[ShareReq] step3: updating deviceShareRequests status");
       await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "accepted" });
       setStatus(isAr ? "تم قبول الطلب" : "Request accepted!", false);
       setTimeout(() => modal.remove(), 1500);

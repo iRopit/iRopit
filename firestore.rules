@@ -118,8 +118,8 @@ service cloud.firestore {
     // Used by Firestore security rules to efficiently check share access
     match /deviceShareIndex/{entryId} {
       allow read: if request.auth != null;
-      // Owner or recipient (when accepting a share request) can create
-      allow create: if request.auth != null && (
+      // Owner or recipient (when accepting a share request) can create or update
+      allow create, update: if request.auth != null && (
         request.resource.data.ownerUid == request.auth.uid ||
         request.resource.data.sharedWithUid == request.auth.uid
       );
