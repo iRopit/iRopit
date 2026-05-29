@@ -31638,6 +31638,13 @@ ${this.customData.serverResponse}`;
               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
+          <button class="share-device-btn" data-device-id="${escapeHtml(device.id)}" data-device-doc-id="${escapeHtml(device.docId)}" title="${t2("device_share")}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
         </div>
         <div class="list-item-subtitle">
           ${escapeHtml(device.model || device.platform || "Phone")} \u2022 ${escapeHtml(
@@ -31667,13 +31674,6 @@ ${this.customData.serverResponse}`;
         <span class="list-item-time">${formatTime(
         device.lastActiveAt || device.lastSeen
       )}</span>
-        <button class="share-device-btn" data-device-id="${escapeHtml(device.id)}" data-device-doc-id="${escapeHtml(device.docId)}" title="${t2("device_share")}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-        </button>
         <button class="delete-device-btn" data-device-id="${device.id}" data-device-doc-id="${device.docId}" data-device-name="${escapeHtml(device.nickname || device.name || device.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632" : "Delete device"}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
