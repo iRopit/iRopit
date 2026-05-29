@@ -141,8 +141,12 @@ service cloud.firestore {
 
     // Device sharing
     match /deviceShares/{shareId} {
-      // Owner can create/update/delete their own shares
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      // Owner can create/update/delete their own shares;
+      // recipient can also create when accepting a share request
+      allow create: if request.auth != null && (
+        request.resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.sharedWithUid == request.auth.uid
+      );
       allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
       // Both owner and recipient can read a share
       allow read: if request.auth != null && (
