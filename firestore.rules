@@ -4,7 +4,9 @@ service cloud.firestore {
 
     // Users can read/write their own user document
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Owner has full access; any authenticated user can read basic profile (for email lookup during device sharing)
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
 
       // Devices subcollection
       match /devices/{deviceId} {
@@ -54,7 +56,9 @@ service cloud.firestore {
 
     // Top-level devices collection
     match /devices/{deviceId} {
-      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      // Any authenticated user can read device docs (shared devices need recipient access;
+      // app-level logic controls what is displayed to each user)
+      allow read: if request.auth != null;
       // create/update: caller must write their own userId
       allow create, update: if request.auth != null && request.resource.data.userId == request.auth.uid;
       // delete: caller must own the document they are deleting
@@ -102,6 +106,20 @@ service cloud.firestore {
 
     match /calls/{docId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Device sharing
+    match /deviceShares/{shareId} {
+      // Owner can create/update/delete their own shares
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      // Both owner and recipient can read a share
+      allow read: if request.auth != null && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.sharedWithUid == request.auth.uid
+      );
+      // Recipient can also delete (to remove shared device from their list)
+      allow delete: if request.auth != null && resource.data.sharedWithUid == request.auth.uid;
     }
   }
 }
