@@ -2727,6 +2727,50 @@ body[dir="rtl"] .device-tag {
 .device-battery.charging {
   color: var(--primary);
 }
+
+/* Device sync preferences row */
+.device-sync-prefs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.sync-pref-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sync-pref-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.sync-pref-label:hover {
+  color: var(--text);
+}
+
+.sync-pref-label input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sync-pref-label span {
+  line-height: 1;
+}
 /* Settings Styles */
 .settings-container {
   display: flex;

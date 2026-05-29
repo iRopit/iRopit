@@ -527,10 +527,15 @@ export function reRenderNotifications() {
   const merged = getMergedNotifications();
   const selectedDevice =
     document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-  const filtered =
-    selectedDevice === "all"
-      ? merged
-      : merged.filter((n) => n.deviceId === selectedDevice);
+  let filtered;
+  if (selectedDevice === "all") {
+    // Exclude notifications from devices where Notifications sync is disabled
+    filtered = merged.filter(
+      (n) => !n.deviceId || state.getDeviceSyncPref(n.deviceId, "notifications"),
+    );
+  } else {
+    filtered = merged.filter((n) => n.deviceId === selectedDevice);
+  }
   renderNotifications(filtered);
 }
 

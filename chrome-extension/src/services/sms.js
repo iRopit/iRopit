@@ -1062,6 +1062,11 @@ export function renderSMS(messages) {
   let filteredMessages = messages;
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
+  } else {
+    // Exclude messages from devices where SMS sync is disabled
+    filteredMessages = messages.filter(
+      (msg) => !msg.deviceId || state.getDeviceSyncPref(msg.deviceId, "sms"),
+    );
   }
 
   // Filter by search query

@@ -24259,6 +24259,13 @@ ${this.customData.serverResponse}`;
   function setPhoneToContactMap(map) {
     phoneToContactMap = map;
   }
+  function setDeviceSyncPrefs(prefs) {
+    deviceSyncPrefs = prefs || {};
+  }
+  function getDeviceSyncPref(deviceId, type) {
+    if (!deviceId) return true;
+    return deviceSyncPrefs[deviceId]?.[type] !== false;
+  }
   function resetState() {
     currentUser = null;
     devices = [];
@@ -24275,8 +24282,9 @@ ${this.customData.serverResponse}`;
     currentReplyTo = null;
     allContacts = {};
     phoneToContactMap = {};
+    deviceSyncPrefs = {};
   }
-  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap;
+  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap, deviceSyncPrefs;
   var init_state = __esm({
     "src/state/index.js"() {
       currentUser = null;
@@ -24296,6 +24304,7 @@ ${this.customData.serverResponse}`;
       currentReplyTo = null;
       allContacts = {};
       phoneToContactMap = {};
+      deviceSyncPrefs = {};
     }
   });
 
@@ -26444,6 +26453,10 @@ ${this.customData.serverResponse}`;
       filteredCalls = normalizedCalls.filter(
         (call) => call.deviceId === selectedTab
       );
+    } else {
+      filteredCalls = normalizedCalls.filter(
+        (call) => !call.deviceId || getDeviceSyncPref(call.deviceId, "calls")
+      );
     }
     const callsSearch = document.getElementById("callsSearchInput");
     if (callsSearch && !callsSearch.dataset.wired) {
@@ -27876,6 +27889,10 @@ ${this.customData.serverResponse}`;
     let filteredMessages = messages;
     if (selectedTab !== "all") {
       filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
+    } else {
+      filteredMessages = messages.filter(
+        (msg) => !msg.deviceId || getDeviceSyncPref(msg.deviceId, "sms")
+      );
     }
     const searchQuery = (document.getElementById("smsSearchInput")?.value || "").trim().toLowerCase();
     const searchInput = document.getElementById("smsSearchInput");
@@ -29604,7 +29621,14 @@ ${this.customData.serverResponse}`;
   function reRenderNotifications() {
     const merged = getMergedNotifications();
     const selectedDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const filtered = selectedDevice === "all" ? merged : merged.filter((n) => n.deviceId === selectedDevice);
+    let filtered;
+    if (selectedDevice === "all") {
+      filtered = merged.filter(
+        (n) => !n.deviceId || getDeviceSyncPref(n.deviceId, "notifications")
+      );
+    } else {
+      filtered = merged.filter((n) => n.deviceId === selectedDevice);
+    }
     renderNotifications(filtered);
   }
   function hasMoreNotifications() {
@@ -31408,6 +31432,23 @@ ${this.customData.serverResponse}`;
     } catch (_) {
     }
   }
+  async function loadDeviceSyncPrefs() {
+    try {
+      const result = await chrome.storage.local.get("deviceSyncPrefs");
+      setDeviceSyncPrefs(result.deviceSyncPrefs || {});
+    } catch (_) {
+    }
+  }
+  async function saveDeviceSyncPref(deviceId, type, value) {
+    try {
+      const prefs = { ...deviceSyncPrefs };
+      if (!prefs[deviceId]) prefs[deviceId] = {};
+      prefs[deviceId][type] = value;
+      setDeviceSyncPrefs(prefs);
+      await chrome.storage.local.set({ deviceSyncPrefs: prefs });
+    } catch (_) {
+    }
+  }
   async function registerDevice() {
     const user = currentUser;
     if (!user) return;
@@ -31472,6 +31513,7 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     if (!user) return;
     await _loadVersionCache();
+    await loadDeviceSyncPrefs();
     const q2 = query(collection(db, "devices"), where("userId", "==", user.uid));
     const unsub = onSnapshot(
       q2,
@@ -31553,6 +31595,22 @@ ${this.customData.serverResponse}`;
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
+        ${isMobileDevice ? `
+        <div class="device-sync-prefs">
+          <span class="sync-pref-title">Sync:</span>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="sms" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "sms") ? " checked" : ""}>
+            <span>SMS</span>
+          </label>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="calls" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "calls") ? " checked" : ""}>
+            <span>Calls</span>
+          </label>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="notifications" data-device-id="${escapeHtml(device.id)}"${getDeviceSyncPref(device.id, "notifications") ? " checked" : ""}>
+            <span>Notifications</span>
+          </label>
+        </div>` : ""}
       </div>
       <div class="device-actions">
         <span class="list-item-time">${formatTime(
@@ -31588,6 +31646,15 @@ ${this.customData.serverResponse}`;
         if (device) {
           showEditDeviceNameModal(device);
         }
+      });
+    });
+    document.querySelectorAll(".sync-pref-cb").forEach((cb) => {
+      cb.addEventListener("change", async (e) => {
+        e.stopPropagation();
+        const deviceId = cb.dataset.deviceId;
+        const type = cb.dataset.syncType;
+        await saveDeviceSyncPref(deviceId, type, cb.checked);
+        updateDeviceSelects();
       });
     });
   }
@@ -31678,7 +31745,7 @@ ${this.customData.serverResponse}`;
     const smsDeviceTabs = document.getElementById("smsDeviceTabs");
     if (!smsDeviceTabs) return;
     const mobileDevices = devices2.filter(
-      (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
+      (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android") && getDeviceSyncPref(d.id, "sms")
     );
     const currentSelected = smsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
     const deviceTabsHTML = mobileDevices.map((d) => {
@@ -31738,7 +31805,7 @@ ${this.customData.serverResponse}`;
     const callsDeviceTabs = document.getElementById("callsDeviceTabs");
     if (!callsDeviceTabs) return;
     const mobileDevices = devices2.filter(
-      (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
+      (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android") && getDeviceSyncPref(d.id, "calls")
     );
     const currentSelected = callsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
     const deviceTabsHTML = mobileDevices.map((d) => {
@@ -31785,7 +31852,7 @@ ${this.customData.serverResponse}`;
     const notificationsDeviceTabs = document.getElementById("notificationsDeviceTabs");
     if (!notificationsDeviceTabs) return;
     const mobileDevices = devices2.filter(
-      (d) => d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android"
+      (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "ios" || d.platform === "Android") && getDeviceSyncPref(d.id, "notifications")
     );
     const currentSelected = notificationsDeviceTabs.querySelector(".device-tab.active")?.dataset.device || "all";
     const deviceTabsHTML = mobileDevices.map((d) => {

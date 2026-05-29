@@ -39,6 +39,10 @@ export let currentReplyTo = null;
 export let allContacts = {}; // { deviceId: [contacts] }
 export let phoneToContactMap = {}; // { normalizedPhone: contactName }
 
+// Per-device sync preferences { [deviceId]: { sms: bool, calls: bool, notifications: bool } }
+// Default (key absent) = all enabled
+export let deviceSyncPrefs = {};
+
 // State setters
 export function setCurrentUser(user) {
   currentUser = user;
@@ -147,6 +151,19 @@ export function setPhoneToContactMap(map) {
   phoneToContactMap = map;
 }
 
+export function setDeviceSyncPrefs(prefs) {
+  deviceSyncPrefs = prefs || {};
+}
+
+/**
+ * Returns true if the given sync type is enabled for a device.
+ * Defaults to true when no preference has been set (backward-compatible).
+ */
+export function getDeviceSyncPref(deviceId, type) {
+  if (!deviceId) return true;
+  return deviceSyncPrefs[deviceId]?.[type] !== false;
+}
+
 /**
  * Reset all state (on logout)
  */
@@ -166,4 +183,5 @@ export function resetState() {
   currentReplyTo = null;
   allContacts = {};
   phoneToContactMap = {};
+  deviceSyncPrefs = {};
 }

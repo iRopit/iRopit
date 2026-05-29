@@ -50,6 +50,26 @@ function _saveVersionCache() {
     chrome.storage.local.set({ deviceVersionCache: { ..._deviceVersionCache } });
   } catch (_) {}
 }
+
+// ── Per-device sync preferences ───────────────────────────────────────────────
+// { [deviceId]: { sms: bool, calls: bool, notifications: bool } }
+
+async function loadDeviceSyncPrefs() {
+  try {
+    const result = await chrome.storage.local.get("deviceSyncPrefs");
+    state.setDeviceSyncPrefs(result.deviceSyncPrefs || {});
+  } catch (_) {}
+}
+
+async function saveDeviceSyncPref(deviceId, type, value) {
+  try {
+    const prefs = { ...state.deviceSyncPrefs };
+    if (!prefs[deviceId]) prefs[deviceId] = {};
+    prefs[deviceId][type] = value;
+    state.setDeviceSyncPrefs(prefs);
+    await chrome.storage.local.set({ deviceSyncPrefs: prefs });
+  } catch (_) {}
+}
 import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
 import { reRenderNotifications } from "./notifications.js";
 import { renderCalls } from "./calls.js";
@@ -155,6 +175,7 @@ export async function loadDevices() {
   if (!user) return;
 
   await _loadVersionCache();
+  await loadDeviceSyncPrefs();
 
   const q = query(collection(db, "devices"), where("userId", "==", user.uid));
 
@@ -272,6 +293,22 @@ export function renderDevices() {
         </div>
         ${batteryMarkup}
         <div class="device-id-info">${escapeHtml(device.id)}</div>
+        ${isMobileDevice ? `
+        <div class="device-sync-prefs">
+          <span class="sync-pref-title">Sync:</span>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="sms" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "sms") ? " checked" : ""}>
+            <span>SMS</span>
+          </label>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="calls" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "calls") ? " checked" : ""}>
+            <span>Calls</span>
+          </label>
+          <label class="sync-pref-label">
+            <input type="checkbox" class="sync-pref-cb" data-sync-type="notifications" data-device-id="${escapeHtml(device.id)}"${state.getDeviceSyncPref(device.id, "notifications") ? " checked" : ""}>
+            <span>Notifications</span>
+          </label>
+        </div>` : ""}
       </div>
       <div class="device-actions">
         <span class="list-item-time">${formatTime(
@@ -316,6 +353,17 @@ export function renderDevices() {
       if (device) {
         showEditDeviceNameModal(device);
       }
+    });
+  });
+
+  // Add sync preference checkbox handlers
+  document.querySelectorAll(".sync-pref-cb").forEach((cb) => {
+    cb.addEventListener("change", async (e) => {
+      e.stopPropagation();
+      const deviceId = cb.dataset.deviceId;
+      const type = cb.dataset.syncType;
+      await saveDeviceSyncPref(deviceId, type, cb.checked);
+      updateDeviceSelects();
     });
   });
 }
@@ -463,14 +511,15 @@ export function updateSmsDeviceTabs() {
   const smsDeviceTabs = document.getElementById("smsDeviceTabs");
   if (!smsDeviceTabs) return;
 
-  // Show only mobile devices (same filter as SMS device select)
+  // Show only mobile devices that have SMS sync enabled
   const mobileDevices = devices.filter(
     (d) =>
-      d.type === "mobile" ||
+      (d.type === "mobile" ||
       d.type === "phone" ||
       d.platform === "android" ||
       d.platform === "ios" ||
-      d.platform === "Android",
+      d.platform === "Android") &&
+      state.getDeviceSyncPref(d.id, "sms"),
   );
 
   // Remember currently selected tab
@@ -550,14 +599,15 @@ export function updateCallsDeviceTabs() {
   const callsDeviceTabs = document.getElementById("callsDeviceTabs");
   if (!callsDeviceTabs) return;
 
-  // Show only mobile devices
+  // Show only mobile devices that have Calls sync enabled
   const mobileDevices = devices.filter(
     (d) =>
-      d.type === "mobile" ||
+      (d.type === "mobile" ||
       d.type === "phone" ||
       d.platform === "android" ||
       d.platform === "ios" ||
-      d.platform === "Android",
+      d.platform === "Android") &&
+      state.getDeviceSyncPref(d.id, "calls"),
   );
 
   // Remember currently selected tab
@@ -622,14 +672,15 @@ export function updateNotificationsDeviceTabs() {
   const notificationsDeviceTabs = document.getElementById("notificationsDeviceTabs");
   if (!notificationsDeviceTabs) return;
 
-  // Show only mobile devices
+  // Show only mobile devices that have Notifications sync enabled
   const mobileDevices = devices.filter(
     (d) =>
-      d.type === "mobile" ||
+      (d.type === "mobile" ||
       d.type === "phone" ||
       d.platform === "android" ||
       d.platform === "ios" ||
-      d.platform === "Android",
+      d.platform === "Android") &&
+      state.getDeviceSyncPref(d.id, "notifications"),
   );
 
   // Remember currently selected tab

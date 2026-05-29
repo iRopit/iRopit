@@ -661,6 +661,11 @@ export function renderCalls(calls) {
     filteredCalls = normalizedCalls.filter(
       (call) => call.deviceId === selectedTab,
     );
+  } else {
+    // Exclude calls from devices where Calls sync is disabled
+    filteredCalls = normalizedCalls.filter(
+      (call) => !call.deviceId || state.getDeviceSyncPref(call.deviceId, "calls"),
+    );
   }
 
   // Wire search input once
