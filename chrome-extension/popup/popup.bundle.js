@@ -32511,7 +32511,7 @@ ${this.customData.serverResponse}`;
           <div class="share-existing-row">
             <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
             <span class="share-existing-perms">(${pList})</span>
-            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631" : "Pending"}</span>
+            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631)" : "(Pending)"}</span>
           </div>
         `;
     }).join("")}

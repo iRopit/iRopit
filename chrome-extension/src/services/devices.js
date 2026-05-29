@@ -1301,7 +1301,7 @@ export async function showShareDeviceModal(device) {
           <div class="share-existing-row">
             <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
             <span class="share-existing-perms">(${pList})</span>
-            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "قيد الانتظار" : "Pending"}</span>
+            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(قيد الانتظار)" : "(Pending)"}</span>
           </div>
         `;
       }).join("")}
