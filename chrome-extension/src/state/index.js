@@ -47,6 +47,12 @@ export let deviceSyncPrefs = {};
 // Each entry: { shareId, ownerUid, ownerEmail, deviceId, deviceDocId, deviceName, permissions, device }
 export let sharedWithMeDevices = [];
 
+// Own devices that this user has actively shared with others: { [deviceId]: [{shareId,...}] }
+export let myDeviceShares = {};
+
+// Own devices with pending (unanswered) share requests: Set of deviceIds
+export let myPendingShareDeviceIds = new Set();
+
 // State setters
 export function setCurrentUser(user) {
   currentUser = user;
@@ -163,6 +169,14 @@ export function setSharedWithMeDevices(list) {
   sharedWithMeDevices = list || [];
 }
 
+export function setMyDeviceShares(map) {
+  myDeviceShares = map || {};
+}
+
+export function setMyPendingShareDeviceIds(set) {
+  myPendingShareDeviceIds = set || new Set();
+}
+
 /**
  * Returns true if the given sync type is enabled for a device.
  * Defaults to true when no preference has been set (backward-compatible).
@@ -193,4 +207,6 @@ export function resetState() {
   phoneToContactMap = {};
   deviceSyncPrefs = {};
   sharedWithMeDevices = [];
+  myDeviceShares = {};
+  myPendingShareDeviceIds = new Set();
 }

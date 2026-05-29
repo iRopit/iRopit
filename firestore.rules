@@ -122,6 +122,23 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
 
+    // Device share requests (pending/accepted/rejected invitation flow)
+    match /deviceShareRequests/{requestId} {
+      allow read: if request.auth != null && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.sharedWithUid == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.sharedWithUid == request.auth.uid ||
+        resource.data.ownerUid == request.auth.uid
+      );
+      allow delete: if request.auth != null && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.sharedWithUid == request.auth.uid
+      );
+    }
+
     // Device sharing
     match /deviceShares/{shareId} {
       // Owner can create/update/delete their own shares

@@ -247,6 +247,83 @@ export async function loadDevices() {
     },
   );
   state.addUnsubscriber(sharesUnsub);
+
+  // ── Own-device shares listener (to show "(Shared)" badge on device list) ──
+  const mySharesQ = query(
+    collection(db, "deviceShares"),
+    where("ownerUid", "==", user.uid),
+  );
+  const mySharesUnsub = onSnapshot(mySharesQ, (snapshot) => {
+    const map = {};
+    snapshot.docs.forEach((d) => {
+      const data = d.data();
+      if (!map[data.deviceId]) map[data.deviceId] = [];
+      map[data.deviceId].push({ shareId: d.id, ...data });
+    });
+    state.setMyDeviceShares(map);
+    renderDevices();
+  }, () => {});
+  state.addUnsubscriber(mySharesUnsub);
+
+  // ── Own pending share requests (to show "(Pending)" badge on device list) ─
+  const myPendingReqQ = query(
+    collection(db, "deviceShareRequests"),
+    where("ownerUid", "==", user.uid),
+    where("status", "==", "pending"),
+  );
+  const myPendingReqUnsub = onSnapshot(myPendingReqQ, (snapshot) => {
+    const pendingIds = new Set(snapshot.docs.map((d) => d.data().deviceId));
+    state.setMyPendingShareDeviceIds(pendingIds);
+    renderDevices();
+  }, () => {});
+  state.addUnsubscriber(myPendingReqUnsub);
+
+  // ── Incoming share requests listener (recipient side) ─────────────────────
+  const incomingReqQ = query(
+    collection(db, "deviceShareRequests"),
+    where("sharedWithUid", "==", user.uid),
+    where("status", "==", "pending"),
+  );
+  const incomingReqUnsub = onSnapshot(incomingReqQ, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added") {
+        _showIncomingShareRequestModal({ requestId: change.doc.id, ...change.doc.data() });
+      }
+    });
+  }, () => {});
+  state.addUnsubscriber(incomingReqUnsub);
+
+  // ── Outgoing request response listener (owner sees accept/reject) ──────────
+  const outgoingRespQ = query(
+    collection(db, "deviceShareRequests"),
+    where("ownerUid", "==", user.uid),
+    where("status", "in", ["accepted", "rejected"]),
+  );
+  const outgoingRespUnsub = onSnapshot(outgoingRespQ, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added" || change.type === "modified") {
+        const req = { requestId: change.doc.id, ...change.doc.data() };
+        const isAr = getCurrentLanguage() === "ar";
+        if (req.status === "accepted") {
+          showToast(
+            isAr
+              ? `\u0642\u0628\u0650\u0644 ${escapeHtml(req.sharedWithEmail)} \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062c\u0647\u0627\u0632\u0643`
+              : `${req.sharedWithEmail} accepted your device share request`,
+            "success",
+          );
+        } else {
+          showToast(
+            isAr
+              ? `\u0631\u0641\u0636 ${escapeHtml(req.sharedWithEmail)} \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062c\u0647\u0627\u0632\u0643`
+              : `${req.sharedWithEmail} declined your device share request`,
+            "error",
+          );
+        }
+        deleteDoc(doc(db, "deviceShareRequests", req.requestId)).catch(() => {});
+      }
+    });
+  }, () => {});
+  state.addUnsubscriber(outgoingRespUnsub);
 }
 
 /**
@@ -320,6 +397,11 @@ export function renderDevices() {
       <div class="list-item-content">
         <div class="list-item-title device-name-display">
           <span class="device-nickname">${escapeHtml(getFriendlyDeviceName(device))}</span>
+          ${(state.myDeviceShares || {})[device.id]?.length > 0
+            ? `<span class="device-owned-shared-badge">${t("device_shared_badge")}</span>`
+            : (state.myPendingShareDeviceIds || new Set()).has(device.id)
+              ? `<span class="device-pending-badge">${t("device_pending_badge")}</span>`
+              : ""}
           <button class="edit-name-btn" data-device-doc-id="${escapeHtml(
             device.docId,
           )}" title="${t("device_edit_name")}">
@@ -704,7 +786,7 @@ export function updateSmsDeviceTabs() {
     return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
   }).join("");
@@ -812,7 +894,7 @@ export function updateCallsDeviceTabs() {
     return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
   }).join("");
@@ -903,7 +985,7 @@ export function updateNotificationsDeviceTabs() {
     return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
   }).join("");
@@ -1165,6 +1247,7 @@ export async function showShareDeviceModal(device) {
 
   // Fetch existing shares for this device
   let existingShares = [];
+  let pendingRequests = [];
   try {
     const sharesSnap = await getDocs(
       query(
@@ -1175,8 +1258,19 @@ export async function showShareDeviceModal(device) {
     );
     existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
   } catch (_) {}
+  try {
+    const pendingSnap = await getDocs(
+      query(
+        collection(db, "deviceShareRequests"),
+        where("ownerUid", "==", user.uid),
+        where("deviceId", "==", device.id),
+        where("status", "==", "pending"),
+      )
+    );
+    pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
+  } catch (_) {}
 
-  const existingSharesHtml = existingShares.length === 0 ? "" : `
+  const existingSharesHtml = (existingShares.length === 0 && pendingRequests.length === 0) ? "" : `
     <div class="share-existing-list">
       <div class="share-existing-title">${isAr ? "مشارك حالياً مع:" : "Currently shared with:"}</div>
       ${existingShares.map((s) => {
@@ -1193,6 +1287,21 @@ export async function showShareDeviceModal(device) {
             <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
               ${isAr ? "إيقاف المشاركة" : "Stop Sharing"}
             </button>
+          </div>
+        `;
+      }).join("")}
+      ${pendingRequests.map((r) => {
+        const perms = r.permissions || {};
+        const pList = [
+          perms.sms && (isAr ? "الرسائل" : "SMS"),
+          perms.calls && (isAr ? "المكالمات" : "Calls"),
+          perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
+        ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+        return `
+          <div class="share-existing-row">
+            <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
+            <span class="share-existing-perms">(${pList})</span>
+            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "قيد الانتظار" : "Pending"}</span>
           </div>
         `;
       }).join("")}
@@ -1320,38 +1429,167 @@ export async function showShareDeviceModal(device) {
       const recipientDoc = usersSnap.docs[0];
       const recipientUid = recipientDoc.data().uid || recipientDoc.id;
 
-      // Check if already shared with this user
+      // Check if already shared or has pending request for this user
       const existing = existingShares.find((s) => s.sharedWithEmail === email);
+      const pending = pendingRequests.find((r) => r.sharedWithEmail === email);
       if (existing) {
         showError(isAr ? "الجهاز مشارك بالفعل مع هذا المستخدم." : "Device is already shared with this user.");
         confirmBtn.disabled = false;
         return;
       }
+      if (pending) {
+        showError(isAr ? "تم إرسال طلب مشاركة بالفعل لهذا المستخدم." : "A share request is already pending for this user.");
+        confirmBtn.disabled = false;
+        return;
+      }
 
-      await addDoc(collection(db, "deviceShares"), {
+      await addDoc(collection(db, "deviceShareRequests"), {
         ownerUid: user.uid,
         ownerEmail: user.email,
+        ownerDisplayName: user.displayName || user.email,
         deviceId: device.id,
         deviceDocId: device.docId,
         deviceName: getFriendlyDeviceName(device),
         sharedWithEmail: email,
         sharedWithUid: recipientUid,
         permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
+        status: "pending",
         createdAt: Date.now(),
       });
-      // Write deviceShareIndex entry (deterministic ID) for Firestore security rules
-      await setDoc(doc(db, "deviceShareIndex", `${device.id}_${recipientUid}`), {
-        ownerUid: user.uid,
-        deviceId: device.id,
-        sharedWithUid: recipientUid,
-      });
 
-      showToast(isAr ? `تم مشاركة الجهاز مع ${email}` : `Device shared with ${email}`, "success");
+      showToast(
+        isAr ? `تم إرسال طلب المشاركة إلى ${email}` : `Share request sent to ${email}`,
+        "success",
+      );
       modal.remove();
     } catch (err) {
       console.error("[Share] share device error:", err);
       showError(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
       confirmBtn.disabled = false;
+    }
+  });
+}
+
+/**
+ * Show accept/reject modal for an incoming device share request (recipient side).
+ */
+async function _showIncomingShareRequestModal(req) {
+  const user = state.currentUser;
+  if (!user) return;
+
+  // Avoid duplicate modals for the same request
+  if (document.getElementById(`shareReqModal_${req.requestId}`)) return;
+
+  const isAr = getCurrentLanguage() === "ar";
+  const perms = req.permissions || {};
+  const permList = [
+    perms.sms && (isAr ? "الرسائل" : "SMS"),
+    perms.calls && (isAr ? "المكالمات" : "Calls"),
+    perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
+  ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+
+  const ownerName = escapeHtml(req.ownerDisplayName || req.ownerEmail || "");
+  const deviceName = escapeHtml(req.deviceName || req.deviceId || "");
+
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.id = `shareReqModal_${req.requestId}`;
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${isAr ? "طلب مشاركة جهاز" : "Device Share Request"}</h3>
+      </div>
+      <div class="modal-body">
+        <div class="share-request-info">
+          <div class="share-request-device-name">
+            <svg width="16" height="16" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px">
+              <rect x="128" y="16" width="256" height="480" rx="48" ry="48"/>
+              <line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48" stroke-linecap="round"/>
+            </svg>${deviceName}
+          </div>
+          <div class="share-request-sender">
+            ${isAr
+              ? `يريد <strong>${ownerName}</strong> مشاركة هذا الجهاز معك`
+              : `<strong>${ownerName}</strong> wants to share this device with you`}
+          </div>
+          <div class="share-request-perms">
+            ${isAr ? "الصلاحيات:" : "Permissions:"} <strong>${permList}</strong>
+          </div>
+        </div>
+        <div id="shareReqStatus_${req.requestId}" style="display:none;" class="share-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="shareReqReject_${req.requestId}">
+          ${isAr ? "رفض" : "Reject"}
+        </button>
+        <button class="btn btn-primary" id="shareReqAccept_${req.requestId}">
+          ${isAr ? "قبول" : "Accept"}
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const acceptBtn = document.getElementById(`shareReqAccept_${req.requestId}`);
+  const rejectBtn = document.getElementById(`shareReqReject_${req.requestId}`);
+
+  const setStatus = (msg, isError) => {
+    const el = document.getElementById(`shareReqStatus_${req.requestId}`);
+    if (el) {
+      el.textContent = msg;
+      el.style.display = "block";
+      el.style.background = isError ? "#c0392b" : "#276749";
+    }
+  };
+
+  acceptBtn.addEventListener("click", async () => {
+    acceptBtn.disabled = true;
+    rejectBtn.disabled = true;
+    try {
+      // Create the active deviceShare doc
+      await addDoc(collection(db, "deviceShares"), {
+        ownerUid: req.ownerUid,
+        ownerEmail: req.ownerEmail,
+        deviceId: req.deviceId,
+        deviceDocId: req.deviceDocId,
+        deviceName: req.deviceName || "",
+        sharedWithEmail: req.sharedWithEmail,
+        sharedWithUid: req.sharedWithUid,
+        permissions: req.permissions || {},
+        createdAt: Date.now(),
+      });
+      // Create deviceShareIndex entry for Firestore security rules
+      await setDoc(doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`), {
+        ownerUid: req.ownerUid,
+        deviceId: req.deviceId,
+        sharedWithUid: user.uid,
+      });
+      // Set status to "accepted" so owner's listener shows a toast
+      await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "accepted" });
+      setStatus(isAr ? "تم قبول الطلب" : "Request accepted!", false);
+      setTimeout(() => modal.remove(), 1500);
+    } catch (err) {
+      console.error("[ShareReq] accept error:", err);
+      acceptBtn.disabled = false;
+      rejectBtn.disabled = false;
+      setStatus(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.", true);
+    }
+  });
+
+  rejectBtn.addEventListener("click", async () => {
+    acceptBtn.disabled = true;
+    rejectBtn.disabled = true;
+    try {
+      // Set status to "rejected" so owner's listener shows a toast
+      await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+      setStatus(isAr ? "تم رفض الطلب" : "Request declined.", false);
+      setTimeout(() => modal.remove(), 1200);
+    } catch (err) {
+      console.error("[ShareReq] reject error:", err);
+      acceptBtn.disabled = false;
+      rejectBtn.disabled = false;
+      setStatus(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.", true);
     }
   });
 }

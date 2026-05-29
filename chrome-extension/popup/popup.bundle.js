@@ -24265,6 +24265,12 @@ ${this.customData.serverResponse}`;
   function setSharedWithMeDevices(list) {
     sharedWithMeDevices = list || [];
   }
+  function setMyDeviceShares(map) {
+    myDeviceShares = map || {};
+  }
+  function setMyPendingShareDeviceIds(set) {
+    myPendingShareDeviceIds = set || /* @__PURE__ */ new Set();
+  }
   function getDeviceSyncPref(deviceId, type) {
     if (!deviceId) return true;
     return deviceSyncPrefs[deviceId]?.[type] !== false;
@@ -24287,8 +24293,10 @@ ${this.customData.serverResponse}`;
     phoneToContactMap = {};
     deviceSyncPrefs = {};
     sharedWithMeDevices = [];
+    myDeviceShares = {};
+    myPendingShareDeviceIds = /* @__PURE__ */ new Set();
   }
-  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap, deviceSyncPrefs, sharedWithMeDevices;
+  var currentUser, devices, unsubscribers, pollingInterval, allSMS, allSMSMessages, currentConversation, allCallsData, allCallsByDevice, currentCallConversation, callsDataConfirmed, allNotifications, allNotificationsMessages, cachedChatMessages, currentReplyTo, allContacts, phoneToContactMap, deviceSyncPrefs, sharedWithMeDevices, myDeviceShares, myPendingShareDeviceIds;
   var init_state = __esm({
     "src/state/index.js"() {
       currentUser = null;
@@ -24310,6 +24318,8 @@ ${this.customData.serverResponse}`;
       phoneToContactMap = {};
       deviceSyncPrefs = {};
       sharedWithMeDevices = [];
+      myDeviceShares = {};
+      myPendingShareDeviceIds = /* @__PURE__ */ new Set();
     }
   });
 
@@ -24520,6 +24530,7 @@ ${this.customData.serverResponse}`;
           device_stop_sharing: "Remove shared device",
           device_shared_badge: "Shared",
           device_shared_with_me: "Shared with me",
+          device_pending_badge: "Pending",
           device_edit_name: "Edit name"
         },
         ar: {
@@ -24646,6 +24657,7 @@ ${this.customData.serverResponse}`;
           device_stop_sharing: "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643",
           device_shared_badge: "\u0645\u0634\u062A\u0631\u0643",
           device_shared_with_me: "\u0645\u0634\u0627\u0631\u0643 \u0645\u0639\u064A",
+          device_pending_badge: "\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631",
           device_edit_name: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0627\u0633\u0645",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B"
         }
@@ -31710,6 +31722,76 @@ ${this.customData.serverResponse}`;
       }
     );
     addUnsubscriber(sharesUnsub);
+    const mySharesQ = query(
+      collection(db, "deviceShares"),
+      where("ownerUid", "==", user.uid)
+    );
+    const mySharesUnsub = onSnapshot(mySharesQ, (snapshot) => {
+      const map = {};
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        if (!map[data.deviceId]) map[data.deviceId] = [];
+        map[data.deviceId].push({ shareId: d.id, ...data });
+      });
+      setMyDeviceShares(map);
+      renderDevices();
+    }, () => {
+    });
+    addUnsubscriber(mySharesUnsub);
+    const myPendingReqQ = query(
+      collection(db, "deviceShareRequests"),
+      where("ownerUid", "==", user.uid),
+      where("status", "==", "pending")
+    );
+    const myPendingReqUnsub = onSnapshot(myPendingReqQ, (snapshot) => {
+      const pendingIds = new Set(snapshot.docs.map((d) => d.data().deviceId));
+      setMyPendingShareDeviceIds(pendingIds);
+      renderDevices();
+    }, () => {
+    });
+    addUnsubscriber(myPendingReqUnsub);
+    const incomingReqQ = query(
+      collection(db, "deviceShareRequests"),
+      where("sharedWithUid", "==", user.uid),
+      where("status", "==", "pending")
+    );
+    const incomingReqUnsub = onSnapshot(incomingReqQ, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          _showIncomingShareRequestModal({ requestId: change.doc.id, ...change.doc.data() });
+        }
+      });
+    }, () => {
+    });
+    addUnsubscriber(incomingReqUnsub);
+    const outgoingRespQ = query(
+      collection(db, "deviceShareRequests"),
+      where("ownerUid", "==", user.uid),
+      where("status", "in", ["accepted", "rejected"])
+    );
+    const outgoingRespUnsub = onSnapshot(outgoingRespQ, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added" || change.type === "modified") {
+          const req = { requestId: change.doc.id, ...change.doc.data() };
+          const isAr = getCurrentLanguage() === "ar";
+          if (req.status === "accepted") {
+            showToast(
+              isAr ? `\u0642\u0628\u0650\u0644 ${escapeHtml(req.sharedWithEmail)} \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062C\u0647\u0627\u0632\u0643` : `${req.sharedWithEmail} accepted your device share request`,
+              "success"
+            );
+          } else {
+            showToast(
+              isAr ? `\u0631\u0641\u0636 ${escapeHtml(req.sharedWithEmail)} \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062C\u0647\u0627\u0632\u0643` : `${req.sharedWithEmail} declined your device share request`,
+              "error"
+            );
+          }
+          deleteDoc(doc(db, "deviceShareRequests", req.requestId)).catch(() => {
+          });
+        }
+      });
+    }, () => {
+    });
+    addUnsubscriber(outgoingRespUnsub);
   }
   function renderDevices() {
     const devices2 = devices;
@@ -31752,6 +31834,7 @@ ${this.customData.serverResponse}`;
       <div class="list-item-content">
         <div class="list-item-title device-name-display">
           <span class="device-nickname">${escapeHtml(getFriendlyDeviceName(device))}</span>
+          ${(myDeviceShares || {})[device.id]?.length > 0 ? `<span class="device-owned-shared-badge">${t2("device_shared_badge")}</span>` : (myPendingShareDeviceIds || /* @__PURE__ */ new Set()).has(device.id) ? `<span class="device-pending-badge">${t2("device_pending_badge")}</span>` : ""}
           <button class="edit-name-btn" data-device-doc-id="${escapeHtml(
         device.docId
       )}" title="${t2("device_edit_name")}">
@@ -32036,7 +32119,7 @@ ${this.customData.serverResponse}`;
       return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
     }).join("");
@@ -32113,7 +32196,7 @@ ${this.customData.serverResponse}`;
       return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
     }).join("");
@@ -32177,7 +32260,7 @@ ${this.customData.serverResponse}`;
       return `
       <button class="device-tab${isActive}" data-device="${escapeHtml(s.deviceId)}">
         ${platformIcon}
-        <span>${escapeHtml(deviceName)}</span>${countHtml}
+        <span>${escapeHtml(deviceName)} <span class="tab-shared-label">(Shared)</span></span>${countHtml}
       </button>
     `;
     }).join("");
@@ -32368,6 +32451,7 @@ ${this.customData.serverResponse}`;
     const isAr = getCurrentLanguage() === "ar";
     const deviceName = getFriendlyDeviceName(device);
     let existingShares = [];
+    let pendingRequests = [];
     try {
       const sharesSnap = await getDocs(
         query(
@@ -32379,7 +32463,19 @@ ${this.customData.serverResponse}`;
       existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
     } catch (_) {
     }
-    const existingSharesHtml = existingShares.length === 0 ? "" : `
+    try {
+      const pendingSnap = await getDocs(
+        query(
+          collection(db, "deviceShareRequests"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id),
+          where("status", "==", "pending")
+        )
+      );
+      pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
+    } catch (_) {
+    }
+    const existingSharesHtml = existingShares.length === 0 && pendingRequests.length === 0 ? "" : `
     <div class="share-existing-list">
       <div class="share-existing-title">${isAr ? "\u0645\u0634\u0627\u0631\u0643 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0639:" : "Currently shared with:"}</div>
       ${existingShares.map((s) => {
@@ -32396,6 +32492,21 @@ ${this.customData.serverResponse}`;
             <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
               ${isAr ? "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Stop Sharing"}
             </button>
+          </div>
+        `;
+    }).join("")}
+      ${pendingRequests.map((r) => {
+      const perms = r.permissions || {};
+      const pList = [
+        perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
+        perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
+        perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
+      ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+      return `
+          <div class="share-existing-row">
+            <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
+            <span class="share-existing-perms">(${pList})</span>
+            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631" : "Pending"}</span>
           </div>
         `;
     }).join("")}
@@ -32512,33 +32623,143 @@ ${this.customData.serverResponse}`;
         const recipientDoc = usersSnap.docs[0];
         const recipientUid = recipientDoc.data().uid || recipientDoc.id;
         const existing = existingShares.find((s) => s.sharedWithEmail === email);
+        const pending = pendingRequests.find((r) => r.sharedWithEmail === email);
         if (existing) {
           showError(isAr ? "\u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0634\u0627\u0631\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u0639 \u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645." : "Device is already shared with this user.");
           confirmBtn.disabled = false;
           return;
         }
-        await addDoc(collection(db, "deviceShares"), {
+        if (pending) {
+          showError(isAr ? "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645." : "A share request is already pending for this user.");
+          confirmBtn.disabled = false;
+          return;
+        }
+        await addDoc(collection(db, "deviceShareRequests"), {
           ownerUid: user.uid,
           ownerEmail: user.email,
+          ownerDisplayName: user.displayName || user.email,
           deviceId: device.id,
           deviceDocId: device.docId,
           deviceName: getFriendlyDeviceName(device),
           sharedWithEmail: email,
           sharedWithUid: recipientUid,
           permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
+          status: "pending",
           createdAt: Date.now()
         });
-        await setDoc(doc(db, "deviceShareIndex", `${device.id}_${recipientUid}`), {
-          ownerUid: user.uid,
-          deviceId: device.id,
-          sharedWithUid: recipientUid
-        });
-        showToast(isAr ? `\u062A\u0645 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 ${email}` : `Device shared with ${email}`, "success");
+        showToast(
+          isAr ? `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629 \u0625\u0644\u0649 ${email}` : `Share request sent to ${email}`,
+          "success"
+        );
         modal.remove();
       } catch (err) {
         console.error("[Share] share device error:", err);
         showError(isAr ? "\u062D\u062F\u062B \u062E\u0637\u0623. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." : "An error occurred. Please try again.");
         confirmBtn.disabled = false;
+      }
+    });
+  }
+  async function _showIncomingShareRequestModal(req) {
+    const user = currentUser;
+    if (!user) return;
+    if (document.getElementById(`shareReqModal_${req.requestId}`)) return;
+    const isAr = getCurrentLanguage() === "ar";
+    const perms = req.permissions || {};
+    const permList = [
+      perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
+      perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
+      perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
+    ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+    const ownerName = escapeHtml(req.ownerDisplayName || req.ownerEmail || "");
+    const deviceName = escapeHtml(req.deviceName || req.deviceId || "");
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.id = `shareReqModal_${req.requestId}`;
+    modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${isAr ? "\u0637\u0644\u0628 \u0645\u0634\u0627\u0631\u0643\u0629 \u062C\u0647\u0627\u0632" : "Device Share Request"}</h3>
+      </div>
+      <div class="modal-body">
+        <div class="share-request-info">
+          <div class="share-request-device-name">
+            <svg width="16" height="16" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px">
+              <rect x="128" y="16" width="256" height="480" rx="48" ry="48"/>
+              <line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48" stroke-linecap="round"/>
+            </svg>${deviceName}
+          </div>
+          <div class="share-request-sender">
+            ${isAr ? `\u064A\u0631\u064A\u062F <strong>${ownerName}</strong> \u0645\u0634\u0627\u0631\u0643\u0629 \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639\u0643` : `<strong>${ownerName}</strong> wants to share this device with you`}
+          </div>
+          <div class="share-request-perms">
+            ${isAr ? "\u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0627\u062A:" : "Permissions:"} <strong>${permList}</strong>
+          </div>
+        </div>
+        <div id="shareReqStatus_${req.requestId}" style="display:none;" class="share-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="shareReqReject_${req.requestId}">
+          ${isAr ? "\u0631\u0641\u0636" : "Reject"}
+        </button>
+        <button class="btn btn-primary" id="shareReqAccept_${req.requestId}">
+          ${isAr ? "\u0642\u0628\u0648\u0644" : "Accept"}
+        </button>
+      </div>
+    </div>
+  `;
+    document.body.appendChild(modal);
+    const acceptBtn = document.getElementById(`shareReqAccept_${req.requestId}`);
+    const rejectBtn = document.getElementById(`shareReqReject_${req.requestId}`);
+    const setStatus = (msg, isError) => {
+      const el = document.getElementById(`shareReqStatus_${req.requestId}`);
+      if (el) {
+        el.textContent = msg;
+        el.style.display = "block";
+        el.style.background = isError ? "#c0392b" : "#276749";
+      }
+    };
+    acceptBtn.addEventListener("click", async () => {
+      acceptBtn.disabled = true;
+      rejectBtn.disabled = true;
+      try {
+        await addDoc(collection(db, "deviceShares"), {
+          ownerUid: req.ownerUid,
+          ownerEmail: req.ownerEmail,
+          deviceId: req.deviceId,
+          deviceDocId: req.deviceDocId,
+          deviceName: req.deviceName || "",
+          sharedWithEmail: req.sharedWithEmail,
+          sharedWithUid: req.sharedWithUid,
+          permissions: req.permissions || {},
+          createdAt: Date.now()
+        });
+        await setDoc(doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`), {
+          ownerUid: req.ownerUid,
+          deviceId: req.deviceId,
+          sharedWithUid: user.uid
+        });
+        await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "accepted" });
+        setStatus(isAr ? "\u062A\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u0637\u0644\u0628" : "Request accepted!", false);
+        setTimeout(() => modal.remove(), 1500);
+      } catch (err) {
+        console.error("[ShareReq] accept error:", err);
+        acceptBtn.disabled = false;
+        rejectBtn.disabled = false;
+        setStatus(isAr ? "\u062D\u062F\u062B \u062E\u0637\u0623. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." : "An error occurred. Please try again.", true);
+      }
+    });
+    rejectBtn.addEventListener("click", async () => {
+      acceptBtn.disabled = true;
+      rejectBtn.disabled = true;
+      try {
+        await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+        setStatus(isAr ? "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628" : "Request declined.", false);
+        setTimeout(() => modal.remove(), 1200);
+      } catch (err) {
+        console.error("[ShareReq] reject error:", err);
+        acceptBtn.disabled = false;
+        rejectBtn.disabled = false;
+        setStatus(isAr ? "\u062D\u062F\u062B \u062E\u0637\u0623. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649." : "An error occurred. Please try again.", true);
       }
     });
   }

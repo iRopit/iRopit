@@ -2838,6 +2838,78 @@ body[dir="rtl"] .device-tag {
   background: rgba(229, 62, 62, 0.08);
 }
 
+/* ── Share Request Dialog ─────────────────────────────────────────────────── */
+.share-request-info {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.share-request-device-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+.share-request-sender {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.share-request-perms {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* "(Shared)" badge on own devices the user has shared with others */
+.device-owned-shared-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(72, 187, 120, 0.15);
+  color: #276749;
+  border: 1px solid rgba(72, 187, 120, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+html.dark .device-owned-shared-badge {
+  background: rgba(72, 187, 120, 0.2);
+  color: #9ae6b4;
+  border-color: rgba(72, 187, 120, 0.35);
+}
+
+/* "(Pending)" badge on own devices awaiting share acceptance */
+.device-pending-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(237, 137, 54, 0.15);
+  color: #c05621;
+  border: 1px solid rgba(237, 137, 54, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+html.dark .device-pending-badge {
+  background: rgba(237, 137, 54, 0.2);
+  color: #fbd38d;
+  border-color: rgba(237, 137, 54, 0.35);
+}
+
+/* "(Shared)" label inside sidebar filter tabs */
+.tab-shared-label {
+  font-size: 9px;
+  font-weight: 500;
+  opacity: 0.65;
+  font-style: normal;
+}
+
 .share-perms-row {
   display: flex;
   gap: 14px;
