@@ -24406,6 +24406,9 @@ ${this.customData.serverResponse}`;
     "src/utils/i18n.js"() {
       translations = {
         en: {
+          device_default: "Device",
+          device_android: "Android",
+          device_iphone: "iPhone",
           nav_sms: "SMS",
           nav_calls: "Calls",
           nav_chat: "Chat",
@@ -24534,6 +24537,9 @@ ${this.customData.serverResponse}`;
           device_edit_name: "Edit name"
         },
         ar: {
+          device_default: "\u062C\u0647\u0627\u0632",
+          device_android: "\u0623\u0646\u062F\u0631\u0648\u064A\u062F",
+          device_iphone: "\u0622\u064A\u0641\u0648\u0646",
           nav_sms: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
           nav_calls: "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           nav_chat: "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
@@ -24746,15 +24752,23 @@ ${this.customData.serverResponse}`;
     }
   }
   function getFriendlyDeviceName(device) {
-    if (!device) return "Device";
+    if (!device) {
+      const lang2 = getCurrentLanguage();
+      return translations[lang2]?.device_default || translations["en"].device_default;
+    }
     if (device.nickname) return device.nickname;
     if (device.name && /[a-zA-Z]/.test(device.name) && !/^[A-Z0-9]+$/.test(device.name)) {
       return device.name;
     }
     const platform = (device.platform || "").toLowerCase();
-    if (platform === "ios") return "iPhone";
-    if (platform === "android") return "Android";
-    return "Device";
+    const lang = getCurrentLanguage();
+    if (platform === "ios") {
+      return translations[lang]?.device_iphone || translations["en"].device_iphone;
+    }
+    if (platform === "android") {
+      return translations[lang]?.device_android || translations["en"].device_android;
+    }
+    return translations[lang]?.device_default || translations["en"].device_default;
   }
   function formatTime(timestamp) {
     if (!timestamp) return "";

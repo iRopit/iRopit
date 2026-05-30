@@ -1,7 +1,7 @@
 /**
  * Utility helper functions
  */
-import { getCurrentLanguage } from "./i18n.js";
+import { getCurrentLanguage, translations } from "./i18n.js";
 
 /**
  * Escape HTML special characters to prevent XSS
@@ -39,7 +39,10 @@ export function sanitizeUrl(url) {
  * @returns {string} Human-readable device name
  */
 export function getFriendlyDeviceName(device) {
-  if (!device) return "Device";
+  if (!device) {
+    const lang = getCurrentLanguage();
+    return translations[lang]?.device_default || translations["en"].device_default;
+  }
 
   // First priority: nickname set by user
   if (device.nickname) return device.nickname;
@@ -55,11 +58,16 @@ export function getFriendlyDeviceName(device) {
 
   // Third priority: platform-based friendly name (case-insensitive)
   const platform = (device.platform || "").toLowerCase();
-  if (platform === "ios") return "iPhone";
-  if (platform === "android") return "Android";
+  const lang = getCurrentLanguage();
+  if (platform === "ios") {
+    return translations[lang]?.device_iphone || translations["en"].device_iphone;
+  }
+  if (platform === "android") {
+    return translations[lang]?.device_android || translations["en"].device_android;
+  }
 
   // Last resort
-  return "Device";
+  return translations[lang]?.device_default || translations["en"].device_default;
 }
 
 /**

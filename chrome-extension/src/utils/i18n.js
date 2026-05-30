@@ -5,6 +5,9 @@
 // Translation object
 export const translations = {
   en: {
+    device_default: "Device",
+    device_android: "Android",
+    device_iphone: "iPhone",
     nav_sms: "SMS",
     nav_calls: "Calls",
     nav_chat: "Chat",
@@ -133,6 +136,9 @@ export const translations = {
     device_edit_name: "Edit name",
   },
   ar: {
+    device_default: "جهاز",
+    device_android: "أندرويد",
+    device_iphone: "آيفون",
     nav_sms: "الرسائل",
     nav_calls: "المكالمات",
     nav_chat: "المحادثة",
