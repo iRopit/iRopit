@@ -1005,10 +1005,14 @@ export function updateSMSList(deviceId, newMessages) {
     // with different timestamps (PDU vs System.currentTimeMillis()) and different
     // sender formats (raw PDU address vs notification-extracted phone/name)
     const rawPhoneSrc = msg.phoneNumber || msg.sender || "";
+    // Strip Unicode bidi/format characters (U+2066–U+2069 isolates, U+200B–U+200F marks,
+    // U+202A–U+202E embeddings, U+FEFF BOM) that Android wraps around contact display names
+    // (e.g. "⁨HSBC⁩" vs "HSBC") to ensure dedup keys match regardless of such markup.
+    const cleanPhoneSrc = rawPhoneSrc.replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
     // Use normalized phone for numeric numbers, raw for text senders (HSBC, Orange, etc.)
     const phone =
-      normalizePhoneNumber(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
-    const body = (msg.body || msg.text || "").trim().substring(0, 100);
+      normalizePhoneNumber(cleanPhoneSrc) || cleanPhoneSrc.trim().toLowerCase();
+    const body = (msg.body || msg.text || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "").trim().substring(0, 100);
 
     // Use 5-minute window since Android dual-writers can have very different timestamps
     const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
