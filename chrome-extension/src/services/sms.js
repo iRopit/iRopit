@@ -1291,7 +1291,7 @@ export function renderSMS(messages) {
         <div class="list-item-subtitle">${
           conv.lastMessage.body
             ? escapeHtml(conv.lastMessage.body.substring(0, 80))
-            : '<span class="sms-body-loading" aria-label="Loading message…"></span>'
+            : `<span class="sms-no-body">${getCurrentLanguage() === 'ar' ? '(لا يوجد محتوى)' : '(No content)'}</span>`
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
