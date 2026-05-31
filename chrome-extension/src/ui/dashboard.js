@@ -519,7 +519,7 @@ function analyzeSmsSpending(smsMessages) {
     // Skip SMS that are not bank/card related
     if (!isBankingSMS(body)) continue;
 
-    const sender = msg.sender || msg.address || "Unknown";
+    const sender = (msg.sender || msg.address || "Unknown").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
     const ts     = msg.timestamp || msg.receivedAt || 0;
     const txns   = extractTransactions(body);
 
@@ -829,7 +829,7 @@ export async function exportInsightsSpendingToCSV() {
     const d       = new Date(msg.timestamp || 0);
     const date    = d.toLocaleDateString("en-GB");
     const time    = d.toLocaleTimeString();
-    const sender  = msg.sender || msg.address || msg.phoneNumber || "";
+    const sender  = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
     const device  = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
     const snippet = body.slice(0, 100).replace(/\n/g, " ");
 
