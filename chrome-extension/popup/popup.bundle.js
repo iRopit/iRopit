@@ -28137,7 +28137,7 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${conv.lastMessage.body ? escapeHtml(conv.lastMessage.body.substring(0, 80)) : `<span class="sms-no-body">${getCurrentLanguage() === "ar" ? "(\u0644\u0627 \u064A\u0648\u062C\u062F \u0645\u062D\u062A\u0648\u0649)" : "(No content)"}</span>`}</div>
+        <div class="list-item-subtitle">${conv.lastMessage.body ? escapeHtml(conv.lastMessage.body.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
