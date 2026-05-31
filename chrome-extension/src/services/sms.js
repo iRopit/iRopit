@@ -1014,14 +1014,18 @@ export function updateSMSList(deviceId, newMessages) {
     const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
     const contentKey = `${phone}_${timeWindow}_${body}`;
 
-    // Also check body-only dedup with a 24-hour window for cases where phone format differs
-    // between writers (e.g. "+20100xxx" vs "Orange") or Android dual-writers timestamp
-    // the same SMS hours apart (NotificationService vs BackgroundSmsService).
-    const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / 86400000);
+    // Also check body-only dedup with a 3-day bucket to handle timezone splits:
+    // e.g. Egypt (UTC+2) 01:04 AM local = 23:04 UTC prior day, so a 24h UTC bucket
+    // would place two documents of the same SMS in different buckets.
+    // 3-day buckets guarantee cross-boundary matches for any UTC offset (max ±14h).
+    const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / (3 * 86400000));
     const bodyKey = body.length > 20 ? `body_${bodyOnlyWindow}_${body}` : null;
+    // Also check the adjacent bucket in case the messages straddle a 3-day boundary.
+    const bodyKeyAdj = body.length > 20 ? `body_${bodyOnlyWindow + 1}_${body}` : null;
 
     if (seenContent.has(contentKey)) continue;
     if (bodyKey && seenContent.has(bodyKey)) continue;
+    if (bodyKeyAdj && seenContent.has(bodyKeyAdj)) continue;
     seenContent.add(contentKey);
     if (bodyKey) seenContent.add(bodyKey);
 
