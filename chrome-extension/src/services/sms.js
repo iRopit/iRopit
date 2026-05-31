@@ -327,7 +327,7 @@ export async function loadSMS() {
             contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
             phoneNumber: (m.phoneNumber && m.phoneNumber.startsWith("ENC:")) ? "" : (m.phoneNumber || ""),
             title: (m.title && m.title.startsWith("ENC:")) ? "" : (m.title || ""),
-            body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || ""),
+            body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || ""),
             text: (m.text && m.text.startsWith("ENC:")) ? "" : (m.text || ""),
             sender: (m.sender && m.sender.startsWith("ENC:")) ? "" : (m.sender || ""),
             displayName: (m.displayName && m.displayName.startsWith("ENC:")) ? "" : (m.displayName || ""),
@@ -1289,9 +1289,7 @@ export function renderSMS(messages) {
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
         <div class="list-item-subtitle">${
-          conv.lastMessage.body
-            ? escapeHtml(conv.lastMessage.body.substring(0, 80))
-            : `<span class="sms-no-body">${getCurrentLanguage() === 'ar' ? '(لا يوجد محتوى)' : '(No content)'}</span>`
+          (() => { const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || ""; return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'; })()
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
@@ -1711,8 +1709,8 @@ export function showConversation(phoneNumber) {
               msg.direction === "outgoing" || msg.type === "sent"
                 ? "sent"
                 : "received"
-            }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
-              <div class="message-text">${msg.body ? linkifyText(msg.body) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'}</div>
+            }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
+              <div class="message-text">${(msg.body || msg.text || msg.content) ? linkifyText(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg)
