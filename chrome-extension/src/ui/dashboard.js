@@ -398,6 +398,10 @@ const CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?
 const MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
 // Pending/future-tense signals — if present alongside a credit keyword, the transaction hasn't happened yet
 const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
+// Telecom service / bundle-subscription notifications — NOT financial transactions.
+// Matches: "SMS the correct keyword to 5102", "to subscribe to a Roaming bundle",
+// "Roaming Bundles that work in GCC", "Data bundle valid for", etc.
+const TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
 
 // Mask rate/pricing amounts — e.g. "EGP 20 per Min", "AED 0.5 per SMS"
 const RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
@@ -413,7 +417,9 @@ const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|IN
 // Unified regex to find all currency+amount candidates with their text position
 // The second alternative uses (?<!\w) to prevent matching digits embedded in card/account
 // numbers like "XXXX1311 USD" where 1311 is part of the card number, not an amount.
-const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+// Second branch requires no leading zeros (e.g. "001 AED" from account numbers like
+// "036-722***-001 AED 51.00" must not be matched as amount=1).
+const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
 
 /**
  * Returns true if the SMS body looks like a bank/card transaction alert.
@@ -442,6 +448,8 @@ function extractTransactions(body) {
   if (CARD_STATEMENT_RE_AR.test(body)) return [];
   // Skip merchant/utility payment confirmations ("against A/C") — bank SMS already covers this debit
   if (MERCHANT_CONFIRM_RE.test(body)) return [];
+  // Skip telecom bundle / roaming subscription instructions — not financial transactions
+  if (TELECOM_SERVICE_RE.test(body)) return [];
 
   // Step 1: Mask balance/informational amounts in both directions
   const masked = body
@@ -804,12 +812,19 @@ export async function exportInsightsSpendingToCSV() {
 
   const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
   const rows   = [];
+  // Dedup by body content + calendar day — prevents dual-writer duplicates (NotificationService
+  // vs BackgroundSmsService) from appearing as separate rows even if they have different senders.
+  const csvSeenBodies = new Set();
 
   for (const msg of filteredSms) {
     const body = msg.body || msg.text || msg.content || "";
     if (!isBankingSMS(body)) continue;
     const txns = extractTransactions(body);
     if (txns.length === 0) continue;
+    const dayKey = Math.floor((msg.timestamp || 0) / 86400000);
+    const bodyKey = `${dayKey}_${body.trim().substring(0, 120)}`;
+    if (csvSeenBodies.has(bodyKey)) continue;
+    csvSeenBodies.add(bodyKey);
 
     const d       = new Date(msg.timestamp || 0);
     const date    = d.toLocaleDateString("en-GB");
