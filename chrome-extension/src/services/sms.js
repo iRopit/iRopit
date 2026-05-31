@@ -1014,9 +1014,10 @@ export function updateSMSList(deviceId, newMessages) {
     const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
     const contentKey = `${phone}_${timeWindow}_${body}`;
 
-    // Also check body-only dedup with wider window for cases where phone format differs
-    // between writers (e.g. "+20100xxx" vs "Orange")
-    const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / 300000);
+    // Also check body-only dedup with a 24-hour window for cases where phone format differs
+    // between writers (e.g. "+20100xxx" vs "Orange") or Android dual-writers timestamp
+    // the same SMS hours apart (NotificationService vs BackgroundSmsService).
+    const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / 86400000);
     const bodyKey = body.length > 20 ? `body_${bodyOnlyWindow}_${body}` : null;
 
     if (seenContent.has(contentKey)) continue;
