@@ -27,10 +27,8 @@ export function initProfileFooter() {
       localStorage.setItem("profileCollapsed", isCollapsed);
     });
 
-    // Restore state on load
-    const isCollapsed = localStorage.getItem("profileCollapsed") === "true";
-    if (isCollapsed) {
-      profileFooter.classList.add("collapsed");
-    }
+    // Always start expanded so the logout button is always visible
+    profileFooter.classList.remove("collapsed");
+    localStorage.removeItem("profileCollapsed");
   }
 }

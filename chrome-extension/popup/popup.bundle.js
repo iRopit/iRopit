@@ -31321,13 +31321,11 @@ ${this.customData.serverResponse}`;
     if (toggleProfileBtn && profileFooter) {
       toggleProfileBtn.addEventListener("click", () => {
         profileFooter.classList.toggle("collapsed");
-        const isCollapsed2 = profileFooter.classList.contains("collapsed");
-        localStorage.setItem("profileCollapsed", isCollapsed2);
+        const isCollapsed = profileFooter.classList.contains("collapsed");
+        localStorage.setItem("profileCollapsed", isCollapsed);
       });
-      const isCollapsed = localStorage.getItem("profileCollapsed") === "true";
-      if (isCollapsed) {
-        profileFooter.classList.add("collapsed");
-      }
+      profileFooter.classList.remove("collapsed");
+      localStorage.removeItem("profileCollapsed");
     }
   }
 
