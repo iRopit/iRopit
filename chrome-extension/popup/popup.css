@@ -1656,6 +1656,7 @@ body[dir="rtl"] .device-tag {
   white-space: nowrap;
   flex-shrink: 0;
   align-self: center;
+  margin-left: auto;
 }
 
 .profile-logout-btn-footer {
