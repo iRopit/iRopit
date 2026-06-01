@@ -8,10 +8,14 @@ const CACHE_KEYS = {
   CALLS: "cached_calls_data",
   NOTIFICATIONS: "cached_notifications_data",
   TIMESTAMP: "cache_timestamp",
+  FULL_LOAD_TS: "sms_full_load_ts",  // timestamp of last full (non-delta) Firestore fetch
 };
 
 // Max cache age: 7 days
 const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// How long delta mode is allowed before forcing a fresh full load
+// (catches messages backfilled to Firestore with old timestamps by the mobile app)
+const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -209,6 +213,31 @@ export async function getCachedNotifications() {
     console.warn("[Cache] Failed to load notifications cache:", error);
     return null;
   }
+}
+
+/**
+ * Returns true if a full Firestore load was done within the last FULL_LOAD_INTERVAL_MS.
+ * When false, the caller must do a full load (not delta) to catch any messages that
+ * were backfilled to Firestore with old timestamps by the mobile app.
+ */
+export async function isFullLoadRecent() {
+  try {
+    const result = await chrome.storage.local.get([CACHE_KEYS.FULL_LOAD_TS]);
+    const ts = result[CACHE_KEYS.FULL_LOAD_TS] || 0;
+    return (Date.now() - ts) < FULL_LOAD_INTERVAL_MS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Records the current time as the last full Firestore load timestamp.
+ * Call this after every non-delta (full) load completes.
+ */
+export async function markFullLoadDone() {
+  try {
+    await chrome.storage.local.set({ [CACHE_KEYS.FULL_LOAD_TS]: Date.now() });
+  } catch { /* non-critical */ }
 }
 
 /**

@@ -43,7 +43,7 @@ import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptSMS } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedSMS, cacheSMSData, clearCache, flushSMSCache } from "./cache.js";
+import { getCachedSMS, cacheSMSData, clearCache, flushSMSCache, isFullLoadRecent, markFullLoadDone } from "./cache.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 
 // Linkify plain-text URLs in a message body (escapes HTML first, then wraps URLs)
@@ -284,6 +284,9 @@ export async function loadSMS() {
   // Track newest cached timestamp per device for delta loading
   const cachedNewestTimestamps = {};
   let cachedSMSData = null; // hoisted so lambda below can check per-device counts
+  // Check if a full Firestore load was done within the last 24h.
+  // If not, isDelta will be forced false to catch any backfilled historical messages.
+  const fullLoadRecent = await isFullLoadRecent();
   try {
     const cached = await getCachedSMS();
     cachedSMSData = cached;
@@ -490,14 +493,14 @@ export async function loadSMS() {
       };
       paginationState[device.id] = devicePagState;
 
-      // Delta fetch: only use when cache has a FULL page of messages for this device.
-      // If the cache has fewer than PAGE_SIZE entries it means the cache was built when
-      // Firestore was still being populated (e.g. mobile app re-signed in and uploaded
-      // SMS in batches). Using delta in that case would miss older messages that were
-      // uploaded after the cache was built. A full fetch is required instead.
+      // Delta fetch: only use when cache has a FULL page of messages for this device
+      // AND a full load was done within the last 24 hours.
+      // If the full load is stale (> 24h), force a full reload to catch any messages
+      // that were backfilled to Firestore with old timestamps by the mobile app —
+      // those are older than cachedNewestTs and will never appear in a delta query.
       const cachedNewestTs = cachedNewestTimestamps[device.id];
       const cachedDeviceCount = (cachedSMSData?.byDevice?.[device.id]?.length) || 0;
-      const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE;
+      const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE && fullLoadRecent;
 
       let q;
       if (isDelta) {
@@ -676,6 +679,10 @@ export async function loadSMS() {
     // Flush the cache immediately so the popup closing before the 3s debounce
     // doesn't lose the persisted snapshot â€” otherwise every reopen does a full re-fetch.
     flushSMSCache().catch(() => {});
+    // Record that a full load ran (at least one device was non-delta).
+    // This allows isDelta for the next 24h; after that a fresh full load will run
+    // again to pick up any messages backfilled with old timestamps by the mobile app.
+    if (!fullLoadRecent) markFullLoadDone().catch(() => {});
     try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   } catch (error) {
     if (error?.code !== "permission-denied") {
