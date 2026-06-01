@@ -54,10 +54,10 @@ export async function cacheSMSData(smsByDevice, allMessages) {
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 5000),
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 5000);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -86,10 +86,10 @@ export async function flushSMSCache() {
   try {
     const cacheData = {
       byDevice: {},
-      allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
+      allMessages: stripNonSerializable(payload.allMessages).slice(0, 5000),
     };
     for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
+      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 5000);
     }
     await chrome.storage.local.set({
       [CACHE_KEYS.SMS]: cacheData,

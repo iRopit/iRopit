@@ -76,7 +76,7 @@ let processedMessageIds = new Set();
 const decryptionCache = new Map();
 
 // Pagination state
-const PAGE_SIZE = 2000;
+const PAGE_SIZE = 5000;
 let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
 let isLoadingMore = false;
 let scrollHandlerAttached = false;
