@@ -25898,10 +25898,10 @@ ${this.customData.serverResponse}`;
       try {
         const cacheData = {
           byDevice: {},
-          allMessages: stripNonSerializable(payload.allMessages).slice(0, 5e3)
+          allMessages: stripNonSerializable(payload.allMessages).slice(0, 1e4)
         };
         for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 5e3);
+          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 1e4);
         }
         await chrome.storage.local.set({
           [CACHE_KEYS.SMS]: cacheData,
@@ -25924,10 +25924,10 @@ ${this.customData.serverResponse}`;
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 5e3)
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 1e4)
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 5e3);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 1e4);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -29253,7 +29253,7 @@ ${this.customData.serverResponse}`;
       smsUnsubscribeFunctions = [];
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
-      PAGE_SIZE = 5e3;
+      PAGE_SIZE = 1e4;
       paginationState = {};
       isLoadingMore = false;
       scrollHandlerAttached = false;
