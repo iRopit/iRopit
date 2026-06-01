@@ -18724,10 +18724,10 @@ var smartActions = {
   // Copy OTP from SMS (default ON)
   copyOtpEmail: true,
   // Copy OTP from email (default ON)
-  openImages: false,
-  // Open received images in new tab (default OFF)
-  openUrls: false,
-  // Open received URLs in new tab (default OFF)
+  openImages: true,
+  // Open received images in new tab (default ON)
+  openUrls: true,
+  // Open received URLs in new tab (default ON)
   universalCopy: true
   // Universal Copy text from mobile (default ON)
 };
@@ -18742,6 +18742,8 @@ chrome.storage.local.get(
     "smartAction_openImages",
     "smartAction_openUrls",
     "smartAction_universalCopy",
+    "smartAction_incomingCallPopup",
+    "smartAction_outgoingCallPopup",
     "lastChatPollTimestamp",
     "seenChatMessageIds"
   ],
@@ -18762,8 +18764,8 @@ chrome.storage.local.get(
     }
     if ("smartAction_copyOtp" in result) smartActions.copyOtp = result.smartAction_copyOtp !== false;
     if ("smartAction_copyOtpEmail" in result) smartActions.copyOtpEmail = result.smartAction_copyOtpEmail !== false;
-    if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages === true;
-    if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls === true;
+    if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages !== false;
+    if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls !== false;
     if ("smartAction_universalCopy" in result) smartActions.universalCopy = result.smartAction_universalCopy !== false;
     if (result.lastChatPollTimestamp) lastChatPollTimestamp = result.lastChatPollTimestamp;
     if (result.seenChatMessageIds) seenChatMessageIds = new Set(result.seenChatMessageIds);
@@ -19321,7 +19323,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
-          const popupEnabled = smartAction_incomingCallPopup === true;
+          const popupEnabled = smartAction_incomingCallPopup !== false;
           const callKey = `${phone}|${contact}`;
           if (incomingCallLastKey.get(deviceId) === callKey) {
             console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 skipping duplicate popup");
@@ -19499,7 +19501,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_outgoingCallPopup } = await chrome.storage.local.get("smartAction_outgoingCallPopup");
-          const popupEnabled = smartAction_outgoingCallPopup === true;
+          const popupEnabled = smartAction_outgoingCallPopup !== false;
           if (outgoingCallLastTs.get(deviceId) === docTs) return;
           outgoingCallLastTs.set(deviceId, docTs);
           const existingWindowId = outgoingCallWindowIds.get(deviceId);

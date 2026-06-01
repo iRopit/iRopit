@@ -38,32 +38,9 @@ export async function loadUserSettings() {
   const user = state.currentUser
   if (!user) return
 
-  // Fill display name immediately from cached storage (avoids Firestore delay)
-  chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
-    const displayNameInput = document.getElementById("settingsDisplayName")
-    const emailInput = document.getElementById("settingsEmail")
-    if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName
-    if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail
-  })
-
-  // Then fetch fresh from Firestore and update cache
-  const userDoc = await getDoc(doc(db, "users", user.uid))
-  if (userDoc.exists()) {
-    const userData = userDoc.data()
-    const displayNameInput = document.getElementById("settingsDisplayName")
-    const emailInput = document.getElementById("settingsEmail")
-
-    if (displayNameInput) displayNameInput.value = userData.displayName || ""
-    if (emailInput) emailInput.value = userData.email || ""
-
-    // Cache for instant display next time
-    chrome.storage.local.set({
-      cachedDisplayName: userData.displayName || "",
-      cachedEmail: userData.email || "",
-    })
-  }
-
-  // Load smart action toggle states from local storage
+  // Load smart action toggle states FIRST — independent of Firestore so that
+  // a slow or failed getDoc() call never prevents the saved toggle states from
+  // being applied. All premium actions default to ON; stored value wins if set.
   const TOGGLE_KEYS = {
     settingsAutoCopyOtp: "smartAction_copyOtp",
     settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
@@ -75,14 +52,48 @@ export async function loadUserSettings() {
   }
   const storageKeys = Object.values(TOGGLE_KEYS)
   chrome.storage.local.get(storageKeys, (result) => {
+    const toSave = {}
     for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
       const el = document.getElementById(elId)
       if (!el) continue
-      // Default: copyOtp, copyOtpEmail, universalCopy default ON; incomingCallPopup, outgoingCallPopup default OFF
-      const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy"
-      el.checked = storageKey in result ? result[storageKey] : defaultOn
+      // All premium actions default to ON
+      const value = storageKey in result ? result[storageKey] : true
+      el.checked = value
+      // Persist the default so subsequent reads always find an explicit value
+      if (!(storageKey in result)) toSave[storageKey] = true
     }
+    if (Object.keys(toSave).length > 0) chrome.storage.local.set(toSave)
   })
+
+  // Fill display name immediately from cached storage (avoids Firestore delay)
+  chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
+    const displayNameInput = document.getElementById("settingsDisplayName")
+    const emailInput = document.getElementById("settingsEmail")
+    if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName
+    if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail
+  })
+
+  // Then fetch fresh from Firestore and update cache (wrapped so failures don't
+  // abort the rest of this function or leave toggles in the wrong state)
+  try {
+    const userDoc = await getDoc(doc(db, "users", user.uid))
+    if (userDoc.exists()) {
+      const userData = userDoc.data()
+      const displayNameInput = document.getElementById("settingsDisplayName")
+      const emailInput = document.getElementById("settingsEmail")
+
+      if (displayNameInput) displayNameInput.value = userData.displayName || ""
+      if (emailInput) emailInput.value = userData.email || ""
+
+      // Cache for instant display next time
+      chrome.storage.local.set({
+        cachedDisplayName: userData.displayName || "",
+        cachedEmail: userData.email || "",
+      })
+    }
+  } catch (e) {
+    console.warn("[Settings] Failed to load user profile from Firestore:", e)
+  }
 }
 
 /**
@@ -271,8 +282,8 @@ export function initSettingsListeners() {
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId)
         if (!el) continue
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup"
-        el.checked = storageKey in result ? result[storageKey] : defaultOn
+        // All premium actions default to ON (consistent with loadUserSettings)
+        el.checked = storageKey in result ? result[storageKey] : true
       }
       settingsModal.classList.remove("hidden")
     })

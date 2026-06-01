@@ -70,8 +70,8 @@ let snoozeUntil = 0;
 const smartActions = {
   copyOtp: true,         // Copy OTP from SMS (default ON)
   copyOtpEmail: true,    // Copy OTP from email (default ON)
-  openImages: false,     // Open received images in new tab (default OFF)
-  openUrls: false,       // Open received URLs in new tab (default OFF)
+  openImages: true,      // Open received images in new tab (default ON)
+  openUrls: true,        // Open received URLs in new tab (default ON)
   universalCopy: true,   // Universal Copy text from mobile (default ON)
 };
 
@@ -79,6 +79,7 @@ const smartActions = {
 chrome.storage.local.get(
   ["lastNotificationTimestamp", "seenNotifications", "badgeCount", "snoozeUntil",
    "smartAction_copyOtp", "smartAction_copyOtpEmail", "smartAction_openImages", "smartAction_openUrls", "smartAction_universalCopy",
+   "smartAction_incomingCallPopup", "smartAction_outgoingCallPopup",
    "lastChatPollTimestamp", "seenChatMessageIds"],
   (result) => {
     console.log(
@@ -97,11 +98,11 @@ chrome.storage.local.get(
     if (result.snoozeUntil) {
       snoozeUntil = result.snoozeUntil;
     }
-    // Load smart action settings (defaults: copyOtp ON, copyOtpEmail ON, universalCopy ON, others OFF)
+    // Load smart action settings (all default ON; stored value overrides)
     if ("smartAction_copyOtp" in result) smartActions.copyOtp = result.smartAction_copyOtp !== false;
     if ("smartAction_copyOtpEmail" in result) smartActions.copyOtpEmail = result.smartAction_copyOtpEmail !== false;
-    if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages === true;
-    if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls === true;
+    if ("smartAction_openImages" in result) smartActions.openImages = result.smartAction_openImages !== false;
+    if ("smartAction_openUrls" in result) smartActions.openUrls = result.smartAction_openUrls !== false;
     if ("smartAction_universalCopy" in result) smartActions.universalCopy = result.smartAction_universalCopy !== false;
     // Restore chat poll state
     if (result.lastChatPollTimestamp) lastChatPollTimestamp = result.lastChatPollTimestamp;
@@ -919,7 +920,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 
           // ── Open / update the popup window (only if toggle is enabled) ─────
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
-          const popupEnabled = smartAction_incomingCallPopup === true; // default OFF
+          const popupEnabled = smartAction_incomingCallPopup !== false; // default ON
 
           // Skip if this is the same ringing event we already handled (snapshots
           // can fire multiple times for the same Firestore doc — e.g. when the
@@ -1122,7 +1123,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           const subtitle = `${deviceLabel} • ${simLabel}`;
 
           const { smartAction_outgoingCallPopup } = await chrome.storage.local.get("smartAction_outgoingCallPopup");
-          const popupEnabled = smartAction_outgoingCallPopup === true; // default OFF
+          const popupEnabled = smartAction_outgoingCallPopup !== false; // default ON
 
           // Dedup by doc timestamp instead of phone|contact — on Android 10+
           // outgoing calls often have empty phone, so two consecutive calls

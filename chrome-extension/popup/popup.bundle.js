@@ -33012,24 +33012,6 @@ ${this.customData.serverResponse}`;
   async function loadUserSettings() {
     const user = currentUser;
     if (!user) return;
-    chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
-      const displayNameInput = document.getElementById("settingsDisplayName");
-      const emailInput = document.getElementById("settingsEmail");
-      if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName;
-      if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail;
-    });
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      const displayNameInput = document.getElementById("settingsDisplayName");
-      const emailInput = document.getElementById("settingsEmail");
-      if (displayNameInput) displayNameInput.value = userData.displayName || "";
-      if (emailInput) emailInput.value = userData.email || "";
-      chrome.storage.local.set({
-        cachedDisplayName: userData.displayName || "",
-        cachedEmail: userData.email || ""
-      });
-    }
     const TOGGLE_KEYS = {
       settingsAutoCopyOtp: "smartAction_copyOtp",
       settingsAutoCopyOtpEmail: "smartAction_copyOtpEmail",
@@ -33041,13 +33023,38 @@ ${this.customData.serverResponse}`;
     };
     const storageKeys = Object.values(TOGGLE_KEYS);
     chrome.storage.local.get(storageKeys, (result) => {
+      const toSave = {};
       for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
         const el = document.getElementById(elId);
         if (!el) continue;
-        const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy";
-        el.checked = storageKey in result ? result[storageKey] : defaultOn;
+        const value = storageKey in result ? result[storageKey] : true;
+        el.checked = value;
+        if (!(storageKey in result)) toSave[storageKey] = true;
       }
+      if (Object.keys(toSave).length > 0) chrome.storage.local.set(toSave);
     });
+    chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
+      const displayNameInput = document.getElementById("settingsDisplayName");
+      const emailInput = document.getElementById("settingsEmail");
+      if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName;
+      if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail;
+    });
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const displayNameInput = document.getElementById("settingsDisplayName");
+        const emailInput = document.getElementById("settingsEmail");
+        if (displayNameInput) displayNameInput.value = userData.displayName || "";
+        if (emailInput) emailInput.value = userData.email || "";
+        chrome.storage.local.set({
+          cachedDisplayName: userData.displayName || "",
+          cachedEmail: userData.email || ""
+        });
+      }
+    } catch (e) {
+      console.warn("[Settings] Failed to load user profile from Firestore:", e);
+    }
   }
   async function saveDisplayName() {
     const user = currentUser;
@@ -33116,8 +33123,7 @@ ${this.customData.serverResponse}`;
         for (const [elId, storageKey] of Object.entries(TOGGLE_KEYS)) {
           const el = document.getElementById(elId);
           if (!el) continue;
-          const defaultOn = elId === "settingsAutoCopyOtp" || elId === "settingsAutoCopyOtpEmail" || elId === "settingsUniversalCopy" || elId === "settingsIncomingCallPopup" || elId === "settingsOutgoingCallPopup";
-          el.checked = storageKey in result ? result[storageKey] : defaultOn;
+          el.checked = storageKey in result ? result[storageKey] : true;
         }
         settingsModal.classList.remove("hidden");
       });
