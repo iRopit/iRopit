@@ -15,7 +15,7 @@ const CACHE_KEYS = {
 const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // How long delta mode is allowed before forcing a fresh full load
 // (catches messages backfilled to Firestore with old timestamps by the mobile app)
-const FULL_LOAD_INTERVAL_MS = 72 * 60 * 60 * 1000; // 72 hours
+const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
  * Strip non-serializable fields from messages before caching

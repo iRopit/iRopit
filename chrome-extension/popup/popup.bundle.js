@@ -26125,7 +26125,7 @@ ${this.customData.serverResponse}`;
         // timestamp of last full (non-delta) Firestore fetch
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
-      FULL_LOAD_INTERVAL_MS = 72 * 60 * 60 * 1e3;
+      FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -27608,6 +27608,8 @@ ${this.customData.serverResponse}`;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
         const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
+        const DELTA_LOOKBACK_MS = 24 * 60 * 60 * 1e3;
+        const deltaFromTs = isDelta ? Math.max(0, cachedNewestTs - DELTA_LOOKBACK_MS) : 0;
         let q2;
         if (isDelta) {
           q2 = query(
@@ -27620,7 +27622,7 @@ ${this.customData.serverResponse}`;
               "notifications"
             ),
             where("type", "==", "sms"),
-            where("timestamp", ">", cachedNewestTs),
+            where("timestamp", ">", deltaFromTs),
             orderBy("timestamp", "desc"),
             limit(PAGE_SIZE)
           );

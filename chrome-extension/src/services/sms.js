@@ -502,9 +502,17 @@ export async function loadSMS() {
       const cachedDeviceCount = (cachedSMSData?.byDevice?.[device.id]?.length) || 0;
       const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
 
+      // When in delta mode, look back 24h from the newest cached timestamp to catch
+      // messages that the mobile app backfilled to Firestore with old timestamps
+      // (e.g. messages received offline and synced later). Without this window, a
+      // message from 2:44 PM would be missed if the cache already has a 5:20 PM
+      // message — the strict "> cachedNewestTs" filter would skip it entirely.
+      const DELTA_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24h lookback for backfilled msgs
+      const deltaFromTs = isDelta ? Math.max(0, cachedNewestTs - DELTA_LOOKBACK_MS) : 0;
+
       let q;
       if (isDelta) {
-        // Only fetch messages newer than the newest cached message
+        // Fetch messages newer than (cachedNewestTs - 24h) to catch backfilled messages
         q = query(
           collection(
             db,
@@ -515,7 +523,7 @@ export async function loadSMS() {
             "notifications",
           ),
           where("type", "==", "sms"),
-          where("timestamp", ">", cachedNewestTs),
+          where("timestamp", ">", deltaFromTs),
           orderBy("timestamp", "desc"),
           limit(PAGE_SIZE),
         );
