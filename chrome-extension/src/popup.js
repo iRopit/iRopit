@@ -27,6 +27,7 @@ import { initTabs } from "./ui/tabs.js";
 import { initDashboard } from "./ui/dashboard.js";
 import { initProfileFooter } from "./ui/modals.js";
 import { initNavigation } from "./ui/navigation.js";
+import { initTour } from "./ui/tour.js";
 
 // Import services
 import { initAuthObserver, initAuthListeners } from "./services/auth.js";
@@ -283,6 +284,8 @@ function init() {
         console.error("[Popup] registerDevice error:", err),
       );
       loadData();
+      // Show first-time tour after login (only on fresh install)
+      initTour();
     },
     // On logout
     () => {

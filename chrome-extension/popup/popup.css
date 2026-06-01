@@ -4397,3 +4397,180 @@ html.dark .dash-stat-sms {
   color: var(--text-tertiary);
   margin-top: 2px;
 }
+
+/* ============================================================
+   First-Time User Tour
+   ============================================================ */
+
+.tour-card {
+  position: fixed;
+  z-index: 9999;
+  width: 300px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+  padding: 14px 14px 12px;
+  pointer-events: all;
+  animation: tourSlideIn 0.2s ease;
+}
+
+/* Upward arrow — border layer */
+.tour-card::before {
+  content: "";
+  display: var(--tour-arrow-display, block);
+  position: absolute;
+  top: -10px;
+  left: var(--tour-arrow-offset, 50%);
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid var(--border);
+}
+
+/* Upward arrow — fill layer */
+.tour-card::after {
+  content: "";
+  display: var(--tour-arrow-display, block);
+  position: absolute;
+  top: -8px;
+  left: var(--tour-arrow-offset, 50%);
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid var(--surface);
+}
+
+.tour-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tour-close-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+[dir="rtl"] .tour-close-btn {
+  right: auto;
+  left: 8px;
+}
+
+.tour-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 6px;
+  padding-right: 22px;
+  line-height: 1.35;
+}
+
+[dir="rtl"] .tour-title {
+  padding-right: 0;
+  padding-left: 22px;
+}
+
+.tour-desc {
+  font-size: 12px;
+  color: var(--primary);
+  line-height: 1.55;
+  margin: 0 0 10px;
+}
+
+.tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tour-counter {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.tour-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tour-btn-skip {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tour-btn-skip:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tour-btn-next {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.tour-btn-next:hover {
+  opacity: 0.88;
+}
+
+/* Highlighted tab ring */
+.tab.tour-highlighted {
+  background: rgba(255, 255, 255, 0.15) !important;
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+/* Animations */
+@keyframes tourSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.tour-card.tour-exit {
+  animation: tourSlideOut 0.25s ease forwards;
+}
+
+@keyframes tourSlideOut {
+  from { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Dark mode adjustments */
+html.dark .tour-desc {
+  color: var(--primary-light, var(--primary));
+}
