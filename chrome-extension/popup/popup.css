@@ -846,12 +846,6 @@ body[dir="rtl"] {
   to { transform: rotate(360deg); }
 }
 
-.sms-no-body {
-  color: var(--text-secondary);
-  font-style: italic;
-  font-size: 12px;
-}
-
 .device-tag {
   display: inline-block;
   font-size: 10px;

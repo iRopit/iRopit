@@ -26016,6 +26016,21 @@ ${this.customData.serverResponse}`;
       return null;
     }
   }
+  async function isFullLoadRecent() {
+    try {
+      const result = await chrome.storage.local.get([CACHE_KEYS.FULL_LOAD_TS]);
+      const ts = result[CACHE_KEYS.FULL_LOAD_TS] || 0;
+      return Date.now() - ts < FULL_LOAD_INTERVAL_MS;
+    } catch {
+      return false;
+    }
+  }
+  async function markFullLoadDone() {
+    try {
+      await chrome.storage.local.set({ [CACHE_KEYS.FULL_LOAD_TS]: Date.now() });
+    } catch {
+    }
+  }
   async function getCachedSMS() {
     try {
       const result = await chrome.storage.local.get([
@@ -26064,16 +26079,19 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to clear cache:", error);
     }
   }
-  var CACHE_KEYS, MAX_CACHE_AGE_MS, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
+  var CACHE_KEYS, MAX_CACHE_AGE_MS, FULL_LOAD_INTERVAL_MS, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
   var init_cache = __esm({
     "src/services/cache.js"() {
       CACHE_KEYS = {
         SMS: "cached_sms_data",
         CALLS: "cached_calls_data",
         NOTIFICATIONS: "cached_notifications_data",
-        TIMESTAMP: "cache_timestamp"
+        TIMESTAMP: "cache_timestamp",
+        FULL_LOAD_TS: "sms_full_load_ts"
+        // timestamp of last full (non-delta) Firestore fetch
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
+      FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -27312,6 +27330,9 @@ ${this.customData.serverResponse}`;
     decryptionCache.set(docId, { data: decrypted, timestamp: data.timestamp });
     return decrypted;
   }
+  function stripBidi(s) {
+    return typeof s === "string" ? s.replace(BIDI_MARKS_RE, "") : s;
+  }
   function normalizePhoneNumber3(phone) {
     if (!phone || !phone.trim()) return "";
     let normalized = phone.replace(/[^\d+]/g, "").trim();
@@ -27398,6 +27419,7 @@ ${this.customData.serverResponse}`;
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     let cachedSMSData = null;
+    const fullLoadRecent = await isFullLoadRecent();
     try {
       const cached = await getCachedSMS();
       cachedSMSData = cached;
@@ -27426,7 +27448,7 @@ ${this.customData.serverResponse}`;
               contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
               phoneNumber: m.phoneNumber && m.phoneNumber.startsWith("ENC:") ? "" : m.phoneNumber || "",
               title: m.title && m.title.startsWith("ENC:") ? "" : m.title || "",
-              body: m.body && m.body.startsWith("ENC:") ? "" : m.body || "",
+              body: m.body && m.body.startsWith("ENC:") ? "" : m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || "",
               text: m.text && m.text.startsWith("ENC:") ? "" : m.text || "",
               sender: m.sender && m.sender.startsWith("ENC:") ? "" : m.sender || "",
               displayName: m.displayName && m.displayName.startsWith("ENC:") ? "" : m.displayName || ""
@@ -27551,7 +27573,7 @@ ${this.customData.serverResponse}`;
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
-        const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE;
+        const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE && fullLoadRecent;
         let q2;
         if (isDelta) {
           q2 = query(
@@ -27689,6 +27711,8 @@ ${this.customData.serverResponse}`;
       isSyncing = false;
       updateSMSCountIndicator();
       flushSMSCache().catch(() => {
+      });
+      if (!fullLoadRecent) markFullLoadDone().catch(() => {
       });
       try {
         window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
@@ -27938,15 +27962,17 @@ ${this.customData.serverResponse}`;
       const uniqueId = msg.docId || msg.id || msg.docRef?.path || `${msg.timestamp}_${msg.phoneNumber}`;
       if (seenIds.has(uniqueId)) continue;
       seenIds.add(uniqueId);
-      const rawPhoneSrc = msg.phoneNumber || msg.sender || "";
+      const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
       const phone = normalizePhoneNumber3(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
-      const body = (msg.body || msg.text || "").trim().substring(0, 100);
+      const body = stripBidi(msg.body || msg.text || "").trim().substring(0, 100);
       const timeWindow = Math.floor((msg.timestamp || 0) / 3e5);
       const contentKey = `${phone}_${timeWindow}_${body}`;
-      const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / 3e5);
+      const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / (3 * 864e5));
       const bodyKey = body.length > 20 ? `body_${bodyOnlyWindow}_${body}` : null;
+      const bodyKeyAdj = body.length > 20 ? `body_${bodyOnlyWindow + 1}_${body}` : null;
       if (seenContent.has(contentKey)) continue;
       if (bodyKey && seenContent.has(bodyKey)) continue;
+      if (bodyKeyAdj && seenContent.has(bodyKeyAdj)) continue;
       seenContent.add(contentKey);
       if (bodyKey) seenContent.add(bodyKey);
       uniqueMessages.push(msg);
@@ -28024,9 +28050,11 @@ ${this.customData.serverResponse}`;
     const contactToPhones = {};
     const phoneToContact = {};
     filteredMessages.forEach((msg) => {
-      const rawPhone = msg.phoneNumber || msg.sender || "";
+      const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
       const normPhone = rawPhone ? normalizePhoneNumber3(rawPhone) : "";
-      const contactName = msg.contactName || msg.title || getContactName(rawPhone) || "";
+      const contactName = stripBidi(
+        msg.contactName || msg.title || getContactName(rawPhone) || ""
+      );
       if (normPhone && contactName && !isPhoneNumberLike2(contactName)) {
         if (!contactToPhones[contactName]) {
           contactToPhones[contactName] = /* @__PURE__ */ new Set();
@@ -28048,8 +28076,8 @@ ${this.customData.serverResponse}`;
     }
     const grouped = {};
     filteredMessages.forEach((msg, index) => {
-      let rawPhone = msg.phoneNumber || msg.sender || "";
-      let contactName = msg.contactName || msg.title || "";
+      let rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
+      let contactName = stripBidi(msg.contactName || msg.title || "");
       const normPhone = rawPhone ? normalizePhoneNumber3(rawPhone) : "";
       if ((!contactName || isPhoneNumberLike2(contactName)) && normPhone) {
         contactName = phoneToContact[normPhone] || getContactName(rawPhone) || "";
@@ -28137,7 +28165,10 @@ ${this.customData.serverResponse}`;
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${conv.lastMessage.body ? escapeHtml(conv.lastMessage.body.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
+        <div class="list-item-subtitle">${(() => {
+          const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "";
+          return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>';
+        })()}</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
@@ -28437,8 +28468,8 @@ ${this.customData.serverResponse}`;
         ${conversation.map(
       (msg) => `
           <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
-            <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || "")}">
-              <div class="message-text">${msg.body ? linkifyText2(msg.body) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
+            <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
+              <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
               <div class="message-footer">
                 <span class="message-time">${formatTime(msg.timestamp)}</span>
                 ${resolveSMSDeviceName(msg) ? `<span class="message-device"><svg width="11" height="11" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><rect x="128" y="16" width="256" height="480" rx="48" ry="48"/><line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48"/></svg>${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
@@ -29203,7 +29234,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler;
+  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29232,6 +29263,7 @@ ${this.customData.serverResponse}`;
       messageSelectionMode = false;
       selectedMessages = /* @__PURE__ */ new Set();
       _msgClickHandler = null;
+      BIDI_MARKS_RE = /[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
     }
   });
 
@@ -30920,12 +30952,13 @@ ${this.customData.serverResponse}`;
   var CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
   var MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
+  var TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
   var RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
   var BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى|المتوفر))?|الحد(?:\s*(?:المتاح|الأدنى\s*لل(?:دفع|سداد)))?|المتاح|المتبقي|المتبقى|المتوفر|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى|اخر\s*دفعة\s*مستلمة)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
-  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([0-9,]+(?:\.[0-9]{1,3})?)\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
     const STRONG = /\b(debited|credited|reversed|reversal|transaction|txn|purchase|withdrawal|has been used|used for|credit card|debit card|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|internet banking|online banking|mobile banking|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|tt\s+payment|telegraphic\s+transfer|direct debit|standing order|emi|instalment|installment|cashback|refund|available\s+balance|your\s+balance)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
@@ -30936,6 +30969,7 @@ ${this.customData.serverResponse}`;
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
     if (CARD_STATEMENT_RE_AR.test(body)) return [];
     if (MERCHANT_CONFIRM_RE.test(body)) return [];
+    if (TELECOM_SERVICE_RE.test(body)) return [];
     const masked = body.replace(RATE_MASK_RE, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
@@ -30975,7 +31009,7 @@ ${this.customData.serverResponse}`;
     for (const msg of smsMessages) {
       const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
-      const sender = msg.sender || msg.address || "Unknown";
+      const sender = (msg.sender || msg.address || "Unknown").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
       const ts = msg.timestamp || msg.receivedAt || 0;
       const txns = extractTransactions(body);
       for (const txn of txns) {
@@ -31204,15 +31238,20 @@ ${this.customData.serverResponse}`;
     }
     const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
     const rows = [];
+    const csvSeenBodies = /* @__PURE__ */ new Set();
     for (const msg of filteredSms) {
       const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
       const txns = extractTransactions(body);
       if (txns.length === 0) continue;
+      const dayKey = Math.floor((msg.timestamp || 0) / 864e5);
+      const bodyKey = `${dayKey}_${body.trim().substring(0, 120)}`;
+      if (csvSeenBodies.has(bodyKey)) continue;
+      csvSeenBodies.add(bodyKey);
       const d = new Date(msg.timestamp || 0);
       const date = d.toLocaleDateString("en-GB");
       const time = d.toLocaleTimeString();
-      const sender = msg.sender || msg.address || msg.phoneNumber || "";
+      const sender = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
       const device = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
       const snippet = body.slice(0, 100).replace(/\n/g, " ");
       for (const txn of txns) {
