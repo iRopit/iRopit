@@ -1656,7 +1656,6 @@ body[dir="rtl"] .device-tag {
   white-space: nowrap;
   flex-shrink: 0;
   align-self: center;
-  margin-left: auto;
 }
 
 .profile-logout-btn-footer {
@@ -1673,6 +1672,20 @@ body[dir="rtl"] .device-tag {
   justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.profile-version-logout-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+[dir="rtl"] .profile-version-logout-group {
+  margin-left: 0;
+  margin-right: auto;
+  flex-direction: row-reverse;
 }
 
 .profile-logout-btn-footer:hover {
