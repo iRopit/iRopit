@@ -15,7 +15,7 @@ const CACHE_KEYS = {
 const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // How long delta mode is allowed before forcing a fresh full load
 // (catches messages backfilled to Firestore with old timestamps by the mobile app)
-const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const FULL_LOAD_INTERVAL_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -54,10 +54,10 @@ export async function cacheSMSData(smsByDevice, allMessages) {
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 500),
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -86,10 +86,10 @@ export async function flushSMSCache() {
   try {
     const cacheData = {
       byDevice: {},
-      allMessages: stripNonSerializable(payload.allMessages).slice(0, 500),
+      allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
     };
     for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
     }
     await chrome.storage.local.set({
       [CACHE_KEYS.SMS]: cacheData,

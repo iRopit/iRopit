@@ -76,7 +76,7 @@ let processedMessageIds = new Set();
 const decryptionCache = new Map();
 
 // Pagination state
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 2000;
 let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
 let isLoadingMore = false;
 let scrollHandlerAttached = false;
@@ -500,7 +500,7 @@ export async function loadSMS() {
       // those are older than cachedNewestTs and will never appear in a delta query.
       const cachedNewestTs = cachedNewestTimestamps[device.id];
       const cachedDeviceCount = (cachedSMSData?.byDevice?.[device.id]?.length) || 0;
-      const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE && fullLoadRecent;
+      const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
 
       let q;
       if (isDelta) {

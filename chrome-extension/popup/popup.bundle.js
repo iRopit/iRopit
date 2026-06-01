@@ -25898,10 +25898,10 @@ ${this.customData.serverResponse}`;
       try {
         const cacheData = {
           byDevice: {},
-          allMessages: stripNonSerializable(payload.allMessages).slice(0, 500)
+          allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
         };
         for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
         }
         await chrome.storage.local.set({
           [CACHE_KEYS.SMS]: cacheData,
@@ -25924,10 +25924,10 @@ ${this.customData.serverResponse}`;
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 500)
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 500);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -26091,7 +26091,7 @@ ${this.customData.serverResponse}`;
         // timestamp of last full (non-delta) Firestore fetch
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
-      FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
+      FULL_LOAD_INTERVAL_MS = 72 * 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -27573,7 +27573,7 @@ ${this.customData.serverResponse}`;
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
-        const isDelta = !!cachedNewestTs && cachedDeviceCount >= PAGE_SIZE && fullLoadRecent;
+        const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
         let q2;
         if (isDelta) {
           q2 = query(
@@ -29253,7 +29253,7 @@ ${this.customData.serverResponse}`;
       smsUnsubscribeFunctions = [];
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
-      PAGE_SIZE = 500;
+      PAGE_SIZE = 2e3;
       paginationState = {};
       isLoadingMore = false;
       scrollHandlerAttached = false;
