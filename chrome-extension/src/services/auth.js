@@ -219,23 +219,35 @@ async function getGoogleTokenWithAccountChooser() {
 }
 
 /**
- * Handle Google Sign In - Delegated to service worker so the flow survives
- * the popup being closed by the OS during the OAuth account chooser
- * (this happens on macOS Chrome).
+ * Handle Google Sign In - Always show account chooser
  */
 async function handleGoogleSignIn() {
   showLoadingOverlay();
   try {
-    const response = await chrome.runtime.sendMessage({ type: "googleSignIn" });
-    if (!response?.success) {
-      throw new Error(response?.error || "Sign-in failed");
+    // Clear all cached tokens to force account selection
+    await clearAllGoogleTokens();
+
+    // Use launchWebAuthFlow with prompt=select_account to always show account chooser
+    const token = await getGoogleTokenWithAccountChooser();
+
+    const credential = GoogleAuthProvider.credential(null, token);
+    const result = await signInWithCredential(auth, credential);
+
+    // Check if user document exists
+    const userDoc = await getDoc(doc(db, "users", result.user.uid));
+    if (!userDoc.exists()) {
+      await setDoc(doc(db, "users", result.user.uid), {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL,
+        createdAt: Date.now(),
+        lastLoginAt: Date.now(),
+      });
     }
+
     showToast("Signed in with Google", "success");
-    // Auth state observer will pick up the new user and switch to main UI.
   } catch (error) {
-    // If the popup closed mid-flow (macOS), this catch may never run because
-    // the popup itself is gone. The service worker still completes the sign-in
-    // and on next popup open the auth observer will show the main UI.
     const parsed = parseAuthError(error);
     logError(error, "handleGoogleSignIn");
     showToast(parsed.message, "error");

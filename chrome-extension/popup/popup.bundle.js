@@ -31611,12 +31611,76 @@ ${this.customData.serverResponse}`;
       hideLoading();
     }
   }
+  async function clearAllGoogleTokens() {
+    return new Promise((resolve) => {
+      chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+        if (!token) {
+          authLogger.info("No cached token to clear");
+          resolve();
+          return;
+        }
+        authLogger.info("Found cached token, revoking...");
+        try {
+          await fetch(
+            `https://accounts.google.com/o/oauth2/revoke?token=${token}`,
+            {
+              method: "POST"
+            }
+          );
+          authLogger.info("Token revoked from Google servers");
+        } catch (e) {
+          authLogger.warn("Failed to revoke token from Google:", e.message);
+        }
+        chrome.identity.removeCachedAuthToken({ token }, () => {
+          authLogger.info("Token removed from Chrome cache");
+          if (chrome.identity.clearAllCachedAuthTokens) {
+            chrome.identity.clearAllCachedAuthTokens(() => {
+              authLogger.info("All cached auth tokens cleared");
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      });
+    });
+  }
+  async function getGoogleTokenWithAccountChooser() {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        chrome.identity.getAuthToken({ interactive: true }, (token) => {
+          if (chrome.runtime.lastError) {
+            authLogger.error("OAuth error:", chrome.runtime.lastError.message);
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          if (!token) {
+            reject(new Error("No token received"));
+            return;
+          }
+          authLogger.info("Successfully obtained access token");
+          resolve(token);
+        });
+      }, 100);
+    });
+  }
   async function handleGoogleSignIn() {
     showLoadingOverlay();
     try {
-      const response = await chrome.runtime.sendMessage({ type: "googleSignIn" });
-      if (!response?.success) {
-        throw new Error(response?.error || "Sign-in failed");
+      await clearAllGoogleTokens();
+      const token = await getGoogleTokenWithAccountChooser();
+      const credential = GoogleAuthProvider.credential(null, token);
+      const result = await signInWithCredential(auth, credential);
+      const userDoc = await getDoc(doc(db, "users", result.user.uid));
+      if (!userDoc.exists()) {
+        await setDoc(doc(db, "users", result.user.uid), {
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL,
+          createdAt: Date.now(),
+          lastLoginAt: Date.now()
+        });
       }
       showToast("Signed in with Google", "success");
     } catch (error) {
