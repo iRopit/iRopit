@@ -1642,7 +1642,7 @@ export function showConversation(phoneNumber) {
         msgNormalized === normalizedInput || contactKey === normalizedInput;
       return matches;
     })
-    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   console.log(`[SMS] showConversation: found ${conversation.length} messages`);
 
@@ -1672,9 +1672,8 @@ export function showConversation(phoneNumber) {
     phoneNumber;
   // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
   // Use the most recent message's phone so we reflect the actual last sender (a contact
-  // may have multiple numbers; conversation is sorted ascending so we search from the end)
-  const realPhoneNumber = [...conversation]
-    .reverse()
+  // may have multiple numbers; conversation is sorted descending so the newest is first)
+  const realPhoneNumber = conversation
     .find(m => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
@@ -1769,45 +1768,35 @@ export function showConversation(phoneNumber) {
       </div>
   `;
 
-  // Scroll to bottom
+  // Scroll to top (newest messages) since we sort descending now
   const messagesContainer = document.querySelector(".conversation-messages");
   if (messagesContainer) {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    messagesContainer.scrollTop = 0;
 
-    // Infinite scroll - load older messages when scrolling to top
+    // Infinite scroll - load older messages when scrolling near the bottom
     messagesContainer.addEventListener("scroll", () => {
-      if (messagesContainer.scrollTop < 50 && hasMoreSMS() && !isLoadingMore) {
-        console.log(
-          "[SMS] ðŸ“œ Conversation scroll-up triggered - loading more...",
-        );
-        const previousHeight = messagesContainer.scrollHeight;
+      const distanceFromBottom =
+        messagesContainer.scrollHeight -
+        messagesContainer.scrollTop -
+        messagesContainer.clientHeight;
+      if (distanceFromBottom < 150 && hasMoreSMS() && !isLoadingMore) {
+        console.log("[SMS] Conversation scroll-down triggered - loading more...");
 
-        // Show loading at top
         const loader = document.createElement("div");
         loader.className = "scroll-loader";
         loader.id = "convScrollLoader";
         loader.innerHTML =
           '<div class="spinner-small"></div> Loading older messages...';
         if (!document.getElementById("convScrollLoader")) {
-          messagesContainer.prepend(loader);
+          messagesContainer.appendChild(loader);
         }
 
         loadMoreSMS().then(() => {
           document.getElementById("convScrollLoader")?.remove();
-          // After loading, re-render the conversation with new messages
-          if (
-            hasMoreSMS() ||
-            state.allSMSMessages.length > conversation.length
-          ) {
-            // Preserve scroll position after new messages are prepended
-            const newHeight = messagesContainer.scrollHeight;
-            messagesContainer.scrollTop = newHeight - previousHeight;
-          }
         });
       }
     });
   }
-
   // Add back button handler (also covered by the permanent delegation in initSMSNavigation)
   document.getElementById("backToSMS")?.addEventListener("click", () => {
     _goBackFromConversation();
