@@ -476,7 +476,9 @@ export async function loadCalls() {
         updateCallsList(device.id, calls);
       }
     } catch (error) {
-      console.error(`❌ Calls load error for device ${device.id}:`, error);
+      if (error?.code !== "permission-denied") {
+        console.error(`❌ Calls load error for device ${device.id}:`, error);
+      }
     }
   });
 
@@ -536,10 +538,12 @@ export async function loadCalls() {
         }
       },
       (error) => {
-        console.error(
-          `❌ Calls realtime error for device ${device.id}:`,
-          error,
-        );
+        if (error?.code !== "permission-denied") {
+          console.error(
+            `❌ Calls realtime error for device ${device.id}:`,
+            error,
+          );
+        }
       },
     );
 
@@ -1356,7 +1360,9 @@ export async function loadSharedDevicesCalls(shares) {
       );
       updateCallsList(share.deviceId, calls);
     } catch (err) {
-      console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+      if (err?.code !== "permission-denied") {
+        console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+      }
     }
   }
 }

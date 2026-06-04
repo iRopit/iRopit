@@ -26427,7 +26427,9 @@ ${this.customData.serverResponse}`;
           updateCallsList(device.id, calls);
         }
       } catch (error) {
-        console.error(`\u274C Calls load error for device ${device.id}:`, error);
+        if (error?.code !== "permission-denied") {
+          console.error(`\u274C Calls load error for device ${device.id}:`, error);
+        }
       }
     });
     await Promise.all(loadPromises);
@@ -26478,10 +26480,12 @@ ${this.customData.serverResponse}`;
           }
         },
         (error) => {
-          console.error(
-            `\u274C Calls realtime error for device ${device.id}:`,
-            error
-          );
+          if (error?.code !== "permission-denied") {
+            console.error(
+              `\u274C Calls realtime error for device ${device.id}:`,
+              error
+            );
+          }
         }
       );
       callListenerUnsubs.push(unsub);
@@ -27121,7 +27125,9 @@ ${this.customData.serverResponse}`;
         );
         updateCallsList(share.deviceId, calls);
       } catch (err) {
-        console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+        if (err?.code !== "permission-denied") {
+          console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
+        }
       }
     }
   }
