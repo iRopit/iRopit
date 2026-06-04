@@ -215,8 +215,12 @@ async function getGoogleTokenWithAccountChooser() {
   if (isMac) {
     return new Promise((resolve, reject) => {
       try {
+        // Use the Web application OAuth client (not the manifest's Chrome
+        // extension client) because launchWebAuthFlow requires a registered
+        // redirect URI, which Chrome-extension type clients do not support.
+        const clientId =
+          "723637478368-8vceokc6jdb1uc9fbht1megnl9urrfnk.apps.googleusercontent.com";
         const manifest = chrome.runtime.getManifest();
-        const clientId = manifest?.oauth2?.client_id;
         const scopes = (manifest?.oauth2?.scopes || []).join(" ");
         const redirectUri = chrome.identity.getRedirectURL();
         const authUrl =

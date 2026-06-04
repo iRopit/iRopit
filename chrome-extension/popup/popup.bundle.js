@@ -31657,8 +31657,8 @@ ${this.customData.serverResponse}`;
     if (isMac) {
       return new Promise((resolve, reject) => {
         try {
+          const clientId = "723637478368-8vceokc6jdb1uc9fbht1megnl9urrfnk.apps.googleusercontent.com";
           const manifest = chrome.runtime.getManifest();
-          const clientId = manifest?.oauth2?.client_id;
           const scopes = (manifest?.oauth2?.scopes || []).join(" ");
           const redirectUri = chrome.identity.getRedirectURL();
           const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?client_id=" + encodeURIComponent(clientId) + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes) + "&prompt=select_account";
