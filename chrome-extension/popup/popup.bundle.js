@@ -29272,6 +29272,7 @@ ${this.customData.serverResponse}`;
         );
         updateSMSList(share.deviceId, messages);
       } catch (err) {
+        if (err?.code === "permission-denied") return;
         console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
       }
     }
