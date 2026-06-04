@@ -1773,6 +1773,27 @@ export function showConversation(phoneNumber) {
   if (messagesContainer) {
     messagesContainer.scrollTop = 0;
 
+    // If the conversation has too few messages to scroll, eagerly fetch older
+    // ones so the user actually sees their full history. We chain a few rounds
+    // to fill the panel.
+    const eagerLoad = async () => {
+      let rounds = 0;
+      while (
+        rounds < 3 &&
+        hasMoreSMS() &&
+        !isLoadingMore &&
+        messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50
+      ) {
+        rounds += 1;
+        await loadMoreSMS();
+        if (state.currentConversation === phoneNumber) {
+          showConversation(state.currentConversation);
+          return; // showConversation will re-attach handlers
+        }
+      }
+    };
+    eagerLoad();
+
     // Infinite scroll - load older messages when scrolling near the bottom
     messagesContainer.addEventListener("scroll", () => {
       const distanceFromBottom =
@@ -1793,6 +1814,13 @@ export function showConversation(phoneNumber) {
 
         loadMoreSMS().then(() => {
           document.getElementById("convScrollLoader")?.remove();
+          // Re-render conversation so newly loaded older messages appear at the bottom
+          if (state.currentConversation === phoneNumber) {
+            const prevScrollTop = messagesContainer.scrollTop;
+            showConversation(state.currentConversation);
+            const newContainer = document.querySelector(".conversation-messages");
+            if (newContainer) newContainer.scrollTop = prevScrollTop;
+          }
         });
       }
     });

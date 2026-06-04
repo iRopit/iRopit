@@ -28540,6 +28540,18 @@ ${this.customData.serverResponse}`;
     const messagesContainer = document.querySelector(".conversation-messages");
     if (messagesContainer) {
       messagesContainer.scrollTop = 0;
+      const eagerLoad = async () => {
+        let rounds = 0;
+        while (rounds < 3 && hasMoreSMS() && !isLoadingMore && messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50) {
+          rounds += 1;
+          await loadMoreSMS();
+          if (currentConversation === phoneNumber) {
+            showConversation(currentConversation);
+            return;
+          }
+        }
+      };
+      eagerLoad();
       messagesContainer.addEventListener("scroll", () => {
         const distanceFromBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
         if (distanceFromBottom < 150 && hasMoreSMS() && !isLoadingMore) {
@@ -28553,6 +28565,12 @@ ${this.customData.serverResponse}`;
           }
           loadMoreSMS().then(() => {
             document.getElementById("convScrollLoader")?.remove();
+            if (currentConversation === phoneNumber) {
+              const prevScrollTop = messagesContainer.scrollTop;
+              showConversation(currentConversation);
+              const newContainer = document.querySelector(".conversation-messages");
+              if (newContainer) newContainer.scrollTop = prevScrollTop;
+            }
           });
         }
       });
