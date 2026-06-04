@@ -28540,6 +28540,85 @@ ${this.customData.serverResponse}`;
     const messagesContainer = document.querySelector(".conversation-messages");
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      const renderedIds = new Set(conversation.map((m) => m.id));
+      const buildMessageHtml = (msg) => `
+          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
+            <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
+              <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
+              <div class="message-footer">
+                <span class="message-time">${formatTime(msg.timestamp)}</span>
+                ${resolveSMSDeviceName(msg) ? `<span class="message-device"><svg width="11" height="11" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><rect x="128" y="16" width="256" height="480" rx="48" ry="48"/><line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48"/></svg>${escapeHtml(resolveSMSDeviceName(msg))}</span>` : ""}
+                ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641" : "Delete"}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-message-actions">
+              <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0646\u0635" : "Copy text"}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>
+              </button>
+            </div>
+          </div>`;
+      const prependNewMessages = () => {
+        const fresh = allSMSMessages.filter((msg) => {
+          const msgPhone = (msg.phoneNumber || msg.sender || "").replace(/[\s\-\(\)\.]/g, "").trim();
+          const msgNormalized = normalizePhoneNumber3(msgPhone);
+          const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
+          return msgNormalized === normalizedInput || contactKey === normalizedInput;
+        }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const toPrepend = [];
+        for (const m of fresh) {
+          if (!renderedIds.has(m.id)) {
+            toPrepend.push(m);
+            renderedIds.add(m.id);
+          }
+        }
+        if (toPrepend.length === 0) return;
+        const firstWrapper = messagesContainer.querySelector(".chat-message-wrapper");
+        const tmp = document.createElement("div");
+        tmp.innerHTML = toPrepend.map(buildMessageHtml).join("");
+        const prevScrollHeight = messagesContainer.scrollHeight;
+        const prevScrollTop = messagesContainer.scrollTop;
+        const newWrappers = [];
+        while (tmp.firstChild) {
+          const node = tmp.firstChild;
+          if (node.nodeType === 1) newWrappers.push(node);
+          if (firstWrapper) {
+            messagesContainer.insertBefore(node, firstWrapper);
+          } else {
+            messagesContainer.appendChild(node);
+          }
+        }
+        newWrappers.forEach((wrapper) => {
+          wrapper.querySelector(".delete-msg-btn")?.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const msgId = wrapper.querySelector(".delete-msg-btn")?.dataset.id;
+            if (msgId && await showConfirmDialog(getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0631\u0633\u0627\u0644\u0629\u061F" : "Delete this message?")) {
+              deleteSingleSms(msgId);
+            }
+          });
+          wrapper.querySelector(".copy-msg-btn")?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const msgBubble = wrapper.querySelector(".message-bubble");
+            const text = msgBubble?.dataset.msgContent || "";
+            if (text) {
+              navigator.clipboard.writeText(text).then(() => {
+                showToast(getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0627\u0644\u0646\u0633\u062E" : "Copied!", "success");
+              }).catch(() => {
+                showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
+              });
+            }
+          });
+        });
+        const heightDelta = messagesContainer.scrollHeight - prevScrollHeight;
+        messagesContainer.scrollTop = prevScrollTop + heightDelta;
+      };
       const tooShortToScroll = messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50;
       if (tooShortToScroll && hasMoreSMS() && !isLoadingMore) {
         (async () => {
@@ -28547,33 +28626,25 @@ ${this.customData.serverResponse}`;
           while (rounds < 3 && hasMoreSMS() && !isLoadingMore) {
             rounds += 1;
             await loadMoreSMS();
-          }
-          if (rounds > 0 && currentConversation === phoneNumber) {
-            showConversation(currentConversation);
+            if (currentConversation !== phoneNumber) return;
+            prependNewMessages();
           }
         })();
       }
       messagesContainer.addEventListener("scroll", () => {
         if (messagesContainer.scrollTop < 150 && hasMoreSMS() && !isLoadingMore) {
           console.log("[SMS] Conversation scroll-up triggered - loading more...");
-          const loader = document.createElement("div");
-          loader.className = "scroll-loader";
-          loader.id = "convScrollLoader";
-          loader.innerHTML = '<div class="spinner-small"></div> Loading older messages...';
           if (!document.getElementById("convScrollLoader")) {
+            const loader = document.createElement("div");
+            loader.className = "scroll-loader";
+            loader.id = "convScrollLoader";
+            loader.innerHTML = '<div class="spinner-small"></div> Loading older messages...';
             messagesContainer.insertBefore(loader, messagesContainer.firstChild);
           }
-          const prevScrollHeight = messagesContainer.scrollHeight;
-          const prevScrollTop = messagesContainer.scrollTop;
           loadMoreSMS().then(() => {
             document.getElementById("convScrollLoader")?.remove();
             if (currentConversation === phoneNumber) {
-              showConversation(currentConversation);
-              const newContainer = document.querySelector(".conversation-messages");
-              if (newContainer) {
-                const heightDelta = newContainer.scrollHeight - prevScrollHeight;
-                newContainer.scrollTop = prevScrollTop + heightDelta;
-              }
+              prependNewMessages();
             }
           });
         }

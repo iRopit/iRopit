@@ -1774,9 +1774,118 @@ export function showConversation(phoneNumber) {
   if (messagesContainer) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
+    // Track which message IDs are already rendered so scroll-up only prepends new ones
+    const renderedIds = new Set(conversation.map((m) => m.id));
+
+    // Build the HTML for a single message bubble (matches the template above)
+    const buildMessageHtml = (msg) => `
+          <div class="chat-message-wrapper ${
+            msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"
+          }">
+            <div class="message-bubble ${
+              msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"
+            }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
+              <div class="message-text">${(msg.body || msg.text || msg.content) ? linkifyText(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'}</div>
+              <div class="message-footer">
+                <span class="message-time">${formatTime(msg.timestamp)}</span>
+                ${resolveSMSDeviceName(msg)
+                    ? `<span class="message-device"><svg width="11" height="11" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><rect x="128" y="16" width="256" height="480" rx="48" ry="48"/><line x1="256" y1="432" x2="256.01" y2="432" stroke-width="48"/></svg>${escapeHtml(resolveSMSDeviceName(msg))}</span>`
+                    : ""}
+                ${msg.simSlot != null && msg.simSlot >= 0 ? `<span class="sim-badge sim-${msg.simSlot}">${msg.simSlot + 1}</span>` : ""}
+                <button class="delete-msg-btn" data-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === 'ar' ? 'حذف' : 'Delete'}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-message-actions">
+              <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === 'ar' ? 'نسخ النص' : 'Copy text'}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>
+              </button>
+            </div>
+          </div>`;
+
+    // Recompute the conversation list from current state (fresh after loadMoreSMS)
+    // and prepend any messages that weren't rendered yet, preserving scroll position.
+    const prependNewMessages = () => {
+      const fresh = state.allSMSMessages
+        .filter((msg) => {
+          const msgPhone = (msg.phoneNumber || msg.sender || "")
+            .replace(/[\s\-\(\)\.]/g, "")
+            .trim();
+          const msgNormalized = normalizePhoneNumber(msgPhone);
+          const contactKey =
+            msg.contactName || msg.title
+              ? "contact_" + (msg.contactName || msg.title).trim()
+              : "";
+          return msgNormalized === normalizedInput || contactKey === normalizedInput;
+        })
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+      const toPrepend = [];
+      for (const m of fresh) {
+        if (!renderedIds.has(m.id)) {
+          toPrepend.push(m);
+          renderedIds.add(m.id);
+        }
+      }
+      if (toPrepend.length === 0) return;
+
+      // Find the first existing wrapper so we can insert before it.
+      // Sorted ascending, so older messages go at the top (before the existing first child).
+      const firstWrapper = messagesContainer.querySelector(".chat-message-wrapper");
+      const tmp = document.createElement("div");
+      tmp.innerHTML = toPrepend.map(buildMessageHtml).join("");
+
+      const prevScrollHeight = messagesContainer.scrollHeight;
+      const prevScrollTop = messagesContainer.scrollTop;
+
+      // Move the new wrappers into the container, inserted before the first existing one
+      const newWrappers = [];
+      while (tmp.firstChild) {
+        const node = tmp.firstChild;
+        if (node.nodeType === 1) newWrappers.push(node);
+        if (firstWrapper) {
+          messagesContainer.insertBefore(node, firstWrapper);
+        } else {
+          messagesContainer.appendChild(node);
+        }
+      }
+
+      // Wire delete + copy handlers on the newly added bubbles
+      newWrappers.forEach((wrapper) => {
+        wrapper.querySelector(".delete-msg-btn")?.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const msgId = wrapper.querySelector(".delete-msg-btn")?.dataset.id;
+          if (msgId && (await showConfirmDialog(getCurrentLanguage() === "ar" ? "حذف هذه الرسالة؟" : "Delete this message?"))) {
+            deleteSingleSms(msgId);
+          }
+        });
+        wrapper.querySelector(".copy-msg-btn")?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const msgBubble = wrapper.querySelector(".message-bubble");
+          const text = msgBubble?.dataset.msgContent || "";
+          if (text) {
+            navigator.clipboard.writeText(text).then(() => {
+              showToast(getCurrentLanguage() === "ar" ? "تم النسخ" : "Copied!", "success");
+            }).catch(() => {
+              showToast(getCurrentLanguage() === "ar" ? "فشل النسخ" : "Copy failed", "error");
+            });
+          }
+        });
+      });
+
+      // Preserve visual position: scroll down by the height of newly-prepended content
+      const heightDelta = messagesContainer.scrollHeight - prevScrollHeight;
+      messagesContainer.scrollTop = prevScrollTop + heightDelta;
+    };
+
     // If the conversation has too few messages to scroll, eagerly fetch older
-    // pages once, then re-render a single time so the user sees the rest of
-    // their history without having to scroll.
+    // pages and prepend them so the user sees their full history.
     const tooShortToScroll =
       messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50;
     if (tooShortToScroll && hasMoreSMS() && !isLoadingMore) {
@@ -1785,9 +1894,8 @@ export function showConversation(phoneNumber) {
         while (rounds < 3 && hasMoreSMS() && !isLoadingMore) {
           rounds += 1;
           await loadMoreSMS();
-        }
-        if (rounds > 0 && state.currentConversation === phoneNumber) {
-          showConversation(state.currentConversation);
+          if (state.currentConversation !== phoneNumber) return;
+          prependNewMessages();
         }
       })();
     }
@@ -1797,32 +1905,19 @@ export function showConversation(phoneNumber) {
       if (messagesContainer.scrollTop < 150 && hasMoreSMS() && !isLoadingMore) {
         console.log("[SMS] Conversation scroll-up triggered - loading more...");
 
-        const loader = document.createElement("div");
-        loader.className = "scroll-loader";
-        loader.id = "convScrollLoader";
-        loader.innerHTML =
-          '<div class="spinner-small"></div> Loading older messages...';
         if (!document.getElementById("convScrollLoader")) {
+          const loader = document.createElement("div");
+          loader.className = "scroll-loader";
+          loader.id = "convScrollLoader";
+          loader.innerHTML =
+            '<div class="spinner-small"></div> Loading older messages...';
           messagesContainer.insertBefore(loader, messagesContainer.firstChild);
         }
 
-        // Snapshot current scroll position relative to the bottom so we can
-        // restore visual position after older messages are prepended.
-        const prevScrollHeight = messagesContainer.scrollHeight;
-        const prevScrollTop = messagesContainer.scrollTop;
-
         loadMoreSMS().then(() => {
           document.getElementById("convScrollLoader")?.remove();
-          // Re-render conversation so newly loaded older messages appear at the top
           if (state.currentConversation === phoneNumber) {
-            showConversation(state.currentConversation);
-            const newContainer = document.querySelector(".conversation-messages");
-            if (newContainer) {
-              // Keep the same message in view by offsetting scrollTop by the
-              // amount of new content prepended above.
-              const heightDelta = newContainer.scrollHeight - prevScrollHeight;
-              newContainer.scrollTop = prevScrollTop + heightDelta;
-            }
+            prependNewMessages();
           }
         });
       }
