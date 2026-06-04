@@ -193,9 +193,69 @@ async function clearAllGoogleTokens() {
 }
 
 /**
- * Get Google OAuth token with account chooser
+ * Get Google OAuth token with account chooser.
+ *
+ * On Windows we use chrome.identity.getAuthToken which is fast and reliable.
+ * On macOS that API closes the extension popup while the account chooser is
+ * shown, which kills the JS context before signInWithCredential runs and the
+ * user is dropped back on the login screen. We detect macOS and fall back to
+ * chrome.identity.launchWebAuthFlow, which opens OAuth in a separate window
+ * and leaves the popup alive.
  */
 async function getGoogleTokenWithAccountChooser() {
+  const platform = await new Promise((resolve) => {
+    try {
+      chrome.runtime.getPlatformInfo((info) => resolve(info?.os || ""));
+    } catch (_) {
+      resolve("");
+    }
+  });
+  const isMac = platform === "mac";
+
+  if (isMac) {
+    return new Promise((resolve, reject) => {
+      try {
+        const manifest = chrome.runtime.getManifest();
+        const clientId = manifest?.oauth2?.client_id;
+        const scopes = (manifest?.oauth2?.scopes || []).join(" ");
+        const redirectUri = chrome.identity.getRedirectURL();
+        const authUrl =
+          "https://accounts.google.com/o/oauth2/v2/auth" +
+          "?client_id=" + encodeURIComponent(clientId) +
+          "&response_type=token" +
+          "&redirect_uri=" + encodeURIComponent(redirectUri) +
+          "&scope=" + encodeURIComponent(scopes) +
+          "&prompt=select_account";
+
+        chrome.identity.launchWebAuthFlow(
+          { url: authUrl, interactive: true },
+          (responseUrl) => {
+            if (chrome.runtime.lastError) {
+              logger.error("OAuth error:", chrome.runtime.lastError.message);
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (!responseUrl) {
+              reject(new Error("No response from Google sign-in"));
+              return;
+            }
+            const hash = responseUrl.split("#")[1] || "";
+            const params = new URLSearchParams(hash);
+            const token = params.get("access_token");
+            if (!token) {
+              reject(new Error("No access token in OAuth response"));
+              return;
+            }
+            logger.info("Successfully obtained access token (web auth flow)");
+            resolve(token);
+          },
+        );
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
   return new Promise((resolve, reject) => {
     // Add delay to ensure cache clearing completed
     setTimeout(() => {
