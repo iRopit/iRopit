@@ -5322,6 +5322,89 @@ var TwitterAuthProvider = class _TwitterAuthProvider extends BaseOAuthProvider {
 };
 TwitterAuthProvider.TWITTER_SIGN_IN_METHOD = "twitter.com";
 TwitterAuthProvider.PROVIDER_ID = "twitter.com";
+var UserCredentialImpl = class _UserCredentialImpl {
+  constructor(params) {
+    this.user = params.user;
+    this.providerId = params.providerId;
+    this._tokenResponse = params._tokenResponse;
+    this.operationType = params.operationType;
+  }
+  static async _fromIdTokenResponse(auth2, operationType, idTokenResponse, isAnonymous = false) {
+    const user = await UserImpl._fromIdTokenResponse(auth2, idTokenResponse, isAnonymous);
+    const providerId = providerIdForResponse(idTokenResponse);
+    const userCred = new _UserCredentialImpl({
+      user,
+      providerId,
+      _tokenResponse: idTokenResponse,
+      operationType
+    });
+    return userCred;
+  }
+  static async _forOperation(user, operationType, response) {
+    await user._updateTokensIfNecessary(
+      response,
+      /* reload */
+      true
+    );
+    const providerId = providerIdForResponse(response);
+    return new _UserCredentialImpl({
+      user,
+      providerId,
+      _tokenResponse: response,
+      operationType
+    });
+  }
+};
+function providerIdForResponse(response) {
+  if (response.providerId) {
+    return response.providerId;
+  }
+  if ("phoneNumber" in response) {
+    return "phone";
+  }
+  return null;
+}
+var MultiFactorError = class _MultiFactorError extends FirebaseError {
+  constructor(auth2, error, operationType, user) {
+    super(error.code, error.message);
+    this.operationType = operationType;
+    this.user = user;
+    Object.setPrototypeOf(this, _MultiFactorError.prototype);
+    this.customData = {
+      appName: auth2.name,
+      tenantId: auth2.tenantId ?? void 0,
+      _serverResponse: error.customData._serverResponse,
+      operationType
+    };
+  }
+  static _fromErrorAndOperation(auth2, error, operationType, user) {
+    return new _MultiFactorError(auth2, error, operationType, user);
+  }
+};
+function _processCredentialSavingMfaContextIfNecessary(auth2, operationType, credential, user) {
+  const idTokenProvider = operationType === "reauthenticate" ? credential._getReauthenticationResolver(auth2) : credential._getIdTokenResponse(auth2);
+  return idTokenProvider.catch((error) => {
+    if (error.code === `auth/${"multi-factor-auth-required"}`) {
+      throw MultiFactorError._fromErrorAndOperation(auth2, error, operationType, user);
+    }
+    throw error;
+  });
+}
+async function _signInWithCredential(auth2, credential, bypassAuthState = false) {
+  if (_isFirebaseServerApp(auth2.app)) {
+    return Promise.reject(_serverAppCurrentUserOperationNotSupportedError(auth2));
+  }
+  const operationType = "signIn";
+  const response = await _processCredentialSavingMfaContextIfNecessary(auth2, operationType, credential);
+  const userCredential = await UserCredentialImpl._fromIdTokenResponse(auth2, operationType, response);
+  if (!bypassAuthState) {
+    await auth2._updateCurrentUser(userCredential.user);
+  }
+  return userCredential;
+}
+async function signInWithCredential(auth2, credential) {
+  return _signInWithCredential(_castAuth(auth2), credential);
+}
 function onAuthStateChanged(auth2, nextOrObserver, error, completed) {
   return getModularInstance(auth2).onAuthStateChanged(nextOrObserver, error, completed);
 }
@@ -16897,6 +16980,32 @@ async function __PRIVATE_getEventManager(e) {
   const t = await __PRIVATE_ensureOnlineComponents(e), n = t.eventManager;
   return n.onListen = __PRIVATE_syncEngineListen.bind(null, t.syncEngine), n.onUnlisten = __PRIVATE_syncEngineUnlisten.bind(null, t.syncEngine), n.onFirstRemoteStoreListen = __PRIVATE_triggerRemoteStoreListen.bind(null, t.syncEngine), n.onLastRemoteStoreUnlisten = __PRIVATE_triggerRemoteStoreUnlisten.bind(null, t.syncEngine), n;
 }
+function __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(e, t, n = {}) {
+  const r = new __PRIVATE_Deferred();
+  return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_readDocumentViaSnapshotListener(e2, t2, n2, r2, i) {
+    const s = new __PRIVATE_AsyncObserver({
+      next: (_) => {
+        s.Nu(), t2.enqueueAndForget((() => __PRIVATE_eventManagerUnlisten(e2, o)));
+        const a = _.docs.has(n2);
+        !a && _.fromCache ? (
+          // TODO(dimond): If we're online and the document doesn't
+          // exist then we resolve with a doc.exists set to false. If
+          // we're offline however, we reject the Promise in this
+          // case. Two options: 1) Cache the negative response from
+          // the server so we can deliver that even when you're
+          // offline 2) Actually reject the Promise in the online case
+          // if the document doesn't exist.
+          i.reject(new FirestoreError(N.UNAVAILABLE, "Failed to get document because the client is offline."))
+        ) : a && _.fromCache && r2 && "server" === r2.source ? i.reject(new FirestoreError(N.UNAVAILABLE, 'Failed to get document from server. (However, this document does exist in the local cache. Run again without setting source to "server" to retrieve the cached document.)')) : i.resolve(_);
+      },
+      error: (e3) => i.reject(e3)
+    }), o = new __PRIVATE_QueryListener(__PRIVATE_newQueryForPath(n2.path), s, {
+      includeMetadataChanges: true,
+      qa: true
+    });
+    return __PRIVATE_eventManagerListen(e2, o);
+  })(await __PRIVATE_getEventManager(e), e.asyncQueue, t, n, r))), r.promise;
+}
 function __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(e, t, n = {}) {
   const r = new __PRIVATE_Deferred();
   return e.asyncQueue.enqueueAndForget((async () => (function __PRIVATE_executeQueryViaSnapshotListener(e2, t2, n2, r2, i) {
@@ -18519,6 +18628,11 @@ function __PRIVATE_resultChangeType(e) {
       });
   }
 }
+function getDoc(e) {
+  e = __PRIVATE_cast(e, DocumentReference);
+  const t = __PRIVATE_cast(e.firestore, Firestore);
+  return __PRIVATE_firestoreClientGetDocumentViaSnapshotListener(ensureFirestoreConfigured(t), e._key).then(((n) => __PRIVATE_convertToDocSnapshot(t, e, n)));
+}
 QuerySnapshot._jsonSchemaVersion = "firestore/querySnapshot/1.0", QuerySnapshot._jsonSchema = {
   type: property("string", QuerySnapshot._jsonSchemaVersion),
   bundleSource: property("string", "QuerySnapshot"),
@@ -18546,6 +18660,11 @@ function getDocs(e) {
   e = __PRIVATE_cast(e, Query);
   const t = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t), r = new __PRIVATE_ExpUserDataWriter(t);
   return __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query), __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query).then(((n2) => new QuerySnapshot(t, r, e, n2)));
+}
+function setDoc(e, t, n) {
+  e = __PRIVATE_cast(e, DocumentReference);
+  const r = __PRIVATE_cast(e.firestore, Firestore), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t, n);
+  return executeWrite(r, [__PRIVATE_parseSetData(__PRIVATE_newUserDataReader(r), "setDoc", e._key, i, null !== e.converter, n).toMutation(e._key, Precondition.none())]);
 }
 function addDoc(e, t) {
   const n = __PRIVATE_cast(e.firestore, Firestore), r = doc(e), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t);
@@ -20791,6 +20910,64 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
   return { allSms, allCalls, allNotifs };
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "googleSignIn") {
+    (async () => {
+      try {
+        await new Promise((resolve) => {
+          chrome.identity.getAuthToken({ interactive: false }, async (tok) => {
+            if (!tok) return resolve();
+            try {
+              await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${tok}`, { method: "POST" });
+            } catch (_) {
+            }
+            chrome.identity.removeCachedAuthToken({ token: tok }, () => {
+              if (chrome.identity.clearAllCachedAuthTokens) {
+                chrome.identity.clearAllCachedAuthTokens(() => resolve());
+              } else {
+                resolve();
+              }
+            });
+          });
+        });
+        const token = await new Promise((resolve, reject) => {
+          chrome.identity.getAuthToken({ interactive: true }, (t) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (!t) {
+              reject(new Error("No token received"));
+              return;
+            }
+            resolve(t);
+          });
+        });
+        const credential = GoogleAuthProvider.credential(null, token);
+        const result = await signInWithCredential(auth, credential);
+        try {
+          const userRef = doc(db, "users", result.user.uid);
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(userRef, {
+              uid: result.user.uid,
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              createdAt: Date.now(),
+              lastLoginAt: Date.now()
+            });
+          }
+        } catch (e) {
+          console.warn("googleSignIn: setDoc failed", e?.message);
+        }
+        sendResponse({ success: true, uid: result.user.uid });
+      } catch (err) {
+        console.error("googleSignIn failed:", err?.message);
+        sendResponse({ success: false, error: err?.message || "Sign-in failed" });
+      }
+    })();
+    return true;
+  }
   if (message.type === "setDeviceId") {
     currentDeviceId = message.deviceId;
     chrome.storage.local.set({ deviceId: message.deviceId });
@@ -20993,8 +21170,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 @firebase/util/dist/index.esm.js:
 firebase/app/dist/esm/index.esm.js:
-@firebase/auth/dist/web-extension-esm/register-21a33d64.js:
-@firebase/auth/dist/web-extension-esm/register-21a33d64.js:
 @firebase/auth/dist/web-extension-esm/register-21a33d64.js:
 @firebase/auth/dist/web-extension-esm/register-21a33d64.js:
 @firebase/auth/dist/web-extension-esm/register-21a33d64.js:

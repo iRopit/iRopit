@@ -18,7 +18,9 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  getDoc,
   addDoc,
+  setDoc,
 } from "firebase/firestore";
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
@@ -2704,6 +2706,73 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
 
 // Message handler from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Google Sign-In delegated from popup. The popup may close on macOS while the
+  // OAuth account chooser is open; running the flow in the service worker
+  // ensures it completes and persists auth even if the popup was destroyed.
+  if (message.type === "googleSignIn") {
+    (async () => {
+      try {
+        // Clear any cached token so the account chooser is shown
+        await new Promise((resolve) => {
+          chrome.identity.getAuthToken({ interactive: false }, async (tok) => {
+            if (!tok) return resolve();
+            try {
+              await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${tok}`, { method: "POST" });
+            } catch (_) {}
+            chrome.identity.removeCachedAuthToken({ token: tok }, () => {
+              if (chrome.identity.clearAllCachedAuthTokens) {
+                chrome.identity.clearAllCachedAuthTokens(() => resolve());
+              } else {
+                resolve();
+              }
+            });
+          });
+        });
+
+        const token = await new Promise((resolve, reject) => {
+          chrome.identity.getAuthToken({ interactive: true }, (t) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (!t) {
+              reject(new Error("No token received"));
+              return;
+            }
+            resolve(t);
+          });
+        });
+
+        const credential = GoogleAuthProvider.credential(null, token);
+        const result = await signInWithCredential(auth, credential);
+
+        // Ensure user doc exists
+        try {
+          const userRef = doc(db, "users", result.user.uid);
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(userRef, {
+              uid: result.user.uid,
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              createdAt: Date.now(),
+              lastLoginAt: Date.now(),
+            });
+          }
+        } catch (e) {
+          console.warn("googleSignIn: setDoc failed", e?.message);
+        }
+
+        sendResponse({ success: true, uid: result.user.uid });
+      } catch (err) {
+        console.error("googleSignIn failed:", err?.message);
+        sendResponse({ success: false, error: err?.message || "Sign-in failed" });
+      }
+    })();
+    return true; // async response
+  }
+
   if (message.type === "setDeviceId") {
     currentDeviceId = message.deviceId;
     chrome.storage.local.set({ deviceId: message.deviceId });
