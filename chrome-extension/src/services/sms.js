@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SMS Service
  * Handles SMS loading, rendering, and management
  */
@@ -670,6 +670,7 @@ export async function loadSMS() {
           updateSMSList(device.id, messages);
         }
       } catch (error) {
+        if (error?.code === "permission-denied") return;
         console.error(`âŒ SMS load error for device ${device.id}:`, error);
       }
     });

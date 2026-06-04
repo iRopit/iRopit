@@ -92,7 +92,9 @@ export async function loadUserSettings() {
       })
     }
   } catch (e) {
-    console.warn("[Settings] Failed to load user profile from Firestore:", e)
+    if (e?.code !== "permission-denied") {
+      console.warn("[Settings] Failed to load user profile from Firestore:", e)
+    }
   }
 }
 

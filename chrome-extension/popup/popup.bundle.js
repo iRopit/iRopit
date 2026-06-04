@@ -27744,6 +27744,7 @@ ${this.customData.serverResponse}`;
             updateSMSList(device.id, messages);
           }
         } catch (error) {
+          if (error?.code === "permission-denied") return;
           console.error(`\xE2\x9D\u0152 SMS load error for device ${device.id}:`, error);
         }
       });
@@ -33060,7 +33061,9 @@ ${this.customData.serverResponse}`;
         });
       }
     } catch (e) {
-      console.warn("[Settings] Failed to load user profile from Firestore:", e);
+      if (e?.code !== "permission-denied") {
+        console.warn("[Settings] Failed to load user profile from Firestore:", e);
+      }
     }
   }
   async function saveDisplayName() {
