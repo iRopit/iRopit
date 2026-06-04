@@ -28451,7 +28451,7 @@ ${this.customData.serverResponse}`;
       const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
       const matches = msgNormalized === normalizedInput || contactKey === normalizedInput;
       return matches;
-    }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     console.log(`[SMS] showConversation: found ${conversation.length} messages`);
     const uniqueConversation = [];
     const seenIds = /* @__PURE__ */ new Set();
@@ -28467,7 +28467,7 @@ ${this.customData.serverResponse}`;
     }
     markConversationAsRead(conversation);
     const contactName = conversation.find((m) => m.contactName && m.contactName.trim() && !isPhoneNumberLike2(m.contactName))?.contactName || conversation.find((m) => m.title && m.title.trim() && !isPhoneNumberLike2(m.title))?.title || getContactName(conversation.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber))?.phoneNumber || phoneNumber) || (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) || conversation[0].phoneNumber || phoneNumber;
-    const realPhoneNumber = conversation.find((m) => {
+    const realPhoneNumber = [...conversation].reverse().find((m) => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
     });
@@ -28539,7 +28539,7 @@ ${this.customData.serverResponse}`;
   `;
     const messagesContainer = document.querySelector(".conversation-messages");
     if (messagesContainer) {
-      messagesContainer.scrollTop = 0;
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
       const tooShortToScroll = messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50;
       if (tooShortToScroll && hasMoreSMS() && !isLoadingMore) {
         (async () => {
@@ -28554,23 +28554,26 @@ ${this.customData.serverResponse}`;
         })();
       }
       messagesContainer.addEventListener("scroll", () => {
-        const distanceFromBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
-        if (distanceFromBottom < 150 && hasMoreSMS() && !isLoadingMore) {
-          console.log("[SMS] Conversation scroll-down triggered - loading more...");
+        if (messagesContainer.scrollTop < 150 && hasMoreSMS() && !isLoadingMore) {
+          console.log("[SMS] Conversation scroll-up triggered - loading more...");
           const loader = document.createElement("div");
           loader.className = "scroll-loader";
           loader.id = "convScrollLoader";
           loader.innerHTML = '<div class="spinner-small"></div> Loading older messages...';
           if (!document.getElementById("convScrollLoader")) {
-            messagesContainer.appendChild(loader);
+            messagesContainer.insertBefore(loader, messagesContainer.firstChild);
           }
+          const prevScrollHeight = messagesContainer.scrollHeight;
+          const prevScrollTop = messagesContainer.scrollTop;
           loadMoreSMS().then(() => {
             document.getElementById("convScrollLoader")?.remove();
             if (currentConversation === phoneNumber) {
-              const prevScrollTop = messagesContainer.scrollTop;
               showConversation(currentConversation);
               const newContainer = document.querySelector(".conversation-messages");
-              if (newContainer) newContainer.scrollTop = prevScrollTop;
+              if (newContainer) {
+                const heightDelta = newContainer.scrollHeight - prevScrollHeight;
+                newContainer.scrollTop = prevScrollTop + heightDelta;
+              }
             }
           });
         }

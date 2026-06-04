@@ -1642,7 +1642,7 @@ export function showConversation(phoneNumber) {
         msgNormalized === normalizedInput || contactKey === normalizedInput;
       return matches;
     })
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
   console.log(`[SMS] showConversation: found ${conversation.length} messages`);
 
@@ -1672,8 +1672,9 @@ export function showConversation(phoneNumber) {
     phoneNumber;
   // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
   // Use the most recent message's phone so we reflect the actual last sender (a contact
-  // may have multiple numbers; conversation is sorted descending so the newest is first)
-  const realPhoneNumber = conversation
+  // may have multiple numbers; conversation is sorted ascending so the newest is last)
+  const realPhoneNumber = [...conversation]
+    .reverse()
     .find(m => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
@@ -1768,10 +1769,10 @@ export function showConversation(phoneNumber) {
       </div>
   `;
 
-  // Scroll to top (newest messages) since we sort descending now
+  // Scroll to bottom (newest messages) since we sort ascending now
   const messagesContainer = document.querySelector(".conversation-messages");
   if (messagesContainer) {
-    messagesContainer.scrollTop = 0;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     // If the conversation has too few messages to scroll, eagerly fetch older
     // pages once, then re-render a single time so the user sees the rest of
@@ -1791,14 +1792,10 @@ export function showConversation(phoneNumber) {
       })();
     }
 
-    // Infinite scroll - load older messages when scrolling near the bottom
+    // Infinite scroll - load older messages when scrolling near the top
     messagesContainer.addEventListener("scroll", () => {
-      const distanceFromBottom =
-        messagesContainer.scrollHeight -
-        messagesContainer.scrollTop -
-        messagesContainer.clientHeight;
-      if (distanceFromBottom < 150 && hasMoreSMS() && !isLoadingMore) {
-        console.log("[SMS] Conversation scroll-down triggered - loading more...");
+      if (messagesContainer.scrollTop < 150 && hasMoreSMS() && !isLoadingMore) {
+        console.log("[SMS] Conversation scroll-up triggered - loading more...");
 
         const loader = document.createElement("div");
         loader.className = "scroll-loader";
@@ -1806,17 +1803,26 @@ export function showConversation(phoneNumber) {
         loader.innerHTML =
           '<div class="spinner-small"></div> Loading older messages...';
         if (!document.getElementById("convScrollLoader")) {
-          messagesContainer.appendChild(loader);
+          messagesContainer.insertBefore(loader, messagesContainer.firstChild);
         }
+
+        // Snapshot current scroll position relative to the bottom so we can
+        // restore visual position after older messages are prepended.
+        const prevScrollHeight = messagesContainer.scrollHeight;
+        const prevScrollTop = messagesContainer.scrollTop;
 
         loadMoreSMS().then(() => {
           document.getElementById("convScrollLoader")?.remove();
-          // Re-render conversation so newly loaded older messages appear at the bottom
+          // Re-render conversation so newly loaded older messages appear at the top
           if (state.currentConversation === phoneNumber) {
-            const prevScrollTop = messagesContainer.scrollTop;
             showConversation(state.currentConversation);
             const newContainer = document.querySelector(".conversation-messages");
-            if (newContainer) newContainer.scrollTop = prevScrollTop;
+            if (newContainer) {
+              // Keep the same message in view by offsetting scrollTop by the
+              // amount of new content prepended above.
+              const heightDelta = newContainer.scrollHeight - prevScrollHeight;
+              newContainer.scrollTop = prevScrollTop + heightDelta;
+            }
           }
         });
       }
