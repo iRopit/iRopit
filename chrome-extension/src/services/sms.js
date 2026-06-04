@@ -1774,25 +1774,22 @@ export function showConversation(phoneNumber) {
     messagesContainer.scrollTop = 0;
 
     // If the conversation has too few messages to scroll, eagerly fetch older
-    // ones so the user actually sees their full history. We chain a few rounds
-    // to fill the panel.
-    const eagerLoad = async () => {
-      let rounds = 0;
-      while (
-        rounds < 3 &&
-        hasMoreSMS() &&
-        !isLoadingMore &&
-        messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50
-      ) {
-        rounds += 1;
-        await loadMoreSMS();
-        if (state.currentConversation === phoneNumber) {
-          showConversation(state.currentConversation);
-          return; // showConversation will re-attach handlers
+    // pages once, then re-render a single time so the user sees the rest of
+    // their history without having to scroll.
+    const tooShortToScroll =
+      messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50;
+    if (tooShortToScroll && hasMoreSMS() && !isLoadingMore) {
+      (async () => {
+        let rounds = 0;
+        while (rounds < 3 && hasMoreSMS() && !isLoadingMore) {
+          rounds += 1;
+          await loadMoreSMS();
         }
-      }
-    };
-    eagerLoad();
+        if (rounds > 0 && state.currentConversation === phoneNumber) {
+          showConversation(state.currentConversation);
+        }
+      })();
+    }
 
     // Infinite scroll - load older messages when scrolling near the bottom
     messagesContainer.addEventListener("scroll", () => {

@@ -28540,18 +28540,19 @@ ${this.customData.serverResponse}`;
     const messagesContainer = document.querySelector(".conversation-messages");
     if (messagesContainer) {
       messagesContainer.scrollTop = 0;
-      const eagerLoad = async () => {
-        let rounds = 0;
-        while (rounds < 3 && hasMoreSMS() && !isLoadingMore && messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50) {
-          rounds += 1;
-          await loadMoreSMS();
-          if (currentConversation === phoneNumber) {
-            showConversation(currentConversation);
-            return;
+      const tooShortToScroll = messagesContainer.scrollHeight <= messagesContainer.clientHeight + 50;
+      if (tooShortToScroll && hasMoreSMS() && !isLoadingMore) {
+        (async () => {
+          let rounds = 0;
+          while (rounds < 3 && hasMoreSMS() && !isLoadingMore) {
+            rounds += 1;
+            await loadMoreSMS();
           }
-        }
-      };
-      eagerLoad();
+          if (rounds > 0 && currentConversation === phoneNumber) {
+            showConversation(currentConversation);
+          }
+        })();
+      }
       messagesContainer.addEventListener("scroll", () => {
         const distanceFromBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
         if (distanceFromBottom < 150 && hasMoreSMS() && !isLoadingMore) {
