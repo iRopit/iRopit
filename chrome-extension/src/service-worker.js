@@ -18,7 +18,9 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  getDoc,
   addDoc,
+  setDoc,
 } from "firebase/firestore";
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
@@ -2704,6 +2706,83 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
 
 // Message handler from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Google Sign-In delegated from the popup on macOS. Chrome closes the
+  // browser-action popup when the OAuth account chooser window takes focus,
+  // which destroys the popup's JS context before sign-in completes. Running
+  // the flow in the service worker (which is not tied to the popup) lets it
+  // finish; Firebase persists the auth state and the popup's auth observer
+  // picks it up on the next open. We deliberately do NOT revoke tokens here —
+  // launchWebAuthFlow with prompt=select_account already forces the chooser,
+  // and revoking would break the Firestore session used by SMS/calls sync.
+  if (message.type === "googleSignIn") {
+    (async () => {
+      try {
+        // Web application OAuth client (Chrome-extension clients can't register
+        // the redirect URI that launchWebAuthFlow requires).
+        const clientId =
+          "723637478368-8vceokc6jdb1uc9fbht1megnl9urrfnk.apps.googleusercontent.com";
+        const manifest = chrome.runtime.getManifest();
+        const scopes = (manifest?.oauth2?.scopes || []).join(" ");
+        const redirectUri = chrome.identity.getRedirectURL();
+        const authUrl =
+          "https://accounts.google.com/o/oauth2/v2/auth" +
+          "?client_id=" + encodeURIComponent(clientId) +
+          "&response_type=token" +
+          "&redirect_uri=" + encodeURIComponent(redirectUri) +
+          "&scope=" + encodeURIComponent(scopes) +
+          "&prompt=select_account";
+
+        const responseUrl = await new Promise((resolve, reject) => {
+          chrome.identity.launchWebAuthFlow(
+            { url: authUrl, interactive: true },
+            (ru) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
+              if (!ru) {
+                reject(new Error("No response from Google sign-in"));
+                return;
+              }
+              resolve(ru);
+            },
+          );
+        });
+
+        const hash = responseUrl.split("#")[1] || "";
+        const token = new URLSearchParams(hash).get("access_token");
+        if (!token) throw new Error("No access token in OAuth response");
+
+        const credential = GoogleAuthProvider.credential(null, token);
+        const result = await signInWithCredential(auth, credential);
+
+        // Ensure the user document exists
+        try {
+          const userRef = doc(db, "users", result.user.uid);
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(userRef, {
+              uid: result.user.uid,
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              createdAt: Date.now(),
+              lastLoginAt: Date.now(),
+            });
+          }
+        } catch (e) {
+          console.warn("googleSignIn: setDoc failed", e?.message);
+        }
+
+        sendResponse({ success: true, uid: result.user.uid });
+      } catch (err) {
+        console.error("googleSignIn failed:", err?.message);
+        sendResponse({ success: false, error: err?.message || "Sign-in failed" });
+      }
+    })();
+    return true; // keep the message channel open for the async response
+  }
+
   if (message.type === "setDeviceId") {
     currentDeviceId = message.deviceId;
     chrome.storage.local.set({ deviceId: message.deviceId });

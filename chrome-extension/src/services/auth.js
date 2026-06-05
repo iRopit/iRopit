@@ -283,11 +283,38 @@ async function getGoogleTokenWithAccountChooser() {
 }
 
 /**
- * Handle Google Sign In - Always show account chooser
+ * Handle Google Sign In - Always show account chooser.
+ *
+ * On macOS the browser-action popup is closed by Chrome as soon as the OAuth
+ * account chooser window takes focus, which destroys the popup's JS context
+ * mid-flow and drops the user back on the login screen. To survive that we
+ * delegate the whole sign-in to the service worker (which is not tied to the
+ * popup). On Windows the direct popup flow is fast and reliable, so we keep it.
  */
 async function handleGoogleSignIn() {
   showLoadingOverlay();
   try {
+    const platform = await new Promise((resolve) => {
+      try {
+        chrome.runtime.getPlatformInfo((info) => resolve(info?.os || ""));
+      } catch (_) {
+        resolve("");
+      }
+    });
+
+    if (platform === "mac") {
+      // Delegate to the service worker. If the popup is destroyed while the
+      // chooser is open, this promise is lost but the worker still completes
+      // the sign-in; the auth observer shows the main UI on next popup open.
+      const response = await chrome.runtime.sendMessage({ type: "googleSignIn" });
+      if (!response?.success) {
+        throw new Error(response?.error || "Sign-in failed");
+      }
+      showToast("Signed in with Google", "success");
+      return;
+    }
+
+    // Windows / other platforms: direct flow.
     // Clear all cached tokens to force account selection
     await clearAllGoogleTokens();
 

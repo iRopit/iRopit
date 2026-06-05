@@ -31798,6 +31798,21 @@ ${this.customData.serverResponse}`;
   async function handleGoogleSignIn() {
     showLoadingOverlay();
     try {
+      const platform = await new Promise((resolve) => {
+        try {
+          chrome.runtime.getPlatformInfo((info) => resolve(info?.os || ""));
+        } catch (_) {
+          resolve("");
+        }
+      });
+      if (platform === "mac") {
+        const response = await chrome.runtime.sendMessage({ type: "googleSignIn" });
+        if (!response?.success) {
+          throw new Error(response?.error || "Sign-in failed");
+        }
+        showToast("Signed in with Google", "success");
+        return;
+      }
       await clearAllGoogleTokens();
       const token = await getGoogleTokenWithAccountChooser();
       const credential = GoogleAuthProvider.credential(null, token);
