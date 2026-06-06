@@ -77,7 +77,7 @@ const decryptionCache = new Map();
 
 // Pagination state
 const PAGE_SIZE = 10000;
-let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
+let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading, dateFloor } }
 let isLoadingMore = false;
 let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
@@ -486,10 +486,16 @@ export async function loadSMS() {
     const loadPromises = devicesList.map(async (device) => {
       // Initialize pagination state for this device
       // Capture local ref so a paginationState reset mid-flight doesn't crash us
+      // Jan 1 of the previous year — the lower-bound for the initial full-load query.
+      // loadMoreSMS uses this as a cursor hint to know when to drop the date floor.
+      const now = new Date();
+      const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
+
       const devicePagState = {
         lastTimestamp: null,
         hasMore: true,
         loading: false,
+        dateFloor: jan1LastYear, // initial lower-bound; cleared once exhausted
       };
       paginationState[device.id] = devicePagState;
 
@@ -528,7 +534,9 @@ export async function loadSMS() {
           limit(PAGE_SIZE),
         );
       } else {
-        // No cache - full fetch
+        // Full fetch: load ALL messages from Jan 1 of the previous year onward.
+        // No limit — we load everything since that date in one query.
+        // loadMoreSMS will fetch messages older than jan1LastYear on demand.
         q = query(
           collection(
             db,
@@ -539,8 +547,8 @@ export async function loadSMS() {
             "notifications",
           ),
           where("type", "==", "sms"),
+          where("timestamp", ">=", jan1LastYear),
           orderBy("timestamp", "desc"),
-          limit(PAGE_SIZE),
         );
       }
 
@@ -664,9 +672,11 @@ export async function loadSMS() {
             if (paginationState[device.id])
               paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
           }
-          devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
+          // Always true: there may be messages older than jan1LastYear that
+          // loadMoreSMS can fetch on demand when the user scrolls further back.
+          devicePagState.hasMore = true;
           if (paginationState[device.id])
-            paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
+            paginationState[device.id].hasMore = true;
           updateSMSList(device.id, messages);
         }
       } catch (error) {
@@ -857,6 +867,14 @@ export async function loadMoreSMS() {
     for (const [deviceId, deviceState] of devicesWithMore) {
       if (!deviceState.lastTimestamp) continue;
       deviceState.loading = true;
+
+      // If we still have a dateFloor set (initial full-load used Jan 1 last year as
+      // the lower bound), check whether the cursor has already passed that floor.
+      // If so, clear the floor so this and future pages fetch without a lower bound —
+      // giving the user access to all history before Jan 1 last year.
+      if (deviceState.dateFloor && deviceState.lastTimestamp <= deviceState.dateFloor) {
+        deviceState.dateFloor = null;
+      }
 
       const q = query(
         collection(db, "users", user.uid, "devices", deviceId, "notifications"),
