@@ -27605,14 +27605,10 @@ ${this.customData.serverResponse}`;
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
-        const now = /* @__PURE__ */ new Date();
-        const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
         const devicePagState = {
           lastTimestamp: null,
           hasMore: true,
-          loading: false,
-          dateFloor: jan1LastYear
-          // initial lower-bound; cleared once exhausted
+          loading: false
         };
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
@@ -27647,8 +27643,8 @@ ${this.customData.serverResponse}`;
               "notifications"
             ),
             where("type", "==", "sms"),
-            where("timestamp", ">=", jan1LastYear),
-            orderBy("timestamp", "desc")
+            orderBy("timestamp", "desc"),
+            limit(PAGE_SIZE)
           );
         }
         try {
@@ -27742,9 +27738,9 @@ ${this.customData.serverResponse}`;
               if (paginationState[device.id])
                 paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
             }
-            devicePagState.hasMore = true;
+            devicePagState.hasMore = snapshot.size >= PAGE_SIZE;
             if (paginationState[device.id])
-              paginationState[device.id].hasMore = true;
+              paginationState[device.id].hasMore = snapshot.size >= PAGE_SIZE;
             updateSMSList(device.id, messages);
           }
         } catch (error) {
@@ -27901,9 +27897,6 @@ ${this.customData.serverResponse}`;
       for (const [deviceId, deviceState] of devicesWithMore) {
         if (!deviceState.lastTimestamp) continue;
         deviceState.loading = true;
-        if (deviceState.dateFloor && deviceState.lastTimestamp <= deviceState.dateFloor) {
-          deviceState.dateFloor = null;
-        }
         const q2 = query(
           collection(db, "users", user.uid, "devices", deviceId, "notifications"),
           where("type", "==", "sms"),
