@@ -80,6 +80,7 @@ import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
 import { reRenderNotifications } from "./notifications.js";
 import { renderCalls } from "./calls.js";
 import { renderSMS } from "./sms.js";
+import { cacheSharedDevices, getCachedSharedDevices } from "./cache.js";
 
 /**
  * Register this extension as a device
@@ -213,6 +214,21 @@ export async function loadDevices() {
   state.addUnsubscriber(unsub);
 
   // ── Subscribe to devices shared WITH the current user ──────────────────────
+  // Restore cached shared devices instantly so the tab appears before the snapshot fires.
+  getCachedSharedDevices().then((cached) => {
+    if (cached && cached.length > 0) {
+      state.setSharedWithMeDevices(cached);
+      renderDevices();
+      updateDeviceSelects();
+      // Pre-load SMS/calls/notifs from shared devices using cached share info
+      Promise.all([
+        import("./sms.js").then(m => { if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(cached); }).catch(() => {}),
+        import("./calls.js").then(m => { if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(cached); }).catch(() => {}),
+        import("./notifications.js").then(m => { if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(cached); }).catch(() => {}),
+      ]);
+    }
+  }).catch(() => {});
+
   const sharesQ = query(
     collection(db, "deviceShares"),
     where("sharedWithUid", "==", user.uid),
@@ -220,27 +236,42 @@ export async function loadDevices() {
   const sharesUnsub = onSnapshot(
     sharesQ,
     async (snapshot) => {
-      const shares = [];
-      for (const shareDoc of snapshot.docs) {
-        const share = { shareId: shareDoc.id, ...shareDoc.data() };
-        // Fetch the live device document
-        try {
-          const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
-          share.device = deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null;
-        } catch (_) {
-          share.device = null;
-        }
-        shares.push(share);
-      }
+      // Build shares immediately from snapshot docs — each doc already contains
+      // deviceName, deviceId, ownerUid and permissions, which is everything needed
+      // to render the tab and load SMS/calls data. Don't await getDoc here.
+      const shares = snapshot.docs.map(shareDoc => ({
+        shareId: shareDoc.id,
+        ...shareDoc.data(),
+        device: null, // enriched below in background
+      }));
+
+      // ── Render tabs + load data RIGHT AWAY ─────────────────────────────────
       state.setSharedWithMeDevices(shares);
       renderDevices();
       updateDeviceSelects(); // Rebuild filter tabs to include shared devices
+      // Persist share list so the tab appears instantly on next popup open
+      cacheSharedDevices(shares).catch(() => {});
       // Load SMS/Calls/Notifications data for shared devices
       Promise.all([
         import("./sms.js").then(m => { if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares); }).catch(() => {}),
         import("./calls.js").then(m => { if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(shares); }).catch(() => {}),
         import("./notifications.js").then(m => { if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(shares); }).catch(() => {}),
       ]);
+
+      // ── Enrich with live device docs in background (for Devices tab detail) ─
+      // This runs AFTER the tab is already visible — no UX blocking.
+      const enriched = await Promise.all(shares.map(async (share) => {
+        if (!share.deviceDocId) return share;
+        try {
+          const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+          return { ...share, device: deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null };
+        } catch (_) {
+          return share;
+        }
+      }));
+      state.setSharedWithMeDevices(enriched);
+      renderDevices();
+      cacheSharedDevices(enriched).catch(() => {});
     },
     (error) => {
       console.error("[Device] shared-with-me snapshot error:", error?.code);

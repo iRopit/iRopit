@@ -77,7 +77,7 @@ const decryptionCache = new Map();
 
 // Pagination state
 const PAGE_SIZE = 10000;
-let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading, dateFloor } }
+let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
 let isLoadingMore = false;
 let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
@@ -486,16 +486,10 @@ export async function loadSMS() {
     const loadPromises = devicesList.map(async (device) => {
       // Initialize pagination state for this device
       // Capture local ref so a paginationState reset mid-flight doesn't crash us
-      // Jan 1 of the previous year — the lower-bound for the initial full-load query.
-      // loadMoreSMS uses this as a cursor hint to know when to drop the date floor.
-      const now = new Date();
-      const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
-
       const devicePagState = {
         lastTimestamp: null,
         hasMore: true,
         loading: false,
-        dateFloor: jan1LastYear, // initial lower-bound; cleared once exhausted
       };
       paginationState[device.id] = devicePagState;
 
@@ -533,31 +527,52 @@ export async function loadSMS() {
           orderBy("timestamp", "desc"),
           limit(PAGE_SIZE),
         );
-      } else {
-        // Full fetch: load ALL messages from Jan 1 of the previous year onward.
-        // No limit — we load everything since that date in one query.
-        // loadMoreSMS will fetch messages older than jan1LastYear on demand.
-        q = query(
-          collection(
-            db,
-            "users",
-            user.uid,
-            "devices",
-            device.id,
-            "notifications",
-          ),
-          where("type", "==", "sms"),
-          where("timestamp", ">=", jan1LastYear),
-          orderBy("timestamp", "desc"),
-        );
       }
 
       try {
         // One-time fetch - much faster than onSnapshot for bulk data
         // Delta queries MUST hit the server — the whole point is to find messages
         // newer than the cache, which Firestore's local IndexedDB won't have yet.
-        // Full fetches use fetchDocs (getDocsFromServer when no custom cache).
-        const snapshot = await (isDelta ? getDocsFromServer : fetchDocs)(q);
+        // Full fetches MUST also use getDocsFromServer unconditionally — Firestore's
+        // persistentLocalCache (IndexedDB) only holds a truncated window; using getDocs
+        // on a full load silently cuts off history older than that window (e.g. stops
+        // at May 25 even though older messages exist in Firestore).
+        let snapshot;
+        if (isDelta) {
+          snapshot = await getDocsFromServer(q);
+        } else {
+          // Full load: fetch up to 30,000 messages per device (3 × 10,000 pages).
+          // Firestore hard-limits each query to 10,000 docs, so we paginate with
+          // startAfter. Stops early if the device has fewer than 30,000 messages.
+          const MAX_PAGES = 3; // 3 × 10,000 = 30,000 per device
+          const allDocs = [];
+          let afterCursor = null;
+          let pagesLoaded = 0;
+          let hitPageCap = false;
+          while (pagesLoaded < MAX_PAGES) {
+            const pageQuery = afterCursor
+              ? query(
+                  collection(db, "users", user.uid, "devices", device.id, "notifications"),
+                  where("type", "==", "sms"),
+                  orderBy("timestamp", "desc"),
+                  startAfter(afterCursor),
+                  limit(PAGE_SIZE),
+                )
+              : query(
+                  collection(db, "users", user.uid, "devices", device.id, "notifications"),
+                  where("type", "==", "sms"),
+                  orderBy("timestamp", "desc"),
+                  limit(PAGE_SIZE),
+                );
+            const pageSnap = await getDocsFromServer(pageQuery);
+            allDocs.push(...pageSnap.docs);
+            pagesLoaded++;
+            if (pageSnap.size < PAGE_SIZE) break; // ran out of data
+            afterCursor = pageSnap.docs[pageSnap.docs.length - 1];
+            if (pagesLoaded >= MAX_PAGES) { hitPageCap = true; break; }
+          }
+          snapshot = { docs: allDocs, size: allDocs.length, empty: allDocs.length === 0, hitPageCap };
+        }
         console.log(
           `[SMS] ${isDelta ? "ðŸ”„ Delta" : "ðŸ“¥ Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
@@ -672,11 +687,9 @@ export async function loadSMS() {
             if (paginationState[device.id])
               paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
           }
-          // Always true: there may be messages older than jan1LastYear that
-          // loadMoreSMS can fetch on demand when the user scrolls further back.
-          devicePagState.hasMore = true;
+          devicePagState.hasMore = !!snapshot.hitPageCap;
           if (paginationState[device.id])
-            paginationState[device.id].hasMore = true;
+            paginationState[device.id].hasMore = !!snapshot.hitPageCap;
           updateSMSList(device.id, messages);
         }
       } catch (error) {
@@ -867,14 +880,6 @@ export async function loadMoreSMS() {
     for (const [deviceId, deviceState] of devicesWithMore) {
       if (!deviceState.lastTimestamp) continue;
       deviceState.loading = true;
-
-      // If we still have a dateFloor set (initial full-load used Jan 1 last year as
-      // the lower bound), check whether the cursor has already passed that floor.
-      // If so, clear the floor so this and future pages fetch without a lower bound —
-      // giving the user access to all history before Jan 1 last year.
-      if (deviceState.dateFloor && deviceState.lastTimestamp <= deviceState.dateFloor) {
-        deviceState.dateFloor = null;
-      }
 
       const q = query(
         collection(db, "users", user.uid, "devices", deviceId, "notifications"),

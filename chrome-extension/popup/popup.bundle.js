@@ -26100,13 +26100,36 @@ ${this.customData.serverResponse}`;
       return null;
     }
   }
+  async function cacheSharedDevices(shares) {
+    try {
+      const safe = (shares || []).map(({ device, ...rest }) => ({
+        ...rest,
+        device: device ? (() => {
+          const { docRef, ...d } = device;
+          return d;
+        })() : null
+      }));
+      await chrome.storage.local.set({ [CACHE_KEYS.SHARED_DEVICES]: safe });
+    } catch (e) {
+      console.warn("[Cache] Failed to save shared devices:", e);
+    }
+  }
+  async function getCachedSharedDevices() {
+    try {
+      const result = await chrome.storage.local.get(CACHE_KEYS.SHARED_DEVICES);
+      return result[CACHE_KEYS.SHARED_DEVICES] || [];
+    } catch {
+      return [];
+    }
+  }
   async function clearCache() {
     try {
       await chrome.storage.local.remove([
         CACHE_KEYS.SMS,
         CACHE_KEYS.CALLS,
         CACHE_KEYS.NOTIFICATIONS,
-        CACHE_KEYS.TIMESTAMP
+        CACHE_KEYS.TIMESTAMP,
+        CACHE_KEYS.SHARED_DEVICES
       ]);
       console.log("[Cache] \u{1F5D1}\uFE0F Cache cleared");
     } catch (error) {
@@ -26121,11 +26144,13 @@ ${this.customData.serverResponse}`;
         CALLS: "cached_calls_data",
         NOTIFICATIONS: "cached_notifications_data",
         TIMESTAMP: "cache_timestamp",
-        FULL_LOAD_TS: "sms_full_load_ts"
+        FULL_LOAD_TS: "sms_full_load_ts",
         // timestamp of last full (non-delta) Firestore fetch
+        SHARED_DEVICES: "cached_shared_devices"
+        // sharedWithMeDevices list
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
-      FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
+      FULL_LOAD_INTERVAL_MS = 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -27605,14 +27630,10 @@ ${this.customData.serverResponse}`;
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
-        const now = /* @__PURE__ */ new Date();
-        const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
         const devicePagState = {
           lastTimestamp: null,
           hasMore: true,
-          loading: false,
-          dateFloor: jan1LastYear
-          // initial lower-bound; cleared once exhausted
+          loading: false
         };
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
@@ -27636,23 +27657,42 @@ ${this.customData.serverResponse}`;
             orderBy("timestamp", "desc"),
             limit(PAGE_SIZE)
           );
-        } else {
-          q2 = query(
-            collection(
-              db,
-              "users",
-              user.uid,
-              "devices",
-              device.id,
-              "notifications"
-            ),
-            where("type", "==", "sms"),
-            where("timestamp", ">=", jan1LastYear),
-            orderBy("timestamp", "desc")
-          );
         }
         try {
-          const snapshot = await (isDelta ? getDocsFromServer : fetchDocs)(q2);
+          let snapshot;
+          if (isDelta) {
+            snapshot = await getDocsFromServer(q2);
+          } else {
+            const MAX_PAGES = 3;
+            const allDocs = [];
+            let afterCursor = null;
+            let pagesLoaded = 0;
+            let hitPageCap = false;
+            while (pagesLoaded < MAX_PAGES) {
+              const pageQuery = afterCursor ? query(
+                collection(db, "users", user.uid, "devices", device.id, "notifications"),
+                where("type", "==", "sms"),
+                orderBy("timestamp", "desc"),
+                startAfter(afterCursor),
+                limit(PAGE_SIZE)
+              ) : query(
+                collection(db, "users", user.uid, "devices", device.id, "notifications"),
+                where("type", "==", "sms"),
+                orderBy("timestamp", "desc"),
+                limit(PAGE_SIZE)
+              );
+              const pageSnap = await getDocsFromServer(pageQuery);
+              allDocs.push(...pageSnap.docs);
+              pagesLoaded++;
+              if (pageSnap.size < PAGE_SIZE) break;
+              afterCursor = pageSnap.docs[pageSnap.docs.length - 1];
+              if (pagesLoaded >= MAX_PAGES) {
+                hitPageCap = true;
+                break;
+              }
+            }
+            snapshot = { docs: allDocs, size: allDocs.length, empty: allDocs.length === 0, hitPageCap };
+          }
           console.log(
             `[SMS] ${isDelta ? "\xF0\u0178\u201D\u201E Delta" : "\xF0\u0178\u201C\xA5 Full"}: ${snapshot.size} messages from device ${device.id}`
           );
@@ -27742,9 +27782,9 @@ ${this.customData.serverResponse}`;
               if (paginationState[device.id])
                 paginationState[device.id].lastTimestamp = oldestMsg.timestamp;
             }
-            devicePagState.hasMore = true;
+            devicePagState.hasMore = !!snapshot.hitPageCap;
             if (paginationState[device.id])
-              paginationState[device.id].hasMore = true;
+              paginationState[device.id].hasMore = !!snapshot.hitPageCap;
             updateSMSList(device.id, messages);
           }
         } catch (error) {
@@ -27901,9 +27941,6 @@ ${this.customData.serverResponse}`;
       for (const [deviceId, deviceState] of devicesWithMore) {
         if (!deviceState.lastTimestamp) continue;
         deviceState.loading = true;
-        if (deviceState.dateFloor && deviceState.lastTimestamp <= deviceState.dateFloor) {
-          deviceState.dateFloor = null;
-        }
         const q2 = query(
           collection(db, "users", user.uid, "devices", deviceId, "notifications"),
           where("type", "==", "sms"),
@@ -31922,6 +31959,7 @@ ${this.customData.serverResponse}`;
   init_notifications();
   init_calls();
   init_sms();
+  init_cache();
   function t3(key) {
     const lang = getCurrentLanguage();
     return translations[lang]?.[key] || translations["en"][key] || key;
@@ -32048,6 +32086,28 @@ ${this.customData.serverResponse}`;
       }
     );
     addUnsubscriber(unsub);
+    getCachedSharedDevices().then((cached) => {
+      if (cached && cached.length > 0) {
+        setSharedWithMeDevices(cached);
+        renderDevices();
+        updateDeviceSelects();
+        Promise.all([
+          Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
+            if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(cached);
+          }).catch(() => {
+          }),
+          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
+            if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(cached);
+          }).catch(() => {
+          }),
+          Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => {
+            if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(cached);
+          }).catch(() => {
+          })
+        ]);
+      }
+    }).catch(() => {
+    });
     const sharesQ = query(
       collection(db, "deviceShares"),
       where("sharedWithUid", "==", user.uid)
@@ -32055,20 +32115,17 @@ ${this.customData.serverResponse}`;
     const sharesUnsub = onSnapshot(
       sharesQ,
       async (snapshot) => {
-        const shares = [];
-        for (const shareDoc of snapshot.docs) {
-          const share = { shareId: shareDoc.id, ...shareDoc.data() };
-          try {
-            const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
-            share.device = deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null;
-          } catch (_) {
-            share.device = null;
-          }
-          shares.push(share);
-        }
+        const shares = snapshot.docs.map((shareDoc) => ({
+          shareId: shareDoc.id,
+          ...shareDoc.data(),
+          device: null
+          // enriched below in background
+        }));
         setSharedWithMeDevices(shares);
         renderDevices();
         updateDeviceSelects();
+        cacheSharedDevices(shares).catch(() => {
+        });
         Promise.all([
           Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
             if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares);
@@ -32083,6 +32140,19 @@ ${this.customData.serverResponse}`;
           }).catch(() => {
           })
         ]);
+        const enriched = await Promise.all(shares.map(async (share) => {
+          if (!share.deviceDocId) return share;
+          try {
+            const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+            return { ...share, device: deviceSnap.exists() ? { ...deviceSnap.data(), docId: deviceSnap.id } : null };
+          } catch (_) {
+            return share;
+          }
+        }));
+        setSharedWithMeDevices(enriched);
+        renderDevices();
+        cacheSharedDevices(enriched).catch(() => {
+        });
       },
       (error) => {
         console.error("[Device] shared-with-me snapshot error:", error?.code);

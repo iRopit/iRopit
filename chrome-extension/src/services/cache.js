@@ -9,13 +9,20 @@ const CACHE_KEYS = {
   NOTIFICATIONS: "cached_notifications_data",
   TIMESTAMP: "cache_timestamp",
   FULL_LOAD_TS: "sms_full_load_ts",  // timestamp of last full (non-delta) Firestore fetch
+  SHARED_DEVICES: "cached_shared_devices", // sharedWithMeDevices list
 };
 
 // Max cache age: 7 days
 const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-// How long delta mode is allowed before forcing a fresh full load
-// (catches messages backfilled to Firestore with old timestamps by the mobile app)
-const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// How long delta mode is allowed before forcing a fresh full load.
+// Kept intentionally SHORT (1 hour) so a full no-limit server fetch runs on most
+// popup opens. Delta mode only looks back a fixed window from the newest cached
+// message; if the mobile app backfills messages with old timestamps (e.g. weeks
+// of ADIB history synced at once) those messages fall outside the delta window
+// and only a full load (jan1LastYear, no limit) can surface them. A 1-hour window
+// means users who open the popup occasionally still get the full history fill on
+// the next open after the backfill happens — without having to press Refresh.
+const FULL_LOAD_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -292,6 +299,36 @@ export async function getCachedCalls() {
 }
 
 /**
+ * Save shared-with-me devices list to local cache so the shared device tab
+ * appears instantly on the next popup open without waiting for Firestore.
+ */
+export async function cacheSharedDevices(shares) {
+  try {
+    // Strip non-serializable Firestore refs from device sub-docs
+    const safe = (shares || []).map(({ device, ...rest }) => ({
+      ...rest,
+      device: device ? (() => { const { docRef, ...d } = device; return d; })() : null,
+    }));
+    await chrome.storage.local.set({ [CACHE_KEYS.SHARED_DEVICES]: safe });
+  } catch (e) {
+    console.warn("[Cache] Failed to save shared devices:", e);
+  }
+}
+
+/**
+ * Load shared-with-me devices from local cache.
+ * @returns {Array} cached shares array, or []
+ */
+export async function getCachedSharedDevices() {
+  try {
+    const result = await chrome.storage.local.get(CACHE_KEYS.SHARED_DEVICES);
+    return result[CACHE_KEYS.SHARED_DEVICES] || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Clear all cached data
  */
 export async function clearCache() {
@@ -301,6 +338,7 @@ export async function clearCache() {
       CACHE_KEYS.CALLS,
       CACHE_KEYS.NOTIFICATIONS,
       CACHE_KEYS.TIMESTAMP,
+      CACHE_KEYS.SHARED_DEVICES,
     ]);
     console.log("[Cache] 🗑️ Cache cleared");
   } catch (error) {
