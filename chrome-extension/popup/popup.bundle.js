@@ -27633,6 +27633,8 @@ ${this.customData.serverResponse}`;
             limit(PAGE_SIZE)
           );
         } else {
+          const now = /* @__PURE__ */ new Date();
+          const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
           q2 = query(
             collection(
               db,
@@ -27643,6 +27645,7 @@ ${this.customData.serverResponse}`;
               "notifications"
             ),
             where("type", "==", "sms"),
+            where("timestamp", ">=", jan1LastYear),
             orderBy("timestamp", "desc"),
             limit(PAGE_SIZE)
           );

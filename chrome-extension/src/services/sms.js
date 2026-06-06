@@ -528,7 +528,13 @@ export async function loadSMS() {
           limit(PAGE_SIZE),
         );
       } else {
-        // No cache - full fetch
+        // Full fetch: load messages from Jan 1 of the previous year.
+        // This caps the initial download to ~1.5 years of history, which
+        // dramatically reduces load time and Firestore reads on first install
+        // while still covering all practically-useful history.
+        // Users can scroll up in any conversation to load further back via loadMoreSMS.
+        const now = new Date();
+        const jan1LastYear = new Date(now.getFullYear() - 1, 0, 1).getTime();
         q = query(
           collection(
             db,
@@ -539,6 +545,7 @@ export async function loadSMS() {
             "notifications",
           ),
           where("type", "==", "sms"),
+          where("timestamp", ">=", jan1LastYear),
           orderBy("timestamp", "desc"),
           limit(PAGE_SIZE),
         );
