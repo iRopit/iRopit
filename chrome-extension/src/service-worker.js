@@ -180,6 +180,34 @@ async function loadDeviceId() {
   });
 }
 
+// When a realtime onSnapshot listener dies from a transient error (most commonly
+// resource-exhausted = Firestore daily quota, or unavailable = network blip), it
+// stops firing and is NOT automatically restarted — so notifications/calls fall
+// back to the slower 10s poll. This helper tears down ALL listeners and rebuilds
+// them after a short backoff, restoring realtime delivery without waiting for the
+// service worker to cold-restart. Debounced so a burst of simultaneous errors
+// (one per device listener) only triggers a single restart.
+let listenerRestartTimer = null;
+function scheduleListenersRestart(error) {
+  const code = error?.code;
+  // Only restart for transient/recoverable errors. permission-denied means the
+  // user signed out (handled elsewhere); restarting would just loop.
+  if (code !== "resource-exhausted" && code !== "unavailable" && code !== "deadline-exceeded") {
+    return;
+  }
+  if (listenerRestartTimer) return; // already scheduled
+  // 60s backoff: enough to let a transient network blip clear without hammering
+  // Firestore while quota is still exhausted.
+  console.warn(`ZyncIT: Listener died (${code}) — scheduling realtime restart in 60s`);
+  listenerRestartTimer = setTimeout(() => {
+    listenerRestartTimer = null;
+    if (currentUser) {
+      console.log("ZyncIT: Restarting realtime listeners after transient error");
+      startListening();
+    }
+  }, 60 * 1000);
+}
+
 // Start listening for new notifications from ALL user devices
 async function startListening() {
   refreshContextMenuDevices();
@@ -536,6 +564,7 @@ function listenToUserNotifications() {
     },
     (error) => {
       console.error("ZyncIT: User notifications listener error:", error);
+      scheduleListenersRestart(error);
     },
   );
 
@@ -758,6 +787,7 @@ function listenToDevice(deviceId, deviceName) {
         ":",
         error,
       );
+      scheduleListenersRestart(error);
     },
   );
 
@@ -1061,6 +1091,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         return;
       }
       console.error("ZyncIT: Ringing call listener error for device", deviceId, ":", error);
+      scheduleListenersRestart(error);
     },
   );
 
@@ -1212,6 +1243,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
         return;
       }
       console.error("ZyncIT: Outgoing call listener error for device", deviceId, ":", error);
+      scheduleListenersRestart(error);
     },
   );
 
@@ -1268,6 +1300,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
         ":",
         error,
       );
+      scheduleListenersRestart(error);
     },
   );
 
@@ -1536,6 +1569,7 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     (error) => {
       if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
+      scheduleListenersRestart(error);
     },
   );
 
