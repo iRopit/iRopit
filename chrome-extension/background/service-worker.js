@@ -19743,6 +19743,8 @@ function listenForCallsFromDevice(deviceId, deviceName) {
               deviceName: deviceName || call.deviceName
             };
             showCallNotification(callWithDevice);
+            chrome.runtime.sendMessage({ type: "newCall", deviceId, deviceName }).catch(() => {
+            });
           }
         }
       });

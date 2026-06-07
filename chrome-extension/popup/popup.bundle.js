@@ -33547,6 +33547,12 @@ ${this.customData.serverResponse}`;
         sendResponse({ received: true });
         return true;
       }
+      if (message.type === "newCall") {
+        console.log("\u{1F4DE} New call received in popup from:", message.deviceName);
+        loadCalls();
+        sendResponse({ received: true });
+        return true;
+      }
       return false;
     });
   }

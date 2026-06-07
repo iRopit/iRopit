@@ -210,6 +210,14 @@ function setupServiceWorkerListener() {
       sendResponse({ received: true });
       return true;
     }
+    if (message.type === "newCall") {
+      console.log("📞 New call received in popup from:", message.deviceName);
+      // Reload calls (delta fetch — cheap) so the Calls list updates live
+      // even if the popup's own onSnapshot listener lagged.
+      loadCalls();
+      sendResponse({ received: true });
+      return true;
+    }
     // For all other messages (e.g. offscreen-copy), don't respond —
     // let the intended recipient (offscreen document) handle them.
     return false;

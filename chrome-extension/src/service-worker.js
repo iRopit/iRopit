@@ -1256,6 +1256,15 @@ function listenForCallsFromDevice(deviceId, deviceName) {
               deviceName: deviceName || call.deviceName,
             };
             showCallNotification(callWithDevice);
+
+            // Push to the open popup so the Calls list updates live, without
+            // relying solely on the popup's own onSnapshot (which can lag under
+            // MV3/Firestore cache timing, forcing a manual refresh).
+            chrome.runtime
+              .sendMessage({ type: "newCall", deviceId, deviceName })
+              .catch(() => {
+                // Popup may not be open, ignore error
+              });
           }
         }
       });
