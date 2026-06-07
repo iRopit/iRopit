@@ -19574,6 +19574,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 var outgoingCallWindowIds = /* @__PURE__ */ new Map();
 var outgoingCallLastTs = /* @__PURE__ */ new Map();
 var outgoingCallNotifIds = /* @__PURE__ */ new Map();
+var outgoingCallShown = /* @__PURE__ */ new Set();
 function listenForOutgoingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
   console.log("ZyncIT: \u{1F4F2} Setting up outgoing_call listener for device:", deviceId, deviceName);
@@ -19623,7 +19624,6 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           const popupEnabled = smartAction_outgoingCallPopup !== false;
           if (outgoingCallLastTs.get(deviceId) === docTs) return;
           outgoingCallLastTs.set(deviceId, docTs);
-          const existingWindowId = outgoingCallWindowIds.get(deviceId);
           const openPopup = async () => {
             const params = new URLSearchParams({
               contact: contact || "Unknown",
@@ -19656,14 +19656,8 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
               console.error("ZyncIT: \u274C Could not open outgoing popup window:", e);
             }
           };
-          if (!existingWindowId && popupEnabled) {
-            await openPopup();
-          } else if (popupEnabled) {
-            try {
-              await chrome.windows.remove(existingWindowId);
-            } catch (_) {
-            }
-            outgoingCallWindowIds.delete(deviceId);
+          if (popupEnabled && !outgoingCallShown.has(deviceId)) {
+            outgoingCallShown.add(deviceId);
             await openPopup();
           }
           if (!outgoingCallNotifIds.has(deviceId)) {
@@ -19685,6 +19679,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
         }
       } else {
         outgoingCallLastTs.delete(deviceId);
+        outgoingCallShown.delete(deviceId);
         const windowId = outgoingCallWindowIds.get(deviceId);
         if (windowId) {
           outgoingCallWindowIds.delete(deviceId);
@@ -19735,6 +19730,8 @@ function listenForCallsFromDevice(deviceId, deviceName) {
             return;
           }
           updateCallsCache(deviceId, deviceName, { ...call, id: docId });
+          chrome.runtime.sendMessage({ type: "newCall", deviceId, deviceName }).catch(() => {
+          });
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1e3;
           if (callTime > fiveMinutesAgo) {
             seenNotifications.add(callKey);
@@ -19743,8 +19740,6 @@ function listenForCallsFromDevice(deviceId, deviceName) {
               deviceName: deviceName || call.deviceName
             };
             showCallNotification(callWithDevice);
-            chrome.runtime.sendMessage({ type: "newCall", deviceId, deviceName }).catch(() => {
-            });
           }
         }
       });

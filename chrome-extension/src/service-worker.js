@@ -1073,6 +1073,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 const outgoingCallWindowIds = new Map(); // deviceId → windowId
 const outgoingCallLastTs = new Map();    // deviceId → last-seen doc timestamp
 const outgoingCallNotifIds = new Map();  // deviceId → notificationId
+const outgoingCallShown = new Set();     // deviceIds with an active call already popped up
 
 function listenForOutgoingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
@@ -1133,7 +1134,6 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           if (outgoingCallLastTs.get(deviceId) === docTs) return;
           outgoingCallLastTs.set(deviceId, docTs);
 
-          const existingWindowId = outgoingCallWindowIds.get(deviceId);
           const openPopup = async () => {
             const params = new URLSearchParams({
               contact: contact || "Unknown",
@@ -1162,11 +1162,14 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
             }
           };
 
-          if (!existingWindowId && popupEnabled) {
-            await openPopup();
-          } else if (popupEnabled) {
-            try { await chrome.windows.remove(existingWindowId); } catch (_) {}
-            outgoingCallWindowIds.delete(deviceId);
+          // Open the popup ONCE per active call. When dialing a saved contact the
+          // Android app writes the outgoing_call doc twice (dial, then again after
+          // resolving the contact name) with a new timestamp — the second write
+          // must NOT close+reopen (or close after a manual dismiss) the popup,
+          // which previously caused it to flicker/fail ~90% for known contacts.
+          // The popup is closed only when the call doc is deleted (call ends).
+          if (popupEnabled && !outgoingCallShown.has(deviceId)) {
+            outgoingCallShown.add(deviceId);
             await openPopup();
           }
 
@@ -1189,6 +1192,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
         }
       } else {
         outgoingCallLastTs.delete(deviceId);
+        outgoingCallShown.delete(deviceId);
         const windowId = outgoingCallWindowIds.get(deviceId);
         if (windowId) {
           outgoingCallWindowIds.delete(deviceId);
@@ -1245,7 +1249,17 @@ function listenForCallsFromDevice(deviceId, deviceName) {
           // Update local cache immediately so the popup sees the new call without waiting
           updateCallsCache(deviceId, deviceName, { ...call, id: docId });
 
-          // Only show recent calls (last 5 minutes)
+          // Push to the open popup so the Calls list updates live for ANY new
+          // call doc, without relying solely on the popup's own onSnapshot
+          // (which can lag under MV3/Firestore cache timing, forcing a manual
+          // refresh). This is independent of the 5-minute notification window.
+          chrome.runtime
+            .sendMessage({ type: "newCall", deviceId, deviceName })
+            .catch(() => {
+              // Popup may not be open, ignore error
+            });
+
+          // Only show a system notification for recent calls (last 5 minutes)
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
           if (callTime > fiveMinutesAgo) {
             seenNotifications.add(callKey);
@@ -1256,15 +1270,6 @@ function listenForCallsFromDevice(deviceId, deviceName) {
               deviceName: deviceName || call.deviceName,
             };
             showCallNotification(callWithDevice);
-
-            // Push to the open popup so the Calls list updates live, without
-            // relying solely on the popup's own onSnapshot (which can lag under
-            // MV3/Firestore cache timing, forcing a manual refresh).
-            chrome.runtime
-              .sendMessage({ type: "newCall", deviceId, deviceName })
-              .catch(() => {
-                // Popup may not be open, ignore error
-              });
           }
         }
       });
