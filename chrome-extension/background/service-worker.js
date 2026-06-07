@@ -18946,22 +18946,6 @@ async function loadDeviceId() {
     });
   });
 }
-var listenerRestartTimer = null;
-function scheduleListenersRestart(error) {
-  const code = error?.code;
-  if (code !== "resource-exhausted" && code !== "unavailable" && code !== "deadline-exceeded") {
-    return;
-  }
-  if (listenerRestartTimer) return;
-  console.warn(`ZyncIT: Listener died (${code}) \u2014 scheduling realtime restart in 60s`);
-  listenerRestartTimer = setTimeout(() => {
-    listenerRestartTimer = null;
-    if (currentUser) {
-      console.log("ZyncIT: Restarting realtime listeners after transient error");
-      startListening();
-    }
-  }, 60 * 1e3);
-}
 async function startListening() {
   refreshContextMenuDevices();
   if (!currentUser) {
@@ -19176,7 +19160,6 @@ function listenToUserNotifications() {
     },
     (error) => {
       console.error("ZyncIT: User notifications listener error:", error);
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19351,7 +19334,6 @@ function listenToDevice(deviceId, deviceName) {
         ":",
         error
       );
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19585,7 +19567,6 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
         return;
       }
       console.error("ZyncIT: Ringing call listener error for device", deviceId, ":", error);
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19731,7 +19712,6 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
         return;
       }
       console.error("ZyncIT: Outgoing call listener error for device", deviceId, ":", error);
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19775,7 +19755,6 @@ function listenForCallsFromDevice(deviceId, deviceName) {
         ":",
         error
       );
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
@@ -19961,7 +19940,6 @@ function listenForSMSFromDevice(deviceId, deviceName) {
     (error) => {
       if (error?.code === "permission-denied") return;
       console.error("ZyncIT: SMS OTP listener error for device", deviceId, ":", error);
-      scheduleListenersRestart(error);
     }
   );
   unsubscribeNotifications.push(unsub);
