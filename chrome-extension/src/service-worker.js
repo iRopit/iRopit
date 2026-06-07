@@ -2143,15 +2143,8 @@ chrome.runtime.onInstalled.addListener((details) => {
       });
       if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
     });
-    // Clear bloated SMS/calls/notif caches from older versions that stored
-    // up to 10,000 messages per device, which overflows chrome.storage quota.
-    chrome.storage.local.remove([
-      "cached_sms_data",
-      "cached_calls_data",
-      "cached_notifications_data",
-      "cache_timestamp",
-      "sms_full_load_ts",
-    ]);
+    // NOTE: one-time cache bloat migration was done in v1.2.19 (removed here
+    // to avoid wiping the cache — and delta eligibility — on every future update).
   }
 });
 

@@ -20403,13 +20403,6 @@ chrome.runtime.onInstalled.addListener((details) => {
       });
       if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
     });
-    chrome.storage.local.remove([
-      "cached_sms_data",
-      "cached_calls_data",
-      "cached_notifications_data",
-      "cache_timestamp",
-      "sms_full_load_ts"
-    ]);
   }
 });
 chrome.runtime.onStartup.addListener(() => {
