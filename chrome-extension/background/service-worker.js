@@ -20285,32 +20285,26 @@ async function refreshPopupCache() {
           getDocs(callsQ),
           getDocs(notifQ)
         ]);
-        if (smsSnap.size > 0) {
+        {
           const newMsgs = smsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = smsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((m) => m.id));
           const brandNew = newMsgs.filter((m) => !existingIds.has(m.id));
-          if (brandNew.length > 0) {
-            newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, 500);
-          }
+          newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, 500);
         }
-        if (callsSnap.size > 0) {
+        {
           const newCalls = callsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = callsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((c) => c.id));
           const brandNew = newCalls.filter((c) => !existingIds.has(c.id));
-          if (brandNew.length > 0) {
-            newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
-          }
+          newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
         }
-        if (notifSnap.size > 0) {
+        {
           const newNotifs = notifSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = notifsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((n) => n.id));
           const brandNew = newNotifs.filter((n) => !existingIds.has(n.id));
-          if (brandNew.length > 0) {
-            newNotifsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
-          }
+          newNotifsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
         }
       } catch (err) {
         if (err?.code !== "permission-denied") {
@@ -20409,6 +20403,13 @@ chrome.runtime.onInstalled.addListener((details) => {
       });
       if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
     });
+    chrome.storage.local.remove([
+      "cached_sms_data",
+      "cached_calls_data",
+      "cached_notifications_data",
+      "cache_timestamp",
+      "sms_full_load_ts"
+    ]);
   }
 });
 chrome.runtime.onStartup.addListener(() => {
