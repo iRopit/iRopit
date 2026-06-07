@@ -25932,10 +25932,10 @@ ${this.customData.serverResponse}`;
       try {
         const cacheData = {
           byDevice: {},
-          allMessages: stripNonSerializable(payload.allMessages).slice(0, 1e4)
+          allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
         };
         for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 1e4);
+          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
         }
         await chrome.storage.local.set({
           [CACHE_KEYS.SMS]: cacheData,
@@ -25958,10 +25958,10 @@ ${this.customData.serverResponse}`;
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 1e4)
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 1e4);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -26150,7 +26150,7 @@ ${this.customData.serverResponse}`;
         // sharedWithMeDevices list
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
-      FULL_LOAD_INTERVAL_MS = 60 * 60 * 1e3;
+      FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -27663,7 +27663,7 @@ ${this.customData.serverResponse}`;
           if (isDelta) {
             snapshot = await getDocsFromServer(q2);
           } else {
-            const MAX_PAGES = 3;
+            const MAX_PAGES = 1;
             const allDocs = [];
             let afterCursor = null;
             let pagesLoaded = 0;

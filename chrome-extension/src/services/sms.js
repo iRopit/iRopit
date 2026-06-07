@@ -544,7 +544,7 @@ export async function loadSMS() {
           // Full load: fetch up to 30,000 messages per device (3 × 10,000 pages).
           // Firestore hard-limits each query to 10,000 docs, so we paginate with
           // startAfter. Stops early if the device has fewer than 30,000 messages.
-          const MAX_PAGES = 3; // 3 × 10,000 = 30,000 per device
+          const MAX_PAGES = 1; // 1 × 10,000 per device (prevents Firestore & chrome.storage quota exhaustion)
           const allDocs = [];
           let afterCursor = null;
           let pagesLoaded = 0;
