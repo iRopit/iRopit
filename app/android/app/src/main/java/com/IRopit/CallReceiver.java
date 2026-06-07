@@ -96,7 +96,7 @@ public class CallReceiver extends BroadcastReceiver {
             dbg.put("baselineCallLogId", outgoingBaselineCallLogId);
             dbg.put("offhookTime", outgoingOffhookTime);
             dbg.put("matchedNumber", number);
-            dbg.put("appVersion", "1.1.7");
+            dbg.put("appVersion", "1.1.8");
             fb.writeOutgoingCall(number, cn, -1, dbg);
             Log.d(TAG, "✅ outgoing_call written (" + source + ") number=" + number);
         } catch (Exception e) {
@@ -367,10 +367,35 @@ public class CallReceiver extends BroadcastReceiver {
                 final long savedStartTime = callStartTime;
                 final long savedAnswerTime = callAnswerTime;
                 final boolean wasAnswered = callWasAnswered;
-                
-                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                    fetchLastCallAndSendEvent(context, savedNumber, wasIncoming, wasAnswered, savedStartTime, savedAnswerTime);
-                }, 4000); // 4 seconds - Samsung and some devices need extra time to update call log
+
+                // Adaptive call-log polling: write to Firestore as soon as the
+                // call-log row is available instead of a flat blind wait. Fast
+                // devices surface the call in ~700ms; slow ones (Samsung) still
+                // retry up to ~4.3s. Replaces the old fixed 4000ms delay that
+                // made every call appear slowly in the extension Calls screen.
+                final android.os.Handler clHandler =
+                        new android.os.Handler(android.os.Looper.getMainLooper());
+                final long[] clDelays = { 700, 900, 1200, 1500 }; // attempts at ~700/1600/2800/4300ms
+                final int[] clAttempt = { 0 };
+                final Runnable clRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean ok = fetchLastCallAndSendEvent(
+                                context, savedNumber, wasIncoming, wasAnswered,
+                                savedStartTime, savedAnswerTime);
+                        if (ok) {
+                            Log.d(TAG, "✅ Call log captured on attempt " + (clAttempt[0] + 1));
+                            return;
+                        }
+                        clAttempt[0]++;
+                        if (clAttempt[0] < clDelays.length) {
+                            clHandler.postDelayed(this, clDelays[clAttempt[0]]);
+                        } else {
+                            Log.w(TAG, "Call log not available after retries — periodic sync will pick it up");
+                        }
+                    }
+                };
+                clHandler.postDelayed(clRunnable, clDelays[0]);
             }
             
             // Reset state
@@ -392,7 +417,7 @@ public class CallReceiver extends BroadcastReceiver {
         }
     }
 
-    private void fetchLastCallAndSendEvent(Context context, String savedNumber, boolean wasIncoming, boolean wasAnswered, long savedStartTime, long savedAnswerTime) {
+    private boolean fetchLastCallAndSendEvent(Context context, String savedNumber, boolean wasIncoming, boolean wasAnswered, long savedStartTime, long savedAnswerTime) {
         String number = (savedNumber != null && !savedNumber.isEmpty()) ? savedNumber : "";
         String name = "";
         // If incoming and never answered, it's a missed call
@@ -602,7 +627,7 @@ public class CallReceiver extends BroadcastReceiver {
         // were missed here.
         if (!gotCallLogData) {
             Log.w(TAG, "⚠️ No matching call log entry found — skipping Firebase save to avoid phantom entry");
-            return;
+            return false;
         }
 
         WritableMap callMap = createCallMap(number, name, type, "ended", duration, callDate);
@@ -622,6 +647,7 @@ public class CallReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             Log.e(TAG, "Error saving call to Firebase", e);
         }
+        return true;
     }
 
     /**
