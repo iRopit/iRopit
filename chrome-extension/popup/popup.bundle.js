@@ -29383,7 +29383,7 @@ ${this.customData.serverResponse}`;
           orderBy("timestamp", "desc"),
           limit(PAGE_SIZE)
         );
-        const snapshot = await getDocs(q2);
+        const snapshot = await getDocsFromServer(q2);
         const messages = await Promise.all(
           snapshot.docs.map(async (docSnap) => {
             let data = docSnap.data();

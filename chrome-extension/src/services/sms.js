@@ -2893,7 +2893,9 @@ export async function loadSharedDevicesSMS(shares) {
         orderBy("timestamp", "desc"),
         limit(PAGE_SIZE),
       );
-      const snapshot = await getDocs(q);
+      // Must use getDocsFromServer: shared device data lives under the owner's Firestore
+      // path, so the local IndexedDB cache has nothing for it on a fresh install.
+      const snapshot = await getDocsFromServer(q);
       const messages = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           let data = docSnap.data();
