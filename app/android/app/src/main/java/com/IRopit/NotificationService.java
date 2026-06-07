@@ -695,12 +695,17 @@ public class NotificationService extends NotificationListenerService {
                 // v1.1.2.22: Inspect Notification.CallStyle extras (API 31+) and the
                 // generic EXTRA_PEOPLE array — these carry tel: URIs even when the
                 // visible title/text show a contact-style label.
-                // SKIP for outgoing calls: the CallStyle person URI carries the
-                // CONTACT'S saved number, not the digits the user actually typed.
-                // For T9 auto-matches (e.g. "110" → "Springs 2 $110k"), this would
-                // wrongly write the contact's full number to outgoing_call.
-                if (extractedPhoneNumber == null && extras != null
-                        && !CallReceiver.isOutgoingCallActive()) {
+                // RE-ENABLED for outgoing calls (v1.1.7): the CallStyle person URI is
+                // an AUTHORITATIVE tel: URI of the actual dialed target — for a saved
+                // contact this is the ONLY place the real number exists on Android 10+
+                // (CallLog not populated mid-call, NEW_OUTGOING_CALL not broadcast,
+                // title shows the contact NAME). Without this, outgoing_call is never
+                // written for saved contacts and the extension popup never opens.
+                // The T9 short-code concern (e.g. dialing "110" displayed as a contact)
+                // does NOT apply here: the tel: URI carries the literal dialed digits,
+                // not a name→number reverse lookup. Only getPhoneNumberFromContactName
+                // (the name reverse-lookup above) stays disabled for outgoing calls.
+                if (extractedPhoneNumber == null && extras != null) {
                     String p = extractPhoneFromCallExtras(extras);
                     if (p != null) {
                         extractedPhoneNumber = p;
