@@ -19619,6 +19619,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
     async (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        console.log("ZyncIT: \u{1F4F2} outgoing_call doc received:", deviceId, "status=", data.status, "hasPhone=", !!data.phoneNumber, "hasContact=", !!data.contactName);
         if (data.status === "dialing" || data.status === "started") {
           const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
           if (docTs > 0 && Date.now() - docTs > 6e4) {
@@ -19670,7 +19671,9 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
                 left: 80
               });
               if (win?.id) {
+                outgoingCallShown.add(deviceId);
                 outgoingCallWindowIds.set(deviceId, win.id);
+                console.log("ZyncIT: \u{1F4F2} \u2705 Outgoing-call popup window opened for", deviceId, "win=", win.id);
                 const onRemoved = (removedId) => {
                   if (removedId === win.id) {
                     outgoingCallWindowIds.delete(deviceId);
@@ -19684,8 +19687,9 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
             }
           };
           if (popupEnabled && !outgoingCallShown.has(deviceId)) {
-            outgoingCallShown.add(deviceId);
             await openPopup();
+          } else {
+            console.log("ZyncIT: \u{1F4F2} Popup not opened \u2014 popupEnabled=", popupEnabled, "alreadyShown=", outgoingCallShown.has(deviceId));
           }
           if (!outgoingCallNotifIds.has(deviceId)) {
             const notificationId = `iropit_outgoing_call_${deviceId}_${Date.now()}`;

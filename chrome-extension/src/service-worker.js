@@ -1092,6 +1092,7 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
     async (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        console.log("ZyncIT: 📲 outgoing_call doc received:", deviceId, "status=", data.status, "hasPhone=", !!data.phoneNumber, "hasContact=", !!data.contactName);
         if (data.status === "dialing" || data.status === "started") {
           const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
           if (docTs > 0 && Date.now() - docTs > 60_000) {
@@ -1148,7 +1149,9 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
                 focused: true, top: 80, left: 80,
               });
               if (win?.id) {
+                outgoingCallShown.add(deviceId); // mark shown only AFTER the window actually opens
                 outgoingCallWindowIds.set(deviceId, win.id);
+                console.log("ZyncIT: 📲 ✅ Outgoing-call popup window opened for", deviceId, "win=", win.id);
                 const onRemoved = (removedId) => {
                   if (removedId === win.id) {
                     outgoingCallWindowIds.delete(deviceId);
@@ -1168,9 +1171,13 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
           // must NOT close+reopen (or close after a manual dismiss) the popup,
           // which previously caused it to flicker/fail ~90% for known contacts.
           // The popup is closed only when the call doc is deleted (call ends).
+          // NOTE: outgoingCallShown is added INSIDE openPopup() only after the
+          // window successfully opens — so a blocked/failed open can retry on the
+          // next snapshot instead of being permanently suppressed by a pre-set flag.
           if (popupEnabled && !outgoingCallShown.has(deviceId)) {
-            outgoingCallShown.add(deviceId);
             await openPopup();
+          } else {
+            console.log("ZyncIT: 📲 Popup not opened — popupEnabled=", popupEnabled, "alreadyShown=", outgoingCallShown.has(deviceId));
           }
 
           if (!outgoingCallNotifIds.has(deviceId)) {
