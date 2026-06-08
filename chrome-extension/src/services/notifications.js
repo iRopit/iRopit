@@ -136,13 +136,49 @@ function _updateNotifSelectionToolbar(totalApps) {
   }
 }
 
+/**
+ * Inject a notification pushed from the service worker directly into popup
+ * state and re-render — without a getDocs call, loading spinner, or listener
+ * re-registration. The SW already captured the doc (it has its own reliable
+ * Firestore listener), so this keeps the popup in sync even when the popup's
+ * own onSnapshot listeners are throttled or broken by quota limits.
+ */
+export async function injectPushedNotification(data) {
+  const user = state.currentUser;
+  if (!user || !data || !data.id) return;
+  const deviceId = data.deviceId || "user";
+  let decrypted = data;
+  try {
+    decrypted = await decryptNotification(data, user.uid);
+  } catch {
+    /* fall back to raw data if decryption fails */
+  }
+  const notif = {
+    ...decrypted,
+    id: data.id,
+    deviceId,
+    deviceName: data.deviceName || decrypted.deviceName,
+    receivedAt:
+      tsMs(decrypted.timestamp) || tsMs(decrypted.createdAt) || Date.now(),
+  };
+  const existing = state.allNotifications[deviceId] || [];
+  if (existing.some((n) => n.id === notif.id)) {
+    // Update existing entry in place (e.g. WhatsApp re-uses the same docId).
+    updateNotificationsList(
+      deviceId,
+      existing.map((n) => (n.id === notif.id ? notif : n)),
+    );
+  } else {
+    updateNotificationsList(deviceId, [notif, ...existing]);
+  }
+}
+
 export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
 
   // Show loading spinner immediately — replaced by cached/fresh data when it arrives
   if (notificationsList) showListLoading(notificationsList);
-
   // === STEP 1: Show cached notifications instantly ===
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading

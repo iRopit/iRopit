@@ -19121,7 +19121,7 @@ function listenToUserNotifications() {
               lastNotificationTimestamp = notificationTime;
             }
             showNotification(notification);
-            chrome.runtime.sendMessage({ type: "newNotification", data: notification }).catch(() => {
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, id: docId, deviceId: notification.deviceId || "user" } }).catch(() => {
             });
           }
         });
@@ -19190,7 +19190,7 @@ function listenToUserNotifications() {
           });
           chrome.runtime.sendMessage({
             type: "newNotification",
-            data: notification
+            data: { ...notification, id: docId, deviceId: notification.deviceId || "user" }
           }).catch(() => {
           });
         }
@@ -19282,7 +19282,7 @@ function listenToDevice(deviceId, deviceName) {
               lastNotificationTimestamp = docTimestamp;
             }
             showNotification({ ...notification, deviceName });
-            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, deviceName } }).catch(() => {
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, id: docId, deviceId, deviceName } }).catch(() => {
             });
           }
         });
@@ -19388,7 +19388,7 @@ function listenToDevice(deviceId, deviceName) {
           });
           chrome.runtime.sendMessage({
             type: "newNotification",
-            data: notification
+            data: { ...notification, id: docId, deviceId, deviceName }
           }).catch(() => {
           });
         }
@@ -20269,7 +20269,7 @@ async function pollForNewNotifications() {
         showNotification(notificationWithDevice);
         chrome.runtime.sendMessage({
           type: "newNotification",
-          data: notification
+          data: { ...notification, id: docId, deviceId: device.id, deviceName: device.nickname || device.name || "Android" }
         }).catch(() => {
         });
       });

@@ -441,7 +441,7 @@ function listenToUserNotifications() {
             showNotification(notification);
             // Also push to popup so the Notifications tab updates without waiting
             // for the 5-minute cache refresh cycle.
-            chrome.runtime.sendMessage({ type: "newNotification", data: notification }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, id: docId, deviceId: notification.deviceId || "user" } }).catch(() => {});
           }
         });
         console.log(
@@ -533,7 +533,7 @@ function listenToUserNotifications() {
           chrome.runtime
             .sendMessage({
               type: "newNotification",
-              data: notification,
+              data: { ...notification, id: docId, deviceId: notification.deviceId || "user" },
             })
             .catch(() => {
               // Popup may not be open, ignore error
@@ -651,7 +651,7 @@ function listenToDevice(deviceId, deviceName) {
             showNotification({ ...notification, deviceName });
             // Also push to popup so the Notifications tab updates without waiting
             // for the 5-minute cache refresh cycle.
-            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, deviceName } }).catch(() => {});
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, id: docId, deviceId, deviceName } }).catch(() => {});
           }
         });
         console.log(
@@ -789,7 +789,7 @@ function listenToDevice(deviceId, deviceName) {
           chrome.runtime
             .sendMessage({
               type: "newNotification",
-              data: notification,
+              data: { ...notification, id: docId, deviceId, deviceName },
             })
             .catch(() => {
               // Popup may not be open, ignore error
@@ -1966,7 +1966,7 @@ async function pollForNewNotifications() {
         chrome.runtime
           .sendMessage({
             type: "newNotification",
-            data: notification,
+            data: { ...notification, id: docId, deviceId: device.id, deviceName: device.nickname || device.name || "Android" },
           })
           .catch(() => {});
       });

@@ -29592,6 +29592,7 @@ ${this.customData.serverResponse}`;
     clearAllNotifications: () => clearAllNotifications2,
     deleteSelectedNotifications: () => deleteSelectedNotifications,
     exportNotificationsToCSV: () => exportNotificationsToCSV,
+    injectPushedNotification: () => injectPushedNotification,
     loadNotifications: () => loadNotifications,
     loadSharedDevicesNotifications: () => loadSharedDevicesNotifications,
     markAllNotificationsAsRead: () => markAllNotificationsAsRead,
@@ -29665,6 +29666,32 @@ ${this.customData.serverResponse}`;
     if (selectAllCb) {
       selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
       selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
+    }
+  }
+  async function injectPushedNotification(data) {
+    const user = currentUser;
+    if (!user || !data || !data.id) return;
+    const deviceId = data.deviceId || "user";
+    let decrypted = data;
+    try {
+      decrypted = await decryptNotification(data, user.uid);
+    } catch {
+    }
+    const notif = {
+      ...decrypted,
+      id: data.id,
+      deviceId,
+      deviceName: data.deviceName || decrypted.deviceName,
+      receivedAt: tsMs(decrypted.timestamp) || tsMs(decrypted.createdAt) || Date.now()
+    };
+    const existing = allNotifications[deviceId] || [];
+    if (existing.some((n) => n.id === notif.id)) {
+      updateNotificationsList(
+        deviceId,
+        existing.map((n) => n.id === notif.id ? notif : n)
+      );
+    } else {
+      updateNotificationsList(deviceId, [notif, ...existing]);
     }
   }
   async function loadNotifications() {
@@ -33517,6 +33544,8 @@ ${this.customData.serverResponse}`;
           notification.type,
           notification.title
         );
+        injectPushedNotification(notification).catch(() => {
+        });
         if (notification.type === "sms") {
           console.log(
             "\u{1F4F1} SMS notification - real-time listener will handle UI update"

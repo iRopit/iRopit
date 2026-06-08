@@ -46,7 +46,7 @@ import {
   initSMSNavigation,
 } from "./services/sms.js";
 import { loadCalls, renderCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
-import { loadNotifications, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
+import { loadNotifications, injectPushedNotification, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
 import { subscribeToChat, initChatListeners } from "./services/chat.js";
 import {
   loadUserSettings,
@@ -197,11 +197,11 @@ function setupServiceWorkerListener() {
         notification.title,
       );
 
-      // Do NOT call loadNotifications() here. The popup's live onSnapshot
-      // listeners (registered once on open) already render new notifications in
-      // real time. Re-running loadNotifications() showed a loading spinner
-      // (the "flash") and re-registered duplicate listeners without surfacing
-      // the new item. The live listeners handle it.
+      // Inject the pushed notification directly into popup state + re-render.
+      // No spinner, no listener churn, no extra Firestore read (avoids quota).
+      // This keeps the popup in sync even when its own onSnapshot listeners are
+      // throttled/broken by Firestore quota limits.
+      injectPushedNotification(notification).catch(() => {});
 
       // Note: SMS updates are handled by real-time listener in sms.js
       // No need to call loadSMS() here as it would cause duplicate processing
