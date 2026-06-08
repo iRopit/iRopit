@@ -7,6 +7,7 @@ import {
   db,
   collection,
   getDocs,
+  getDocsFromServer,
   doc,
   deleteDoc,
   updateDoc,
@@ -305,7 +306,12 @@ export async function loadNotifications() {
     }
 
     try {
-      const snapshot = await getDocs(q);
+      // Use getDocsFromServer (NOT getDocs) for the initial/delta fetch. After
+      // the popup has been closed for a while, brand-new notifications aren't in
+      // Firestore's local IndexedDB cache yet, so the default cache-first getDocs
+      // returns 0 rows and the newest notifications never appear. Forcing a server
+      // read guarantees we pick up everything written while the popup was closed.
+      const snapshot = await getDocsFromServer(q);
       console.log(
         `[Notifications] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} from device ${device.id}`,
       );

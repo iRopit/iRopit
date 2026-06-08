@@ -29779,7 +29779,7 @@ ${this.customData.serverResponse}`;
         );
       }
       try {
-        const snapshot = await getDocs(q2);
+        const snapshot = await getDocsFromServer(q2);
         console.log(
           `[Notifications] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} from device ${device.id}`
         );
