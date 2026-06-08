@@ -18,6 +18,7 @@ import {
   limit,
   onSnapshot,
   getDocs,
+  getDocsFromServer,
   getDoc,
   addDoc,
   setDoc,
@@ -1882,7 +1883,13 @@ async function pollForNewNotifications() {
         limit(10),
       );
 
-      const notifSnapshot = await getDocs(notifQuery);
+      // Use getDocsFromServer (NOT getDocs) for this delta query. A brand-new
+      // notification isn't in Firestore's local IndexedDB cache yet, so the
+      // default cache-first getDocs returns nothing until the cache syncs,
+      // delaying the toast by several seconds ("wait till receiving it").
+      // Forcing the server read makes the ~10s poll catch new notifications
+      // immediately even when the MV3 SW just woke up.
+      const notifSnapshot = await getDocsFromServer(notifQuery);
 
       notifSnapshot.forEach((doc) => {
         const notification = doc.data();

@@ -18661,6 +18661,13 @@ function getDocs(e) {
   const t = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t), r = new __PRIVATE_ExpUserDataWriter(t);
   return __PRIVATE_validateHasExplicitOrderByForLimitToLast(e._query), __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query).then(((n2) => new QuerySnapshot(t, r, e, n2)));
 }
+function getDocsFromServer(e) {
+  e = __PRIVATE_cast(e, Query);
+  const t = __PRIVATE_cast(e.firestore, Firestore), n = ensureFirestoreConfigured(t), r = new __PRIVATE_ExpUserDataWriter(t);
+  return __PRIVATE_firestoreClientGetDocumentsViaSnapshotListener(n, e._query, {
+    source: "server"
+  }).then(((n2) => new QuerySnapshot(t, r, e, n2)));
+}
 function setDoc(e, t, n) {
   e = __PRIVATE_cast(e, DocumentReference);
   const r = __PRIVATE_cast(e.firestore, Firestore), i = __PRIVATE_applyFirestoreDataConverter(e.converter, t, n);
@@ -20207,7 +20214,7 @@ async function pollForNewNotifications() {
         orderBy("timestamp", "desc"),
         limit(10)
       );
-      const notifSnapshot = await getDocs(notifQuery);
+      const notifSnapshot = await getDocsFromServer(notifQuery);
       notifSnapshot.forEach((doc2) => {
         const notification = doc2.data();
         const docId = doc2.id;
