@@ -18813,6 +18813,33 @@ async function decrypt(encryptedData, userId) {
     return encryptedData;
   }
 }
+async function decryptFields(data, userId, fields) {
+  if (!data || !userId) return data;
+  const decrypted = { ...data };
+  const decryptPromises = fields.filter((field) => decrypted[field] && typeof decrypted[field] === "string").map(async (field) => {
+    decrypted[field] = await decrypt(decrypted[field], userId);
+  });
+  await Promise.all(decryptPromises);
+  return decrypted;
+}
+var ENCRYPTED_FIELDS = {
+  chat: ["content", "fileName", "fileUrl"],
+  sms: [
+    "body",
+    "address",
+    "displayName",
+    "text",
+    "title",
+    "phoneNumber",
+    "contactName"
+  ],
+  call: ["phoneNumber", "contactName", "displayName", "title", "number", "address", "name"],
+  notification: ["title", "body", "text"],
+  contact: ["name", "phoneNumber", "email"]
+};
+async function decryptCall(call, userId) {
+  return decryptFields(call, userId, ENCRYPTED_FIELDS.call);
+}
 
 // src/service-worker.js
 console.log("ZyncIT: Service Worker starting...");
@@ -19963,7 +19990,12 @@ async function updateCallsCache(deviceId, deviceName, newCall) {
     const callsByDevice = result.cached_calls_data?.byDevice || {};
     const existing = callsByDevice[deviceId] || [];
     if (existing.some((c) => c.id === newCall.id)) return;
-    callsByDevice[deviceId] = [{ ...newCall, deviceId, deviceName }, ...existing].slice(0, 200);
+    let decrypted = newCall;
+    try {
+      decrypted = await decryptCall(newCall, currentUser?.uid);
+    } catch (_) {
+    }
+    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, 200);
     const allCalls = Object.values(callsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
     await chrome.storage.local.set({
       cached_calls_data: { byDevice: callsByDevice, allCalls }

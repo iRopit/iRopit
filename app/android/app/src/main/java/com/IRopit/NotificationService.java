@@ -632,6 +632,29 @@ public class NotificationService extends NotificationListenerService {
             // محاولة استخراج رقم الهاتف للمكالمات
             if (isPhonePackage(packageName)) {
                 Log.d(TAG, "📞 CALL NOTIFICATION - Extracting phone number from: title=" + title + ", text=" + text);
+
+                // Diagnostic dump (v1.1.9): for saved-contact outgoing calls the dialer
+                // often omits a tel: URI, so dump every extra + Person URI to reveal
+                // exactly what source carries the number on this device/dialer.
+                try {
+                    if (extras != null) {
+                        for (String extraKey : extras.keySet()) {
+                            try {
+                                Object value = extras.get(extraKey);
+                                if (value instanceof String || value instanceof CharSequence) {
+                                    Log.d(TAG, "📞 CallExtra[" + extraKey + "] = " + value);
+                                } else if (value != null) {
+                                    Log.d(TAG, "📞 CallExtra[" + extraKey + "] = (" + value.getClass().getSimpleName() + ")");
+                                }
+                            } catch (Exception innerEx) {
+                                Log.d(TAG, "📞 CallExtra[" + extraKey + "] = <unreadable>");
+                            }
+                        }
+                        dumpCallPersonUris(extras);
+                    }
+                } catch (Exception dumpEx) {
+                    Log.w(TAG, "Error dumping call extras: " + dumpEx.getMessage());
+                }
                 
                 // جرب استخراج من text أولاً (قد يحتوي على الرقم)
                 if (text != null && !text.isEmpty() && isPhoneNumber(text)) {
@@ -1413,16 +1436,93 @@ public class NotificationService extends NotificationListenerService {
         return null;
     }
 
-    /** Returns digits from a {@code tel:+971501234567} or {@code tel:155} URI, or null otherwise.
+    /** Returns digits from a {@code tel:+971501234567} or {@code tel:155} URI, or
+     *  resolves a {@code content://com.android.contacts/…} lookup URI (saved contacts)
+     *  to the contact's phone number. Returns null otherwise.
      *  Uses the loose extractor so short codes (3+ digits) are preserved — tel: URIs
-     *  are authoritative so there's no false-positive risk here. */
+     *  and contact lookups are authoritative so there's no false-positive risk here. */
     private String phoneFromUri(String uri) {
         if (uri == null || uri.isEmpty()) return null;
         String lower = uri.toLowerCase();
-        if (!lower.startsWith("tel:")) return null;
-        String raw = uri.substring(4);
-        try { raw = java.net.URLDecoder.decode(raw, "UTF-8"); } catch (Exception ignore) {}
-        return extractDialedNumberFromText(raw);
+        if (lower.startsWith("tel:")) {
+            String raw = uri.substring(4);
+            try { raw = java.net.URLDecoder.decode(raw, "UTF-8"); } catch (Exception ignore) {}
+            return extractDialedNumberFromText(raw);
+        }
+        // Saved contacts: the dialer's Person URI points at the contacts provider
+        // (e.g. content://com.android.contacts/contacts/lookup/0r1-…/1) instead of a
+        // tel: URI. Resolve it to the contact's number — this is the dialer's own
+        // authoritative pointer to the exact contact, NOT a fuzzy T9 name match.
+        if (lower.startsWith("content:")) {
+            return phoneFromContactUri(uri);
+        }
+        return null;
+    }
+
+    /** Resolves a contacts-provider URI to the contact's primary phone number. */
+    private String phoneFromContactUri(String uriStr) {
+        if (uriStr == null || uriStr.isEmpty()) return null;
+        try {
+            Uri uri = Uri.parse(uriStr);
+            ContentResolver cr = getContentResolver();
+            long contactId = -1;
+            try (Cursor c = cr.query(uri, new String[]{ ContactsContract.Contacts._ID }, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    int idx = c.getColumnIndex(ContactsContract.Contacts._ID);
+                    if (idx >= 0) contactId = c.getLong(idx);
+                }
+            } catch (Exception ignore) {}
+            if (contactId < 0) return null;
+            try (Cursor pc = cr.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    new String[]{ ContactsContract.CommonDataKinds.Phone.NUMBER },
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                    new String[]{ String.valueOf(contactId) }, null)) {
+                if (pc != null && pc.moveToFirst()) {
+                    String num = pc.getString(0);
+                    if (num != null && !num.isEmpty()) {
+                        num = num.replaceAll("[\\s\\-\\(\\)]", "");
+                        Log.d(TAG, "📞 Resolved phone from contact URI: " + num);
+                        return num;
+                    }
+                }
+            } catch (Exception ignore) {}
+        } catch (Exception e) {
+            Log.w(TAG, "phoneFromContactUri failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /** Diagnostic: log the Person URIs carried by a call-style notification's extras. */
+    private void dumpCallPersonUris(Bundle extras) {
+        if (extras == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Object callPerson = extras.getParcelable("android.callPerson");
+                if (callPerson instanceof android.app.Person) {
+                    android.app.Person p = (android.app.Person) callPerson;
+                    Log.d(TAG, "📞 callPerson name=" + p.getName() + ", uri=" + p.getUri());
+                }
+            }
+            String[] people = extras.getStringArray(Notification.EXTRA_PEOPLE);
+            if (people != null) {
+                for (String u : people) Log.d(TAG, "📞 EXTRA_PEOPLE uri=" + u);
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                java.util.ArrayList<android.os.Parcelable> list =
+                        extras.getParcelableArrayList(Notification.EXTRA_PEOPLE_LIST);
+                if (list != null) {
+                    for (android.os.Parcelable pcl : list) {
+                        if (pcl instanceof android.app.Person) {
+                            android.app.Person p = (android.app.Person) pcl;
+                            Log.d(TAG, "📞 EXTRA_PEOPLE_LIST name=" + p.getName() + ", uri=" + p.getUri());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "dumpCallPersonUris failed: " + e.getMessage());
+        }
     }
 
     /**

@@ -24,7 +24,7 @@ import {
 } from "firebase/firestore";
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
-import { decrypt } from "./services/cryptoService.js";
+import { decrypt, decryptCall } from "./services/cryptoService.js";
 
 console.log("ZyncIT: Service Worker starting...");
 
@@ -1591,7 +1591,12 @@ async function updateCallsCache(deviceId, deviceName, newCall) {
     const callsByDevice = result.cached_calls_data?.byDevice || {};
     const existing = callsByDevice[deviceId] || [];
     if (existing.some((c) => c.id === newCall.id)) return; // already cached
-    callsByDevice[deviceId] = [{ ...newCall, deviceId, deviceName }, ...existing].slice(0, 200);
+    // Decrypt before caching — otherwise the popup reads an ENC: call from cache,
+    // blanks out its name/number, and the delta fetch (timestamp > newest) skips it,
+    // so the just-ended call never shows correctly until a full cache-clear refresh.
+    let decrypted = newCall;
+    try { decrypted = await decryptCall(newCall, currentUser?.uid); } catch (_) {}
+    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, 200);
     const allCalls = Object.values(callsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .slice(0, 200);
