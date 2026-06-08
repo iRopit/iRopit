@@ -674,10 +674,13 @@ function listenToDevice(deviceId, deviceName) {
           change.doc.id,
         );
 
-        // Only process "added" events — "modified" events are Android re-fires of
-        // the same notification with a different postTime, not new notifications.
-        // All docIds are minute-bucketed so new messages always produce new added events.
-        if (change.type === "added") {
+        // Process "added" and "modified" events. WhatsApp (and other chat apps)
+        // reuse the same docId for multiple messages in the same chat within a
+        // minute bucket, so a new message arrives as a "modified" event, not
+        // "added". We use a timestamp-aware dedup key (docId_timestamp) so a
+        // genuinely new message (newer timestamp) is shown, while a noise re-fire
+        // of the exact same notification (same timestamp) is skipped.
+        if (change.type === "added" || change.type === "modified") {
           const notification = change.doc.data();
           const docId = change.doc.id;
           const docTimestamp =
@@ -685,7 +688,7 @@ function listenToDevice(deviceId, deviceName) {
 
           const notificationTime = docTimestamp;
 
-          const seenKey = docId;
+          const seenKey = `${docId}_${docTimestamp}`;
 
           const timeDiff = Date.now() - notificationTime;
           const isRecent = timeDiff < 5 * 60 * 1000; // 5 minutes
@@ -704,9 +707,17 @@ function listenToDevice(deviceId, deviceName) {
             isRecent,
           );
 
-          // Skip if already seen
+          // Skip if already seen (exact same notification + timestamp)
           if (seenNotifications.has(seenKey)) {
             console.log("ZyncIT: ⏭️ Skipping already seen:", seenKey);
+            return;
+          }
+
+          // Skip if this is just a read-status update (modified to read=true),
+          // not a new incoming message.
+          if (notification.read === true) {
+            console.log("ZyncIT: ⏭️ Skipping read-status update:", docId);
+            seenNotifications.add(seenKey);
             return;
           }
 
@@ -720,8 +731,9 @@ function listenToDevice(deviceId, deviceName) {
             return;
           }
 
-          // Mark as seen
+          // Mark as seen (both composite key and plain docId for catch-up dedup)
           seenNotifications.add(seenKey);
+          seenNotifications.add(docId);
           console.log("ZyncIT: ✅ Marked as seen, showing notification...");
 
           // Keep only last 500 seen

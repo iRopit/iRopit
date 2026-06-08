@@ -19304,12 +19304,12 @@ function listenToDevice(deviceId, deviceName) {
           "docId:",
           change.doc.id
         );
-        if (change.type === "added") {
+        if (change.type === "added" || change.type === "modified") {
           const notification = change.doc.data();
           const docId = change.doc.id;
           const docTimestamp = notification.timestamp || notification.receivedAt || Date.now();
           const notificationTime = docTimestamp;
-          const seenKey = docId;
+          const seenKey = `${docId}_${docTimestamp}`;
           const timeDiff = Date.now() - notificationTime;
           const isRecent = timeDiff < 5 * 60 * 1e3;
           console.log(
@@ -19329,6 +19329,11 @@ function listenToDevice(deviceId, deviceName) {
             console.log("ZyncIT: \u23ED\uFE0F Skipping already seen:", seenKey);
             return;
           }
+          if (notification.read === true) {
+            console.log("ZyncIT: \u23ED\uFE0F Skipping read-status update:", docId);
+            seenNotifications.add(seenKey);
+            return;
+          }
           if (!isRecent) {
             console.log(
               "ZyncIT: \u23ED\uFE0F Skipping old notification (age:",
@@ -19338,6 +19343,7 @@ function listenToDevice(deviceId, deviceName) {
             return;
           }
           seenNotifications.add(seenKey);
+          seenNotifications.add(docId);
           console.log("ZyncIT: \u2705 Marked as seen, showing notification...");
           const seenArray = Array.from(seenNotifications).slice(-500);
           chrome.storage.local.set({
