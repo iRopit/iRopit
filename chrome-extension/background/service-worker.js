@@ -19481,7 +19481,7 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
           const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
           const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
           const popupEnabled = smartAction_incomingCallPopup !== false;
-          const callKey = `${phone}|${contact}`;
+          const callKey = `${phone}|${contact}|${Math.round(docTs / 5e3)}`;
           if (incomingCallLastKey.get(deviceId) === callKey) {
             console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 skipping duplicate popup");
             return;

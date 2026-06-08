@@ -933,11 +933,10 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
 
           // Skip if this is the same ringing event we already handled (snapshots
           // can fire multiple times for the same Firestore doc — e.g. when the
-          // mobile app updates a field by a few ms). Use phone+contact only as
-          // the key; timestamp jitter (±1 ms) would otherwise create false mismatches.
-          // The key is cleared when the doc is deleted so the next call from the
-          // same number always opens a fresh popup.
-          const callKey = `${phone}|${contact}`;
+          // mobile app updates a field by a few ms). Include timestamp (rounded
+          // to nearest 5s to absorb ±ms jitter) so the same caller ringing again
+          // is always treated as a new event instead of being suppressed.
+          const callKey = `${phone}|${contact}|${Math.round(docTs / 5000)}`;
           if (incomingCallLastKey.get(deviceId) === callKey) {
             console.log("ZyncIT: 📞 Same ringing event — skipping duplicate popup");
             return;
