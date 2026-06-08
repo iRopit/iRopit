@@ -736,6 +736,25 @@ public class NotificationService extends NotificationListenerService {
                     }
                 }
 
+                // v1.1.10: Outgoing saved-contact fallback. On Android 10+ the CallLog
+                // isn't populated mid-call, NEW_OUTGOING_CALL doesn't fire, and many
+                // dialers carry NO tel:/content: Person URI for a saved contact — the
+                // ongoing notification shows ONLY the contact NAME. That name is then
+                // the sole source for the dialed number, so reverse-look it up.
+                // SAFE against the old T9 short-code concern: a dialed numeric short
+                // code (e.g. 110) shows as DIGITS in the in-call notification, while a
+                // saved contact shows as a NAME — so we gate on a non-numeric title
+                // (looksLikeContactName) AND use EXACT DISPLAY_NAME match only (no LIKE
+                // partial), eliminating false matches.
+                if (extractedPhoneNumber == null && CallReceiver.isOutgoingCallActive()
+                        && title != null && looksLikeContactName(title)) {
+                    String p = getPhoneNumberFromContactNameExact(title);
+                    if (p != null) {
+                        extractedPhoneNumber = p;
+                        Log.d(TAG, "📞 Outgoing: resolved saved-contact number by exact name '" + title + "': " + extractedPhoneNumber);
+                    }
+                }
+
                 // v1.1.2.22b: Short-code fallback (3–15 digits). Carriers/IVRs use
                 // short codes like 155, 911, *100# — these are valid dialed numbers
                 // but the standard 7+ digit extractor rejects them. Try the loose
@@ -1196,12 +1215,64 @@ public class NotificationService extends NotificationListenerService {
     /**
      * Search for phone number in contacts by contact name
      */
+    /** True when a string looks like a contact NAME (contains at least one letter)
+     *  rather than a dialed phone number or numeric short code (digits/symbols only).
+     *  Used to safely gate the outgoing saved-contact reverse-lookup: a dialed short
+     *  code shows as digits in the in-call notification (rejected here), while a saved
+     *  contact shows as a name (accepted), so there's no T9 short-code false-match. */
+    private boolean looksLikeContactName(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        if (t.isEmpty()) return false;
+        // Must contain at least one Unicode letter.
+        if (!t.matches(".*\\p{L}.*")) return false;
+        // Reject call-state labels (e.g. "Calling", "Dialing", "00:12", "Mobile").
+        String low = t.toLowerCase();
+        if (low.equals("calling") || low.equals("dialing") || low.equals("ringing")
+                || low.equals("call") || low.equals("mobile") || low.equals("ongoing call")
+                || low.equals("اتصال") || low.equals("جارٍ الاتصال") || low.equals("مكالمة")) {
+            return false;
+        }
+        return true;
+    }
+
+    /** EXACT-match-only contact reverse-lookup (no LIKE partial / fuzzy match).
+     *  Safe for outgoing calls: only returns a number when DISPLAY_NAME equals the
+     *  title verbatim, so unrelated contacts can't be matched. */
+    private String getPhoneNumberFromContactNameExact(String contactName) {
+        if (contactName == null || contactName.trim().isEmpty()) return null;
+        try {
+            ContentResolver cr = getContentResolver();
+            Uri uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI;
+            String[] projection = new String[] {
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+            };
+            String selection = ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " = ?";
+            String[] args = new String[] { contactName.trim() };
+            try (Cursor c = cr.query(uri, projection, selection, args, null)) {
+                if (c != null && c.moveToFirst()) {
+                    int numIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                    if (numIdx >= 0) {
+                        String num = c.getString(numIdx);
+                        if (num != null && !num.isEmpty()) {
+                            num = num.replaceAll("[\\s\\-\\(\\)]", "");
+                            return num;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "getPhoneNumberFromContactNameExact failed: " + e.getMessage());
+        }
+        return null;
+    }
+
     private String getPhoneNumberFromContactName(String contactName) {
         if (contactName == null || contactName.isEmpty()) {
             Log.d(TAG, "📒 getPhoneNumberFromContactName: contactName is null or empty");
             return null;
-        }
-        
+        }        
         Log.d(TAG, "📒 Searching for contact: '" + contactName + "'");
         
         try {
