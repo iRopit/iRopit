@@ -29859,54 +29859,33 @@ ${this.customData.serverResponse}`;
       const unsub = onSnapshot(
         q2,
         async (snapshot) => {
-          if (!deviceFirstSnap) {
-            const freshNotifs = await Promise.all(
-              snapshot.docs.map(async (docSnap) => {
-                let data = docSnap.data();
-                data = await decryptNotification(data, user.uid);
-                return {
-                  ...data,
-                  id: docSnap.id,
-                  deviceId: device.id,
-                  deviceName: device.name,
-                  receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now()
-                };
-              })
-            );
-            const existing = allNotifications[device.id] || [];
-            const freshIds = new Set(freshNotifs.map((n) => n.id));
-            const existingById = new Map(existing.map((n) => [n.id, n]));
-            const mergedFresh = freshNotifs.map((n) => {
-              const ex = existingById.get(n.id);
-              return ex && ex.read === true && !n.read ? { ...n, read: true } : n;
-            });
-            const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
-            updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
-            cacheNotificationsData(allNotifications).catch(() => {
-            });
-          } else {
+          const freshNotifs = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, user.uid);
+              return {
+                ...data,
+                id: docSnap.id,
+                deviceId: device.id,
+                deviceName: device.name,
+                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now()
+              };
+            })
+          );
+          const existing = allNotifications[device.id] || [];
+          const freshIds = new Set(freshNotifs.map((n) => n.id));
+          const existingById = new Map(existing.map((n) => [n.id, n]));
+          const mergedFresh = freshNotifs.map((n) => {
+            const ex = existingById.get(n.id);
+            return ex && ex.read === true && !n.read ? { ...n, read: true } : n;
+          });
+          const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
+          updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
+          cacheNotificationsData(allNotifications).catch(() => {
+          });
+          if (deviceFirstSnap) {
             deviceFirstSnap = false;
             notifSnapshotReady();
-            if (!hasCachedData && (allNotifications[device.id] || []).length === 0) {
-              const notifications = await Promise.all(
-                snapshot.docs.map(async (docSnap) => {
-                  let data = docSnap.data();
-                  data = await decryptNotification(data, user.uid);
-                  return {
-                    ...data,
-                    id: docSnap.id,
-                    deviceId: device.id,
-                    deviceName: device.name,
-                    receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now()
-                  };
-                })
-              );
-              if (notifications.length > 0) {
-                updateNotificationsList(device.id, notifications);
-                cacheNotificationsData(allNotifications).catch(() => {
-                });
-              }
-            }
           }
         }
       );
@@ -33538,7 +33517,6 @@ ${this.customData.serverResponse}`;
           notification.type,
           notification.title
         );
-        loadNotifications();
         if (notification.type === "sms") {
           console.log(
             "\u{1F4F1} SMS notification - real-time listener will handle UI update"

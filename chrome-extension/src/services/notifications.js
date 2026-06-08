@@ -406,57 +406,40 @@ export async function loadNotifications() {
     const unsub = onSnapshot(
       q,
       async (snapshot) => {
-        if (!deviceFirstSnap) {
-          // Real-time update: merge new/changed notifications
-          const freshNotifs = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
-              let data = docSnap.data();
-              data = await decryptNotification(data, user.uid);
-              return {
-                ...data,
-                id: docSnap.id,
-                deviceId: device.id,
-                deviceName: device.name,
-                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
-              };
-            }),
-          );
-          // Merge with existing data — only replace the top-10 window.
-          // Preserve locally-optimistic read:true so the badge doesn't reset
-          // when Firestore re-fires with stale read:false before the write confirms.
-          const existing = state.allNotifications[device.id] || [];
-          const freshIds = new Set(freshNotifs.map((n) => n.id));
-          const existingById = new Map(existing.map((n) => [n.id, n]));
-          const mergedFresh = freshNotifs.map((n) => {
-            const ex = existingById.get(n.id);
-            return (ex && ex.read === true && !n.read) ? { ...n, read: true } : n;
-          });
-          const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
-          updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
-          cacheNotificationsData(state.allNotifications).catch(() => {});
-        } else {
+        // Always map the fresh top-N window and merge it with existing data.
+        // Previously the first snapshot was skipped when cache existed, which
+        // discarded brand-new notifications that arrived between the cache write
+        // and listener registration (the cause of "popup flashes but no update").
+        const freshNotifs = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptNotification(data, user.uid);
+            return {
+              ...data,
+              id: docSnap.id,
+              deviceId: device.id,
+              deviceName: device.name,
+              receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
+            };
+          }),
+        );
+        // Merge with existing data — only replace the top-N window.
+        // Preserve locally-optimistic read:true so the badge doesn't reset
+        // when Firestore re-fires with stale read:false before the write confirms.
+        const existing = state.allNotifications[device.id] || [];
+        const freshIds = new Set(freshNotifs.map((n) => n.id));
+        const existingById = new Map(existing.map((n) => [n.id, n]));
+        const mergedFresh = freshNotifs.map((n) => {
+          const ex = existingById.get(n.id);
+          return (ex && ex.read === true && !n.read) ? { ...n, read: true } : n;
+        });
+        const olderNotifs = existing.filter((n) => !freshIds.has(n.id));
+        updateNotificationsList(device.id, [...mergedFresh, ...olderNotifs]);
+        cacheNotificationsData(state.allNotifications).catch(() => {});
+
+        if (deviceFirstSnap) {
           deviceFirstSnap = false;
           notifSnapshotReady();
-          // First snapshot: if getDocs didn't already cover these, use them
-          if (!hasCachedData && (state.allNotifications[device.id] || []).length === 0) {
-            const notifications = await Promise.all(
-              snapshot.docs.map(async (docSnap) => {
-                let data = docSnap.data();
-                data = await decryptNotification(data, user.uid);
-                return {
-                  ...data,
-                  id: docSnap.id,
-                  deviceId: device.id,
-                  deviceName: device.name,
-                  receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
-                };
-              }),
-            );
-            if (notifications.length > 0) {
-              updateNotificationsList(device.id, notifications);
-              cacheNotificationsData(state.allNotifications).catch(() => {});
-            }
-          }
         }
       },
     );

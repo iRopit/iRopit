@@ -197,8 +197,11 @@ function setupServiceWorkerListener() {
         notification.title,
       );
 
-      // Reload notifications list
-      loadNotifications();
+      // Do NOT call loadNotifications() here. The popup's live onSnapshot
+      // listeners (registered once on open) already render new notifications in
+      // real time. Re-running loadNotifications() showed a loading spinner
+      // (the "flash") and re-registered duplicate listeners without surfacing
+      // the new item. The live listeners handle it.
 
       // Note: SMS updates are handled by real-time listener in sms.js
       // No need to call loadSMS() here as it would cause duplicate processing
