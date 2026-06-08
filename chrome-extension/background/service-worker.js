@@ -19112,6 +19112,8 @@ function listenToUserNotifications() {
               lastNotificationTimestamp = notificationTime;
             }
             showNotification(notification);
+            chrome.runtime.sendMessage({ type: "newNotification", data: notification }).catch(() => {
+            });
           }
         });
         console.log(
@@ -19249,6 +19251,8 @@ function listenToDevice(deviceId, deviceName) {
               lastNotificationTimestamp = docTimestamp;
             }
             showNotification({ ...notification, deviceName });
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, deviceName } }).catch(() => {
+            });
           }
         });
         console.log(

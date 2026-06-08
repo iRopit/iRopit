@@ -435,6 +435,9 @@ function listenToUserNotifications() {
               lastNotificationTimestamp = notificationTime;
             }
             showNotification(notification);
+            // Also push to popup so the Notifications tab updates without waiting
+            // for the 5-minute cache refresh cycle.
+            chrome.runtime.sendMessage({ type: "newNotification", data: notification }).catch(() => {});
           }
         });
         console.log(
@@ -617,6 +620,9 @@ function listenToDevice(deviceId, deviceName) {
               lastNotificationTimestamp = docTimestamp;
             }
             showNotification({ ...notification, deviceName });
+            // Also push to popup so the Notifications tab updates without waiting
+            // for the 5-minute cache refresh cycle.
+            chrome.runtime.sendMessage({ type: "newNotification", data: { ...notification, deviceName } }).catch(() => {});
           }
         });
         console.log(
