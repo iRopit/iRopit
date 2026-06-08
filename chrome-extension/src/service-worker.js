@@ -566,12 +566,37 @@ function listenToDevice(deviceId, deviceName) {
   const unsub = onSnapshot(
     notificationsQuery,
     (snapshot) => {
-      const unreadIds = new Set(
-        snapshot.docs
-          .filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id))
-          .map((docSnap) => docSnap.id),
-      );
-      setUnreadIdsForSource(deviceId, unreadIds);
+      if (!unreadIdsBySource.has(deviceId)) {
+        // First time we've seen this device: initialize from the full window of docs.
+        const unreadIds = new Set(
+          snapshot.docs
+            .filter((docSnap) => !docSnap.data()?.read && !locallyReadNotificationIds.has(docSnap.id))
+            .map((docSnap) => docSnap.id),
+        );
+        setUnreadIdsForSource(deviceId, unreadIds);
+      } else {
+        // Subsequent snapshots: update incrementally so that new unread notifications
+        // always raise the badge even when the limit(50) window evicts an old unread doc.
+        const currentUnreadIds = new Set(unreadIdsBySource.get(deviceId) || []);
+        snapshot.docChanges().forEach((change) => {
+          const docId = change.doc.id;
+          const data = change.doc.data();
+          if (change.type === "added") {
+            if (!data?.read && !locallyReadNotificationIds.has(docId)) {
+              currentUnreadIds.add(docId);
+            }
+          } else if (change.type === "modified") {
+            if (data?.read || locallyReadNotificationIds.has(docId)) {
+              currentUnreadIds.delete(docId);
+            } else {
+              currentUnreadIds.add(docId);
+            }
+          } else if (change.type === "removed") {
+            currentUnreadIds.delete(docId);
+          }
+        });
+        setUnreadIdsForSource(deviceId, currentUnreadIds);
+      }
 
       console.log(
         "ZyncIT: Device snapshot [",
