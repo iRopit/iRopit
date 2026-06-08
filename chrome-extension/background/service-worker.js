@@ -18945,6 +18945,8 @@ onAuthStateChanged(auth, async (user) => {
     await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
     startListening();
+    ensureOffscreenDocument().catch(() => {
+    });
     refreshPopupCache();
   } else {
     currentUser = null;
@@ -20427,7 +20429,7 @@ async function refreshPopupCache() {
       cached_calls_data: { byDevice: newCallsByDevice, allCalls },
       cached_notifications_data: { byDevice: newNotifsByDevice, savedAt: Date.now() }
     });
-    setBadgeCount(computeUnreadCountFromByDevice(newNotifsByDevice));
+    setBadgeCountFromCache(computeUnreadCountFromByDevice(newNotifsByDevice));
     console.log(
       `ZyncIT: \u2705 Cache refreshed \u2014 SMS: ${allMessages.length}, Calls: ${allCalls.length}`
     );
@@ -20507,6 +20509,14 @@ function computeUnreadCountFromByDevice(byDevice) {
   });
   return unreadIds.size;
 }
+function getLiveUnreadCount() {
+  const allUnreadIds = /* @__PURE__ */ new Set();
+  unreadIdsBySource.forEach((ids) => ids.forEach((id) => allUnreadIds.add(id)));
+  return allUnreadIds.size;
+}
+function setBadgeCountFromCache(cacheCount) {
+  setBadgeCount(Math.max(cacheCount, getLiveUnreadCount()));
+}
 function refreshBadgeFromCachedNotifications(fallbackCount) {
   chrome.storage.local.get(["cached_notifications_data"], (result) => {
     const byDevice = result.cached_notifications_data?.byDevice;
@@ -20518,11 +20528,11 @@ function refreshBadgeFromCachedNotifications(fallbackCount) {
         });
       });
       locallyReadNotificationIds = readIds;
-      setBadgeCount(computeUnreadCountFromByDevice(byDevice));
+      setBadgeCountFromCache(computeUnreadCountFromByDevice(byDevice));
       return;
     }
     if (fallbackCount !== void 0) {
-      setBadgeCount(fallbackCount);
+      setBadgeCountFromCache(fallbackCount);
     }
   });
 }
@@ -20971,6 +20981,14 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
   return { allSms, allCalls, allNotifs };
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "offscreen-heartbeat") {
+    if (currentUser && unsubscribeNotifications.length === 0) {
+      console.log("ZyncIT: \u{1F493} Heartbeat: listeners lost, restarting...");
+      startListening();
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message.type === "googleSignIn") {
     (async () => {
       try {

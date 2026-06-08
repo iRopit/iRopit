@@ -140,6 +140,9 @@ onAuthStateChanged(auth, async (user) => {
     await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
     startListening();
+    // Keep the offscreen document alive so its 20s heartbeat can wake the SW
+    // even when Chrome's 1-min alarm floor would otherwise leave listeners dead.
+    ensureOffscreenDocument().catch(() => {});
     // Warm the popup cache immediately so next popup open shows fresh data
     refreshPopupCache();
   } else {
@@ -2156,7 +2159,9 @@ async function refreshPopupCache() {
     });
 
     // Keep action badge synced in background even if popup is closed.
-    setBadgeCount(computeUnreadCountFromByDevice(newNotifsByDevice));
+    // Use setBadgeCountFromCache so the badge never drops below the live
+    // incremental count tracked by onSnapshot (avoids shrink on popup open).
+    setBadgeCountFromCache(computeUnreadCountFromByDevice(newNotifsByDevice));
 
     console.log(
       `ZyncIT: ✅ Cache refreshed — SMS: ${allMessages.length}, Calls: ${allCalls.length}`,
@@ -2275,6 +2280,26 @@ function computeUnreadCountFromByDevice(byDevice) {
   return unreadIds.size;
 }
 
+/**
+ * Return the live unread count tracked by onSnapshot incremental updates.
+ * This is always >= the cache-window count because it accumulates across
+ * the full Firestore history, not just the last N fetched docs.
+ */
+function getLiveUnreadCount() {
+  const allUnreadIds = new Set();
+  unreadIdsBySource.forEach((ids) => ids.forEach((id) => allUnreadIds.add(id)));
+  return allUnreadIds.size;
+}
+
+/**
+ * Set badge from a cache-derived count, but never let it drop below the
+ * live incremental count tracked by onSnapshot (prevents badge shrinking
+ * when the popup opens and refreshes from a limited fetch window).
+ */
+function setBadgeCountFromCache(cacheCount) {
+  setBadgeCount(Math.max(cacheCount, getLiveUnreadCount()));
+}
+
 function refreshBadgeFromCachedNotifications(fallbackCount) {
   chrome.storage.local.get(["cached_notifications_data"], (result) => {
     const byDevice = result.cached_notifications_data?.byDevice;
@@ -2288,12 +2313,12 @@ function refreshBadgeFromCachedNotifications(fallbackCount) {
       });
       locallyReadNotificationIds = readIds;
 
-      setBadgeCount(computeUnreadCountFromByDevice(byDevice));
+      setBadgeCountFromCache(computeUnreadCountFromByDevice(byDevice));
       return;
     }
 
     if (fallbackCount !== undefined) {
-      setBadgeCount(fallbackCount);
+      setBadgeCountFromCache(fallbackCount);
     }
   });
 }
@@ -2771,6 +2796,16 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
 
 // Message handler from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Heartbeat from the persistent offscreen document — keeps the SW alive every
+  // 20s so Firestore onSnapshot listeners are never lost due to the MV3 30s idle kill.
+  if (message.type === "offscreen-heartbeat") {
+    if (currentUser && unsubscribeNotifications.length === 0) {
+      console.log("ZyncIT: 💓 Heartbeat: listeners lost, restarting...");
+      startListening();
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
   // Google Sign-In delegated from the popup on macOS. Chrome closes the
   // browser-action popup when the OAuth account chooser window takes focus,
   // which destroys the popup's JS context before sign-in completes. Running
