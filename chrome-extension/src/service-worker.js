@@ -1233,8 +1233,14 @@ function listenForOutgoingCallFromDevice(deviceId, deviceName) {
 function listenForCallsFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
 
+  // MUST include orderBy("timestamp","desc") so limit(10) targets the NEWEST
+  // calls. Without it Firestore sorts by document ID ascending, so new call
+  // docs (call_1749xxxxx_…) land at the end of the collection and are never
+  // included in the first 10 — meaning this onSnapshot NEVER fires for new
+  // calls on any device with more than 10 existing calls.
   const callsQuery = query(
     collection(db, "users", currentUser.uid, "devices", deviceId, "calls"),
+    orderBy("timestamp", "desc"),
     limit(10),
   );
 

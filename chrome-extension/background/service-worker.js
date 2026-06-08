@@ -19746,6 +19746,7 @@ function listenForCallsFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
   const callsQuery = query(
     collection(db, "users", currentUser.uid, "devices", deviceId, "calls"),
+    orderBy("timestamp", "desc"),
     limit(10)
   );
   const unsub = onSnapshot(
