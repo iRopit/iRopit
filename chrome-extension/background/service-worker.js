@@ -20414,18 +20414,14 @@ async function refreshPopupCache() {
     }
     const latestNotifCache = await chrome.storage.local.get(["cached_notifications_data"]);
     const latestNotifsByDevice = latestNotifCache.cached_notifications_data?.byDevice || {};
-    for (const deviceId of Object.keys(latestNotifsByDevice)) {
+    for (const deviceId of Object.keys(newNotifsByDevice)) {
       const latestNotifs = latestNotifsByDevice[deviceId];
       if (!latestNotifs || latestNotifs.length === 0) continue;
-      const swNotifs = newNotifsByDevice[deviceId] || [];
-      const swIds = new Set(swNotifs.map((n) => n.id));
       const latestById = new Map(latestNotifs.map((n) => [n.id, n]));
-      const merged = swNotifs.map((n) => {
+      newNotifsByDevice[deviceId] = newNotifsByDevice[deviceId].map((n) => {
         const latest = latestById.get(n.id);
         return latest && latest.read === true && !n.read ? { ...n, read: true } : n;
       });
-      const popupOnly = latestNotifs.filter((n) => !swIds.has(n.id));
-      newNotifsByDevice[deviceId] = [...merged, ...popupOnly].slice(0, 200);
     }
     const readIds = /* @__PURE__ */ new Set();
     Object.values(newNotifsByDevice).forEach((items) => {
