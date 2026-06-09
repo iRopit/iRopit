@@ -29817,8 +29817,10 @@ ${this.customData.serverResponse}`;
     } else {
       updateNotificationsList(deviceId, [notif, ...existing]);
     }
-    flushNotificationsCache(allNotifications).catch(() => {
-    });
+    if (!isSyncingNotif) {
+      flushNotificationsCache(allNotifications).catch(() => {
+      });
+    }
   }
   async function loadNotifications() {
     const user = currentUser;
@@ -30576,7 +30578,7 @@ ${this.customData.serverResponse}`;
       setNotificationsData(key, updated);
     });
     updateTabBadges();
-    cacheNotificationsData(allNotifications).catch(() => {
+    flushNotificationsCache(allNotifications).catch(() => {
     });
     if (!notifId || /^-?\d+$/.test(notifId)) {
       return;
@@ -30628,6 +30630,8 @@ ${this.customData.serverResponse}`;
       setNotificationsData(key, updated);
     });
     updateTabBadges();
+    flushNotificationsCache(allNotifications).catch(() => {
+    });
     reRenderNotifications();
     await updateFirestoreNotifications(user.uid, unreadNotifs);
   }

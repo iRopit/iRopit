@@ -172,11 +172,14 @@ export async function injectPushedNotification(data) {
   } else {
     updateNotificationsList(deviceId, [notif, ...existing]);
   }
-  // Persist the injected notification to cache IMMEDIATELY (bypass the 3s debounce).
-  // Without this flush, if the popup closes before the debounce fires, the SW-pushed
-  // notification is lost on reopen and the user sees old/empty data until onSnapshot
-  // fills it back in — the "only 1 notification, then more appear" symptom.
-  flushNotificationsCache(state.allNotifications).catch(() => {});
+  // Only flush cache if the initial load is complete (pendingNotifSnapshots === 0).
+  // If we flush while loadNotifications() is still seeding state from chrome.storage,
+  // state.allNotifications may contain only this 1 pushed item — and the flush would
+  // overwrite the full historical cache with just 1 item, causing the
+  // "only 1 notification on open, then more appear" symptom.
+  if (!isSyncingNotif) {
+    flushNotificationsCache(state.allNotifications).catch(() => {});
+  }
 }
 
 export async function loadNotifications() {
@@ -1130,7 +1133,8 @@ async function markNotificationAsRead(deviceId, notifId) {
     state.setNotificationsData(key, updated);
   });
   updateTabBadges();
-  cacheNotificationsData(state.allNotifications).catch(() => {});
+  // Flush immediately so the read state survives popup close/SW cache refresh.
+  flushNotificationsCache(state.allNotifications).catch(() => {});
 
   if (!notifId || /^-?\d+$/.test(notifId)) {
     return;
@@ -1197,6 +1201,11 @@ export async function markAllNotificationsAsRead() {
 
   // Update badge IMMEDIATELY
   updateTabBadges();
+
+  // Flush read state to cache immediately so it survives:
+  // (a) popup closing before the 3s debounce fires, and
+  // (b) SW's refreshPopupCache overwriting with stale read:false from Firestore.
+  flushNotificationsCache(state.allNotifications).catch(() => {});
 
   // Re-render notifications list
   reRenderNotifications();
