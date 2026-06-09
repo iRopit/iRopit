@@ -29817,7 +29817,7 @@ ${this.customData.serverResponse}`;
     } else {
       updateNotificationsList(deviceId, [notif, ...existing]);
     }
-    cacheNotificationsData(allNotifications).catch(() => {
+    flushNotificationsCache(allNotifications).catch(() => {
     });
   }
   async function loadNotifications() {
@@ -33762,6 +33762,10 @@ ${this.customData.serverResponse}`;
   window.addEventListener("pagehide", () => {
     try {
       flushSMSCache();
+    } catch (_) {
+    }
+    try {
+      flushNotificationsCache(allNotifications);
     } catch (_) {
     }
     cleanupSubscriptions();

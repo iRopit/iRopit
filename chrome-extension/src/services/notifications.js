@@ -172,10 +172,11 @@ export async function injectPushedNotification(data) {
   } else {
     updateNotificationsList(deviceId, [notif, ...existing]);
   }
-  // Persist the injected notification to cache so it survives popup close/reopen.
-  // Without this, if the popup closes before the next onSnapshot fires (the only
-  // other place that writes cache), the SW-pushed notification is lost on reopen.
-  cacheNotificationsData(state.allNotifications).catch(() => {});
+  // Persist the injected notification to cache IMMEDIATELY (bypass the 3s debounce).
+  // Without this flush, if the popup closes before the debounce fires, the SW-pushed
+  // notification is lost on reopen and the user sees old/empty data until onSnapshot
+  // fills it back in — the "only 1 notification, then more appear" symptom.
+  flushNotificationsCache(state.allNotifications).catch(() => {});
 }
 
 export async function loadNotifications() {

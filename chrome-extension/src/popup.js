@@ -54,7 +54,7 @@ import {
 } from "./services/settings.js";
 import { loadAllContacts } from "./services/contacts.js";
 import { initTheme } from "./services/theme.js";
-import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flushSMSCache } from "./services/cache.js";
+import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flushSMSCache, flushNotificationsCache } from "./services/cache.js";
 
 // Import utilities
 import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./utils/i18n.js";
@@ -342,8 +342,11 @@ init();
 
 // Clean up Firestore listeners when popup closes to avoid WebChannel transport errors
 window.addEventListener("pagehide", () => {
-  // Flush any pending SMS cache write so the next popup open shows cached data
-  // instead of re-loading everything from Firestore.
+  // Flush any pending SMS / notification cache writes so the next popup open
+  // shows fully cached data instead of starting empty and re-filling from Firestore.
+  // Without this flush, the 3s debounce in cacheNotificationsData drops the latest
+  // SW-pushed notifications whenever the popup closes within 3s of an update.
   try { flushSMSCache(); } catch (_) {}
+  try { flushNotificationsCache(state.allNotifications); } catch (_) {}
   cleanupSubscriptions();
 });
