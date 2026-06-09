@@ -1690,6 +1690,9 @@ function _goBackFromConversation() {
     si.dataset.wired = ""; // will be re-wired by renderSMS
     delete si.dataset.wired;
   }
+  // Clean up starred-checkbox conv listener so it re-registers on next showConversation
+  const starredCb = document.getElementById("smsShowStarred");
+  if (starredCb) delete starredCb.dataset.convWired;
   renderSMS(state.allSMSMessages);
 }
 
@@ -1762,6 +1765,12 @@ export function showConversation(phoneNumber) {
     }
   }
   conversation = uniqueConversation;
+
+  // Apply starred filter if the checkbox is checked while inside the conversation detail
+  if (document.getElementById("smsShowStarred")?.checked) {
+    const _starred = getSmsStarredMessages();
+    conversation = conversation.filter(msg => _starred.has(msg.id));
+  }
 
   if (conversation.length === 0) {
     return;
@@ -2100,6 +2109,20 @@ export function showConversation(phoneNumber) {
       });
     }
   }
+  // Wire smsShowStarred checkbox to re-render this conversation when toggled
+  const convStarredCb = document.getElementById("smsShowStarred");
+  if (convStarredCb && !convStarredCb.dataset.convWired) {
+    convStarredCb.dataset.convWired = "1";
+    convStarredCb.addEventListener("change", function _convStarred() {
+      if (!state.currentConversation) {
+        convStarredCb.removeEventListener("change", _convStarred);
+        delete convStarredCb.dataset.convWired;
+        return;
+      }
+      showConversation(phoneNumber);
+    });
+  }
+
 
   // Open full window when sender name is clicked
   document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {

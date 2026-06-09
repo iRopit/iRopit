@@ -28528,6 +28528,8 @@ ${this.customData.serverResponse}`;
       si.dataset.wired = "";
       delete si.dataset.wired;
     }
+    const starredCb = document.getElementById("smsShowStarred");
+    if (starredCb) delete starredCb.dataset.convWired;
     renderSMS(allSMSMessages);
   }
   function initSMSNavigation() {
@@ -28570,6 +28572,10 @@ ${this.customData.serverResponse}`;
       }
     }
     conversation = uniqueConversation;
+    if (document.getElementById("smsShowStarred")?.checked) {
+      const _starred = getSmsStarredMessages();
+      conversation = conversation.filter((msg) => _starred.has(msg.id));
+    }
     if (conversation.length === 0) {
       return;
     }
@@ -28820,6 +28826,18 @@ ${this.customData.serverResponse}`;
           });
         });
       }
+    }
+    const convStarredCb = document.getElementById("smsShowStarred");
+    if (convStarredCb && !convStarredCb.dataset.convWired) {
+      convStarredCb.dataset.convWired = "1";
+      convStarredCb.addEventListener("change", function _convStarred() {
+        if (!currentConversation) {
+          convStarredCb.removeEventListener("change", _convStarred);
+          delete convStarredCb.dataset.convWired;
+          return;
+        }
+        showConversation(phoneNumber);
+      });
     }
     document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
       const payload = {
