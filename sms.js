@@ -1989,20 +1989,6 @@ export function showConversation(phoneNumber) {
             });
           }
         });
-        wrapper.querySelector(".star-msg-btn")?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const btn = wrapper.querySelector(".star-msg-btn");
-          const msgId = btn?.dataset.msgId;
-          if (!msgId) return;
-          toggleStarSmsMessage(msgId);
-          const nowStarred = getSmsStarredMessages().has(msgId);
-          btn.classList.toggle("starred", nowStarred);
-          const lang = getCurrentLanguage();
-          btn.title = lang === "ar"
-            ? (nowStarred ? "إلغاء تمييز الرسالة" : "تمييز الرسالة")
-            : (nowStarred ? "Unstar message" : "Star message");
-          btn.querySelector("svg")?.setAttribute("fill", nowStarred ? "currentColor" : "none");
-        });
       });
 
       // Preserve visual position: scroll down by the height of newly-prepended content
@@ -2152,6 +2138,23 @@ export function showConversation(phoneNumber) {
           showToast(getCurrentLanguage() === "ar" ? "ÙØ´Ù„ Ø§Ù„Ù†Ø³Ø®" : "Copy failed", "error");
         });
       }
+    });
+  });
+
+  // Add star message handlers
+  document.querySelectorAll(".star-msg-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msgId = btn.dataset.msgId;
+      if (!msgId) return;
+      toggleStarSmsMessage(msgId);
+      const nowStarred = getSmsStarredMessages().has(msgId);
+      btn.classList.toggle("starred", nowStarred);
+      const lang = getCurrentLanguage();
+      btn.title = lang === "ar"
+        ? (nowStarred ? "\u0625\u0644\u063a\u0627\u0621 \u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629")
+        : (nowStarred ? "Unstar message" : "Star message");
+      btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
     });
   });
 }

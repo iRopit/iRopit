@@ -24481,6 +24481,7 @@ ${this.customData.serverResponse}`;
           tooltip_delete_device: "Delete device",
           filter_show_starred: "Show Starred Messages",
           filter_show_unread: "Show Unread",
+          sms_filter_show_starred: "Show Starred",
           tooltip_back: "Back",
           tooltip_send_image: "Send Image",
           tooltip_send_file: "Send File",
@@ -24629,6 +24630,7 @@ ${this.customData.serverResponse}`;
           tooltip_delete_device: "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632",
           filter_show_starred: "\u0639\u0631\u0636 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0645\u0641\u0636\u0644\u0629",
           filter_show_unread: "\u0639\u0631\u0636 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621",
+          sms_filter_show_starred: "\u0639\u0631\u0636 \u0627\u0644\u0645\u0645\u064A\u0632\u0629",
           tooltip_back: "\u0631\u062C\u0648\u0639",
           tooltip_send_image: "\u0625\u0631\u0633\u0627\u0644 \u0635\u0648\u0631\u0629",
           tooltip_send_file: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u0641",
@@ -27359,6 +27361,7 @@ ${this.customData.serverResponse}`;
     loadMoreSMS: () => loadMoreSMS,
     loadSMS: () => loadSMS,
     loadSharedDevicesSMS: () => loadSharedDevicesSMS,
+    loadSmsStarredMessagesFromFirestore: () => loadSmsStarredMessagesFromFirestore,
     markAllSmsAsRead: () => markAllSmsAsRead,
     renderSMS: () => renderSMS,
     setSelectAll: () => setSelectAll,
@@ -27382,6 +27385,53 @@ ${this.customData.serverResponse}`;
       if (device) return device.nickname || device.name || msg.deviceName || null;
     }
     return msg.deviceName || null;
+  }
+  function getSmsStarredMessages() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(SMS_STARRED_LS_KEY) || "[]"));
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  function _saveSmsStarredLocal(starredSet) {
+    localStorage.setItem(SMS_STARRED_LS_KEY, JSON.stringify([...starredSet]));
+  }
+  async function _getSmsStarredDocRef() {
+    const user = currentUser;
+    if (!user) return null;
+    return doc(db, "users", user.uid);
+  }
+  async function loadSmsStarredMessagesFromFirestore() {
+    try {
+      const ref2 = await _getSmsStarredDocRef();
+      if (!ref2) return;
+      const snap = await getDoc(ref2);
+      if (snap.exists()) {
+        const ids = snap.data().smsStarredMessageIds || [];
+        _saveSmsStarredLocal(new Set(ids));
+      }
+    } catch (e) {
+      console.debug("[SMS] Could not load starred messages from Firestore:", e);
+    }
+  }
+  async function saveSmsStarredMessages(starredSet) {
+    _saveSmsStarredLocal(starredSet);
+    try {
+      const ref2 = await _getSmsStarredDocRef();
+      if (!ref2) return;
+      await setDoc(ref2, { smsStarredMessageIds: [...starredSet] }, { merge: true });
+    } catch (e) {
+      console.warn("[SMS] Could not persist starred messages to Firestore:", e);
+    }
+  }
+  function toggleStarSmsMessage(msgId) {
+    const starred = getSmsStarredMessages();
+    if (starred.has(msgId)) {
+      starred.delete(msgId);
+    } else {
+      starred.add(msgId);
+    }
+    saveSmsStarredMessages(starred);
   }
   function isSMSSyncing() {
     return isSyncing;
@@ -28097,6 +28147,12 @@ ${this.customData.serverResponse}`;
       smsUnreadCb.dataset.wired = "1";
       smsUnreadCb.addEventListener("change", () => renderSMS(allSMSMessages));
     }
+    const smsStarredCb = document.getElementById("smsShowStarred");
+    if (smsStarredCb && !smsStarredCb.dataset.wired) {
+      smsStarredCb.dataset.wired = "1";
+      smsStarredCb.addEventListener("change", () => renderSMS(allSMSMessages));
+      loadSmsStarredMessagesFromFirestore().then(() => renderSMS(allSMSMessages));
+    }
     const smsListElement = document.getElementById("smsList");
     if (!smsListElement) {
       return;
@@ -28214,6 +28270,10 @@ ${this.customData.serverResponse}`;
     );
     if (document.getElementById("smsShowUnread")?.checked) {
       conversations = conversations.filter((c) => c.unreadCount > 0);
+    }
+    if (document.getElementById("smsShowStarred")?.checked) {
+      const smsStarred = getSmsStarredMessages();
+      conversations = conversations.filter((c) => c.messages.some((m) => smsStarred.has(m.id)));
     }
     if (conversations.length === 0) {
       smsListElement.innerHTML = `
@@ -28553,7 +28613,9 @@ ${this.customData.serverResponse}`;
       </div>
       <div class="conversation-messages">
         ${conversation.map(
-      (msg) => `
+      (msg) => {
+        const isStarred = getSmsStarredMessages().has(msg.id);
+        return `
           <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
             <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
               <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
@@ -28569,6 +28631,11 @@ ${this.customData.serverResponse}`;
               </div>
             </div>
             <div class="chat-message-actions">
+              <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? isStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : isStarred ? "Unstar message" : "Star message"}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
               <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0646\u0635" : "Copy text"}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -28577,7 +28644,8 @@ ${this.customData.serverResponse}`;
               </button>
             </div>
           </div>
-        `
+        `;
+      }
     ).join("")}
       </div>
   `;
@@ -28585,7 +28653,9 @@ ${this.customData.serverResponse}`;
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       const renderedIds = new Set(conversation.map((m) => m.id));
-      const buildMessageHtml = (msg) => `
+      const buildMessageHtml = (msg) => {
+        const isStarred = getSmsStarredMessages().has(msg.id);
+        return `
           <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
             <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
               <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
@@ -28601,6 +28671,11 @@ ${this.customData.serverResponse}`;
               </div>
             </div>
             <div class="chat-message-actions">
+              <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === "ar" ? isStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : isStarred ? "Unstar message" : "Star message"}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="${isStarred ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
               <button class="chat-action-btn copy-msg-btn" title="${getCurrentLanguage() === "ar" ? "\u0646\u0633\u062E \u0627\u0644\u0646\u0635" : "Copy text"}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -28609,6 +28684,7 @@ ${this.customData.serverResponse}`;
               </button>
             </div>
           </div>`;
+      };
       const prependNewMessages = () => {
         const fresh = allSMSMessages.filter((msg) => {
           const msgPhone = (msg.phoneNumber || msg.sender || "").replace(/[\s\-\(\)\.]/g, "").trim();
@@ -28658,6 +28734,18 @@ ${this.customData.serverResponse}`;
                 showToast(getCurrentLanguage() === "ar" ? "\u0641\u0634\u0644 \u0627\u0644\u0646\u0633\u062E" : "Copy failed", "error");
               });
             }
+          });
+          wrapper.querySelector(".star-msg-btn")?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const btn = wrapper.querySelector(".star-msg-btn");
+            const msgId = btn?.dataset.msgId;
+            if (!msgId) return;
+            toggleStarSmsMessage(msgId);
+            const nowStarred = getSmsStarredMessages().has(msgId);
+            btn.classList.toggle("starred", nowStarred);
+            const lang = getCurrentLanguage();
+            btn.title = lang === "ar" ? nowStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : nowStarred ? "Unstar message" : "Star message";
+            btn.querySelector("svg")?.setAttribute("fill", nowStarred ? "currentColor" : "none");
           });
         });
         const heightDelta = messagesContainer.scrollHeight - prevScrollHeight;
@@ -29409,7 +29497,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29430,6 +29518,7 @@ ${this.customData.serverResponse}`;
       decryptionCache = /* @__PURE__ */ new Map();
       PAGE_SIZE = 1e4;
       paginationState = {};
+      SMS_STARRED_LS_KEY = "smsStarredMessages";
       isLoadingMore = false;
       scrollHandlerAttached = false;
       isSyncing = false;
