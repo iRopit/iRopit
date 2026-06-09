@@ -42,9 +42,9 @@ export function updateTabBadges() {
 
   // Update the extension icon badge directly from the popup context — this is
   // always reliable regardless of SW sleep state.
-  const badgeText = notifUnread > 0 ? (notifUnread > 99 ? "99+" : String(notifUnread)) : "";
+  const badgeText = notifUnread > 0 ? "●" : "";
   chrome.action.setBadgeText({ text: badgeText });
-  if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+  if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#43A047" }); // green dot
   chrome.storage.local.set({ badgeCount: notifUnread });
   // Also update the SW's in-memory counter (best-effort; SW may be sleeping).
   chrome.runtime.sendMessage({ type: "syncBadge", count: notifUnread }, () => {

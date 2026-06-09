@@ -24914,9 +24914,9 @@ ${this.customData.serverResponse}`;
       return !n.read;
     }).length;
     updateBadge("notificationsBadge", notifUnread);
-    const badgeText = notifUnread > 0 ? notifUnread > 99 ? "99+" : String(notifUnread) : "";
+    const badgeText = notifUnread > 0 ? "\u25CF" : "";
     chrome.action.setBadgeText({ text: badgeText });
-    if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+    if (notifUnread > 0) chrome.action.setBadgeBackgroundColor({ color: "#43A047" });
     chrome.storage.local.set({ badgeCount: notifUnread });
     chrome.runtime.sendMessage({ type: "syncBadge", count: notifUnread }, () => {
       void chrome.runtime.lastError;

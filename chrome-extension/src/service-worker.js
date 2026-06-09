@@ -2363,10 +2363,10 @@ function setUnreadIdsForSource(sourceKey, unreadIds) {
 
 /** Update the extension action badge UI. */
 function updateBadge() {
-  const text = badgeCount > 0 ? (badgeCount > 99 ? "99+" : String(badgeCount)) : "";
+  const text = badgeCount > 0 ? "●" : "";
   chrome.action.setBadgeText({ text });
   if (badgeCount > 0) {
-    chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+    chrome.action.setBadgeBackgroundColor({ color: "#43A047" }); // green dot
   }
 }
 

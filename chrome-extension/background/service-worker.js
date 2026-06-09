@@ -20559,10 +20559,10 @@ function setUnreadIdsForSource(sourceKey, unreadIds) {
   setBadgeCount(allUnreadIds.size);
 }
 function updateBadge() {
-  const text = badgeCount > 0 ? badgeCount > 99 ? "99+" : String(badgeCount) : "";
+  const text = badgeCount > 0 ? "\u25CF" : "";
   chrome.action.setBadgeText({ text });
   if (badgeCount > 0) {
-    chrome.action.setBadgeBackgroundColor({ color: "#E53935" });
+    chrome.action.setBadgeBackgroundColor({ color: "#43A047" });
   }
 }
 function createNotificationIfNotSnoozed(notifId, options, callback) {
