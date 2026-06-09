@@ -172,6 +172,10 @@ export async function injectPushedNotification(data) {
   } else {
     updateNotificationsList(deviceId, [notif, ...existing]);
   }
+  // Persist the injected notification to cache so it survives popup close/reopen.
+  // Without this, if the popup closes before the next onSnapshot fires (the only
+  // other place that writes cache), the SW-pushed notification is lost on reopen.
+  cacheNotificationsData(state.allNotifications).catch(() => {});
 }
 
 export async function loadNotifications() {
@@ -208,7 +212,7 @@ export async function loadNotifications() {
             // each device's listener fires; pre-populating causes fresh dev1 + stale-cached
             // dev2 to be mixed before dev2's listener has a chance to run.
             cachedNewestTimestamps[deviceId] = Math.max(
-              ...notifs.map((n) => n.timestamp || n.receivedAt || 0),
+              ...notifs.map((n) => tsMs(n.timestamp) || n.receivedAt || 0),
             );
           }
         }
