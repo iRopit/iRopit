@@ -33770,6 +33770,8 @@ ${this.customData.serverResponse}`;
       flushNotificationsCache(allNotifications);
     } catch (_) {
     }
+    chrome.runtime.sendMessage({ type: "popupClosed" }).catch(() => {
+    });
     cleanupSubscriptions();
   });
 })();

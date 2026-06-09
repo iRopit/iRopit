@@ -348,5 +348,7 @@ window.addEventListener("pagehide", () => {
   // SW-pushed notifications whenever the popup closes within 3s of an update.
   try { flushSMSCache(); } catch (_) {}
   try { flushNotificationsCache(state.allNotifications); } catch (_) {}
+  // Tell the SW the popup is closed so it can resume badge management from cache.
+  chrome.runtime.sendMessage({ type: "popupClosed" }).catch(() => {});
   cleanupSubscriptions();
 });

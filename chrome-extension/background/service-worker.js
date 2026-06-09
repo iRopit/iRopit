@@ -18926,10 +18926,13 @@ chrome.storage.local.get(
     updateBadge();
   }
 );
+var popupIsOpen = false;
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes.cached_notifications_data) {
-    refreshBadgeFromCachedNotifications();
+    if (!popupIsOpen) {
+      refreshBadgeFromCachedNotifications();
+    }
   }
   if (changes.smartAction_copyOtp !== void 0) smartActions.copyOtp = changes.smartAction_copyOtp.newValue !== false;
   if (changes.smartAction_copyOtpEmail !== void 0) smartActions.copyOtpEmail = changes.smartAction_copyOtpEmail.newValue !== false;
@@ -21074,7 +21077,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     clearBadge();
     sendResponse({ success: true });
   }
+  if (message.type === "popupClosed") {
+    popupIsOpen = false;
+    sendResponse({ success: true });
+  }
   if (message.type === "syncBadge") {
+    popupIsOpen = true;
+    unreadIdsBySource.clear();
     setBadgeCount(message.count);
     sendResponse({ success: true });
   }

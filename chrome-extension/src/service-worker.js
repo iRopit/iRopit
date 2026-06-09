@@ -117,11 +117,22 @@ chrome.storage.local.get(
   },
 );
 
+// Track whether the popup is currently open. When true, the popup owns the badge
+// and the SW should not override it from storage.onChanged (which causes the badge
+// to jump back to the SW's stale getLiveUnreadCount() value after the popup sends
+// syncBadge with the correct, lower count).
+let popupIsOpen = false;
+
 // Keep badge aligned with popup whenever cached notification data changes.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes.cached_notifications_data) {
-    refreshBadgeFromCachedNotifications();
+    // Only refresh badge from cache when popup is closed. When popup is open it
+    // sends syncBadge with the authoritative count; overriding it here causes the
+    // badge to flicker back to the SW's getLiveUnreadCount() (e.g. 20 vs 1).
+    if (!popupIsOpen) {
+      refreshBadgeFromCachedNotifications();
+    }
   }
   // Keep smart action settings in sync
   if (changes.smartAction_copyOtp !== undefined) smartActions.copyOtp = changes.smartAction_copyOtp.newValue !== false;
@@ -2930,8 +2941,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
   }
 
+  // Popup closed — SW resumes badge management from cache
+  if (message.type === "popupClosed") {
+    popupIsOpen = false;
+    sendResponse({ success: true });
+  }
+
   // Sync badge to the real unread count (sent by popup's updateTabBadges)
   if (message.type === "syncBadge") {
+    popupIsOpen = true;
+    // Clear the SW's live unread tracking so getLiveUnreadCount() aligns with
+    // the popup's authoritative view. Without this, setBadgeCountFromCache uses
+    // Math.max(popupCount, swLiveCount) and the badge never drops below the SW's
+    // accumulated count (e.g. 20) even when popup shows only 1 notification.
+    // The next onSnapshot callback will rebuild unreadIdsBySource from scratch.
+    unreadIdsBySource.clear();
     setBadgeCount(message.count);
     sendResponse({ success: true });
   }
