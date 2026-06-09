@@ -2142,18 +2142,31 @@ async function refreshPopupCache() {
       });
     }
 
-    // Re-read current notifications cache just before writing to preserve any
-    // read=true updates the popup may have written while we fetched Firestore.
+    // Re-read current notifications cache just before writing.
+    // This serves two purposes:
+    // 1. Preserve read=true written by the popup while we were fetching.
+    // 2. Keep any SW-pushed notifications the popup flushed to cache that the
+    //    Firestore delta query missed (e.g. WhatsApp "modified" events that share
+    //    an existing docId — the delta query uses where("timestamp",">",newest)
+    //    and won't return a doc whose timestamp didn't change, so without this
+    //    merge those notifications disappear from cache after refreshPopupCache runs).
     const latestNotifCache = await chrome.storage.local.get(["cached_notifications_data"]);
     const latestNotifsByDevice = latestNotifCache.cached_notifications_data?.byDevice || {};
-    for (const deviceId of Object.keys(newNotifsByDevice)) {
+    for (const deviceId of Object.keys(latestNotifsByDevice)) {
       const latestNotifs = latestNotifsByDevice[deviceId];
       if (!latestNotifs || latestNotifs.length === 0) continue;
+      const swNotifs = newNotifsByDevice[deviceId] || [];
+      const swIds = new Set(swNotifs.map((n) => n.id));
       const latestById = new Map(latestNotifs.map((n) => [n.id, n]));
-      newNotifsByDevice[deviceId] = newNotifsByDevice[deviceId].map((n) => {
+      // Apply read:true from latest cache to SW-fetched items
+      const merged = swNotifs.map((n) => {
         const latest = latestById.get(n.id);
         return (latest && latest.read === true && !n.read) ? { ...n, read: true } : n;
       });
+      // Add any items the popup wrote to cache that the SW delta query didn't return
+      // (prevents SW cache overwrite from discarding SW-pushed injected notifications)
+      const popupOnly = latestNotifs.filter((n) => !swIds.has(n.id));
+      newNotifsByDevice[deviceId] = [...merged, ...popupOnly].slice(0, 200);
     }
 
     // Refresh the locally-read index so background badge counting matches popup.
