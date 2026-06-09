@@ -29817,6 +29817,8 @@ ${this.customData.serverResponse}`;
     } else {
       updateNotificationsList(deviceId, [notif, ...existing]);
     }
+    cacheNotificationsData(allNotifications).catch(() => {
+    });
   }
   async function loadNotifications() {
     const user = currentUser;
@@ -29837,7 +29839,7 @@ ${this.customData.serverResponse}`;
             if (notifs.length > 0) {
               hasData = true;
               cachedNewestTimestamps[deviceId] = Math.max(
-                ...notifs.map((n) => n.timestamp || n.receivedAt || 0)
+                ...notifs.map((n) => tsMs(n.timestamp) || n.receivedAt || 0)
               );
             }
           }
