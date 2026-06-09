@@ -172,13 +172,13 @@ export async function injectPushedNotification(data) {
   } else {
     updateNotificationsList(deviceId, [notif, ...existing]);
   }
-  // Only flush cache if the initial load is complete (pendingNotifSnapshots === 0).
-  // If we flush while loadNotifications() is still seeding state from chrome.storage,
-  // state.allNotifications may contain only this 1 pushed item — and the flush would
-  // overwrite the full historical cache with just 1 item, causing the
-  // "only 1 notification on open, then more appear" symptom.
+  // Cache is flushed on pagehide (popup.js) which reliably captures full state.
+  // We do NOT flush here to avoid overwriting historical cache when state is
+  // temporarily empty (e.g. auth init window between showCachedDataBeforeAuth
+  // and loadNotifications seeding state). The isSyncingNotif guard below is a
+  // secondary safety net for the brief window while loadNotifications is running.
   if (!isSyncingNotif) {
-    flushNotificationsCache(state.allNotifications).catch(() => {});
+    cacheNotificationsData(state.allNotifications).catch(() => {});
   }
 }
 
@@ -186,8 +186,13 @@ export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
 
+  // Mark syncing immediately (before any await) so injectPushedNotification
+  // skips flushing during the initial load window when state may be empty.
+  isSyncingNotif = true;
+
   // Show loading spinner immediately — replaced by cached/fresh data when it arrives
   if (notificationsList) showListLoading(notificationsList);
+
   // === STEP 1: Show cached notifications instantly ===
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading

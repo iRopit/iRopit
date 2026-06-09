@@ -144,14 +144,14 @@ async function showCachedDataBeforeAuth() {
     }
 
     if (notifCache?.byDevice) {
-      // Temporarily seed state for rendering, then clear so listener merges start clean.
+      // Seed state for instant rendering. Keep state seeded (do NOT clear afterwards)
+      // so that if the SW pushes a notification before loadNotifications() re-seeds
+      // state, injectPushedNotification finds the full history instead of []
+      // and avoids overwriting the cache with just 1 item.
       for (const [deviceId, notifs] of Object.entries(notifCache.byDevice)) {
         if (notifs.length > 0) state.setNotificationsData(deviceId, notifs);
       }
       reRenderNotifications();
-      for (const deviceId of Object.keys(notifCache.byDevice)) {
-        state.setNotificationsData(deviceId, []);
-      }
     }
 
     console.log("[Popup] ⚡ Pre-auth cache displayed");

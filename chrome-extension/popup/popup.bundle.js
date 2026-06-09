@@ -29818,13 +29818,14 @@ ${this.customData.serverResponse}`;
       updateNotificationsList(deviceId, [notif, ...existing]);
     }
     if (!isSyncingNotif) {
-      flushNotificationsCache(allNotifications).catch(() => {
+      cacheNotificationsData(allNotifications).catch(() => {
       });
     }
   }
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
+    isSyncingNotif = true;
     if (notificationsList) showListLoading(notificationsList);
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
@@ -33639,9 +33640,6 @@ ${this.customData.serverResponse}`;
           if (notifs.length > 0) setNotificationsData(deviceId, notifs);
         }
         reRenderNotifications();
-        for (const deviceId of Object.keys(notifCache.byDevice)) {
-          setNotificationsData(deviceId, []);
-        }
       }
       console.log("[Popup] \u26A1 Pre-auth cache displayed");
     } catch (e) {
