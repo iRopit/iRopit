@@ -1203,7 +1203,8 @@ export function renderSMS(messages) {
   if (smsStarredCb && !smsStarredCb.dataset.wired) {
     smsStarredCb.dataset.wired = "1";
     smsStarredCb.addEventListener("change", () => renderSMS(state.allSMSMessages));
-    loadSmsStarredMessagesFromFirestore().then(() => renderSMS(state.allSMSMessages));
+    // Load starred IDs silently on first open (no re-render needed — checkbox not checked yet)
+    loadSmsStarredMessagesFromFirestore();
   }
 
   const smsListElement = document.getElementById("smsList");
@@ -1374,13 +1375,21 @@ export function renderSMS(messages) {
   }
 
   if (conversations.length === 0) {
+    const lang = getCurrentLanguage();
+    const isStarredFilter = document.getElementById("smsShowStarred")?.checked;
+    const emptyTitle = isStarredFilter
+      ? (lang === "ar" ? "لا توجد رسائل مميزة" : "No starred messages")
+      : (lang === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread messages");
+    const emptySub = isStarredFilter
+      ? (lang === "ar" ? "قم بتمييز رسائل من داخل المحادثة" : "Star messages inside a conversation")
+      : (lang === "ar" ? "تمت قراءة جميع المحادثات" : "All conversations have been read");
     smsListElement.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
         </svg>
-        <p>No unread messages</p>
-        <span>All conversations have been read</span>
+        <p>${emptyTitle}</p>
+        <span>${emptySub}</span>
       </div>
     `;
     updateTabBadges();
@@ -2152,6 +2161,23 @@ export function showConversation(phoneNumber) {
           showToast(getCurrentLanguage() === "ar" ? "ÙØ´Ù„ Ø§Ù„Ù†Ø³Ø®" : "Copy failed", "error");
         });
       }
+    });
+  });
+
+  // Add star message handlers
+  document.querySelectorAll(".star-msg-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msgId = btn.dataset.msgId;
+      if (!msgId) return;
+      toggleStarSmsMessage(msgId);
+      const nowStarred = getSmsStarredMessages().has(msgId);
+      btn.classList.toggle("starred", nowStarred);
+      const lang = getCurrentLanguage();
+      btn.title = lang === "ar"
+        ? (nowStarred ? "\u0625\u0644\u063a\u0627\u0621 \u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629")
+        : (nowStarred ? "Unstar message" : "Star message");
+      btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
     });
   });
 }

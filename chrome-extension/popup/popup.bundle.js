@@ -28151,7 +28151,7 @@ ${this.customData.serverResponse}`;
     if (smsStarredCb && !smsStarredCb.dataset.wired) {
       smsStarredCb.dataset.wired = "1";
       smsStarredCb.addEventListener("change", () => renderSMS(allSMSMessages));
-      loadSmsStarredMessagesFromFirestore().then(() => renderSMS(allSMSMessages));
+      loadSmsStarredMessagesFromFirestore();
     }
     const smsListElement = document.getElementById("smsList");
     if (!smsListElement) {
@@ -28276,13 +28276,17 @@ ${this.customData.serverResponse}`;
       conversations = conversations.filter((c) => c.messages.some((m) => smsStarred.has(m.id)));
     }
     if (conversations.length === 0) {
+      const lang = getCurrentLanguage();
+      const isStarredFilter = document.getElementById("smsShowStarred")?.checked;
+      const emptyTitle = isStarredFilter ? lang === "ar" ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0645\u0645\u064A\u0632\u0629" : "No starred messages" : lang === "ar" ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629" : "No unread messages";
+      const emptySub = isStarredFilter ? lang === "ar" ? "\u0642\u0645 \u0628\u062A\u0645\u064A\u064A\u0632 \u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Star messages inside a conversation" : lang === "ar" ? "\u062A\u0645\u062A \u0642\u0631\u0627\u0621\u0629 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A" : "All conversations have been read";
       smsListElement.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
         </svg>
-        <p>No unread messages</p>
-        <span>All conversations have been read</span>
+        <p>${emptyTitle}</p>
+        <span>${emptySub}</span>
       </div>
     `;
       updateTabBadges();
@@ -28869,6 +28873,19 @@ ${this.customData.serverResponse}`;
             showToast(getCurrentLanguage() === "ar" ? "\xD9\x81\xD8\xB4\xD9\u201E \xD8\xA7\xD9\u201E\xD9\u2020\xD8\xB3\xD8\xAE" : "Copy failed", "error");
           });
         }
+      });
+    });
+    document.querySelectorAll(".star-msg-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msgId = btn.dataset.msgId;
+        if (!msgId) return;
+        toggleStarSmsMessage(msgId);
+        const nowStarred = getSmsStarredMessages().has(msgId);
+        btn.classList.toggle("starred", nowStarred);
+        const lang = getCurrentLanguage();
+        btn.title = lang === "ar" ? nowStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : nowStarred ? "Unstar message" : "Star message";
+        btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
       });
     });
   }
