@@ -20278,7 +20278,7 @@ async function pollForNewNotifications() {
       });
     }
   } catch (error) {
-    if (error?.code === "permission-denied" || !auth.currentUser) {
+    if (error?.code === "permission-denied" || error?.code === "unavailable" || !auth.currentUser) {
       return;
     }
     console.error("ZyncIT: Poll error:", error);

@@ -1984,8 +1984,11 @@ async function pollForNewNotifications() {
     }
   } catch (error) {
     // Silently ignore permission errors that occur during sign-out race.
+    // Also ignore unavailable errors (offline / Firestore quota exceeded) —
+    // these are transient and the next poll cycle will retry automatically.
     if (
       error?.code === "permission-denied" ||
+      error?.code === "unavailable" ||
       !auth.currentUser
     ) {
       return;
