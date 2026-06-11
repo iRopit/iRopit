@@ -36,6 +36,7 @@ import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
 import { getCachedCalls, cacheCallsData, clearCache } from "./cache.js";
+import { wireHoverPreview } from "../utils/hoverPreview.js";
 
 // ── Call type label (i18n) ──────────────────────────────────────────────────
 function getCallTypeLabel(type) {
@@ -832,11 +833,11 @@ export function renderCalls(calls) {
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
-        <div class="list-item-title" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
+      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
+        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">${
+        <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">${
           group.lastCall.type
             ? `${getCallTypeLabel(group.lastCall.type)} · ${String(methodLabel).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}`
             : isSyncingCalls
@@ -865,6 +866,8 @@ export function renderCalls(calls) {
     </div>
   `; })
     .join("");
+
+  wireHoverPreview(callsList);
 
   // Add click handlers for call groups
   document.querySelectorAll(".call-group").forEach((el) => {

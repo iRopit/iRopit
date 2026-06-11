@@ -33,6 +33,7 @@ import { updateTabBadges } from "./badges.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import { getCachedNotifications, cacheNotificationsData, flushNotificationsCache } from "./cache.js";
 import { decryptNotification } from "./cryptoService.js";
+import { wireHoverPreview } from "../utils/hoverPreview.js";
 
 // Convert any timestamp shape (number, Firestore Timestamp, plain
 // {seconds,nanoseconds} after JSON serialization) to milliseconds.
@@ -1051,12 +1052,12 @@ function renderNotifications(notifications) {
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" title="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" title="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
-          <div class="list-item-subtitle" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${unreadCount > 0 ? `${unreadCount} unread` : ""}
             ${groupDeviceName ? `<span class="notification-device">📱 ${escapeHtml(groupDeviceName)}</span>` : ""}
@@ -1069,6 +1070,8 @@ function renderNotifications(notifications) {
       </div>
     `;
   }).join("");
+
+  wireHoverPreview(notificationsList);
 
   const appKeys = groupEntries.map(([key]) => key);
 

@@ -26161,6 +26161,112 @@ ${this.customData.serverResponse}`;
     }
   });
 
+  // src/utils/hoverPreview.js
+  function ensureTooltip() {
+    if (tooltipEl) return tooltipEl;
+    tooltipEl = document.createElement("div");
+    tooltipEl.className = "iropit-hover-tooltip";
+    tooltipEl.setAttribute("role", "tooltip");
+    document.body.appendChild(tooltipEl);
+    return tooltipEl;
+  }
+  function hideTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.classList.remove("visible");
+    activeHost = null;
+  }
+  function positionTooltipByPoint(clientX, clientY) {
+    if (!tooltipEl) return;
+    const offset = 14;
+    const padding = 12;
+    let left = clientX + offset;
+    let top = clientY + offset;
+    const rect = tooltipEl.getBoundingClientRect();
+    if (left + rect.width + padding > window.innerWidth) {
+      left = window.innerWidth - rect.width - padding;
+    }
+    if (top + rect.height + padding > window.innerHeight) {
+      top = window.innerHeight - rect.height - padding;
+    }
+    tooltipEl.style.left = `${Math.max(padding, left)}px`;
+    tooltipEl.style.top = `${Math.max(padding, top)}px`;
+  }
+  function positionTooltipByElement(el) {
+    if (!tooltipEl || !el) return;
+    const r = el.getBoundingClientRect();
+    const centerX = r.left + Math.min(r.width, 260) / 2;
+    const topY = r.top;
+    positionTooltipByPoint(centerX, topY);
+  }
+  function showTooltipFor(el, event) {
+    const text = el?.dataset?.hoverPreview;
+    if (!text) {
+      hideTooltip();
+      return;
+    }
+    const tip = ensureTooltip();
+    tip.textContent = text;
+    tip.classList.add("visible");
+    if (event && typeof event.clientX === "number") {
+      positionTooltipByPoint(event.clientX, event.clientY);
+    } else {
+      positionTooltipByElement(el);
+    }
+  }
+  function wireHoverPreview(container) {
+    if (!container || wiredContainers.has(container)) return;
+    wiredContainers.add(container);
+    container.addEventListener("mouseover", (e) => {
+      const host = e.target.closest("[data-hover-preview]");
+      if (!host || !container.contains(host)) {
+        if (tooltipEl?.classList.contains("visible")) hideTooltip();
+        return;
+      }
+      activeHost = host;
+      showTooltipFor(host, e);
+    });
+    container.addEventListener("mousemove", (e) => {
+      const host = e.target.closest("[data-hover-preview]");
+      if (!host || !container.contains(host)) {
+        if (tooltipEl?.classList.contains("visible")) hideTooltip();
+        return;
+      }
+      if (activeHost !== host || !tooltipEl?.classList.contains("visible")) {
+        activeHost = host;
+        showTooltipFor(host, e);
+        return;
+      }
+      positionTooltipByPoint(e.clientX, e.clientY);
+    });
+    container.addEventListener("mouseleave", hideTooltip);
+    container.addEventListener("scroll", hideTooltip, true);
+    container.addEventListener("mousedown", hideTooltip);
+    container.addEventListener("focusin", (e) => {
+      const host = e.target.closest("[data-hover-preview]");
+      if (!host || !container.contains(host)) return;
+      activeHost = host;
+      showTooltipFor(host);
+    });
+    container.addEventListener("focusout", () => {
+      hideTooltip();
+    });
+    if (!globalListenersWired) {
+      window.addEventListener("scroll", hideTooltip, true);
+      window.addEventListener("resize", hideTooltip);
+      window.addEventListener("blur", hideTooltip);
+      globalListenersWired = true;
+    }
+  }
+  var tooltipEl, globalListenersWired, activeHost, wiredContainers;
+  var init_hoverPreview = __esm({
+    "src/utils/hoverPreview.js"() {
+      tooltipEl = null;
+      globalListenersWired = false;
+      activeHost = null;
+      wiredContainers = /* @__PURE__ */ new WeakSet();
+    }
+  });
+
   // src/services/calls.js
   var calls_exports = {};
   __export(calls_exports, {
@@ -26710,11 +26816,11 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
-        <div class="list-item-title" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
+        <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
@@ -26734,6 +26840,7 @@ ${this.customData.serverResponse}`;
   `;
       }
     ).join("");
+    wireHoverPreview(callsList);
     document.querySelectorAll(".call-group").forEach((el) => {
       el.addEventListener("click", (e) => {
         const groupKey = el.dataset.groupKey;
@@ -27182,6 +27289,7 @@ ${this.customData.serverResponse}`;
       init_cryptoService();
       init_contacts();
       init_cache();
+      init_hoverPreview();
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
       callDecryptionCache = /* @__PURE__ */ new Map();
@@ -28321,17 +28429,17 @@ ${this.customData.serverResponse}`;
         const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
         const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
         return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" title="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" title="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle" title="${escapeHtml(listHoverPreview)}">${(() => {
+        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${(() => {
           const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "";
           return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>';
         })()}</div>
@@ -28365,6 +28473,7 @@ ${this.customData.serverResponse}`;
       oldSmsList.parentNode.replaceChild(newSmsList, oldSmsList);
     }
     const smsList2 = document.getElementById("smsList");
+    wireHoverPreview(smsList2);
     let longPressTimer = null;
     smsList2?.addEventListener("pointerdown", (e) => {
       const conversation = e.target.closest(".sms-conversation");
@@ -29551,6 +29660,7 @@ ${this.customData.serverResponse}`;
       init_contacts();
       init_cache();
       init_i18n();
+      init_hoverPreview();
       smsUnsubscribeFunctions = [];
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
@@ -30491,12 +30601,12 @@ ${this.customData.serverResponse}`;
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" title="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" title="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
-          <div class="list-item-subtitle" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${unreadCount > 0 ? `${unreadCount} unread` : ""}
             ${groupDeviceName ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(groupDeviceName)}</span>` : ""}
@@ -30509,6 +30619,7 @@ ${this.customData.serverResponse}`;
       </div>
     `;
     }).join("");
+    wireHoverPreview(notificationsList);
     const appKeys = groupEntries.map(([key]) => key);
     notificationsList.querySelectorAll(".notification-item").forEach((item) => {
       item.addEventListener("click", () => {
@@ -30882,6 +30993,7 @@ ${this.customData.serverResponse}`;
       init_i18n();
       init_cache();
       init_cryptoService();
+      init_hoverPreview();
       isSyncingNotif = false;
       pendingNotifSnapshots = 0;
       NOTIF_INITIAL_LIMIT = 500;
