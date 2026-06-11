@@ -143,6 +143,13 @@ let isLoadingMore = false;
 let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
 let isSyncing = false;
+let smsQuotaToastShown = false;
+
+function isQuotaExceededError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "");
+  return code.includes("resource-exhausted") || /quota\s+exceeded/i.test(message);
+}
 
 /** Returns true while loadSMS() is still fetching from Firestore. */
 export function isSMSSyncing() {
@@ -544,7 +551,7 @@ export async function loadSMS() {
 
     // Load SMS using getDocs (one-time) for fast initial load
     // Then start realtime listeners for new messages only
-    const loadPromises = devicesList.map(async (device) => {
+    const loadTasks = devicesList.map((device) => async () => {
       // Initialize pagination state for this device
       // Capture local ref so a paginationState reset mid-flight doesn't crash us
       const devicePagState = {
@@ -755,6 +762,19 @@ export async function loadSMS() {
         }
       } catch (error) {
         if (error?.code === "permission-denied") return;
+        if (isQuotaExceededError(error)) {
+          if (!smsQuotaToastShown) {
+            smsQuotaToastShown = true;
+            showToast(
+              getCurrentLanguage() === "ar"
+                ? "تم بلوغ حد Firestore مؤقتا. تم تحميل جزء من الرسائل فقط."
+                : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
+              "warning",
+            );
+          }
+          console.warn(`[SMS] Quota exceeded while loading device ${device.id}`);
+          return;
+        }
         console.error(`âŒ SMS load error for device ${device.id}:`, error);
       }
     });
@@ -763,8 +783,15 @@ export async function loadSMS() {
     // The first snapshot will show the latest messages even before getDocs completes
     startSMSRealtimeListeners(user.uid, devicesList);
 
-    // Load all devices in parallel (full history runs in background)
-    await Promise.all(loadPromises);
+    // First install usually has no cache and can trigger large full-load reads.
+    // Run those sequentially to avoid rate bursts that cause resource-exhausted.
+    if (hasCachedData) {
+      await Promise.all(loadTasks.map((task) => task()));
+    } else {
+      for (const task of loadTasks) {
+        await task();
+      }
+    }
     console.log("[SMS] âœ… Initial load complete");
 
     isSyncing = false;
@@ -1420,13 +1447,13 @@ export function renderSMS(messages) {
     const lastFallback = getCurrentLanguage() === "ar" ? "بدون نص" : "No text";
     const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
     return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content">
+        <div class="list-item-title">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
@@ -3072,7 +3099,25 @@ export async function loadSharedDevicesSMS(shares) {
       updateSMSList(share.deviceId, messages);
     } catch (err) {
       if (err?.code === "permission-denied") return;
-      console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
+      if (isQuotaExceededError(err)) {
+        if (!smsQuotaToastShown) {
+          smsQuotaToastShown = true;
+          showToast(
+            getCurrentLanguage() === "ar"
+              ? "تم بلوغ حد Firestore مؤقتا. تم تحميل جزء من الرسائل فقط."
+              : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
+            "warning",
+          );
+        }
+        console.warn(
+          `[SMS] Quota exceeded while loading shared device ${share.deviceId}`,
+        );
+        continue;
+      }
+      console.error(
+        `[SMS] Shared device load error for ${share.deviceId}:`,
+        err,
+      );
     }
   }
 }

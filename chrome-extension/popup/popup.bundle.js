@@ -26816,8 +26816,8 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
-        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+      <div class="list-item-content">
+        <div class="list-item-title">
           <span class="call-contact-name">${displayName}</span>
         </div>
         <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
@@ -27551,6 +27551,11 @@ ${this.customData.serverResponse}`;
     }
     saveSmsStarredMessages(starred);
   }
+  function isQuotaExceededError(error) {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    return code.includes("resource-exhausted") || /quota\s+exceeded/i.test(message);
+  }
   function isSMSSyncing() {
     return isSyncing;
   }
@@ -27797,7 +27802,7 @@ ${this.customData.serverResponse}`;
         }
         return;
       }
-      const loadPromises = devicesList2.map(async (device) => {
+      const loadTasks = devicesList2.map((device) => async () => {
         const devicePagState = {
           lastTimestamp: null,
           hasMore: true,
@@ -27957,11 +27962,28 @@ ${this.customData.serverResponse}`;
           }
         } catch (error) {
           if (error?.code === "permission-denied") return;
+          if (isQuotaExceededError(error)) {
+            if (!smsQuotaToastShown) {
+              smsQuotaToastShown = true;
+              showToast(
+                getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0628\u0644\u0648\u063A \u062D\u062F Firestore \u0645\u0624\u0642\u062A\u0627. \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u062C\u0632\u0621 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0641\u0642\u0637." : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
+                "warning"
+              );
+            }
+            console.warn(`[SMS] Quota exceeded while loading device ${device.id}`);
+            return;
+          }
           console.error(`\xE2\x9D\u0152 SMS load error for device ${device.id}:`, error);
         }
       });
       startSMSRealtimeListeners(user.uid, devicesList2);
-      await Promise.all(loadPromises);
+      if (hasCachedData) {
+        await Promise.all(loadTasks.map((task) => task()));
+      } else {
+        for (const task of loadTasks) {
+          await task();
+        }
+      }
       console.log("[SMS] \xE2\u0153\u2026 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
@@ -28429,13 +28451,13 @@ ${this.customData.serverResponse}`;
         const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
         const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
         return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content">
+        <div class="list-item-title">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
@@ -29640,11 +29662,27 @@ ${this.customData.serverResponse}`;
         updateSMSList(share.deviceId, messages);
       } catch (err) {
         if (err?.code === "permission-denied") return;
-        console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
+        if (isQuotaExceededError(err)) {
+          if (!smsQuotaToastShown) {
+            smsQuotaToastShown = true;
+            showToast(
+              getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0628\u0644\u0648\u063A \u062D\u062F Firestore \u0645\u0624\u0642\u062A\u0627. \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u062C\u0632\u0621 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0641\u0642\u0637." : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
+              "warning"
+            );
+          }
+          console.warn(
+            `[SMS] Quota exceeded while loading shared device ${share.deviceId}`
+          );
+          continue;
+        }
+        console.error(
+          `[SMS] Shared device load error for ${share.deviceId}:`,
+          err
+        );
       }
     }
   }
-  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, smsQuotaToastShown, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29670,6 +29708,7 @@ ${this.customData.serverResponse}`;
       isLoadingMore = false;
       scrollHandlerAttached = false;
       isSyncing = false;
+      smsQuotaToastShown = false;
       selectionMode = false;
       selectedConversations = /* @__PURE__ */ new Set();
       messageSelectionMode = false;
@@ -30601,8 +30640,8 @@ ${this.customData.serverResponse}`;
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content">
+          <div class="list-item-title">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
@@ -33706,10 +33745,34 @@ ${this.customData.serverResponse}`;
   init_i18n();
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event?.reason;
-    if (reason?.code === "permission-denied" || /Missing or insufficient permissions/i.test(reason?.message || "")) {
+    if (reason?.code === "permission-denied" || /Missing or insufficient permissions/i.test(reason?.message || "") || reason?.code === "resource-exhausted" || /quota\s+exceeded/i.test(reason?.message || "")) {
       event.preventDefault();
     }
   });
+  var hasLoadedCalls = false;
+  var hasLoadedNotifications = false;
+  var lazyTabLoadsWired = false;
+  function loadCallsIfNeeded(force = false) {
+    if (!force && hasLoadedCalls) return;
+    hasLoadedCalls = true;
+    loadCalls();
+  }
+  function loadNotificationsIfNeeded(force = false) {
+    if (!force && hasLoadedNotifications) return;
+    hasLoadedNotifications = true;
+    loadNotifications();
+  }
+  function wireLazyTabLoads() {
+    if (lazyTabLoadsWired) return;
+    const callsTabBtn = document.querySelector('.tab[data-tab="calls"]');
+    const notificationsTabBtn = document.querySelector('.tab[data-tab="notifications"]');
+    callsTabBtn?.addEventListener("click", () => loadCallsIfNeeded(false));
+    notificationsTabBtn?.addEventListener(
+      "click",
+      () => loadNotificationsIfNeeded(false)
+    );
+    lazyTabLoadsWired = true;
+  }
   async function loadDevicesAndContacts() {
     let attempts = 0;
     while (devices.length === 0 && attempts < 50) {
@@ -33771,13 +33834,16 @@ ${this.customData.serverResponse}`;
   }
   function loadData() {
     cleanupSubscriptions();
+    hasLoadedCalls = false;
+    hasLoadedNotifications = false;
     loadSMS();
-    loadCalls();
     loadDevices();
     loadDevicesAndContacts();
-    loadNotifications();
     loadUserSettings();
     subscribeToChat();
+    const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
+    if (activeTab === "calls") loadCallsIfNeeded(true);
+    if (activeTab === "notifications") loadNotificationsIfNeeded(true);
   }
   function cleanupSubscriptions() {
     clearUnsubscribers();
@@ -33807,7 +33873,10 @@ ${this.customData.serverResponse}`;
       }
       if (message.type === "newCall") {
         console.log("\u{1F4DE} New call received in popup from:", message.deviceName);
-        loadCalls();
+        const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
+        if (activeTab === "calls" || hasLoadedCalls) {
+          loadCallsIfNeeded(true);
+        }
         sendResponse({ received: true });
         return true;
       }
@@ -33854,6 +33923,7 @@ ${this.customData.serverResponse}`;
           (err) => console.error("[Popup] registerDevice error:", err)
         );
         loadData();
+        wireLazyTabLoads();
         initTour();
       },
       // On logout

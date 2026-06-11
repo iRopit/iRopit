@@ -5,7 +5,9 @@ window.addEventListener("unhandledrejection", (event) => {
   const reason = event?.reason;
   if (
     reason?.code === "permission-denied" ||
-    /Missing or insufficient permissions/i.test(reason?.message || "")
+    /Missing or insufficient permissions/i.test(reason?.message || "") ||
+    reason?.code === "resource-exhausted" ||
+    /quota\s+exceeded/i.test(reason?.message || "")
   ) {
     event.preventDefault();
   }
@@ -58,6 +60,34 @@ import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flush
 
 // Import utilities
 import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./utils/i18n.js";
+
+let hasLoadedCalls = false;
+let hasLoadedNotifications = false;
+let lazyTabLoadsWired = false;
+
+function loadCallsIfNeeded(force = false) {
+  if (!force && hasLoadedCalls) return;
+  hasLoadedCalls = true;
+  loadCalls();
+}
+
+function loadNotificationsIfNeeded(force = false) {
+  if (!force && hasLoadedNotifications) return;
+  hasLoadedNotifications = true;
+  loadNotifications();
+}
+
+function wireLazyTabLoads() {
+  if (lazyTabLoadsWired) return;
+  const callsTabBtn = document.querySelector('.tab[data-tab="calls"]');
+  const notificationsTabBtn = document.querySelector('.tab[data-tab="notifications"]');
+
+  callsTabBtn?.addEventListener("click", () => loadCallsIfNeeded(false));
+  notificationsTabBtn?.addEventListener("click", () =>
+    loadNotificationsIfNeeded(false),
+  );
+  lazyTabLoadsWired = true;
+}
 
 /**
  * Wait for devices to load, then load contacts
@@ -163,18 +193,23 @@ async function showCachedDataBeforeAuth() {
 
 function loadData() {
   cleanupSubscriptions();
+  hasLoadedCalls = false;
+  hasLoadedNotifications = false;
 
-  // Load SMS and Calls IMMEDIATELY - cache shows instantly, Firebase refreshes in background
+  // Prioritize SMS on startup so first-install history loads before lower-priority tabs.
   loadSMS();
-  loadCalls();
 
   // Load devices first, then contacts (contacts need devices to be loaded)
   loadDevices();
   loadDevicesAndContacts();
 
-  loadNotifications();
   loadUserSettings();
   subscribeToChat();
+
+  // If user refreshes while already inside Calls/Notifications, refresh that tab too.
+  const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
+  if (activeTab === "calls") loadCallsIfNeeded(true);
+  if (activeTab === "notifications") loadNotificationsIfNeeded(true);
 }
 
 function cleanupSubscriptions() {
@@ -215,9 +250,12 @@ function setupServiceWorkerListener() {
     }
     if (message.type === "newCall") {
       console.log("📞 New call received in popup from:", message.deviceName);
-      // Reload calls (delta fetch — cheap) so the Calls list updates live
-      // even if the popup's own onSnapshot listener lagged.
-      loadCalls();
+      // Avoid extra reads while user is on non-calls tabs; preload calls only
+      // after the tab is opened once or when it's currently active.
+      const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
+      if (activeTab === "calls" || hasLoadedCalls) {
+        loadCallsIfNeeded(true);
+      }
       sendResponse({ received: true });
       return true;
     }
@@ -295,6 +333,7 @@ function init() {
         console.error("[Popup] registerDevice error:", err),
       );
       loadData();
+      wireLazyTabLoads();
       // Show first-time tour after login (only on fresh install)
       initTour();
     },

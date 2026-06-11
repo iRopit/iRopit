@@ -833,8 +833,8 @@ export function renderCalls(calls) {
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
-        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
+      <div class="list-item-content">
+        <div class="list-item-title">
           <span class="call-contact-name">${displayName}</span>
         </div>
         <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">${

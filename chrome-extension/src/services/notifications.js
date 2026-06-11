@@ -1052,8 +1052,8 @@ function renderNotifications(notifications) {
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content">
+          <div class="list-item-title">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
