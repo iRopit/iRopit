@@ -26591,6 +26591,12 @@ ${this.customData.serverResponse}`;
         (call) => !call.deviceId || getDeviceSyncPref(call.deviceId, "calls")
       );
     }
+    filteredCalls = filteredCalls.filter((call) => {
+      const phone = (call.phoneNumber || "").trim();
+      const app2 = (call.appName || "").trim();
+      const isPhantomVoIP = (!phone || phone.toLowerCase() === "unknown" || !normalizePhoneNumber(phone)) && !app2;
+      return !isPhantomVoIP;
+    });
     const callsSearch = document.getElementById("callsSearchInput");
     if (callsSearch && !callsSearch.dataset.wired) {
       callsSearch.dataset.wired = "1";
@@ -26694,17 +26700,21 @@ ${this.customData.serverResponse}`;
         const phoneLabel = isAr ? "\u0647\u0627\u062A\u0641" : "Phone";
         const simLabel = lastSim != null && lastSim >= 0 ? ` \xB7 ${isAr ? "\u0634\u0631\u064A\u062D\u0629" : "SIM"} ${lastSim + 1}` : "";
         const methodLabel = isVoIP ? group.appName || (isAr ? "\u062A\u0637\u0628\u064A\u0642" : "VoIP") : `${phoneLabel}${simLabel}`;
+        const lastTime = formatTime(group.lastCall.timestamp);
+        const lastLabel = isAr ? "\u0622\u062E\u0631 \u0645\u0643\u0627\u0644\u0645\u0629" : "Last Call";
+        const callTypeText = group.lastCall.type ? getCallTypeLabel(group.lastCall.type) : isAr ? "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" : "Unknown";
+        const callHoverPreview = `${lastLabel}: ${lastTime} - ${displayName} - ${callTypeText} \xB7 ${methodLabel}`;
         return `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.key}">
       ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.key) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+        <div class="list-item-title" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
+        <div class="list-item-subtitle" title="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
@@ -28305,18 +28315,23 @@ ${this.customData.serverResponse}`;
           }
         }
         const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike2(hoverPhone);
+        const lastBody = (conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "").trim();
+        const lastTime = formatTime(conv.lastMessage.timestamp);
+        const lastLabel = getCurrentLanguage() === "ar" ? "\u0622\u062E\u0631 \u0631\u0633\u0627\u0644\u0629" : "Last SMS";
+        const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
+        const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
         return `
     <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" title="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" title="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${(() => {
+        <div class="list-item-subtitle" title="${escapeHtml(listHoverPreview)}">${(() => {
           const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "";
           return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>';
         })()}</div>
@@ -28552,14 +28567,18 @@ ${this.customData.serverResponse}`;
     console.log(
       `[SMS] showConversation: input="${phoneNumber}", normalized="${normalizedInput}"`
     );
+    const normalizedContactInput = normalizedInput && normalizedInput.startsWith("contact_") ? stripBidi(normalizedInput.slice("contact_".length)).trim().toLowerCase() : "";
     let conversation = allSMSMessages.filter((msg) => {
-      const rawPhone = msg.phoneNumber || msg.sender || "";
+      const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
       let msgNormalized = normalizePhoneNumber3(rawPhone);
       if (!msgNormalized && rawPhone.trim()) {
         msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
       }
-      const contactKey = msg.contactName || msg.title ? "contact_" + (msg.contactName || msg.title).trim() : "";
-      const matches = msgNormalized === normalizedInput || contactKey === normalizedInput;
+      const mappedContact = msgNormalized ? phoneToContactMap && phoneToContactMap[msgNormalized] || getContactName(rawPhone) : "";
+      const contactName2 = stripBidi(msg.contactName || msg.title || mappedContact || "");
+      const contactKey = contactName2 && !isPhoneNumberLike2(contactName2) ? "contact_" + contactName2.trim() : "";
+      const matchesContactName = !!normalizedContactInput && contactName2.trim().toLowerCase() === normalizedContactInput;
+      const matches = msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
       return matches;
     }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     console.log(`[SMS] showConversation: found ${conversation.length} messages`);
@@ -28587,6 +28606,12 @@ ${this.customData.serverResponse}`;
     });
     const displayPhone = realPhoneNumber ? realPhoneNumber.phoneNumber || realPhoneNumber.sender || "" : "";
     setCurrentConversation(phoneNumber);
+    const latestMsg = conversation[conversation.length - 1] || null;
+    const latestMsgBody = (latestMsg?.body || latestMsg?.text || latestMsg?.content || "").trim();
+    const latestMsgTime = latestMsg ? formatTime(latestMsg.timestamp) : "";
+    const latestMsgLabel = getCurrentLanguage() === "ar" ? "\u0622\u062E\u0631 \u0631\u0633\u0627\u0644\u0629" : "Last SMS";
+    const latestMsgFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
+    const latestMsgPreview = `${latestMsgLabel}: ${latestMsgTime}${latestMsgBody ? ` - ${latestMsgBody}` : ` - ${latestMsgFallback}`}`;
     const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
     if (deleteAllBtn) {
       deleteAllBtn.title = getCurrentLanguage() === "ar" ? "\u062D\u0630\u0641 \u0647\u0630\u0647 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Delete this conversation";
@@ -28606,7 +28631,7 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <div class="conversation-name sms-expand-btn" title="Open in full window" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(contactName)}</div>
+          <div class="conversation-name">${escapeHtml(contactName)}</div>
           <div class="conversation-phone">${displayPhone ? escapeHtml(displayPhone) : phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
         </div>
         ${(() => {
@@ -28839,28 +28864,6 @@ ${this.customData.serverResponse}`;
         showConversation(phoneNumber);
       });
     }
-    document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
-      const payload = {
-        smsWindowPhone: displayPhone || phoneNumber,
-        smsWindowContact: contactName,
-        smsWindowMessages: conversation.map((m) => ({
-          id: m.id,
-          body: m.body || "",
-          timestamp: m.timestamp || 0,
-          direction: m.direction || "",
-          type: m.type || "",
-          deviceName: resolveSMSDeviceName(m) || ""
-        }))
-      };
-      chrome.storage.local.set(payload, () => {
-        chrome.windows.create({
-          url: chrome.runtime.getURL("popup/sms-window.html"),
-          type: "popup",
-          width: 800,
-          height: 700
-        });
-      });
-    });
     const sendBtn = document.getElementById("sendConversationSms");
     const messageInput = document.getElementById("conversationMessageInput");
     sendBtn?.addEventListener(
@@ -30471,6 +30474,14 @@ ${this.customData.serverResponse}`;
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
       const isSelected = notifSelectionMode && selectedNotifApps.has(key);
+      const isAr = getCurrentLanguage() === "ar";
+      const latestTime = formatTime(latest.receivedAt || latest.timestamp);
+      const latestTitle = (latest.title || "").trim();
+      const latestDetail = (latest.text || latest.body || "").trim();
+      const latestCombined = latestTitle && latestDetail ? latestDetail.toLowerCase() === latestTitle.toLowerCase() ? latestTitle : `${latestTitle} - ${latestDetail}` : latestTitle || latestDetail;
+      const notifLabel = isAr ? "\u0622\u062E\u0631 \u0625\u0634\u0639\u0627\u0631" : "Last Notification";
+      const notifFallback = isAr ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
+      const notifHoverPreview = `${notifLabel}: ${latestTime}${latestCombined ? ` - ${latestCombined}` : ` - ${notifFallback}`}`;
       const groupDeviceName = resolveDeviceName2(latest) || group.items.map(resolveDeviceName2).find(Boolean) || null;
       return `
       <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
@@ -30480,12 +30491,12 @@ ${this.customData.serverResponse}`;
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content">
-          <div class="list-item-title">
+        <div class="list-item-content" title="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" title="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
-          <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${unreadCount > 0 ? `${unreadCount} unread` : ""}
             ${groupDeviceName ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(groupDeviceName)}</span>` : ""}

@@ -1031,6 +1031,16 @@ function renderNotifications(notifications) {
     const unreadCount = group.items.filter(n => !n.read).length;
     const hasUnread = unreadCount > 0;
     const isSelected = notifSelectionMode && selectedNotifApps.has(key);
+    const isAr = getCurrentLanguage() === "ar";
+    const latestTime = formatTime(latest.receivedAt || latest.timestamp);
+    const latestTitle = (latest.title || "").trim();
+    const latestDetail = (latest.text || latest.body || "").trim();
+    const latestCombined = latestTitle && latestDetail
+      ? (latestDetail.toLowerCase() === latestTitle.toLowerCase() ? latestTitle : `${latestTitle} - ${latestDetail}`)
+      : (latestTitle || latestDetail);
+    const notifLabel = isAr ? "آخر إشعار" : "Last Notification";
+    const notifFallback = isAr ? "بدون نص" : "No text";
+    const notifHoverPreview = `${notifLabel}: ${latestTime}${latestCombined ? ` - ${latestCombined}` : ` - ${notifFallback}`}`;
     // Find device name from any item in the group (latest may be a user-level entry with no deviceName)
     const groupDeviceName = resolveDeviceName(latest) || group.items.map(resolveDeviceName).find(Boolean) || null;
     return `
@@ -1041,12 +1051,12 @@ function renderNotifications(notifications) {
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content">
-          <div class="list-item-title">
+        <div class="list-item-content" title="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" title="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
-          <div class="list-item-subtitle">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${unreadCount > 0 ? `${unreadCount} unread` : ""}
             ${groupDeviceName ? `<span class="notification-device">📱 ${escapeHtml(groupDeviceName)}</span>` : ""}

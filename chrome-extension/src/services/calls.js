@@ -672,6 +672,17 @@ export function renderCalls(calls) {
     );
   }
 
+  // Drop phantom VoIP entries that carry no phone number and no app name.
+  // These are mis-captured calls (e.g. Google Meet) that Android logged with
+  // an empty NUMBER — they have zero actionable information and should not
+  // appear in the call list.
+  filteredCalls = filteredCalls.filter((call) => {
+    const phone = (call.phoneNumber || "").trim();
+    const app  = (call.appName   || "").trim();
+    const isPhantomVoIP = (!phone || phone.toLowerCase() === "unknown" || !normalizePhoneNumber(phone)) && !app;
+    return !isPhantomVoIP;
+  });
+
   // Wire search input once
   const callsSearch = document.getElementById("callsSearchInput");
   if (callsSearch && !callsSearch.dataset.wired) {
@@ -809,6 +820,10 @@ export function renderCalls(calls) {
         const methodLabel = isVoIP
           ? (group.appName || (isAr ? "تطبيق" : "VoIP"))
           : `${phoneLabel}${simLabel}`;
+        const lastTime = formatTime(group.lastCall.timestamp);
+        const lastLabel = isAr ? "آخر مكالمة" : "Last Call";
+        const callTypeText = group.lastCall.type ? getCallTypeLabel(group.lastCall.type) : (isAr ? "غير معروف" : "Unknown");
+        const callHoverPreview = `${lastLabel}: ${lastTime} - ${displayName} - ${callTypeText} · ${methodLabel}`;
         return `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${
       group.phoneNumber
@@ -817,11 +832,11 @@ export function renderCalls(calls) {
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
+        <div class="list-item-title" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle">${
+        <div class="list-item-subtitle" title="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">${
           group.lastCall.type
             ? `${getCallTypeLabel(group.lastCall.type)} · ${String(methodLabel).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}`
             : isSyncingCalls

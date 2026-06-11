@@ -2245,6 +2245,7 @@ body[dir="rtl"] .device-tag {
 }
 
 .conversation-info {
+  position: relative;
   flex: 1;
   min-width: 0;
 }

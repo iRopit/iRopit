@@ -1413,18 +1413,23 @@ export function renderSMS(messages) {
       }
     }
     const showHoverActions = !selectionMode && hoverPhone && isPhoneNumberLike(hoverPhone);
+    const lastBody = (conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "").trim();
+    const lastTime = formatTime(conv.lastMessage.timestamp);
+    const lastLabel = getCurrentLanguage() === "ar" ? "آخر رسالة" : "Last SMS";
+    const lastFallback = getCurrentLanguage() === "ar" ? "بدون نص" : "No text";
+    const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
     return `
     <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" title="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" title="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle">${
+        <div class="list-item-subtitle" title="${escapeHtml(listHoverPreview)}">${
           (() => { const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || ""; return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'; })()
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
@@ -1732,23 +1737,38 @@ export function showConversation(phoneNumber) {
     `[SMS] showConversation: input="${phoneNumber}", normalized="${normalizedInput}"`,
   );
 
+  const normalizedContactInput =
+    normalizedInput && normalizedInput.startsWith("contact_")
+      ? stripBidi(normalizedInput.slice("contact_".length)).trim().toLowerCase()
+      : "";
+
   let conversation = state.allSMSMessages
     .filter((msg) => {
-      const rawPhone = msg.phoneNumber || msg.sender || "";
+      const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
       let msgNormalized = normalizePhoneNumber(rawPhone);
       // For text senders (HSBC, Orange), use sender_ prefix
       if (!msgNormalized && rawPhone.trim()) {
         msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
       }
 
-      // Also check for contact_* keys
-      const contactKey =
-        msg.contactName || msg.title
-          ? "contact_" + (msg.contactName || msg.title).trim()
-          : "";
+      // Resolve contact name the same way as list grouping (including contacts map fallback)
+      const mappedContact = msgNormalized
+        ? (state.phoneToContactMap && state.phoneToContactMap[msgNormalized]) || getContactName(rawPhone)
+        : "";
+      const contactName = stripBidi(msg.contactName || msg.title || mappedContact || "");
+      const contactKey = contactName && !isPhoneNumberLike(contactName)
+        ? "contact_" + contactName.trim()
+        : "";
+
+      // For contact_* rows, also match by normalized contact text (handles formatting/bidi differences)
+      const matchesContactName =
+        !!normalizedContactInput &&
+        contactName.trim().toLowerCase() === normalizedContactInput;
 
       const matches =
-        msgNormalized === normalizedInput || contactKey === normalizedInput;
+        msgNormalized === normalizedInput ||
+        contactKey === normalizedInput ||
+        matchesContactName;
       return matches;
     })
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -1797,6 +1817,13 @@ export function showConversation(phoneNumber) {
   const displayPhone = realPhoneNumber ? (realPhoneNumber.phoneNumber || realPhoneNumber.sender || "") : "";
   state.setCurrentConversation(phoneNumber);
 
+  const latestMsg = conversation[conversation.length - 1] || null;
+  const latestMsgBody = (latestMsg?.body || latestMsg?.text || latestMsg?.content || "").trim();
+  const latestMsgTime = latestMsg ? formatTime(latestMsg.timestamp) : "";
+  const latestMsgLabel = getCurrentLanguage() === "ar" ? "آخر رسالة" : "Last SMS";
+  const latestMsgFallback = getCurrentLanguage() === "ar" ? "بدون نص" : "No text";
+  const latestMsgPreview = `${latestMsgLabel}: ${latestMsgTime}${latestMsgBody ? ` - ${latestMsgBody}` : ` - ${latestMsgFallback}`}`;
+
   // Update the global delete button to reflect "delete this conversation" context
   const deleteAllBtn = document.getElementById("deleteAllSmsBtn");
   if (deleteAllBtn) {
@@ -1818,7 +1845,7 @@ export function showConversation(phoneNumber) {
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <div class="conversation-name sms-expand-btn" title="Open in full window" style="cursor:pointer;text-decoration:underline dotted;">${escapeHtml(contactName)}</div>
+          <div class="conversation-name">${escapeHtml(contactName)}</div>
           <div class="conversation-phone">${
             displayPhone
               ? escapeHtml(displayPhone)
@@ -2122,32 +2149,6 @@ export function showConversation(phoneNumber) {
       showConversation(phoneNumber);
     });
   }
-
-
-  // Open full window when sender name is clicked
-  document.querySelector(".sms-expand-btn")?.addEventListener("click", () => {
-    // Store conversation data in chrome.storage.local so the new window can read it
-    const payload = {
-      smsWindowPhone: displayPhone || phoneNumber,
-      smsWindowContact: contactName,
-      smsWindowMessages: conversation.map(m => ({
-        id: m.id,
-        body: m.body || "",
-        timestamp: m.timestamp || 0,
-        direction: m.direction || "",
-        type: m.type || "",
-        deviceName: resolveSMSDeviceName(m) || "",
-      })),
-    };
-    chrome.storage.local.set(payload, () => {
-      chrome.windows.create({
-        url: chrome.runtime.getURL("popup/sms-window.html"),
-        type: "popup",
-        width: 800,
-        height: 700,
-      });
-    });
-  });
 
   // Add send message handler
   const sendBtn = document.getElementById("sendConversationSms");
