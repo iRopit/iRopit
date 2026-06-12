@@ -2015,17 +2015,17 @@ body[dir="rtl"] .device-tag {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4a5568;
+  background: var(--primary-dark);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #718096;
+  background: var(--primary);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #4a5568 var(--surface-secondary, #1e2130);
+  scrollbar-color: var(--primary-dark) var(--surface-secondary, #1e2130);
 }
 
 /* Keep device-tab side panels with minimal scrollbar */
@@ -2035,6 +2035,148 @@ body[dir="rtl"] .device-tag {
 #chatDeviceTabs::-webkit-scrollbar {
   width: 3px;
   height: 0;
+}
+
+/* Dark mode: make vertical list scrollbars match the beige/tan accent */
+html.dark #smsList::-webkit-scrollbar:vertical,
+html.dark #callsList::-webkit-scrollbar:vertical,
+html.dark #notificationsList::-webkit-scrollbar:vertical,
+html.dark #devicesList::-webkit-scrollbar:vertical {
+  width: 8px;
+}
+
+html.dark #smsList::-webkit-scrollbar-track,
+html.dark #callsList::-webkit-scrollbar-track,
+html.dark #notificationsList::-webkit-scrollbar-track,
+html.dark #devicesList::-webkit-scrollbar-track {
+  background: #2b3447;
+}
+
+html.dark #smsList::-webkit-scrollbar-thumb,
+html.dark #callsList::-webkit-scrollbar-thumb,
+html.dark #notificationsList::-webkit-scrollbar-thumb,
+html.dark #devicesList::-webkit-scrollbar-thumb {
+  background: var(--primary-dark);
+  border-radius: 6px;
+}
+
+html.dark #smsList::-webkit-scrollbar-thumb:hover,
+html.dark #callsList::-webkit-scrollbar-thumb:hover,
+html.dark #notificationsList::-webkit-scrollbar-thumb:hover,
+html.dark #devicesList::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+html.dark #smsList,
+html.dark #callsList,
+html.dark #notificationsList,
+html.dark #devicesList {
+  scrollbar-color: var(--primary-dark) #2b3447;
+}
+
+/* Dark mode: detail views + chat message threads */
+html.dark .conversation-messages::-webkit-scrollbar:vertical,
+html.dark #notifDetailList::-webkit-scrollbar:vertical,
+html.dark #chatTab .chat-messages::-webkit-scrollbar:vertical,
+html.dark .chat-messages::-webkit-scrollbar:vertical {
+  width: 8px;
+}
+
+html.dark .conversation-messages::-webkit-scrollbar-track,
+html.dark #notifDetailList::-webkit-scrollbar-track,
+html.dark #chatTab .chat-messages::-webkit-scrollbar-track,
+html.dark .chat-messages::-webkit-scrollbar-track {
+  background: #2b3447;
+}
+
+html.dark .conversation-messages::-webkit-scrollbar-thumb,
+html.dark #notifDetailList::-webkit-scrollbar-thumb,
+html.dark #chatTab .chat-messages::-webkit-scrollbar-thumb,
+html.dark .chat-messages::-webkit-scrollbar-thumb {
+  background: var(--primary-dark);
+  border-radius: 6px;
+}
+
+html.dark .conversation-messages::-webkit-scrollbar-thumb:hover,
+html.dark #notifDetailList::-webkit-scrollbar-thumb:hover,
+html.dark #chatTab .chat-messages::-webkit-scrollbar-thumb:hover,
+html.dark .chat-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+html.dark .conversation-messages,
+html.dark #notifDetailList,
+html.dark #chatTab .chat-messages,
+html.dark .chat-messages {
+  scrollbar-color: var(--primary-dark) #2b3447;
+}
+
+/* Dark mode: Insights tab scrollable areas */
+html.dark #dashboardTab .dash-main::-webkit-scrollbar:vertical,
+html.dark #dashboardTab .dashboard-breakdown-list::-webkit-scrollbar:vertical {
+  width: 8px;
+}
+
+html.dark #dashboardTab .dash-main::-webkit-scrollbar-track,
+html.dark #dashboardTab .dashboard-breakdown-list::-webkit-scrollbar-track {
+  background: #2b3447;
+}
+
+html.dark #dashboardTab .dash-main::-webkit-scrollbar-thumb,
+html.dark #dashboardTab .dashboard-breakdown-list::-webkit-scrollbar-thumb {
+  background: var(--primary-dark);
+  border-radius: 6px;
+}
+
+html.dark #dashboardTab .dash-main::-webkit-scrollbar-thumb:hover,
+html.dark #dashboardTab .dashboard-breakdown-list::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+html.dark #dashboardTab .dash-main,
+html.dark #dashboardTab .dashboard-breakdown-list {
+  scrollbar-color: var(--primary-dark) #2b3447;
+}
+
+html.dark #smsDeviceTabs::-webkit-scrollbar,
+html.dark #callsDeviceTabs::-webkit-scrollbar,
+html.dark #notificationsDeviceTabs::-webkit-scrollbar,
+html.dark #chatDeviceTabs::-webkit-scrollbar,
+html.dark #dashInsightsDeviceTabs::-webkit-scrollbar {
+  width: 6px;
+}
+
+html.dark #smsDeviceTabs::-webkit-scrollbar-track,
+html.dark #callsDeviceTabs::-webkit-scrollbar-track,
+html.dark #notificationsDeviceTabs::-webkit-scrollbar-track,
+html.dark #chatDeviceTabs::-webkit-scrollbar-track,
+html.dark #dashInsightsDeviceTabs::-webkit-scrollbar-track {
+  background: #2b3447;
+}
+
+html.dark #smsDeviceTabs::-webkit-scrollbar-thumb,
+html.dark #callsDeviceTabs::-webkit-scrollbar-thumb,
+html.dark #notificationsDeviceTabs::-webkit-scrollbar-thumb,
+html.dark #chatDeviceTabs::-webkit-scrollbar-thumb,
+html.dark #dashInsightsDeviceTabs::-webkit-scrollbar-thumb {
+  background: var(--primary-dark);
+  border-radius: 6px;
+}
+
+html.dark #smsDeviceTabs::-webkit-scrollbar-thumb:hover,
+html.dark #callsDeviceTabs::-webkit-scrollbar-thumb:hover,
+html.dark #notificationsDeviceTabs::-webkit-scrollbar-thumb:hover,
+html.dark #chatDeviceTabs::-webkit-scrollbar-thumb:hover,
+html.dark #dashInsightsDeviceTabs::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+html.dark #smsDeviceTabs,
+html.dark #callsDeviceTabs,
+html.dark #notificationsDeviceTabs,
+html.dark #chatDeviceTabs,
+html.dark #dashInsightsDeviceTabs {
+  scrollbar-color: var(--primary-dark) #2b3447;
 }
 
 /* Notifications */
