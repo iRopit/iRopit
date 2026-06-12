@@ -3,7 +3,6 @@ import {
   NativeEventEmitter,
   Platform,
   EmitterSubscription,
-  PermissionsAndroid,
 } from 'react-native';
 
 const { NotificationModule } = NativeModules;
@@ -58,25 +57,6 @@ class NotificationServiceClass {
     }
     try {
       return await NotificationModule.isServiceConnected();
-    } catch (error) {
-      return false;
-    }
-  }
-
-  async requestSMSPermission(): Promise<boolean> {
-    if (Platform.OS !== 'android') return false;
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.SEND_SMS,
-        {
-          title: 'SMS Permission',
-          message: 'iRopit needs permission to send SMS messages.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (error) {
       return false;
     }

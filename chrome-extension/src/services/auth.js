@@ -50,6 +50,29 @@ import * as state from "../state/index.js";
 // Track if initial auth check is done
 let isInitialAuthCheckDone = false;
 
+function isOAuthUserCancelMessage(message) {
+  const text = String(message || "").toLowerCase();
+  return (
+    text.includes("did not approve access") ||
+    text.includes("access_denied") ||
+    text.includes("user_denied") ||
+    text.includes("cancel")
+  );
+}
+
+function createOAuthCancelledError(message) {
+  const err = new Error(message || "OAuth canceled by user");
+  err.code = "auth/oauth-cancelled";
+  return err;
+}
+
+function isOAuthCancelledError(error) {
+  return (
+    error?.code === "auth/oauth-cancelled" ||
+    isOAuthUserCancelMessage(error?.message)
+  );
+}
+
 /**
  * Show authentication UI
  */
@@ -153,6 +176,19 @@ async function clearAllGoogleTokens() {
   return new Promise((resolve) => {
     // Get current token (non-interactive, won't show popup)
     chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+      const getTokenErr = chrome.runtime.lastError;
+      if (getTokenErr) {
+        const msg = String(getTokenErr.message || "");
+        // Expected when there is no granted OAuth token yet.
+        if (isOAuthUserCancelMessage(msg) || msg.toLowerCase().includes("not granted") || msg.toLowerCase().includes("revoked")) {
+          logger.info("No active OAuth grant to clear");
+        } else {
+          logger.warn("getAuthToken(non-interactive) failed while clearing token:", msg);
+        }
+        resolve();
+        return;
+      }
+
       if (!token) {
         logger.info("No cached token to clear");
         resolve();
@@ -176,11 +212,20 @@ async function clearAllGoogleTokens() {
 
       // Then remove from Chrome's cache
       chrome.identity.removeCachedAuthToken({ token }, () => {
+        // Access runtime.lastError to prevent unchecked callback errors.
+        const removeErr = chrome.runtime.lastError;
+        if (removeErr) {
+          logger.warn("removeCachedAuthToken warning:", removeErr.message);
+        }
         logger.info("Token removed from Chrome cache");
 
         // Also try clearAllCachedAuthTokens if available
         if (chrome.identity.clearAllCachedAuthTokens) {
           chrome.identity.clearAllCachedAuthTokens(() => {
+            const clearErr = chrome.runtime.lastError;
+            if (clearErr) {
+              logger.warn("clearAllCachedAuthTokens warning:", clearErr.message);
+            }
             logger.info("All cached auth tokens cleared");
             resolve();
           });
@@ -235,8 +280,14 @@ async function getGoogleTokenWithAccountChooser() {
           { url: authUrl, interactive: true },
           (responseUrl) => {
             if (chrome.runtime.lastError) {
-              logger.error("OAuth error:", chrome.runtime.lastError.message);
-              reject(new Error(chrome.runtime.lastError.message));
+              const msg = chrome.runtime.lastError.message;
+              if (isOAuthUserCancelMessage(msg)) {
+                logger.info("OAuth canceled by user");
+                reject(createOAuthCancelledError(msg));
+                return;
+              }
+              logger.error("OAuth error:", msg);
+              reject(new Error(msg));
               return;
             }
             if (!responseUrl) {
@@ -265,8 +316,14 @@ async function getGoogleTokenWithAccountChooser() {
     setTimeout(() => {
       chrome.identity.getAuthToken({ interactive: true }, (token) => {
         if (chrome.runtime.lastError) {
-          logger.error("OAuth error:", chrome.runtime.lastError.message);
-          reject(new Error(chrome.runtime.lastError.message));
+          const msg = chrome.runtime.lastError.message;
+          if (isOAuthUserCancelMessage(msg)) {
+            logger.info("OAuth canceled by user");
+            reject(createOAuthCancelledError(msg));
+            return;
+          }
+          logger.error("OAuth error:", msg);
+          reject(new Error(msg));
           return;
         }
 
@@ -339,6 +396,11 @@ async function handleGoogleSignIn() {
 
     showToast("Signed in with Google", "success");
   } catch (error) {
+    if (isOAuthCancelledError(error)) {
+      // User canceled account selection — expected path, no error toast/log.
+      hideLoading();
+      return;
+    }
     const parsed = parseAuthError(error);
     logError(error, "handleGoogleSignIn");
     showToast(parsed.message, "error");
@@ -353,8 +415,13 @@ async function handleLogout() {
   try {
     // Revoke Google token
     chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      // Access runtime.lastError to prevent unchecked callback errors when no grant exists.
+      const err = chrome.runtime.lastError;
+      if (err) return;
       if (token) {
-        chrome.identity.removeCachedAuthToken({ token });
+        chrome.identity.removeCachedAuthToken({ token }, () => {
+          void chrome.runtime.lastError;
+        });
       }
     });
 

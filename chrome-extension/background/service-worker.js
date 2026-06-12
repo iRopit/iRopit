@@ -18862,6 +18862,7 @@ self.addEventListener("unhandledrejection", (event) => {
 });
 var currentUser = null;
 var currentDeviceId = null;
+var SMS_CACHE_CAP = 1e4;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
 var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
@@ -20023,8 +20024,8 @@ async function updateSMSCache(deviceId, deviceName, newMsg) {
     const smsByDevice = result.cached_sms_data?.byDevice || {};
     const existing = smsByDevice[deviceId] || [];
     if (existing.some((m) => m.id === newMsg.id)) return;
-    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, 500);
-    const allMessages = Object.values(smsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
+    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, SMS_CACHE_CAP);
+    const allMessages = Object.values(smsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, SMS_CACHE_CAP);
     await chrome.storage.local.set({
       cached_sms_data: { byDevice: smsByDevice, allMessages },
       cache_timestamp: Date.now()
@@ -20323,6 +20324,7 @@ async function refreshPopupCache() {
     const newNotifsByDevice = { ...notifsByDevice };
     await Promise.all(mobileDevices.map(async (device) => {
       const smsNewest = newestTs(smsByDevice, device.id, "timestamp");
+      const smsIsFullFetch = !smsNewest;
       const smsQ = smsNewest ? query(
         collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
         where("type", "==", "sms"),
@@ -20333,7 +20335,7 @@ async function refreshPopupCache() {
         collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
         where("type", "==", "sms"),
         orderBy("timestamp", "desc"),
-        limit(500)
+        limit(SMS_CACHE_CAP)
       );
       const callsNewest = newestTs(callsByDevice, device.id, "timestamp");
       const callsQ = callsNewest ? query(
@@ -20359,7 +20361,7 @@ async function refreshPopupCache() {
       );
       try {
         const [smsSnap, callsSnap, notifSnap] = await Promise.all([
-          getDocs(smsQ),
+          smsIsFullFetch ? getDocsFromServer(smsQ) : getDocs(smsQ),
           getDocs(callsQ),
           getDocs(notifQ)
         ]);
@@ -20368,7 +20370,7 @@ async function refreshPopupCache() {
           const existing = smsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((m) => m.id));
           const brandNew = newMsgs.filter((m) => !existingIds.has(m.id));
-          newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, 500);
+          newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, SMS_CACHE_CAP);
         }
         {
           const newCalls = callsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
@@ -20430,7 +20432,7 @@ async function refreshPopupCache() {
       });
     });
     locallyReadNotificationIds = readIds;
-    const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 500);
+    const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, SMS_CACHE_CAP);
     const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
     await chrome.storage.local.set({
       cached_sms_data: { byDevice: newSmsByDevice, allMessages },

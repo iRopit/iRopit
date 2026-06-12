@@ -15,6 +15,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  setLogLevel,
   collection,
   doc,
   getDoc,
@@ -39,6 +40,7 @@ import firebaseConfig from "../../firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+setLogLevel("silent");
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentSingleTabManager({ forceOwnership: true }),

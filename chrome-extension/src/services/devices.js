@@ -82,6 +82,109 @@ import { renderCalls } from "./calls.js";
 import { renderSMS } from "./sms.js";
 import { cacheSharedDevices, getCachedSharedDevices } from "./cache.js";
 
+let pendingSharedSmsShares = null;
+let sharedSmsDeferredListenerAttached = false;
+let pendingSharedCallsShares = null;
+let sharedCallsDeferredListenerAttached = false;
+let pendingSharedNotifsShares = null;
+let sharedNotifsDeferredListenerAttached = false;
+
+function scheduleSharedSmsLoad(shares) {
+  pendingSharedSmsShares = shares || [];
+
+  import("./sms.js")
+    .then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedSmsShares;
+        pendingSharedSmsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesSMS) {
+          m.loadSharedDevicesSMS(latest).catch(() => {});
+        }
+      };
+
+      // Keep own-device SMS as priority. If primary SMS sync is still running,
+      // defer shared-SMS preload until the sync-done event fires.
+      if (m.isSMSSyncing && m.isSMSSyncing()) {
+        if (sharedSmsDeferredListenerAttached) return;
+        sharedSmsDeferredListenerAttached = true;
+        const onDone = () => {
+          window.removeEventListener("iropit:sms-sync-done", onDone);
+          sharedSmsDeferredListenerAttached = false;
+          runLatest();
+        };
+        window.addEventListener("iropit:sms-sync-done", onDone, { once: true });
+        return;
+      }
+
+      runLatest();
+    })
+    .catch(() => {});
+}
+
+function scheduleSharedCallsLoad(shares) {
+  pendingSharedCallsShares = shares || [];
+
+  import("./calls.js")
+    .then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedCallsShares;
+        pendingSharedCallsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesCalls) {
+          m.loadSharedDevicesCalls(latest).catch(() => {});
+        }
+      };
+
+      if (m.isCallsSyncing && m.isCallsSyncing()) {
+        if (sharedCallsDeferredListenerAttached) return;
+        sharedCallsDeferredListenerAttached = true;
+        const onDone = () => {
+          window.removeEventListener("iropit:calls-sync-done", onDone);
+          sharedCallsDeferredListenerAttached = false;
+          runLatest();
+        };
+        window.addEventListener("iropit:calls-sync-done", onDone, { once: true });
+        return;
+      }
+
+      runLatest();
+    })
+    .catch(() => {});
+}
+
+function scheduleSharedNotificationsLoad(shares) {
+  pendingSharedNotifsShares = shares || [];
+
+  import("./notifications.js")
+    .then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedNotifsShares;
+        pendingSharedNotifsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesNotifications) {
+          m.loadSharedDevicesNotifications(latest).catch(() => {});
+        }
+      };
+
+      // notificationsDataUpdated fires when own notifications snapshots complete.
+      if (m.isNotificationsSyncing && m.isNotificationsSyncing()) {
+        if (sharedNotifsDeferredListenerAttached) return;
+        sharedNotifsDeferredListenerAttached = true;
+        const onDone = () => {
+          document.removeEventListener("notificationsDataUpdated", onDone);
+          sharedNotifsDeferredListenerAttached = false;
+          runLatest();
+        };
+        document.addEventListener("notificationsDataUpdated", onDone, { once: true });
+        return;
+      }
+
+      runLatest();
+    })
+    .catch(() => {});
+}
+
 /**
  * Register this extension as a device
  */
@@ -222,9 +325,9 @@ export async function loadDevices() {
       updateDeviceSelects();
       // Pre-load SMS/calls/notifs from shared devices using cached share info
       Promise.all([
-        import("./sms.js").then(m => { if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(cached); }).catch(() => {}),
-        import("./calls.js").then(m => { if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(cached); }).catch(() => {}),
-        import("./notifications.js").then(m => { if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(cached); }).catch(() => {}),
+        Promise.resolve().then(() => scheduleSharedSmsLoad(cached)),
+        Promise.resolve().then(() => scheduleSharedCallsLoad(cached)),
+        Promise.resolve().then(() => scheduleSharedNotificationsLoad(cached)),
       ]);
     }
   }).catch(() => {});
@@ -253,9 +356,9 @@ export async function loadDevices() {
       cacheSharedDevices(shares).catch(() => {});
       // Load SMS/Calls/Notifications data for shared devices
       Promise.all([
-        import("./sms.js").then(m => { if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares); }).catch(() => {}),
-        import("./calls.js").then(m => { if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(shares); }).catch(() => {}),
-        import("./notifications.js").then(m => { if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(shares); }).catch(() => {}),
+        Promise.resolve().then(() => scheduleSharedSmsLoad(shares)),
+        Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
+        Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares)),
       ]);
 
       // ── Enrich with live device docs in background (for Devices tab detail) ─
@@ -576,7 +679,9 @@ export function renderDevices() {
       e.stopPropagation();
       const deviceId = btn.dataset.deviceId;
       const docId = btn.dataset.deviceDocId;
-      const device = state.devices.find((d) => d.docId === docId);
+      const device = state.devices.find(
+        (d) => (docId && d.docId === docId) || (deviceId && d.id === deviceId),
+      );
       if (device) showShareDeviceModal(device);
     });
   });
@@ -658,8 +763,23 @@ export function updateDeviceSelects() {
   updateCallsDeviceTabs();
   updateNotificationsDeviceTabs();
   updateInsightsDeviceTabs();
-  // Re-render notifications so device tags resolve with fresh state.devices
-  import("./notifications.js").then(m => m.reRenderNotifications()).catch(() => {});
+  // Re-render all list views so device tags (including Shared badges) resolve
+  // immediately with fresh state.devices/sharedWithMeDevices on first open.
+  import("./sms.js")
+    .then((m) => {
+      if (state.allSMSMessages && state.allSMSMessages.length > 0) {
+        m.renderSMS(state.allSMSMessages);
+      }
+    })
+    .catch(() => {});
+  import("./calls.js")
+    .then((m) => {
+      if (state.allCallsData && state.allCallsData.length > 0) {
+        m.renderCalls(state.allCallsData);
+      }
+    })
+    .catch(() => {});
+  import("./notifications.js").then((m) => m.reRenderNotifications()).catch(() => {});
 }
 
 /**
@@ -1275,69 +1395,58 @@ export async function showShareDeviceModal(device) {
 
   const isAr = getCurrentLanguage() === "ar";
   const deviceName = getFriendlyDeviceName(device);
-
-  // Fetch existing shares for this device
   let existingShares = [];
   let pendingRequests = [];
-  try {
-    const sharesSnap = await getDocs(
-      query(
-        collection(db, "deviceShares"),
-        where("ownerUid", "==", user.uid),
-        where("deviceId", "==", device.id),
-      )
-    );
-    existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
-  } catch (_) {}
-  try {
-    const pendingSnap = await getDocs(
-      query(
-        collection(db, "deviceShareRequests"),
-        where("ownerUid", "==", user.uid),
-        where("deviceId", "==", device.id),
-        where("status", "==", "pending"),
-      )
-    );
-    pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
-  } catch (_) {}
 
-  const existingSharesHtml = (existingShares.length === 0 && pendingRequests.length === 0) ? "" : `
-    <div class="share-existing-list">
-      <div class="share-existing-title">${isAr ? "مشارك حالياً مع:" : "Currently shared with:"}</div>
-      ${existingShares.map((s) => {
-        const perms = s.permissions || {};
-        const pList = [
-          perms.sms && (isAr ? "الرسائل" : "SMS"),
-          perms.calls && (isAr ? "المكالمات" : "Calls"),
-          perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
-        ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
-        return `
-          <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
-            <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
-            <span class="share-existing-perms">(${pList})</span>
-            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
-              ${isAr ? "إيقاف المشاركة" : "Stop Sharing"}
-            </button>
-          </div>
-        `;
-      }).join("")}
-      ${pendingRequests.map((r) => {
-        const perms = r.permissions || {};
-        const pList = [
-          perms.sms && (isAr ? "الرسائل" : "SMS"),
-          perms.calls && (isAr ? "المكالمات" : "Calls"),
-          perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
-        ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
-        return `
-          <div class="share-existing-row">
-            <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
-            <span class="share-existing-perms">(${pList})</span>
-            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(قيد الانتظار)" : "(Pending)"}</span>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `;
+  const renderExistingSharesHtml = () => {
+    if (existingShares.length === 0 && pendingRequests.length === 0) return "";
+    return `
+      <div class="share-existing-list">
+        <div class="share-existing-title">${isAr ? "مشارك حالياً مع:" : "Currently shared with:"}</div>
+        ${existingShares.map((s) => {
+          const perms = s.permissions || {};
+          const pList = [
+            perms.sms && (isAr ? "الرسائل" : "SMS"),
+            perms.calls && (isAr ? "المكالمات" : "Calls"),
+            perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
+          ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+          return `
+            <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
+              <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
+              <span class="share-existing-perms">(${pList})</span>
+              <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
+                ${isAr ? "إيقاف المشاركة" : "Stop Sharing"}
+              </button>
+            </div>
+          `;
+        }).join("")}
+        ${pendingRequests.map((r) => {
+          const perms = r.permissions || {};
+          const pList = [
+            perms.sms && (isAr ? "الرسائل" : "SMS"),
+            perms.calls && (isAr ? "المكالمات" : "Calls"),
+            perms.notifications && (isAr ? "الإشعارات" : "Notifications"),
+          ].filter(Boolean).join(", ") || (isAr ? "لا شيء" : "None");
+          return `
+            <div class="share-existing-row">
+              <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
+              <span class="share-existing-perms">(${pList})</span>
+              <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(قيد الانتظار)" : "(Pending)"}</span>
+              <button class="stop-sharing-btn btn btn-danger-small" data-request-id="${escapeHtml(r.requestId)}" data-email="${escapeHtml(r.sharedWithEmail)}">
+                ${isAr ? "إلغاء الطلب" : "Cancel Request"}
+              </button>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  };
+
+  // Show modal immediately, then populate share history asynchronously.
+  let resolveSharesLoaded;
+  const sharesLoaded = new Promise((resolve) => {
+    resolveSharesLoaded = resolve;
+  });
 
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
@@ -1349,7 +1458,9 @@ export async function showShareDeviceModal(device) {
         <button class="modal-close" id="closeShareModal">&times;</button>
       </div>
       <div class="modal-body">
-        ${existingSharesHtml}
+        <div id="shareExistingContainer" style="min-height: 20px;">
+          <div style="font-size:12px;color:var(--text-secondary);">${isAr ? "جارٍ تحميل المشاركات الحالية..." : "Loading current shares..."}</div>
+        </div>
         <div class="form-group">
           <label for="shareEmail">${isAr ? "البريد الإلكتروني للمستخدم" : "Recipient iRopit account (email)"}</label>
           <input type="email" id="shareEmail" placeholder="${isAr ? "example@email.com" : "example@email.com"}" autocomplete="off" />
@@ -1389,34 +1500,84 @@ export async function showShareDeviceModal(device) {
   document.body.appendChild(modal);
   document.getElementById("shareEmail").focus();
 
+  const existingContainer = document.getElementById("shareExistingContainer");
+  (async () => {
+    try {
+      const sharesSnap = await getDocs(
+        query(
+          collection(db, "deviceShares"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id),
+        ),
+      );
+      existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
+    } catch (_) {
+      existingShares = [];
+    }
+
+    try {
+      const pendingSnap = await getDocs(
+        query(
+          collection(db, "deviceShareRequests"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id),
+          where("status", "==", "pending"),
+        ),
+      );
+      pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
+    } catch (_) {
+      pendingRequests = [];
+    }
+
+    if (existingContainer) {
+      existingContainer.innerHTML = renderExistingSharesHtml();
+    }
+    resolveSharesLoaded();
+  })();
+
   // Close handlers
   document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
   document.getElementById("cancelShare").addEventListener("click", () => modal.remove());
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
 
-  // Stop sharing handlers
-  modal.querySelectorAll(".stop-sharing-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const shareId = btn.dataset.shareId;
-      const email = btn.dataset.email;
-      const msg = isAr
-        ? `إيقاف مشاركة الجهاز مع "${email}"؟`
-        : `Stop sharing with "${email}"?`;
+  // Stop sharing handler (event delegation so it works with async-rendered rows)
+  modal.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".stop-sharing-btn");
+    if (!btn || !modal.contains(btn)) return;
+    const shareId = btn.dataset.shareId;
+    const requestId = btn.dataset.requestId;
+    const email = btn.dataset.email;
+    const msg = requestId
+      ? (isAr ? `إلغاء طلب المشاركة المرسل إلى "${email}"؟` : `Cancel pending request to "${email}"?`)
+      : (isAr ? `إيقاف مشاركة الجهاز مع "${email}"؟` : `Stop sharing with "${email}"?`);
       if (await showConfirmDialog(msg)) {
         try {
-          await deleteDoc(doc(db, "deviceShares", shareId));
-          // Also remove from deviceShareIndex (for Firestore rules)
-          if (btn.dataset.deviceId && btn.dataset.sharedUid) {
-            deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {});
+          if (requestId) {
+            await deleteDoc(doc(db, "deviceShareRequests", requestId));
+          } else {
+            await deleteDoc(doc(db, "deviceShares", shareId));
+            // Also remove from deviceShareIndex (for Firestore rules)
+            if (btn.dataset.deviceId && btn.dataset.sharedUid) {
+              deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {});
+            }
           }
           btn.closest(".share-existing-row").remove();
-          showToast(isAr ? "تم إيقاف المشاركة" : "Sharing stopped", "success");
+          showToast(
+            requestId
+              ? (isAr ? "تم إلغاء الطلب" : "Request canceled")
+              : (isAr ? "تم إيقاف المشاركة" : "Sharing stopped"),
+            "success",
+          );
         } catch (err) {
-          console.error("[Share] stop sharing error:", err);
-          showToast(isAr ? "فشل إيقاف المشاركة" : "Failed to stop sharing", "error");
+          console.error("[Share] stop/cancel sharing error:", err);
+          showToast(
+            requestId
+              ? (isAr ? "فشل إلغاء الطلب" : "Failed to cancel request")
+              : (isAr ? "فشل إيقاف المشاركة" : "Failed to stop sharing"),
+            "error",
+          );
         }
       }
-    });
   });
 
   // Confirm share handler
@@ -1459,6 +1620,9 @@ export async function showShareDeviceModal(device) {
 
       const recipientDoc = usersSnap.docs[0];
       const recipientUid = recipientDoc.data().uid || recipientDoc.id;
+
+      // Ensure duplicate checks include the latest asynchronously loaded lists.
+      await sharesLoaded;
 
       // Check if already shared or has pending request for this user
       const existing = existingShares.find((s) => s.sharedWithEmail === email);

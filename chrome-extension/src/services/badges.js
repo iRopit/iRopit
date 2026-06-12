@@ -93,11 +93,34 @@ function getSmsCount(deviceId) {
 }
 
 function getCallsCount(deviceId) {
-  // Don't show badge until Firestore has confirmed the data (prevents stale-cache flash)
-  if (!state.callsDataConfirmed) return 0
-  if (deviceId === "all") return state.devices.reduce((t, d) => t + getCallsCount(d.id), 0)
-  // Use allCallsData (render source) to stay in sync with what's actually displayed
-  return (state.allCallsData || []).filter(c => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length
+  const calls = state.allCallsData || []
+
+  const normalizePhone = (phone) => {
+    if (!phone || !phone.trim()) return ""
+    let normalized = phone.replace(/[^\d+]/g, "").trim()
+    normalized = normalized.replace(/^\+/, "")
+    if (normalized.startsWith("20") && normalized.length > 10) normalized = normalized.substring(2)
+    if (normalized.startsWith("971") && normalized.length > 10) normalized = normalized.substring(3)
+    if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) normalized = "0" + normalized
+    return normalized
+  }
+
+  const isVisibleCall = (c) => {
+    const phone = (c.phoneNumber || "").trim()
+    const app = (c.appName || "").trim()
+    const isPhantomVoIP = (!phone || phone.toLowerCase() === "unknown" || !normalizePhone(phone)) && !app
+    return !isPhantomVoIP
+  }
+
+  const isUnreadMissed = (c) => c.type === "missed" && !c.viewed && isVisibleCall(c)
+
+  // Count from the merged render source so the badge matches what's visible,
+  // including shared devices that may not exist in state.devices.
+  if (deviceId === "all") {
+    return calls.filter(c => isUnreadMissed(c) && (!c.deviceId || state.getDeviceSyncPref(c.deviceId, "calls"))).length
+  }
+
+  return calls.filter(c => c.deviceId === deviceId && isUnreadMissed(c)).length
 }
 
 function getNotifsCount(deviceId) {

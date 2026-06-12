@@ -120,8 +120,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     const doInitialSync = async () => {
       try {
-        // v9: initial call sync capped at 2000 (was unlimited in v8); SMS stays at 5000
-        const syncKey = `@iRopit:initialDeviceSyncDone_v9_${user.uid}_${currentDevice.id}`;
+        // v10: initial call sync capped at 2000; SMS initial sync increased to 10000.
+        const syncKey = `@iRopit:initialDeviceSyncDone_v10_${user.uid}_${currentDevice.id}`;
         const alreadySynced = await AsyncStorage.getItem(syncKey);
         if (alreadySynced) {
           console.log('[InitialSync] Already done, skipping');
@@ -162,10 +162,10 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           }
         }
 
-        // Sync SMS — limit to 5000 newest messages on initial/fresh install to keep setup fast.
-        // Native query uses ORDER BY date DESC so the most recent 5000 are fetched first.
+        // Sync SMS — limit to 10000 newest messages on initial/fresh install.
+        // Native query uses ORDER BY date DESC so the most recent 10000 are fetched first.
         // Ongoing new SMS are synced in real-time via the SMS listener.
-        const INITIAL_SMS_LIMIT = 5000;
+        const INITIAL_SMS_LIMIT = 10000;
         if (hasSms) {
           try {
             let nativeSms: any[] = [];
@@ -228,7 +228,6 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     try {
       // Request contacts and call-related permissions
-      // SEND_SMS removed - SMS sending is disabled per Google Play policy
       // READ_PHONE_STATE and READ_CALL_LOG are required for call history capture
       const permissions: string[] = [
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,

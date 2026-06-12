@@ -52,6 +52,23 @@ function tsMs(raw) {
   return 0;
 }
 
+function isUnavailableError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return code.includes("unavailable") || msg.includes("failed to get documents from server");
+}
+
+const notifUnavailableLogKeys = new Set();
+function logNotifUnavailableOnce(key, message, details) {
+  if (notifUnavailableLogKeys.has(key)) return;
+  notifUnavailableLogKeys.add(key);
+  if (details !== undefined) {
+    console.info(message, details);
+  } else {
+    console.info(message);
+  }
+}
+
 // Linkify URLs in notification body text
 function linkifyText(text) {
   const escaped = escapeHtml(text);
@@ -64,6 +81,11 @@ function linkifyText(text) {
 // ── Sync state ───────────────────────────────────────────────────────────────
 let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
+let suppressNotifSyncIndicator = false;
+
+export function isNotificationsSyncing() {
+  return isSyncingNotif;
+}
 
 // ── Pagination state ──────────────────────────────────────────────────────────
 const NOTIF_INITIAL_LIMIT = 500; // first load per device (matches legacy)
@@ -77,6 +99,12 @@ function updateNotifSyncIndicator() {
   document.getElementById("notifSyncIndicator")?.remove();
 
   if (!isSyncingNotif) return;
+  if (suppressNotifSyncIndicator) {
+    const hasNotifContent = Object.values(state.allNotifications || {}).some(
+      (arr) => Array.isArray(arr) && arr.length > 0,
+    );
+    if (hasNotifContent) return;
+  }
 
   const container = document.getElementById("notificationsList");
   if (!container) return;
@@ -187,12 +215,21 @@ export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
 
+  // Reset per-load UI suppression state.
+  suppressNotifSyncIndicator = false;
+
   // Mark syncing immediately (before any await) so injectPushedNotification
   // skips flushing during the initial load window when state may be empty.
   isSyncingNotif = true;
 
-  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
-  if (notificationsList) showListLoading(notificationsList);
+  // Show spinner only if list is genuinely empty. If cached notifications are
+  // already rendered (pre-auth cache path), keep them visible and sync silently.
+  const listHasContent =
+    notificationsList &&
+    !notificationsList.querySelector(".loading-state") &&
+    notificationsList.children.length > 0 &&
+    !notificationsList.querySelector(".empty-state");
+  if (notificationsList && !listHasContent) showListLoading(notificationsList);
 
   // === STEP 1: Show cached notifications instantly ===
   let hasCachedData = false;
@@ -228,6 +265,7 @@ export async function loadNotifications() {
         }
         if (hasData) {
           hasCachedData = true;
+          suppressNotifSyncIndicator = true;
           // Seed state from cache and render immediately (instant load).
           // Do NOT clear state afterwards — the delta-merge in Step 3 reads
           // state.allNotifications[deviceId] to combine cached items with newly
@@ -325,7 +363,17 @@ export async function loadNotifications() {
       // Firestore's local IndexedDB cache yet, so the default cache-first getDocs
       // returns 0 rows and the newest notifications never appear. Forcing a server
       // read guarantees we pick up everything written while the popup was closed.
-      const snapshot = await getDocsFromServer(q);
+      let snapshot;
+      try {
+        snapshot = await getDocsFromServer(q);
+      } catch (serverErr) {
+        if (!isUnavailableError(serverErr)) throw serverErr;
+        logNotifUnavailableOnce(
+          `initial:${device.id}`,
+          `[Notifications] Server unavailable for ${device.id}, using local cache fallback`,
+        );
+        snapshot = await getDocs(q);
+      }
       console.log(
         `[Notifications] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} from device ${device.id}`,
       );
@@ -394,6 +442,14 @@ export async function loadNotifications() {
       }
     } catch (error) {
       if (error?.code !== "permission-denied") {
+        if (isUnavailableError(error)) {
+          logNotifUnavailableOnce(
+            `after-fallback:${device.id}`,
+            `[Notifications] Device ${device.id} server unavailable after fallback`,
+            error?.message || error,
+          );
+          return;
+        }
         console.error(`[Notifications] getDocs error for device ${device.id}:`, error);
       }
     }
@@ -505,14 +561,23 @@ export async function loadNotifications() {
 }
 
 function resolveDeviceName(notif) {
+  const isShared =
+    !!notif.deviceId &&
+    (state.sharedWithMeDevices || []).some((s) => s.deviceId === notif.deviceId);
+  const withSharedBadge = (name) => {
+    if (!name) return name;
+    if (!isShared) return name;
+    return /\(Shared\)\s*$/i.test(name) ? name : `${name} (Shared)`;
+  };
+
   // Always prefer the live device name from state.devices so that renames
   // are reflected immediately — even on old notifications with a stale deviceName.
   if (notif.deviceId && notif.deviceId !== "user" && notif.deviceId !== "_user_notifications") {
     const device = state.devices.find((d) => d.id === notif.deviceId);
-    if (device) return device.nickname || device.name || notif.deviceName || null;
+    if (device) return withSharedBadge(device.nickname || device.name || notif.deviceName || null);
   }
   // Device not in state (deleted or user-level) — fall back to stored name.
-  return notif.deviceName || null;
+  return withSharedBadge(notif.deviceName || null);
 }
 
 function getMergedNotifications() {
@@ -527,7 +592,10 @@ function getMergedNotifications() {
   //     anything not in state.devices) are merged by `id` alone, but only
   //     accepted when no real-device entry already exists for that id, so
   //     the device tab can still show them.
-  const realDeviceIds = new Set(state.devices.map((d) => d.id));
+  const realDeviceIds = new Set([
+    ...state.devices.map((d) => d.id),
+    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
+  ]);
   const realIds = new Set(); // ids that have at least one real-device entry
   const byKey = new Map();
 
@@ -1438,8 +1506,16 @@ export async function deleteSelectedNotifications() {
  * Export notifications to CSV
  */
 export function exportNotificationsToCSV() {
-  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
+  const activeDevice =
+    document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  const knownDeviceIds = new Set([
+    ...state.devices.map((d) => d.id),
+    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
+  ]);
   let notifications = getMergedNotifications().filter((n) => !n.deviceId || n.deviceId === "user" || n.deviceId === "_user_notifications" || knownDeviceIds.has(n.deviceId));
+  if (activeDevice !== "all") {
+    notifications = notifications.filter((n) => n.deviceId === activeDevice);
+  }
   if (notifications.length === 0) {
     alert("No notifications to export.");
     return;

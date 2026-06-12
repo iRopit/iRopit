@@ -36,7 +36,11 @@ function toggleTheme() {
  */
 export function initTheme() {
   chrome.storage.local.get(["darkMode"], (result) => {
-    isDark = result.darkMode === true;
+    // Default to dark mode on first install (when darkMode is undefined).
+    isDark = result.darkMode !== false;
+    if (typeof result.darkMode === "undefined") {
+      chrome.storage.local.set({ darkMode: true });
+    }
     applyTheme();
   });
 

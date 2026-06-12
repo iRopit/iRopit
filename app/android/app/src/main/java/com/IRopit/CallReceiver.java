@@ -96,7 +96,7 @@ public class CallReceiver extends BroadcastReceiver {
             dbg.put("baselineCallLogId", outgoingBaselineCallLogId);
             dbg.put("offhookTime", outgoingOffhookTime);
             dbg.put("matchedNumber", number);
-            dbg.put("appVersion", "1.1.8.1");
+            dbg.put("appVersion", "1.1.8.4");
             fb.writeOutgoingCall(number, cn, -1, dbg);
             Log.d(TAG, "✅ outgoing_call written (" + source + ") number=" + number);
         } catch (Exception e) {
@@ -460,10 +460,24 @@ public class CallReceiver extends BroadcastReceiver {
                 
                 ContentResolver resolver = context.getContentResolver();
                 // Only include regular phone calls (exclude WhatsApp, Telegram, Viber, etc.)
-                String selection = CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
+                // When we already know the phone number (from RINGING), also require
+                // the call log entry to have a non-empty NUMBER so a concurrently-
+                // started VoIP/Meet call (empty number, NULL component) cannot
+                // shadow the real phone call during the polling retry window.
+                String accountFilter = "(" + CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
                         CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ? OR " +
-                        CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?";
-                String[] selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
+                        CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?)";
+                String selection;
+                String[] selectionArgs;
+                if (number != null && !number.isEmpty()) {
+                    // Saved number available — exclude empty-numbered VoIP/Meet entries
+                    selection = accountFilter + " AND " + CallLog.Calls.NUMBER + " IS NOT NULL AND " +
+                            CallLog.Calls.NUMBER + " != ''";
+                    selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
+                } else {
+                    selection = accountFilter;
+                    selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
+                }
                 Cursor cursor = resolver.query(
                     CallLog.Calls.CONTENT_URI,
                     new String[]{

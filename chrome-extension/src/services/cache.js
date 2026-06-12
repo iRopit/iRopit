@@ -23,6 +23,7 @@ const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // means users who open the popup occasionally still get the full history fill on
 // the next open after the backfill happens — without having to press Refresh.
 const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SMS_CACHE_CAP = 10000;
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -61,10 +62,10 @@ export async function cacheSMSData(smsByDevice, allMessages) {
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, SMS_CACHE_CAP),
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, SMS_CACHE_CAP);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -93,10 +94,10 @@ export async function flushSMSCache() {
   try {
     const cacheData = {
       byDevice: {},
-      allMessages: stripNonSerializable(payload.allMessages).slice(0, 2000),
+      allMessages: stripNonSerializable(payload.allMessages).slice(0, SMS_CACHE_CAP),
     };
     for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2000);
+      cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, SMS_CACHE_CAP);
     }
     await chrome.storage.local.set({
       [CACHE_KEYS.SMS]: cacheData,

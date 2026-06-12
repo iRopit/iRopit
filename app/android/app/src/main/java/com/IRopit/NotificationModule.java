@@ -4,9 +4,6 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.telephony.SmsManager;
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.os.PowerManager;
 import android.net.Uri;
 import android.os.Build;
@@ -14,7 +11,6 @@ import android.content.Context;
 import android.app.NotificationManager;
 import android.app.NotificationChannel;
 import android.service.notification.NotificationListenerService;
-import androidx.core.content.ContextCompat;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -109,32 +105,6 @@ public class NotificationModule extends ReactContextBaseJavaModule {
         }
         
         promise.resolve(isConnected);
-    }
-
-    @ReactMethod
-    public void sendSMS(String phoneNumber, String message, Promise promise) {
-        try {
-            // Check if SMS permission is granted
-            if (ContextCompat.checkSelfPermission(reactContext, Manifest.permission.SEND_SMS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                promise.resolve(false);
-                return;
-            }
-
-            SmsManager smsManager = SmsManager.getDefault();
-
-            // If message is too long, split it
-            if (message.length() > 160) {
-                java.util.ArrayList<String> parts = smsManager.divideMessage(message);
-                smsManager.sendMultipartTextMessage(phoneNumber, null, parts, null, null);
-            } else {
-                smsManager.sendTextMessage(phoneNumber, null, message, null, null);
-            }
-
-            promise.resolve(true);
-        } catch (Exception e) {
-            promise.reject("SMS_ERROR", e.getMessage());
-        }
     }
 
     /**

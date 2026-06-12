@@ -191,13 +191,13 @@ async function showCachedDataBeforeAuth() {
   }
 }
 
-function loadData() {
+function loadData(options = {}) {
   cleanupSubscriptions();
   hasLoadedCalls = false;
   hasLoadedNotifications = false;
 
   // Prioritize SMS on startup so first-install history loads before lower-priority tabs.
-  loadSMS();
+  loadSMS(options.smsOptions || {});
 
   // Load devices first, then contacts (contacts need devices to be loaded)
   loadDevices();
@@ -372,7 +372,9 @@ function init() {
   // Refresh button
   document.getElementById("refreshBtn")?.addEventListener("click", () => {
     showToast(getCurrentLanguage() === "ar" ? "...جارٍ التحديث" : "Refreshing...", "info");
-    loadData();
+    // Manual refresh must do a full SMS fetch so history is preserved and
+    // backfilled messages are not lost to delta-only cache windows.
+    loadData({ smsOptions: { forceFull: true } });
   });
 }
 

@@ -80,10 +80,14 @@ public class CallLogModule extends ReactContextBaseJavaModule {
                 Log.w(TAG, "Could not read SIM slot info", e);
             }
 
-            // Only include regular phone calls (exclude WhatsApp, Telegram, Viber, etc.)
-            String selection = Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
+            // Only include regular phone calls (exclude WhatsApp, Telegram, Viber, etc.).
+            // Also require NUMBER != '' to exclude VoIP/Meet calls that are logged with
+            // a NULL component name and empty phone number (e.g. Google Meet calls),
+            // which would otherwise appear as "Unknown · VoIP" in the Chrome extension.
+            String selection = "(" + Calls.PHONE_ACCOUNT_COMPONENT_NAME + " IS NULL OR " +
                     Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ? OR " +
-                    Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?";
+                    Calls.PHONE_ACCOUNT_COMPONENT_NAME + " LIKE ?) AND " +
+                    Calls.NUMBER + " IS NOT NULL AND " + Calls.NUMBER + " != ''";
             String[] selectionArgs = new String[]{"%telephony%", "%com.android.phone%"};
 
             Cursor cursor = cr.query(

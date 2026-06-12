@@ -35,8 +35,25 @@ import { setCallsDataConfirmed } from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedCalls, cacheCallsData, clearCache } from "./cache.js";
+import { getCachedCalls, cacheCallsData } from "./cache.js";
 import { wireHoverPreview } from "../utils/hoverPreview.js";
+
+function isUnavailableError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return code.includes("unavailable") || msg.includes("failed to get documents from server");
+}
+
+const callsUnavailableLogKeys = new Set();
+function logCallsUnavailableOnce(key, message, details) {
+  if (callsUnavailableLogKeys.has(key)) return;
+  callsUnavailableLogKeys.add(key);
+  if (details !== undefined) {
+    console.info(message, details);
+  } else {
+    console.info(message);
+  }
+}
 
 // ── Call type label (i18n) ──────────────────────────────────────────────────
 function getCallTypeLabel(type) {
@@ -172,6 +189,7 @@ export async function markAllCallsAsViewed() {
 const callDecryptionCache = new Map();
 let callListenerUnsubs = [];
 let isSyncingCalls = false;
+let suppressCallsSyncIndicator = false;
 
 /** Returns true while loadCalls() is still fetching from Firestore. */
 export function isCallsSyncing() {
@@ -289,11 +307,20 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
  * over the potentially-generic name baked in at load time (e.g. "Android").
  */
 function resolveCallDeviceName(call) {
+  const isShared =
+    !!call.deviceId &&
+    (state.sharedWithMeDevices || []).some((s) => s.deviceId === call.deviceId);
+  const withSharedBadge = (name) => {
+    if (!name) return name;
+    if (!isShared) return name;
+    return /\(Shared\)\s*$/i.test(name) ? name : `${name} (Shared)`;
+  };
+
   if (call.deviceId) {
     const device = state.devices.find((d) => d.id === call.deviceId);
-    if (device) return device.nickname || device.name || call.deviceName || null;
+    if (device) return withSharedBadge(device.nickname || device.name || call.deviceName || null);
   }
-  return call.deviceName || null;
+  return withSharedBadge(call.deviceName || null);
 }
 
 /**
@@ -303,8 +330,17 @@ export async function loadCalls() {
   const user = state.currentUser;
   if (!user) return;
 
-  // Show loading spinner immediately — replaced by cached/fresh data when it arrives
-  if (callsList) {
+  // Reset per-load UI suppression state.
+  suppressCallsSyncIndicator = false;
+
+  // Show spinner only if list is genuinely empty. If cached calls are already
+  // rendered (pre-auth cache path), keep them visible and sync in background.
+  const listHasContent =
+    callsList &&
+    !callsList.querySelector(".loading-state") &&
+    callsList.children.length > 0 &&
+    !callsList.querySelector(".empty-state");
+  if (callsList && !listHasContent) {
     const lang = getCurrentLanguage();
     const syncingMsg =
       lang === "ar"
@@ -335,7 +371,8 @@ export async function loadCalls() {
         console.debug(
           `[Calls] Cache mostly encrypted (${encCount}/${cached.allCalls.length}) - forcing full re-fetch`,
         );
-        await clearCache().catch(() => {});
+        // Only clear calls cache; keep SMS/notifications caches intact.
+        await chrome.storage.local.remove(["cached_calls_data"]).catch(() => {});
         // hasCachedData stays false → full (non-delta) fetch will be used
       } else {
         console.log(
@@ -371,6 +408,7 @@ export async function loadCalls() {
         };
         const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
         state.setAllCallsData(sanitizedCachedCalls);
+        suppressCallsSyncIndicator = true;
         // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
         setCallsDataConfirmed(false);
         renderCalls(sanitizedCachedCalls.slice(0, 100));
@@ -450,7 +488,21 @@ export async function loadCalls() {
       // Delta queries must hit the server — new calls won't be in Firestore's
       // local IndexedDB cache yet, causing a multi-second delay before the
       // realtime listener eventually delivers them.
-      const snapshot = await (isDelta ? getDocsFromServer : getDocs)(q);
+      let snapshot;
+      if (isDelta) {
+        try {
+          snapshot = await getDocsFromServer(q);
+        } catch (serverErr) {
+          if (!isUnavailableError(serverErr)) throw serverErr;
+          logCallsUnavailableOnce(
+            `delta:${device.id}`,
+            `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`,
+          );
+          snapshot = await getDocs(q);
+        }
+      } else {
+        snapshot = await getDocs(q);
+      }
       console.log(
         `[Calls] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} calls from device ${device.id}`,
       );
@@ -478,6 +530,14 @@ export async function loadCalls() {
       }
     } catch (error) {
       if (error?.code !== "permission-denied") {
+        if (isUnavailableError(error)) {
+          logCallsUnavailableOnce(
+            `after-fallback:${device.id}`,
+            `[Calls] Device ${device.id} server unavailable after fallback`,
+            error?.message || error,
+          );
+          return;
+        }
         console.error(`❌ Calls load error for device ${device.id}:`, error);
       }
     }
@@ -636,6 +696,10 @@ function updateCallsCountIndicator() {
   callsContainer.appendChild(indicator);
 
   if (isSyncingCalls) {
+    if (suppressCallsSyncIndicator && total > 0) {
+      indicator.innerHTML = `<span>${total} calls</span>`;
+      return;
+    }
     const countText = total > 0 ? `${total} calls` : "";
     indicator.innerHTML = `<span>${countText}</span><span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
   } else {
@@ -833,8 +897,8 @@ export function renderCalls(calls) {
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
+        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">
           <span class="call-contact-name">${displayName}</span>
         </div>
         <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]))}">${
@@ -1314,8 +1378,16 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
  * Export all calls to a CSV file download
  */
 export function exportCallsToCSV() {
-  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
-  const calls = (state.allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+  const activeDevice =
+    document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  const knownDeviceIds = new Set([
+    ...state.devices.map((d) => d.id),
+    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
+  ]);
+  let calls = (state.allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+  if (activeDevice !== "all") {
+    calls = calls.filter((c) => c.deviceId === activeDevice);
+  }
   if (calls.length === 0) {
     alert("No calls to export.");
     return;

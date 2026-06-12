@@ -45,7 +45,7 @@ import * as state from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptSMS } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedSMS, cacheSMSData, clearCache, flushSMSCache, isFullLoadRecent, markFullLoadDone } from "./cache.js";
+import { getCachedSMS, cacheSMSData, flushSMSCache, isFullLoadRecent, markFullLoadDone } from "./cache.js";
 import { getCurrentLanguage } from "../utils/i18n.js";
 import { wireHoverPreview } from "../utils/hoverPreview.js";
 
@@ -58,6 +58,23 @@ function linkifyText(text) {
   );
 }
 
+function isUnavailableError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return code.includes("unavailable") || msg.includes("failed to get documents from server");
+}
+
+const smsUnavailableLogKeys = new Set();
+function logSMSUnavailableOnce(key, message, details) {
+  if (smsUnavailableLogKeys.has(key)) return;
+  smsUnavailableLogKeys.add(key);
+  if (details !== undefined) {
+    console.info(message, details);
+  } else {
+    console.info(message);
+  }
+}
+
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
 
@@ -67,11 +84,20 @@ let smsUnsubscribeFunctions = [];
  * instead of the generic "Android" baked in at load time.
  */
 function resolveSMSDeviceName(msg) {
+  const isShared =
+    !!msg.deviceId &&
+    (state.sharedWithMeDevices || []).some((s) => s.deviceId === msg.deviceId);
+  const withSharedBadge = (name) => {
+    if (!name) return name;
+    if (!isShared) return name;
+    return /\(Shared\)\s*$/i.test(name) ? name : `${name} (Shared)`;
+  };
+
   if (msg.deviceId) {
     const device = state.devices.find((d) => d.id === msg.deviceId);
-    if (device) return device.nickname || device.name || msg.deviceName || null;
+    if (device) return withSharedBadge(device.nickname || device.name || msg.deviceName || null);
   }
-  return msg.deviceName || null;
+  return withSharedBadge(msg.deviceName || null);
 }
 // Track processed message IDs to avoid duplicates
 let processedMessageIds = new Set();
@@ -143,13 +169,6 @@ let isLoadingMore = false;
 let scrollHandlerAttached = false;
 let totalLoadedCount = 0;
 let isSyncing = false;
-let smsQuotaToastShown = false;
-
-function isQuotaExceededError(error) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "");
-  return code.includes("resource-exhausted") || /quota\s+exceeded/i.test(message);
-}
 
 /** Returns true while loadSMS() is still fetching from Firestore. */
 export function isSMSSyncing() {
@@ -349,12 +368,15 @@ export async function loadSMS() {
 
   // === STEP 1: Show cached data instantly ===
   let hasCachedData = false;
+  let forceFullFetch = false;
+  let hadSuccessfulFullOwnServerFetch = false;
   // Track newest cached timestamp per device for delta loading
   const cachedNewestTimestamps = {};
   let cachedSMSData = null; // hoisted so lambda below can check per-device counts
   // Check if a full Firestore load was done within the last 24h.
   // If not, isDelta will be forced false to catch any backfilled historical messages.
   const fullLoadRecent = await isFullLoadRecent();
+
   try {
     const cached = await getCachedSMS();
     cachedSMSData = cached;
@@ -377,121 +399,121 @@ export async function loadSMS() {
         console.debug(
           `[SMS] Cache mostly encrypted (${encCount}/${cached.allMessages.length}) - forcing full re-fetch`,
         );
-        await clearCache().catch(() => {});
-        // hasCachedData stays false â†’ full (non-delta) fetch will be used
-      } else {
-        console.log(
-          `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
-        );
-        hasCachedData = true;
-        // Sanitize any lingering ENC: values that slipped through decryption on the cached items.
-        // Messages with ENC: fields (typically body) get their encrypted bits collected so we can
-        // re-decrypt them in the BACKGROUND right after the cached list is painted — this fixes
-        // the UX where a row shows the contact name (header) but the body stays blank until the
-        // server delta fetch completes (which can be several seconds when there are many devices).
-        const encMessagesToRedecrypt = []; // { id, original } pairs (original still has ENC: values)
-        const sanitizeMsg = (m) => {
-          const hasEnc =
-            (m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:")) ||
-            (m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:")) ||
-            (m.title && typeof m.title === "string" && m.title.startsWith("ENC:")) ||
-            (m.body && typeof m.body === "string" && m.body.startsWith("ENC:")) ||
-            (m.text && typeof m.text === "string" && m.text.startsWith("ENC:")) ||
-            (m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:")) ||
-            (m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:"));
-          if (!hasEnc) return m;
-          if (m.id) encMessagesToRedecrypt.push(m);
-          return {
-            ...m,
-            contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
-            phoneNumber: (m.phoneNumber && m.phoneNumber.startsWith("ENC:")) ? "" : (m.phoneNumber || ""),
-            title: (m.title && m.title.startsWith("ENC:")) ? "" : (m.title || ""),
-            body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || ""),
-            text: (m.text && m.text.startsWith("ENC:")) ? "" : (m.text || ""),
-            sender: (m.sender && m.sender.startsWith("ENC:")) ? "" : (m.sender || ""),
-            displayName: (m.displayName && m.displayName.startsWith("ENC:")) ? "" : (m.displayName || ""),
-          };
+        forceFullFetch = true;
+      }
+      console.log(
+        `[SMS] ðŸ“¦ Showing ${cached.allMessages.length} cached messages instantly`,
+      );
+      hasCachedData = true;
+      // Sanitize any lingering ENC: values that slipped through decryption on the cached items.
+      // Messages with ENC: fields (typically body) get their encrypted bits collected so we can
+      // re-decrypt them in the BACKGROUND right after the cached list is painted — this fixes
+      // the UX where a row shows the contact name (header) but the body stays blank until the
+      // server delta fetch completes (which can be several seconds when there are many devices).
+      const encMessagesToRedecrypt = []; // { id, original } pairs (original still has ENC: values)
+      const sanitizeMsg = (m) => {
+        const hasEnc =
+          (m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:")) ||
+          (m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:")) ||
+          (m.title && typeof m.title === "string" && m.title.startsWith("ENC:")) ||
+          (m.body && typeof m.body === "string" && m.body.startsWith("ENC:")) ||
+          (m.text && typeof m.text === "string" && m.text.startsWith("ENC:")) ||
+          (m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:")) ||
+          (m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:"));
+        if (!hasEnc) return m;
+        if (m.id) encMessagesToRedecrypt.push(m);
+        return {
+          ...m,
+          contactName: (m.contactName && m.contactName.startsWith("ENC:")) ? "" : (m.contactName || ""),
+          phoneNumber: (m.phoneNumber && m.phoneNumber.startsWith("ENC:")) ? "" : (m.phoneNumber || ""),
+          title: (m.title && m.title.startsWith("ENC:")) ? "" : (m.title || ""),
+          body: (m.body && m.body.startsWith("ENC:")) ? "" : (m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || ""),
+          text: (m.text && m.text.startsWith("ENC:")) ? "" : (m.text || ""),
+          sender: (m.sender && m.sender.startsWith("ENC:")) ? "" : (m.sender || ""),
+          displayName: (m.displayName && m.displayName.startsWith("ENC:")) ? "" : (m.displayName || ""),
         };
-        // Restore state from cache (both the flat list AND the per-device map).
-        // The delta-fetch path below reads cachedMessages from `state.getSMSData(device.id)`
-        // and merges them with newly-arrived messages. If we don't seed the per-device map,
-        // the merge drops all cached messages — the UI flickers from "570 cached" down to
-        // just the few new delta messages. `updateSMSList` already dedupes by id and content,
-        // so any overlap between cache and fresh fetch is handled safely.
-        if (cached.byDevice) {
-          for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
-            if (msgs && msgs.length > 0) {
+      };
+      // Restore state from cache (both the flat list AND the per-device map).
+      // The delta-fetch path below reads cachedMessages from `state.getSMSData(device.id)`
+      // and merges them with newly-arrived messages. If we don't seed the per-device map,
+      // the merge drops all cached messages — the UI flickers from "570 cached" down to
+      // just the few new delta messages. `updateSMSList` already dedupes by id and content,
+      // so any overlap between cache and fresh fetch is handled safely.
+      if (cached.byDevice) {
+        for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
+          if (msgs && msgs.length > 0) {
+            if (!forceFullFetch) {
               cachedNewestTimestamps[deviceId] = Math.max(
                 ...msgs.map((m) => m.timestamp || 0),
               );
-              state.setSMSData(deviceId, msgs.map(sanitizeMsg));
             }
+            state.setSMSData(deviceId, msgs.map(sanitizeMsg));
           }
         }
-        const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
-        state.setAllSMSMessages(sanitizedCachedMessages);
-        renderSMS(sanitizedCachedMessages);
-        updateTabBadges();
+      }
+      const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
+      state.setAllSMSMessages(sanitizedCachedMessages);
+      renderSMS(sanitizedCachedMessages);
+      updateTabBadges();
 
-        // === Background re-decryption of cached ENC: items ===
-        // The list above renders instantly with empty bodies for any cached message whose
-        // body/title is still in ENC: form. Kick off decryption now (off the render path)
-        // so those rows fill in within a few hundred ms — well before the Firestore delta
-        // fetch returns. We don't await; the IIFE updates state + re-renders when done.
-        if (encMessagesToRedecrypt.length > 0) {
-          (async () => {
-            try {
-              const uid = user.uid;
-              const fixed = await Promise.all(
-                encMessagesToRedecrypt.map(async (m) => {
-                  try {
-                    const d = await decryptSMS(m, uid);
-                    return {
-                      ...m,
-                      contactName: stripEnc(d.contactName) || m.contactName,
-                      phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
-                      title: stripEnc(d.title) || m.title,
-                      body: stripEnc(d.body) || stripEnc(d.text) || "",
-                      text: stripEnc(d.text) || "",
-                      sender: stripEnc(d.sender) || m.sender,
-                      displayName: stripEnc(d.displayName) || m.displayName,
-                    };
-                  } catch {
-                    return null;
-                  }
-                }),
-              );
-              const byId = new Map();
-              for (const m of fixed) {
-                if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
-              }
-              if (byId.size === 0) return;
-
-              // Merge decrypted versions into per-device state and the flat list
-              const deviceIds = Object.keys(state.allSMS || {});
-              for (const deviceId of deviceIds) {
-                const list = state.getSMSData(deviceId) || [];
-                let changed = false;
-                const merged = list.map((m) => {
-                  const fix = byId.get(m.id);
-                  if (!fix) return m;
-                  changed = true;
-                  return { ...m, ...fix };
-                });
-                if (changed) state.setSMSData(deviceId, merged);
-              }
-              const flat = (state.allSMSMessages || sanitizedCachedMessages).map((m) => {
-                const fix = byId.get(m.id);
-                return fix ? { ...m, ...fix } : m;
-              });
-              state.setAllSMSMessages(flat);
-              renderSMS(flat);
-              console.log(`[SMS] 🔓 Background re-decrypted ${byId.size} cached message(s)`);
-            } catch (err) {
-              console.warn("[SMS] Background re-decrypt failed:", err);
+      // === Background re-decryption of cached ENC: items ===
+      // The list above renders instantly with empty bodies for any cached message whose
+      // body/title is still in ENC: form. Kick off decryption now (off the render path)
+      // so those rows fill in within a few hundred ms — well before the Firestore delta
+      // fetch returns. We don't await; the IIFE updates state + re-renders when done.
+      if (encMessagesToRedecrypt.length > 0) {
+        (async () => {
+          try {
+            const uid = user.uid;
+            const fixed = await Promise.all(
+              encMessagesToRedecrypt.map(async (m) => {
+                try {
+                  const d = await decryptSMS(m, uid);
+                  return {
+                    ...m,
+                    contactName: stripEnc(d.contactName) || m.contactName,
+                    phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
+                    title: stripEnc(d.title) || m.title,
+                    body: stripEnc(d.body) || stripEnc(d.text) || "",
+                    text: stripEnc(d.text) || "",
+                    sender: stripEnc(d.sender) || m.sender,
+                    displayName: stripEnc(d.displayName) || m.displayName,
+                  };
+                } catch {
+                  return null;
+                }
+              }),
+            );
+            const byId = new Map();
+            for (const m of fixed) {
+              if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
             }
-          })();
-        }
+            if (byId.size === 0) return;
+
+            // Merge decrypted versions into per-device state and the flat list
+            const deviceIds = Object.keys(state.allSMS || {});
+            for (const deviceId of deviceIds) {
+              const list = state.getSMSData(deviceId) || [];
+              let changed = false;
+              const merged = list.map((m) => {
+                const fix = byId.get(m.id);
+                if (!fix) return m;
+                changed = true;
+                return { ...m, ...fix };
+              });
+              if (changed) state.setSMSData(deviceId, merged);
+            }
+            const flat = (state.allSMSMessages || sanitizedCachedMessages).map((m) => {
+              const fix = byId.get(m.id);
+              return fix ? { ...m, ...fix } : m;
+            });
+            state.setAllSMSMessages(flat);
+            renderSMS(flat);
+            console.log(`[SMS] 🔓 Background re-decrypted ${byId.size} cached message(s)`);
+          } catch (err) {
+            console.warn("[SMS] Background re-decrypt failed:", err);
+          }
+        })();
       }
     }
   } catch (e) {
@@ -551,7 +573,7 @@ export async function loadSMS() {
 
     // Load SMS using getDocs (one-time) for fast initial load
     // Then start realtime listeners for new messages only
-    const loadTasks = devicesList.map((device) => async () => {
+    const loadPromises = devicesList.map(async (device) => {
       // Initialize pagination state for this device
       // Capture local ref so a paginationState reset mid-flight doesn't crash us
       const devicePagState = {
@@ -561,14 +583,21 @@ export async function loadSMS() {
       };
       paginationState[device.id] = devicePagState;
 
-      // Delta fetch: only use when cache has a FULL page of messages for this device
+      // Delta fetch: only use when cache is sufficiently populated for this device
       // AND a full load was done within the last 24 hours.
       // If the full load is stale (> 24h), force a full reload to catch any messages
       // that were backfilled to Firestore with old timestamps by the mobile app —
       // those are older than cachedNewestTs and will never appear in a delta query.
       const cachedNewestTs = cachedNewestTimestamps[device.id];
       const cachedDeviceCount = (cachedSMSData?.byDevice?.[device.id]?.length) || 0;
-      const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
+      // Guard against sparse/partial cache (e.g. fallback cache or first-run cache pollution).
+      // With very small cache, delta mode makes it look like only a few messages exist.
+      const MIN_CACHE_FOR_DELTA = 200;
+      const isDelta =
+        !!cachedNewestTs &&
+        cachedDeviceCount >= MIN_CACHE_FOR_DELTA &&
+        fullLoadRecent &&
+        !forceFullFetch;
 
       // When in delta mode, look back 24h from the newest cached timestamp to catch
       // messages that the mobile app backfilled to Firestore with old timestamps
@@ -607,7 +636,16 @@ export async function loadSMS() {
         // at May 25 even though older messages exist in Firestore).
         let snapshot;
         if (isDelta) {
-          snapshot = await getDocsFromServer(q);
+          try {
+            snapshot = await getDocsFromServer(q);
+          } catch (serverErr) {
+            if (!isUnavailableError(serverErr)) throw serverErr;
+            logSMSUnavailableOnce(
+              `delta:${device.id}`,
+              `[SMS] Server unavailable for delta ${device.id}, using local cache fallback`,
+            );
+            snapshot = await getDocs(q);
+          }
         } else {
           // Full load: fetch up to 30,000 messages per device (3 × 10,000 pages).
           // Firestore hard-limits each query to 10,000 docs, so we paginate with
@@ -632,7 +670,18 @@ export async function loadSMS() {
                   orderBy("timestamp", "desc"),
                   limit(PAGE_SIZE),
                 );
-            const pageSnap = await getDocsFromServer(pageQuery);
+            let pageSnap;
+            try {
+              pageSnap = await getDocsFromServer(pageQuery);
+              hadSuccessfulFullOwnServerFetch = true;
+            } catch (serverErr) {
+              if (!isUnavailableError(serverErr)) throw serverErr;
+              logSMSUnavailableOnce(
+                `full:${device.id}`,
+                `[SMS] Server unavailable for full page ${device.id}, using local cache fallback`,
+              );
+              pageSnap = await getDocs(pageQuery);
+            }
             allDocs.push(...pageSnap.docs);
             pagesLoaded++;
             if (pageSnap.size < PAGE_SIZE) break; // ran out of data
@@ -762,17 +811,12 @@ export async function loadSMS() {
         }
       } catch (error) {
         if (error?.code === "permission-denied") return;
-        if (isQuotaExceededError(error)) {
-          if (!smsQuotaToastShown) {
-            smsQuotaToastShown = true;
-            showToast(
-              getCurrentLanguage() === "ar"
-                ? "تم بلوغ حد Firestore مؤقتا. تم تحميل جزء من الرسائل فقط."
-                : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
-              "warning",
-            );
-          }
-          console.warn(`[SMS] Quota exceeded while loading device ${device.id}`);
+        if (isUnavailableError(error)) {
+          logSMSUnavailableOnce(
+            `after-fallback:${device.id}`,
+            `[SMS] Device ${device.id} server unavailable after fallback`,
+            error?.message || error,
+          );
           return;
         }
         console.error(`âŒ SMS load error for device ${device.id}:`, error);
@@ -783,26 +827,22 @@ export async function loadSMS() {
     // The first snapshot will show the latest messages even before getDocs completes
     startSMSRealtimeListeners(user.uid, devicesList);
 
-    // First install usually has no cache and can trigger large full-load reads.
-    // Run those sequentially to avoid rate bursts that cause resource-exhausted.
-    if (hasCachedData) {
-      await Promise.all(loadTasks.map((task) => task()));
-    } else {
-      for (const task of loadTasks) {
-        await task();
-      }
-    }
+    // Load all devices in parallel (full history runs in background)
+    await Promise.all(loadPromises);
     console.log("[SMS] âœ… Initial load complete");
 
     isSyncing = false;
     updateSMSCountIndicator();
+    renderSMS(state.allSMSMessages || []);
     // Flush the cache immediately so the popup closing before the 3s debounce
     // doesn't lose the persisted snapshot â€” otherwise every reopen does a full re-fetch.
     flushSMSCache().catch(() => {});
     // Record that a full load ran (at least one device was non-delta).
     // This allows isDelta for the next 24h; after that a fresh full load will run
     // again to pick up any messages backfilled with old timestamps by the mobile app.
-    if (!fullLoadRecent) markFullLoadDone().catch(() => {});
+    // Only stamp full-load freshness when we actually completed at least one
+    // own-device full page from Firestore server (not cache fallback).
+    if (hadSuccessfulFullOwnServerFetch) markFullLoadDone().catch(() => {});
     try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   } catch (error) {
     if (error?.code !== "permission-denied") {
@@ -810,6 +850,7 @@ export async function loadSMS() {
     }
     isSyncing = false;
     updateSMSCountIndicator();
+    renderSMS(state.allSMSMessages || []);
     try { window.dispatchEvent(new CustomEvent("iropit:sms-sync-done")); } catch (_) {}
   }
 }
@@ -1447,13 +1488,13 @@ export function renderSMS(messages) {
     const lastFallback = getCurrentLanguage() === "ar" ? "بدون نص" : "No text";
     const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
     return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
@@ -1801,6 +1842,15 @@ export function showConversation(phoneNumber) {
       return matches;
     })
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  // Respect the currently selected SMS device tab in conversation detail.
+  // If a specific device is selected (e.g. MM-MOB-A57), do not mix messages
+  // from other devices in the same contact thread.
+  const activeDevice =
+    document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  if (activeDevice !== "all") {
+    conversation = conversation.filter((msg) => msg.deviceId === activeDevice);
+  }
 
   console.log(`[SMS] showConversation: found ${conversation.length} messages`);
 
@@ -2993,8 +3043,16 @@ export function stopPolling() {
  * When a conversation is open, exports only that conversation's messages.
  */
 export function exportSMSToCSV() {
-  const knownDeviceIds = new Set(state.devices.map((d) => d.id));
+  const activeDevice =
+    document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  const knownDeviceIds = new Set([
+    ...state.devices.map((d) => d.id),
+    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
+  ]);
   let messages = (state.allSMSMessages || []).filter((m) => !m.deviceId || knownDeviceIds.has(m.deviceId));
+  if (activeDevice !== "all") {
+    messages = messages.filter((m) => m.deviceId === activeDevice);
+  }
   const now = new Date();
   const localStamp = now.getFullYear() + "-" +
     String(now.getMonth() + 1).padStart(2, "0") + "-" +
@@ -3077,7 +3135,17 @@ export async function loadSharedDevicesSMS(shares) {
       );
       // Must use getDocsFromServer: shared device data lives under the owner's Firestore
       // path, so the local IndexedDB cache has nothing for it on a fresh install.
-      const snapshot = await getDocsFromServer(q);
+      let snapshot;
+      try {
+        snapshot = await getDocsFromServer(q);
+      } catch (serverErr) {
+        if (!isUnavailableError(serverErr)) throw serverErr;
+        logSMSUnavailableOnce(
+          `shared:${share.deviceId}`,
+          `[SMS] Server unavailable for shared device ${share.deviceId}, using local cache fallback`,
+        );
+        snapshot = await getDocs(q);
+      }
       const messages = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           let data = docSnap.data();
@@ -3099,25 +3167,15 @@ export async function loadSharedDevicesSMS(shares) {
       updateSMSList(share.deviceId, messages);
     } catch (err) {
       if (err?.code === "permission-denied") return;
-      if (isQuotaExceededError(err)) {
-        if (!smsQuotaToastShown) {
-          smsQuotaToastShown = true;
-          showToast(
-            getCurrentLanguage() === "ar"
-              ? "تم بلوغ حد Firestore مؤقتا. تم تحميل جزء من الرسائل فقط."
-              : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
-            "warning",
-          );
-        }
-        console.warn(
-          `[SMS] Quota exceeded while loading shared device ${share.deviceId}`,
+      if (isUnavailableError(err)) {
+        logSMSUnavailableOnce(
+          `shared-failed:${share.deviceId}`,
+          `[SMS] Shared device ${share.deviceId} unavailable after fallback`,
+          err?.message || err?.code,
         );
         continue;
       }
-      console.error(
-        `[SMS] Shared device load error for ${share.deviceId}:`,
-        err,
-      );
+      console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
     }
   }
 }

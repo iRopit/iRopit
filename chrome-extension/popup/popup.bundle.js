@@ -8927,6 +8927,9 @@
   function __PRIVATE_getLogLevel() {
     return O.logLevel;
   }
+  function setLogLevel2(e) {
+    O.setLogLevel(e);
+  }
   function __PRIVATE_logDebug(e, ...t4) {
     if (O.logLevel <= LogLevel.DEBUG) {
       const n = t4.map(__PRIVATE_argToString);
@@ -24172,6 +24175,7 @@ ${this.customData.serverResponse}`;
       init_firebase_config();
       app = initializeApp(firebase_config_default);
       auth = getAuth(app);
+      setLogLevel2("silent");
       db = initializeFirestore(app, {
         localCache: persistentLocalCache({
           tabManager: persistentSingleTabManager({ forceOwnership: true })
@@ -24954,9 +24958,27 @@ ${this.customData.serverResponse}`;
     return allSMSMessages.filter((m) => m.deviceId === deviceId && !m.read).length;
   }
   function getCallsCount(deviceId) {
-    if (!callsDataConfirmed) return 0;
-    if (deviceId === "all") return devices.reduce((t4, d) => t4 + getCallsCount(d.id), 0);
-    return (allCallsData || []).filter((c) => c.deviceId === deviceId && c.type === "missed" && !c.viewed).length;
+    const calls = allCallsData || [];
+    const normalizePhone = (phone) => {
+      if (!phone || !phone.trim()) return "";
+      let normalized = phone.replace(/[^\d+]/g, "").trim();
+      normalized = normalized.replace(/^\+/, "");
+      if (normalized.startsWith("20") && normalized.length > 10) normalized = normalized.substring(2);
+      if (normalized.startsWith("971") && normalized.length > 10) normalized = normalized.substring(3);
+      if (!normalized.startsWith("0") && (normalized.length === 9 || normalized.length === 10)) normalized = "0" + normalized;
+      return normalized;
+    };
+    const isVisibleCall = (c) => {
+      const phone = (c.phoneNumber || "").trim();
+      const app2 = (c.appName || "").trim();
+      const isPhantomVoIP = (!phone || phone.toLowerCase() === "unknown" || !normalizePhone(phone)) && !app2;
+      return !isPhantomVoIP;
+    };
+    const isUnreadMissed = (c) => c.type === "missed" && !c.viewed && isVisibleCall(c);
+    if (deviceId === "all") {
+      return calls.filter((c) => isUnreadMissed(c) && (!c.deviceId || getDeviceSyncPref(c.deviceId, "calls"))).length;
+    }
+    return calls.filter((c) => c.deviceId === deviceId && isUnreadMissed(c)).length;
   }
   function getNotifsCount(deviceId) {
     if (deviceId === "all") return Object.values(allNotifications).flat().filter((n) => !n.read).length;
@@ -25160,6 +25182,15 @@ ${this.customData.serverResponse}`;
     setReplyTo: () => setReplyTo,
     subscribeToChat: () => subscribeToChat
   });
+  function autoResizeChatInput() {
+    if (!chatInput) return;
+    const style = window.getComputedStyle(chatInput);
+    const maxHeight = parseInt(style.maxHeight, 10) || 120;
+    chatInput.style.height = "auto";
+    const nextHeight = Math.min(chatInput.scrollHeight, maxHeight);
+    chatInput.style.height = `${nextHeight}px`;
+    chatInput.style.overflowY = chatInput.scrollHeight > maxHeight ? "auto" : "hidden";
+  }
   function linkifyText(text) {
     const escaped = escapeHtml(text);
     return escaped.replace(
@@ -25293,6 +25324,10 @@ ${this.customData.serverResponse}`;
     if (showStarredOnly) {
       filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
     }
+    chatContentById.clear();
+    filteredMessages.forEach((msg) => {
+      chatContentById.set(msg.id, msg.content || "");
+    });
     if (filteredMessages.length === 0) {
       chatMessages.innerHTML = `
       <div class="empty-state">
@@ -25339,7 +25374,7 @@ ${this.customData.serverResponse}`;
           </a>
         ` : `<div class="chat-file-link"><span>Invalid file URL</span></div>`;
       } else {
-        content = `<div>${linkifyText(msg.content)}</div>`;
+        content = `<div class="chat-message-text">${linkifyText(msg.content)}</div>`;
       }
       const senderDevice = devices.find(
         (d) => d.id === msg.senderDeviceId
@@ -25354,7 +25389,6 @@ ${this.customData.serverResponse}`;
         <div class="chat-message-wrapper ${direction}">
           <div class="chat-message ${direction}" 
                data-msg-id="${escapeHtml(msg.id)}" 
-               data-msg-content="${escapeHtml(msg.content || "")}" 
                data-msg-sender="${escapeHtml(msg.senderId)}">
             ${showDeviceName && deviceName ? `<div class="chat-message-device">${deviceName}</div>` : ""}
             ${msg.replyTo ? `<div class="chat-reply-preview">\u21A9 ${escapeHtml(
@@ -25401,7 +25435,8 @@ ${this.customData.serverResponse}`;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const msgEl = btn.closest(".chat-message-wrapper")?.querySelector(".chat-message");
-        const text = msgEl?.dataset.msgContent || "";
+        const msgId = msgEl?.dataset.msgId;
+        const text = msgId && chatContentById.get(msgId) || "";
         navigator.clipboard.writeText(text).then(() => {
           showToast("Copied!", "success");
         }).catch(() => {
@@ -25483,6 +25518,7 @@ ${this.customData.serverResponse}`;
       };
     }
     chatInput.value = "";
+    autoResizeChatInput();
     clearReply();
     try {
       messageData = await encryptChatMessage(messageData, user.uid);
@@ -25671,7 +25707,7 @@ ${this.customData.serverResponse}`;
   }
   function setReplyTo(element) {
     const msgId = element.dataset.msgId;
-    const msgContent = element.dataset.msgContent;
+    const msgContent = chatContentById.get(msgId) || "";
     const msgSender = element.dataset.msgSender;
     setCurrentReplyTo({
       id: msgId,
@@ -25691,8 +25727,9 @@ ${this.customData.serverResponse}`;
     }
     replyPreview.innerHTML = `
     <span class="reply-text">\u21A9 ${escapeHtml(msgContent.substring(0, 40))}${msgContent.length > 40 ? "..." : ""}</span>
-    <button class="reply-close" onclick="window.clearReply()">\xD7</button>
+    <button class="reply-close" type="button">\xD7</button>
   `;
+    replyPreview.querySelector(".reply-close")?.addEventListener("click", clearReply);
     replyPreview.style.display = "flex";
     chatInput.focus();
   }
@@ -25705,12 +25742,15 @@ ${this.customData.serverResponse}`;
   }
   function initChatListeners() {
     sendChatBtn?.addEventListener("click", sendChatMessage);
+    chatInput?.addEventListener("input", autoResizeChatInput);
+    autoResizeChatInput();
     chatInput?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         sendChatMessage();
       }
     });
+    document.getElementById("cancelReply")?.addEventListener("click", clearReply);
     document.getElementById("attachFileBtn")?.addEventListener("click", () => {
       const input = document.createElement("input");
       input.type = "file";
@@ -25751,7 +25791,7 @@ ${this.customData.serverResponse}`;
     window.setReplyTo = setReplyTo;
     window.clearReply = clearReply;
   }
-  var STARRED_LS_KEY, pendingFile;
+  var chatContentById, STARRED_LS_KEY, pendingFile;
   var init_chat = __esm({
     "src/services/chat.js"() {
       init_firebase();
@@ -25762,6 +25802,7 @@ ${this.customData.serverResponse}`;
       init_state();
       init_badges();
       init_cryptoService();
+      chatContentById = /* @__PURE__ */ new Map();
       STARRED_LS_KEY = "chatStarredMessages";
       pendingFile = null;
     }
@@ -25934,10 +25975,10 @@ ${this.customData.serverResponse}`;
       try {
         const cacheData = {
           byDevice: {},
-          allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
+          allMessages: stripNonSerializable(payload.allMessages).slice(0, SMS_CACHE_CAP)
         };
         for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
+          cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, SMS_CACHE_CAP);
         }
         await chrome.storage.local.set({
           [CACHE_KEYS.SMS]: cacheData,
@@ -25960,10 +26001,10 @@ ${this.customData.serverResponse}`;
     try {
       const cacheData = {
         byDevice: {},
-        allMessages: stripNonSerializable(payload.allMessages).slice(0, 2e3)
+        allMessages: stripNonSerializable(payload.allMessages).slice(0, SMS_CACHE_CAP)
       };
       for (const [deviceId, msgs] of Object.entries(payload.smsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, 2e3);
+        cacheData.byDevice[deviceId] = stripNonSerializable(msgs).slice(0, SMS_CACHE_CAP);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.SMS]: cacheData,
@@ -26138,7 +26179,7 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to clear cache:", error);
     }
   }
-  var CACHE_KEYS, MAX_CACHE_AGE_MS, FULL_LOAD_INTERVAL_MS, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
+  var CACHE_KEYS, MAX_CACHE_AGE_MS, FULL_LOAD_INTERVAL_MS, SMS_CACHE_CAP, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
   var init_cache = __esm({
     "src/services/cache.js"() {
       CACHE_KEYS = {
@@ -26153,6 +26194,7 @@ ${this.customData.serverResponse}`;
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
       FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
+      SMS_CACHE_CAP = 1e4;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -26282,6 +26324,20 @@ ${this.customData.serverResponse}`;
     setCallsSelectAll: () => setCallsSelectAll,
     toggleCallsSelectionMode: () => toggleCallsSelectionMode
   });
+  function isUnavailableError(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("unavailable") || msg.includes("failed to get documents from server");
+  }
+  function logCallsUnavailableOnce(key, message, details) {
+    if (callsUnavailableLogKeys.has(key)) return;
+    callsUnavailableLogKeys.add(key);
+    if (details !== void 0) {
+      console.info(message, details);
+    } else {
+      console.info(message);
+    }
+  }
   function getCallTypeLabel(type) {
     const ar = getCurrentLanguage() === "ar";
     switch (type) {
@@ -26421,16 +26477,24 @@ ${this.customData.serverResponse}`;
     };
   }
   function resolveCallDeviceName(call) {
+    const isShared = !!call.deviceId && (sharedWithMeDevices || []).some((s) => s.deviceId === call.deviceId);
+    const withSharedBadge = (name5) => {
+      if (!name5) return name5;
+      if (!isShared) return name5;
+      return /\(Shared\)\s*$/i.test(name5) ? name5 : `${name5} (Shared)`;
+    };
     if (call.deviceId) {
       const device = devices.find((d) => d.id === call.deviceId);
-      if (device) return device.nickname || device.name || call.deviceName || null;
+      if (device) return withSharedBadge(device.nickname || device.name || call.deviceName || null);
     }
-    return call.deviceName || null;
+    return withSharedBadge(call.deviceName || null);
   }
   async function loadCalls() {
     const user = currentUser;
     if (!user) return;
-    if (callsList) {
+    suppressCallsSyncIndicator = false;
+    const listHasContent = callsList && !callsList.querySelector(".loading-state") && callsList.children.length > 0 && !callsList.querySelector(".empty-state");
+    if (callsList && !listHasContent) {
       const lang = getCurrentLanguage();
       const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
       showListLoading(callsList, syncingMsg);
@@ -26447,7 +26511,7 @@ ${this.customData.serverResponse}`;
           console.debug(
             `[Calls] Cache mostly encrypted (${encCount}/${cached.allCalls.length}) - forcing full re-fetch`
           );
-          await clearCache().catch(() => {
+          await chrome.storage.local.remove(["cached_calls_data"]).catch(() => {
           });
         } else {
           console.log(
@@ -26477,6 +26541,7 @@ ${this.customData.serverResponse}`;
           };
           const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
           setAllCallsData(sanitizedCachedCalls);
+          suppressCallsSyncIndicator = true;
           setCallsDataConfirmed(false);
           renderCalls(sanitizedCachedCalls.slice(0, 100));
         }
@@ -26536,7 +26601,21 @@ ${this.customData.serverResponse}`;
         );
       }
       try {
-        const snapshot = await (isDelta ? getDocsFromServer : getDocs)(q2);
+        let snapshot;
+        if (isDelta) {
+          try {
+            snapshot = await getDocsFromServer(q2);
+          } catch (serverErr) {
+            if (!isUnavailableError(serverErr)) throw serverErr;
+            logCallsUnavailableOnce(
+              `delta:${device.id}`,
+              `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`
+            );
+            snapshot = await getDocs(q2);
+          }
+        } else {
+          snapshot = await getDocs(q2);
+        }
         console.log(
           `[Calls] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} calls from device ${device.id}`
         );
@@ -26561,6 +26640,14 @@ ${this.customData.serverResponse}`;
         }
       } catch (error) {
         if (error?.code !== "permission-denied") {
+          if (isUnavailableError(error)) {
+            logCallsUnavailableOnce(
+              `after-fallback:${device.id}`,
+              `[Calls] Device ${device.id} server unavailable after fallback`,
+              error?.message || error
+            );
+            return;
+          }
           console.error(`\u274C Calls load error for device ${device.id}:`, error);
         }
       }
@@ -26674,6 +26761,10 @@ ${this.customData.serverResponse}`;
     indicator.classList.remove("indicator-top");
     callsContainer.appendChild(indicator);
     if (isSyncingCalls) {
+      if (suppressCallsSyncIndicator && total > 0) {
+        indicator.innerHTML = `<span>${total} calls</span>`;
+        return;
+      }
       const countText = total > 0 ? `${total} calls` : "";
       indicator.innerHTML = `<span>${countText}</span><span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
     } else {
@@ -26816,8 +26907,8 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
           <span class="call-contact-name">${displayName}</span>
         </div>
         <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
@@ -27216,8 +27307,15 @@ ${this.customData.serverResponse}`;
     }
   }
   function exportCallsToCSV() {
-    const knownDeviceIds = new Set(devices.map((d) => d.id));
-    const calls = (allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+    const activeDevice = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const knownDeviceIds = /* @__PURE__ */ new Set([
+      ...devices.map((d) => d.id),
+      ...(sharedWithMeDevices || []).map((s) => s.deviceId)
+    ]);
+    let calls = (allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+    if (activeDevice !== "all") {
+      calls = calls.filter((c) => c.deviceId === activeDevice);
+    }
     if (calls.length === 0) {
       alert("No calls to export.");
       return;
@@ -27275,7 +27373,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls;
+  var callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -27290,11 +27388,13 @@ ${this.customData.serverResponse}`;
       init_contacts();
       init_cache();
       init_hoverPreview();
+      callsUnavailableLogKeys = /* @__PURE__ */ new Set();
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
       callDecryptionCache = /* @__PURE__ */ new Map();
       callListenerUnsubs = [];
       isSyncingCalls = false;
+      suppressCallsSyncIndicator = false;
     }
   });
 
@@ -27497,12 +27597,32 @@ ${this.customData.serverResponse}`;
       '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
     );
   }
+  function isUnavailableError2(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("unavailable") || msg.includes("failed to get documents from server");
+  }
+  function logSMSUnavailableOnce(key, message, details) {
+    if (smsUnavailableLogKeys.has(key)) return;
+    smsUnavailableLogKeys.add(key);
+    if (details !== void 0) {
+      console.info(message, details);
+    } else {
+      console.info(message);
+    }
+  }
   function resolveSMSDeviceName(msg) {
+    const isShared = !!msg.deviceId && (sharedWithMeDevices || []).some((s) => s.deviceId === msg.deviceId);
+    const withSharedBadge = (name5) => {
+      if (!name5) return name5;
+      if (!isShared) return name5;
+      return /\(Shared\)\s*$/i.test(name5) ? name5 : `${name5} (Shared)`;
+    };
     if (msg.deviceId) {
       const device = devices.find((d) => d.id === msg.deviceId);
-      if (device) return device.nickname || device.name || msg.deviceName || null;
+      if (device) return withSharedBadge(device.nickname || device.name || msg.deviceName || null);
     }
-    return msg.deviceName || null;
+    return withSharedBadge(msg.deviceName || null);
   }
   function getSmsStarredMessages() {
     try {
@@ -27550,11 +27670,6 @@ ${this.customData.serverResponse}`;
       starred.add(msgId);
     }
     saveSmsStarredMessages(starred);
-  }
-  function isQuotaExceededError(error) {
-    const code = String(error?.code || "");
-    const message = String(error?.message || "");
-    return code.includes("resource-exhausted") || /quota\s+exceeded/i.test(message);
   }
   function isSMSSyncing() {
     return isSyncing;
@@ -27655,6 +27770,8 @@ ${this.customData.serverResponse}`;
       showListLoading(smsList, syncingMsg);
     }
     let hasCachedData = false;
+    let forceFullFetch = false;
+    let hadSuccessfulFullOwnServerFetch = false;
     const cachedNewestTimestamps = {};
     let cachedSMSData = null;
     const fullLoadRecent = await isFullLoadRecent();
@@ -27669,95 +27786,95 @@ ${this.customData.serverResponse}`;
           console.debug(
             `[SMS] Cache mostly encrypted (${encCount}/${cached.allMessages.length}) - forcing full re-fetch`
           );
-          await clearCache().catch(() => {
-          });
-        } else {
-          console.log(
-            `[SMS] \xF0\u0178\u201C\xA6 Showing ${cached.allMessages.length} cached messages instantly`
-          );
-          hasCachedData = true;
-          const encMessagesToRedecrypt = [];
-          const sanitizeMsg = (m) => {
-            const hasEnc = m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:") || m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:") || m.title && typeof m.title === "string" && m.title.startsWith("ENC:") || m.body && typeof m.body === "string" && m.body.startsWith("ENC:") || m.text && typeof m.text === "string" && m.text.startsWith("ENC:") || m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:") || m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:");
-            if (!hasEnc) return m;
-            if (m.id) encMessagesToRedecrypt.push(m);
-            return {
-              ...m,
-              contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
-              phoneNumber: m.phoneNumber && m.phoneNumber.startsWith("ENC:") ? "" : m.phoneNumber || "",
-              title: m.title && m.title.startsWith("ENC:") ? "" : m.title || "",
-              body: m.body && m.body.startsWith("ENC:") ? "" : m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || "",
-              text: m.text && m.text.startsWith("ENC:") ? "" : m.text || "",
-              sender: m.sender && m.sender.startsWith("ENC:") ? "" : m.sender || "",
-              displayName: m.displayName && m.displayName.startsWith("ENC:") ? "" : m.displayName || ""
-            };
+          forceFullFetch = true;
+        }
+        console.log(
+          `[SMS] \xF0\u0178\u201C\xA6 Showing ${cached.allMessages.length} cached messages instantly`
+        );
+        hasCachedData = true;
+        const encMessagesToRedecrypt = [];
+        const sanitizeMsg = (m) => {
+          const hasEnc = m.contactName && typeof m.contactName === "string" && m.contactName.startsWith("ENC:") || m.phoneNumber && typeof m.phoneNumber === "string" && m.phoneNumber.startsWith("ENC:") || m.title && typeof m.title === "string" && m.title.startsWith("ENC:") || m.body && typeof m.body === "string" && m.body.startsWith("ENC:") || m.text && typeof m.text === "string" && m.text.startsWith("ENC:") || m.sender && typeof m.sender === "string" && m.sender.startsWith("ENC:") || m.displayName && typeof m.displayName === "string" && m.displayName.startsWith("ENC:");
+          if (!hasEnc) return m;
+          if (m.id) encMessagesToRedecrypt.push(m);
+          return {
+            ...m,
+            contactName: m.contactName && m.contactName.startsWith("ENC:") ? "" : m.contactName || "",
+            phoneNumber: m.phoneNumber && m.phoneNumber.startsWith("ENC:") ? "" : m.phoneNumber || "",
+            title: m.title && m.title.startsWith("ENC:") ? "" : m.title || "",
+            body: m.body && m.body.startsWith("ENC:") ? "" : m.body || (m.text && !m.text.startsWith("ENC:") ? m.text : "") || (m.content && !m.content.startsWith("ENC:") ? m.content : "") || "",
+            text: m.text && m.text.startsWith("ENC:") ? "" : m.text || "",
+            sender: m.sender && m.sender.startsWith("ENC:") ? "" : m.sender || "",
+            displayName: m.displayName && m.displayName.startsWith("ENC:") ? "" : m.displayName || ""
           };
-          if (cached.byDevice) {
-            for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
-              if (msgs && msgs.length > 0) {
+        };
+        if (cached.byDevice) {
+          for (const [deviceId, msgs] of Object.entries(cached.byDevice)) {
+            if (msgs && msgs.length > 0) {
+              if (!forceFullFetch) {
                 cachedNewestTimestamps[deviceId] = Math.max(
                   ...msgs.map((m) => m.timestamp || 0)
                 );
-                setSMSData(deviceId, msgs.map(sanitizeMsg));
               }
+              setSMSData(deviceId, msgs.map(sanitizeMsg));
             }
           }
-          const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
-          setAllSMSMessages(sanitizedCachedMessages);
-          renderSMS(sanitizedCachedMessages);
-          updateTabBadges();
-          if (encMessagesToRedecrypt.length > 0) {
-            (async () => {
-              try {
-                const uid = user.uid;
-                const fixed = await Promise.all(
-                  encMessagesToRedecrypt.map(async (m) => {
-                    try {
-                      const d = await decryptSMS(m, uid);
-                      return {
-                        ...m,
-                        contactName: stripEnc(d.contactName) || m.contactName,
-                        phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
-                        title: stripEnc(d.title) || m.title,
-                        body: stripEnc(d.body) || stripEnc(d.text) || "",
-                        text: stripEnc(d.text) || "",
-                        sender: stripEnc(d.sender) || m.sender,
-                        displayName: stripEnc(d.displayName) || m.displayName
-                      };
-                    } catch {
-                      return null;
-                    }
-                  })
-                );
-                const byId = /* @__PURE__ */ new Map();
-                for (const m of fixed) {
-                  if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
-                }
-                if (byId.size === 0) return;
-                const deviceIds = Object.keys(allSMS || {});
-                for (const deviceId of deviceIds) {
-                  const list = getSMSData(deviceId) || [];
-                  let changed = false;
-                  const merged = list.map((m) => {
-                    const fix = byId.get(m.id);
-                    if (!fix) return m;
-                    changed = true;
-                    return { ...m, ...fix };
-                  });
-                  if (changed) setSMSData(deviceId, merged);
-                }
-                const flat = (allSMSMessages || sanitizedCachedMessages).map((m) => {
-                  const fix = byId.get(m.id);
-                  return fix ? { ...m, ...fix } : m;
-                });
-                setAllSMSMessages(flat);
-                renderSMS(flat);
-                console.log(`[SMS] \u{1F513} Background re-decrypted ${byId.size} cached message(s)`);
-              } catch (err) {
-                console.warn("[SMS] Background re-decrypt failed:", err);
+        }
+        const sanitizedCachedMessages = cached.allMessages.map(sanitizeMsg);
+        setAllSMSMessages(sanitizedCachedMessages);
+        renderSMS(sanitizedCachedMessages);
+        updateTabBadges();
+        if (encMessagesToRedecrypt.length > 0) {
+          (async () => {
+            try {
+              const uid = user.uid;
+              const fixed = await Promise.all(
+                encMessagesToRedecrypt.map(async (m) => {
+                  try {
+                    const d = await decryptSMS(m, uid);
+                    return {
+                      ...m,
+                      contactName: stripEnc(d.contactName) || m.contactName,
+                      phoneNumber: stripEnc(d.phoneNumber) || m.phoneNumber,
+                      title: stripEnc(d.title) || m.title,
+                      body: stripEnc(d.body) || stripEnc(d.text) || "",
+                      text: stripEnc(d.text) || "",
+                      sender: stripEnc(d.sender) || m.sender,
+                      displayName: stripEnc(d.displayName) || m.displayName
+                    };
+                  } catch {
+                    return null;
+                  }
+                })
+              );
+              const byId = /* @__PURE__ */ new Map();
+              for (const m of fixed) {
+                if (m && m.id && (m.body || m.title || m.contactName)) byId.set(m.id, m);
               }
-            })();
-          }
+              if (byId.size === 0) return;
+              const deviceIds = Object.keys(allSMS || {});
+              for (const deviceId of deviceIds) {
+                const list = getSMSData(deviceId) || [];
+                let changed = false;
+                const merged = list.map((m) => {
+                  const fix = byId.get(m.id);
+                  if (!fix) return m;
+                  changed = true;
+                  return { ...m, ...fix };
+                });
+                if (changed) setSMSData(deviceId, merged);
+              }
+              const flat = (allSMSMessages || sanitizedCachedMessages).map((m) => {
+                const fix = byId.get(m.id);
+                return fix ? { ...m, ...fix } : m;
+              });
+              setAllSMSMessages(flat);
+              renderSMS(flat);
+              console.log(`[SMS] \u{1F513} Background re-decrypted ${byId.size} cached message(s)`);
+            } catch (err) {
+              console.warn("[SMS] Background re-decrypt failed:", err);
+            }
+          })();
         }
       }
     } catch (e) {
@@ -27802,7 +27919,7 @@ ${this.customData.serverResponse}`;
         }
         return;
       }
-      const loadTasks = devicesList2.map((device) => async () => {
+      const loadPromises = devicesList2.map(async (device) => {
         const devicePagState = {
           lastTimestamp: null,
           hasMore: true,
@@ -27811,7 +27928,8 @@ ${this.customData.serverResponse}`;
         paginationState[device.id] = devicePagState;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
-        const isDelta = !!cachedNewestTs && cachedDeviceCount > 0 && fullLoadRecent;
+        const MIN_CACHE_FOR_DELTA = 200;
+        const isDelta = !!cachedNewestTs && cachedDeviceCount >= MIN_CACHE_FOR_DELTA && fullLoadRecent && !forceFullFetch;
         const DELTA_LOOKBACK_MS = 24 * 60 * 60 * 1e3;
         const deltaFromTs = isDelta ? Math.max(0, cachedNewestTs - DELTA_LOOKBACK_MS) : 0;
         let q2;
@@ -27834,7 +27952,16 @@ ${this.customData.serverResponse}`;
         try {
           let snapshot;
           if (isDelta) {
-            snapshot = await getDocsFromServer(q2);
+            try {
+              snapshot = await getDocsFromServer(q2);
+            } catch (serverErr) {
+              if (!isUnavailableError2(serverErr)) throw serverErr;
+              logSMSUnavailableOnce(
+                `delta:${device.id}`,
+                `[SMS] Server unavailable for delta ${device.id}, using local cache fallback`
+              );
+              snapshot = await getDocs(q2);
+            }
           } else {
             const MAX_PAGES = 1;
             const allDocs = [];
@@ -27854,7 +27981,18 @@ ${this.customData.serverResponse}`;
                 orderBy("timestamp", "desc"),
                 limit(PAGE_SIZE)
               );
-              const pageSnap = await getDocsFromServer(pageQuery);
+              let pageSnap;
+              try {
+                pageSnap = await getDocsFromServer(pageQuery);
+                hadSuccessfulFullOwnServerFetch = true;
+              } catch (serverErr) {
+                if (!isUnavailableError2(serverErr)) throw serverErr;
+                logSMSUnavailableOnce(
+                  `full:${device.id}`,
+                  `[SMS] Server unavailable for full page ${device.id}, using local cache fallback`
+                );
+                pageSnap = await getDocs(pageQuery);
+              }
               allDocs.push(...pageSnap.docs);
               pagesLoaded++;
               if (pageSnap.size < PAGE_SIZE) break;
@@ -27962,34 +28100,26 @@ ${this.customData.serverResponse}`;
           }
         } catch (error) {
           if (error?.code === "permission-denied") return;
-          if (isQuotaExceededError(error)) {
-            if (!smsQuotaToastShown) {
-              smsQuotaToastShown = true;
-              showToast(
-                getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0628\u0644\u0648\u063A \u062D\u062F Firestore \u0645\u0624\u0642\u062A\u0627. \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u062C\u0632\u0621 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0641\u0642\u0637." : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
-                "warning"
-              );
-            }
-            console.warn(`[SMS] Quota exceeded while loading device ${device.id}`);
+          if (isUnavailableError2(error)) {
+            logSMSUnavailableOnce(
+              `after-fallback:${device.id}`,
+              `[SMS] Device ${device.id} server unavailable after fallback`,
+              error?.message || error
+            );
             return;
           }
           console.error(`\xE2\x9D\u0152 SMS load error for device ${device.id}:`, error);
         }
       });
       startSMSRealtimeListeners(user.uid, devicesList2);
-      if (hasCachedData) {
-        await Promise.all(loadTasks.map((task) => task()));
-      } else {
-        for (const task of loadTasks) {
-          await task();
-        }
-      }
+      await Promise.all(loadPromises);
       console.log("[SMS] \xE2\u0153\u2026 Initial load complete");
       isSyncing = false;
       updateSMSCountIndicator();
+      renderSMS(allSMSMessages || []);
       flushSMSCache().catch(() => {
       });
-      if (!fullLoadRecent) markFullLoadDone().catch(() => {
+      if (hadSuccessfulFullOwnServerFetch) markFullLoadDone().catch(() => {
       });
       try {
         window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
@@ -28001,6 +28131,7 @@ ${this.customData.serverResponse}`;
       }
       isSyncing = false;
       updateSMSCountIndicator();
+      renderSMS(allSMSMessages || []);
       try {
         window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
       } catch (_) {
@@ -28451,13 +28582,13 @@ ${this.customData.serverResponse}`;
         const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
         const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
         return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
@@ -28712,6 +28843,10 @@ ${this.customData.serverResponse}`;
       const matches = msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
       return matches;
     }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    if (activeDevice !== "all") {
+      conversation = conversation.filter((msg) => msg.deviceId === activeDevice);
+    }
     console.log(`[SMS] showConversation: found ${conversation.length} messages`);
     const uniqueConversation = [];
     const seenIds = /* @__PURE__ */ new Set();
@@ -29582,8 +29717,15 @@ ${this.customData.serverResponse}`;
     clearPollingInterval();
   }
   function exportSMSToCSV() {
-    const knownDeviceIds = new Set(devices.map((d) => d.id));
+    const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const knownDeviceIds = /* @__PURE__ */ new Set([
+      ...devices.map((d) => d.id),
+      ...(sharedWithMeDevices || []).map((s) => s.deviceId)
+    ]);
     let messages = (allSMSMessages || []).filter((m) => !m.deviceId || knownDeviceIds.has(m.deviceId));
+    if (activeDevice !== "all") {
+      messages = messages.filter((m) => m.deviceId === activeDevice);
+    }
     const now = /* @__PURE__ */ new Date();
     const localStamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + "_" + String(now.getHours()).padStart(2, "0") + "-" + String(now.getMinutes()).padStart(2, "0");
     let filename = `iRopit-SMS-${localStamp}.csv`;
@@ -29640,7 +29782,17 @@ ${this.customData.serverResponse}`;
           orderBy("timestamp", "desc"),
           limit(PAGE_SIZE)
         );
-        const snapshot = await getDocsFromServer(q2);
+        let snapshot;
+        try {
+          snapshot = await getDocsFromServer(q2);
+        } catch (serverErr) {
+          if (!isUnavailableError2(serverErr)) throw serverErr;
+          logSMSUnavailableOnce(
+            `shared:${share.deviceId}`,
+            `[SMS] Server unavailable for shared device ${share.deviceId}, using local cache fallback`
+          );
+          snapshot = await getDocs(q2);
+        }
         const messages = await Promise.all(
           snapshot.docs.map(async (docSnap) => {
             let data = docSnap.data();
@@ -29662,27 +29814,19 @@ ${this.customData.serverResponse}`;
         updateSMSList(share.deviceId, messages);
       } catch (err) {
         if (err?.code === "permission-denied") return;
-        if (isQuotaExceededError(err)) {
-          if (!smsQuotaToastShown) {
-            smsQuotaToastShown = true;
-            showToast(
-              getCurrentLanguage() === "ar" ? "\u062A\u0645 \u0628\u0644\u0648\u063A \u062D\u062F Firestore \u0645\u0624\u0642\u062A\u0627. \u062A\u0645 \u062A\u062D\u0645\u064A\u0644 \u062C\u0632\u0621 \u0645\u0646 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0641\u0642\u0637." : "Firestore quota reached temporarily. Only part of SMS history was loaded.",
-              "warning"
-            );
-          }
-          console.warn(
-            `[SMS] Quota exceeded while loading shared device ${share.deviceId}`
+        if (isUnavailableError2(err)) {
+          logSMSUnavailableOnce(
+            `shared-failed:${share.deviceId}`,
+            `[SMS] Shared device ${share.deviceId} unavailable after fallback`,
+            err?.message || err?.code
           );
           continue;
         }
-        console.error(
-          `[SMS] Shared device load error for ${share.deviceId}:`,
-          err
-        );
+        console.warn(`[SMS] Failed to load shared device ${share.deviceId}:`, err?.code);
       }
     }
   }
-  var smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, smsQuotaToastShown, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29699,6 +29843,7 @@ ${this.customData.serverResponse}`;
       init_cache();
       init_i18n();
       init_hoverPreview();
+      smsUnavailableLogKeys = /* @__PURE__ */ new Set();
       smsUnsubscribeFunctions = [];
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
@@ -29708,7 +29853,6 @@ ${this.customData.serverResponse}`;
       isLoadingMore = false;
       scrollHandlerAttached = false;
       isSyncing = false;
-      smsQuotaToastShown = false;
       selectionMode = false;
       selectedConversations = /* @__PURE__ */ new Set();
       messageSelectionMode = false;
@@ -29869,6 +30013,7 @@ ${this.customData.serverResponse}`;
     deleteSelectedNotifications: () => deleteSelectedNotifications,
     exportNotificationsToCSV: () => exportNotificationsToCSV,
     injectPushedNotification: () => injectPushedNotification,
+    isNotificationsSyncing: () => isNotificationsSyncing,
     loadNotifications: () => loadNotifications,
     loadSharedDevicesNotifications: () => loadSharedDevicesNotifications,
     markAllNotificationsAsRead: () => markAllNotificationsAsRead,
@@ -29889,6 +30034,20 @@ ${this.customData.serverResponse}`;
     }
     return 0;
   }
+  function isUnavailableError3(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("unavailable") || msg.includes("failed to get documents from server");
+  }
+  function logNotifUnavailableOnce(key, message, details) {
+    if (notifUnavailableLogKeys.has(key)) return;
+    notifUnavailableLogKeys.add(key);
+    if (details !== void 0) {
+      console.info(message, details);
+    } else {
+      console.info(message);
+    }
+  }
   function linkifyText3(text) {
     const escaped = escapeHtml(text);
     return escaped.replace(
@@ -29896,9 +30055,18 @@ ${this.customData.serverResponse}`;
       '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
     );
   }
+  function isNotificationsSyncing() {
+    return isSyncingNotif;
+  }
   function updateNotifSyncIndicator() {
     document.getElementById("notifSyncIndicator")?.remove();
     if (!isSyncingNotif) return;
+    if (suppressNotifSyncIndicator) {
+      const hasNotifContent = Object.values(allNotifications || {}).some(
+        (arr) => Array.isArray(arr) && arr.length > 0
+      );
+      if (hasNotifContent) return;
+    }
     const container = document.getElementById("notificationsList");
     if (!container) return;
     const indicator = document.createElement("div");
@@ -29977,8 +30145,10 @@ ${this.customData.serverResponse}`;
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
+    suppressNotifSyncIndicator = false;
     isSyncingNotif = true;
-    if (notificationsList) showListLoading(notificationsList);
+    const listHasContent = notificationsList && !notificationsList.querySelector(".loading-state") && notificationsList.children.length > 0 && !notificationsList.querySelector(".empty-state");
+    if (notificationsList && !listHasContent) showListLoading(notificationsList);
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
     try {
@@ -30000,6 +30170,7 @@ ${this.customData.serverResponse}`;
           }
           if (hasData) {
             hasCachedData = true;
+            suppressNotifSyncIndicator = true;
             for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
               if (notifs.length > 0) setNotificationsData(deviceId, notifs);
             }
@@ -30060,7 +30231,17 @@ ${this.customData.serverResponse}`;
         );
       }
       try {
-        const snapshot = await getDocsFromServer(q2);
+        let snapshot;
+        try {
+          snapshot = await getDocsFromServer(q2);
+        } catch (serverErr) {
+          if (!isUnavailableError3(serverErr)) throw serverErr;
+          logNotifUnavailableOnce(
+            `initial:${device.id}`,
+            `[Notifications] Server unavailable for ${device.id}, using local cache fallback`
+          );
+          snapshot = await getDocs(q2);
+        }
         console.log(
           `[Notifications] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} from device ${device.id}`
         );
@@ -30110,6 +30291,14 @@ ${this.customData.serverResponse}`;
         }
       } catch (error) {
         if (error?.code !== "permission-denied") {
+          if (isUnavailableError3(error)) {
+            logNotifUnavailableOnce(
+              `after-fallback:${device.id}`,
+              `[Notifications] Device ${device.id} server unavailable after fallback`,
+              error?.message || error
+            );
+            return;
+          }
           console.error(`[Notifications] getDocs error for device ${device.id}:`, error);
         }
       }
@@ -30201,14 +30390,23 @@ ${this.customData.serverResponse}`;
     });
   }
   function resolveDeviceName2(notif) {
+    const isShared = !!notif.deviceId && (sharedWithMeDevices || []).some((s) => s.deviceId === notif.deviceId);
+    const withSharedBadge = (name5) => {
+      if (!name5) return name5;
+      if (!isShared) return name5;
+      return /\(Shared\)\s*$/i.test(name5) ? name5 : `${name5} (Shared)`;
+    };
     if (notif.deviceId && notif.deviceId !== "user" && notif.deviceId !== "_user_notifications") {
       const device = devices.find((d) => d.id === notif.deviceId);
-      if (device) return device.nickname || device.name || notif.deviceName || null;
+      if (device) return withSharedBadge(device.nickname || device.name || notif.deviceName || null);
     }
-    return notif.deviceName || null;
+    return withSharedBadge(notif.deviceName || null);
   }
   function getMergedNotifications() {
-    const realDeviceIds = new Set(devices.map((d) => d.id));
+    const realDeviceIds = /* @__PURE__ */ new Set([
+      ...devices.map((d) => d.id),
+      ...(sharedWithMeDevices || []).map((s) => s.deviceId)
+    ]);
     const realIds = /* @__PURE__ */ new Set();
     const byKey = /* @__PURE__ */ new Map();
     Object.entries(allNotifications).forEach(([, notifs]) => {
@@ -30957,8 +31155,15 @@ ${this.customData.serverResponse}`;
     updateTabBadges();
   }
   function exportNotificationsToCSV() {
-    const knownDeviceIds = new Set(devices.map((d) => d.id));
+    const activeDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const knownDeviceIds = /* @__PURE__ */ new Set([
+      ...devices.map((d) => d.id),
+      ...(sharedWithMeDevices || []).map((s) => s.deviceId)
+    ]);
     let notifications = getMergedNotifications().filter((n) => !n.deviceId || n.deviceId === "user" || n.deviceId === "_user_notifications" || knownDeviceIds.has(n.deviceId));
+    if (activeDevice !== "all") {
+      notifications = notifications.filter((n) => n.deviceId === activeDevice);
+    }
     if (notifications.length === 0) {
       alert("No notifications to export.");
       return;
@@ -31019,7 +31224,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var isSyncingNotif, pendingNotifSnapshots, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -31033,8 +31238,10 @@ ${this.customData.serverResponse}`;
       init_cache();
       init_cryptoService();
       init_hoverPreview();
+      notifUnavailableLogKeys = /* @__PURE__ */ new Set();
       isSyncingNotif = false;
       pendingNotifSnapshots = 0;
+      suppressNotifSyncIndicator = false;
       NOTIF_INITIAL_LIMIT = 500;
       NOTIF_PAGE_SIZE = 200;
       notifPaginationState = {};
@@ -31976,6 +32183,18 @@ ${this.customData.serverResponse}`;
   init_toasts();
   init_state();
   var isInitialAuthCheckDone = false;
+  function isOAuthUserCancelMessage(message) {
+    const text = String(message || "").toLowerCase();
+    return text.includes("did not approve access") || text.includes("access_denied") || text.includes("user_denied") || text.includes("cancel");
+  }
+  function createOAuthCancelledError(message) {
+    const err = new Error(message || "OAuth canceled by user");
+    err.code = "auth/oauth-cancelled";
+    return err;
+  }
+  function isOAuthCancelledError(error) {
+    return error?.code === "auth/oauth-cancelled" || isOAuthUserCancelMessage(error?.message);
+  }
   function showAuthUI() {
     if (!isInitialAuthCheckDone) return;
     authContainer.classList.remove("hidden");
@@ -32044,6 +32263,17 @@ ${this.customData.serverResponse}`;
   async function clearAllGoogleTokens() {
     return new Promise((resolve) => {
       chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+        const getTokenErr = chrome.runtime.lastError;
+        if (getTokenErr) {
+          const msg = String(getTokenErr.message || "");
+          if (isOAuthUserCancelMessage(msg) || msg.toLowerCase().includes("not granted") || msg.toLowerCase().includes("revoked")) {
+            authLogger.info("No active OAuth grant to clear");
+          } else {
+            authLogger.warn("getAuthToken(non-interactive) failed while clearing token:", msg);
+          }
+          resolve();
+          return;
+        }
         if (!token) {
           authLogger.info("No cached token to clear");
           resolve();
@@ -32062,9 +32292,17 @@ ${this.customData.serverResponse}`;
           authLogger.warn("Failed to revoke token from Google:", e.message);
         }
         chrome.identity.removeCachedAuthToken({ token }, () => {
+          const removeErr = chrome.runtime.lastError;
+          if (removeErr) {
+            authLogger.warn("removeCachedAuthToken warning:", removeErr.message);
+          }
           authLogger.info("Token removed from Chrome cache");
           if (chrome.identity.clearAllCachedAuthTokens) {
             chrome.identity.clearAllCachedAuthTokens(() => {
+              const clearErr = chrome.runtime.lastError;
+              if (clearErr) {
+                authLogger.warn("clearAllCachedAuthTokens warning:", clearErr.message);
+              }
               authLogger.info("All cached auth tokens cleared");
               resolve();
             });
@@ -32096,8 +32334,14 @@ ${this.customData.serverResponse}`;
             { url: authUrl, interactive: true },
             (responseUrl) => {
               if (chrome.runtime.lastError) {
-                authLogger.error("OAuth error:", chrome.runtime.lastError.message);
-                reject(new Error(chrome.runtime.lastError.message));
+                const msg = chrome.runtime.lastError.message;
+                if (isOAuthUserCancelMessage(msg)) {
+                  authLogger.info("OAuth canceled by user");
+                  reject(createOAuthCancelledError(msg));
+                  return;
+                }
+                authLogger.error("OAuth error:", msg);
+                reject(new Error(msg));
                 return;
               }
               if (!responseUrl) {
@@ -32124,8 +32368,14 @@ ${this.customData.serverResponse}`;
       setTimeout(() => {
         chrome.identity.getAuthToken({ interactive: true }, (token) => {
           if (chrome.runtime.lastError) {
-            authLogger.error("OAuth error:", chrome.runtime.lastError.message);
-            reject(new Error(chrome.runtime.lastError.message));
+            const msg = chrome.runtime.lastError.message;
+            if (isOAuthUserCancelMessage(msg)) {
+              authLogger.info("OAuth canceled by user");
+              reject(createOAuthCancelledError(msg));
+              return;
+            }
+            authLogger.error("OAuth error:", msg);
+            reject(new Error(msg));
             return;
           }
           if (!token) {
@@ -32173,6 +32423,10 @@ ${this.customData.serverResponse}`;
       }
       showToast("Signed in with Google", "success");
     } catch (error) {
+      if (isOAuthCancelledError(error)) {
+        hideLoading();
+        return;
+      }
       const parsed = parseAuthError(error);
       logError(error, "handleGoogleSignIn");
       showToast(parsed.message, "error");
@@ -32182,8 +32436,12 @@ ${this.customData.serverResponse}`;
   async function handleLogout() {
     try {
       chrome.identity.getAuthToken({ interactive: false }, (token) => {
+        const err = chrome.runtime.lastError;
+        if (err) return;
         if (token) {
-          chrome.identity.removeCachedAuthToken({ token });
+          chrome.identity.removeCachedAuthToken({ token }, () => {
+            void chrome.runtime.lastError;
+          });
         }
       });
       await signOut(auth);
@@ -32296,6 +32554,93 @@ ${this.customData.serverResponse}`;
     } catch (_) {
     }
   }
+  var pendingSharedSmsShares = null;
+  var sharedSmsDeferredListenerAttached = false;
+  var pendingSharedCallsShares = null;
+  var sharedCallsDeferredListenerAttached = false;
+  var pendingSharedNotifsShares = null;
+  var sharedNotifsDeferredListenerAttached = false;
+  function scheduleSharedSmsLoad(shares) {
+    pendingSharedSmsShares = shares || [];
+    Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedSmsShares;
+        pendingSharedSmsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesSMS) {
+          m.loadSharedDevicesSMS(latest).catch(() => {
+          });
+        }
+      };
+      if (m.isSMSSyncing && m.isSMSSyncing()) {
+        if (sharedSmsDeferredListenerAttached) return;
+        sharedSmsDeferredListenerAttached = true;
+        const onDone = () => {
+          window.removeEventListener("iropit:sms-sync-done", onDone);
+          sharedSmsDeferredListenerAttached = false;
+          runLatest();
+        };
+        window.addEventListener("iropit:sms-sync-done", onDone, { once: true });
+        return;
+      }
+      runLatest();
+    }).catch(() => {
+    });
+  }
+  function scheduleSharedCallsLoad(shares) {
+    pendingSharedCallsShares = shares || [];
+    Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedCallsShares;
+        pendingSharedCallsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesCalls) {
+          m.loadSharedDevicesCalls(latest).catch(() => {
+          });
+        }
+      };
+      if (m.isCallsSyncing && m.isCallsSyncing()) {
+        if (sharedCallsDeferredListenerAttached) return;
+        sharedCallsDeferredListenerAttached = true;
+        const onDone = () => {
+          window.removeEventListener("iropit:calls-sync-done", onDone);
+          sharedCallsDeferredListenerAttached = false;
+          runLatest();
+        };
+        window.addEventListener("iropit:calls-sync-done", onDone, { once: true });
+        return;
+      }
+      runLatest();
+    }).catch(() => {
+    });
+  }
+  function scheduleSharedNotificationsLoad(shares) {
+    pendingSharedNotifsShares = shares || [];
+    Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => {
+      const runLatest = () => {
+        const latest = pendingSharedNotifsShares;
+        pendingSharedNotifsShares = null;
+        if (!latest || latest.length === 0) return;
+        if (m.loadSharedDevicesNotifications) {
+          m.loadSharedDevicesNotifications(latest).catch(() => {
+          });
+        }
+      };
+      if (m.isNotificationsSyncing && m.isNotificationsSyncing()) {
+        if (sharedNotifsDeferredListenerAttached) return;
+        sharedNotifsDeferredListenerAttached = true;
+        const onDone = () => {
+          document.removeEventListener("notificationsDataUpdated", onDone);
+          sharedNotifsDeferredListenerAttached = false;
+          runLatest();
+        };
+        document.addEventListener("notificationsDataUpdated", onDone, { once: true });
+        return;
+      }
+      runLatest();
+    }).catch(() => {
+    });
+  }
   async function registerDevice() {
     const user = currentUser;
     if (!user) return;
@@ -32391,18 +32736,9 @@ ${this.customData.serverResponse}`;
         renderDevices();
         updateDeviceSelects();
         Promise.all([
-          Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
-            if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(cached);
-          }).catch(() => {
-          }),
-          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
-            if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(cached);
-          }).catch(() => {
-          }),
-          Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => {
-            if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(cached);
-          }).catch(() => {
-          })
+          Promise.resolve().then(() => scheduleSharedSmsLoad(cached)),
+          Promise.resolve().then(() => scheduleSharedCallsLoad(cached)),
+          Promise.resolve().then(() => scheduleSharedNotificationsLoad(cached))
         ]);
       }
     }).catch(() => {
@@ -32426,18 +32762,9 @@ ${this.customData.serverResponse}`;
         cacheSharedDevices(shares).catch(() => {
         });
         Promise.all([
-          Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
-            if (m.loadSharedDevicesSMS) m.loadSharedDevicesSMS(shares);
-          }).catch(() => {
-          }),
-          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
-            if (m.loadSharedDevicesCalls) m.loadSharedDevicesCalls(shares);
-          }).catch(() => {
-          }),
-          Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => {
-            if (m.loadSharedDevicesNotifications) m.loadSharedDevicesNotifications(shares);
-          }).catch(() => {
-          })
+          Promise.resolve().then(() => scheduleSharedSmsLoad(shares)),
+          Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
+          Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares))
         ]);
         const enriched = await Promise.all(shares.map(async (share) => {
           if (!share.deviceDocId) return share;
@@ -32699,7 +33026,9 @@ ${this.customData.serverResponse}`;
         e.stopPropagation();
         const deviceId = btn.dataset.deviceId;
         const docId = btn.dataset.deviceDocId;
-        const device = devices.find((d) => d.docId === docId);
+        const device = devices.find(
+          (d) => docId && d.docId === docId || deviceId && d.id === deviceId
+        );
         if (device) showShareDeviceModal(device);
       });
     });
@@ -32752,6 +33081,18 @@ ${this.customData.serverResponse}`;
     updateCallsDeviceTabs();
     updateNotificationsDeviceTabs();
     updateInsightsDeviceTabs();
+    Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => {
+      if (allSMSMessages && allSMSMessages.length > 0) {
+        m.renderSMS(allSMSMessages);
+      }
+    }).catch(() => {
+    });
+    Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
+      if (allCallsData && allCallsData.length > 0) {
+        m.renderCalls(allCallsData);
+      }
+    }).catch(() => {
+    });
     Promise.resolve().then(() => (init_notifications(), notifications_exports)).then((m) => m.reRenderNotifications()).catch(() => {
     });
   }
@@ -33188,66 +33529,53 @@ ${this.customData.serverResponse}`;
     const deviceName = getFriendlyDeviceName(device);
     let existingShares = [];
     let pendingRequests = [];
-    try {
-      const sharesSnap = await getDocs(
-        query(
-          collection(db, "deviceShares"),
-          where("ownerUid", "==", user.uid),
-          where("deviceId", "==", device.id)
-        )
-      );
-      existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
-    } catch (_) {
-    }
-    try {
-      const pendingSnap = await getDocs(
-        query(
-          collection(db, "deviceShareRequests"),
-          where("ownerUid", "==", user.uid),
-          where("deviceId", "==", device.id),
-          where("status", "==", "pending")
-        )
-      );
-      pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
-    } catch (_) {
-    }
-    const existingSharesHtml = existingShares.length === 0 && pendingRequests.length === 0 ? "" : `
-    <div class="share-existing-list">
-      <div class="share-existing-title">${isAr ? "\u0645\u0634\u0627\u0631\u0643 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0639:" : "Currently shared with:"}</div>
-      ${existingShares.map((s) => {
-      const perms = s.permissions || {};
-      const pList = [
-        perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
-        perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
-        perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
-      ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+    const renderExistingSharesHtml = () => {
+      if (existingShares.length === 0 && pendingRequests.length === 0) return "";
       return `
-          <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
-            <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
-            <span class="share-existing-perms">(${pList})</span>
-            <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
-              ${isAr ? "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Stop Sharing"}
-            </button>
-          </div>
-        `;
-    }).join("")}
-      ${pendingRequests.map((r) => {
-      const perms = r.permissions || {};
-      const pList = [
-        perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
-        perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
-        perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
-      ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
-      return `
-          <div class="share-existing-row">
-            <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
-            <span class="share-existing-perms">(${pList})</span>
-            <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631)" : "(Pending)"}</span>
-          </div>
-        `;
-    }).join("")}
-    </div>
-  `;
+      <div class="share-existing-list">
+        <div class="share-existing-title">${isAr ? "\u0645\u0634\u0627\u0631\u0643 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0639:" : "Currently shared with:"}</div>
+        ${existingShares.map((s) => {
+        const perms = s.permissions || {};
+        const pList = [
+          perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
+          perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
+          perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
+        ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+        return `
+            <div class="share-existing-row" data-share-id="${escapeHtml(s.shareId)}">
+              <span class="share-existing-email">${escapeHtml(s.sharedWithEmail)}</span>
+              <span class="share-existing-perms">(${pList})</span>
+              <button class="stop-sharing-btn btn btn-danger-small" data-share-id="${escapeHtml(s.shareId)}" data-email="${escapeHtml(s.sharedWithEmail)}" data-device-id="${escapeHtml(s.deviceId)}" data-shared-uid="${escapeHtml(s.sharedWithUid)}">
+                ${isAr ? "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Stop Sharing"}
+              </button>
+            </div>
+          `;
+      }).join("")}
+        ${pendingRequests.map((r) => {
+        const perms = r.permissions || {};
+        const pList = [
+          perms.sms && (isAr ? "\u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "SMS"),
+          perms.calls && (isAr ? "\u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A" : "Calls"),
+          perms.notifications && (isAr ? "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A" : "Notifications")
+        ].filter(Boolean).join(", ") || (isAr ? "\u0644\u0627 \u0634\u064A\u0621" : "None");
+        return `
+            <div class="share-existing-row">
+              <span class="share-existing-email">${escapeHtml(r.sharedWithEmail)}</span>
+              <span class="share-existing-perms">(${pList})</span>
+              <span class="device-pending-badge" style="font-size:11px;">${isAr ? "(\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631)" : "(Pending)"}</span>
+              <button class="stop-sharing-btn btn btn-danger-small" data-request-id="${escapeHtml(r.requestId)}" data-email="${escapeHtml(r.sharedWithEmail)}">
+                ${isAr ? "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628" : "Cancel Request"}
+              </button>
+            </div>
+          `;
+      }).join("")}
+      </div>
+    `;
+    };
+    let resolveSharesLoaded;
+    const sharesLoaded = new Promise((resolve) => {
+      resolveSharesLoaded = resolve;
+    });
     const modal = document.createElement("div");
     modal.className = "modal-overlay";
     modal.id = "shareDeviceModal";
@@ -33258,7 +33586,9 @@ ${this.customData.serverResponse}`;
         <button class="modal-close" id="closeShareModal">&times;</button>
       </div>
       <div class="modal-body">
-        ${existingSharesHtml}
+        <div id="shareExistingContainer" style="min-height: 20px;">
+          <div style="font-size:12px;color:var(--text-secondary);">${isAr ? "\u062C\u0627\u0631\u064D \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629..." : "Loading current shares..."}</div>
+        </div>
         <div class="form-group">
           <label for="shareEmail">${isAr ? "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "Recipient iRopit account (email)"}</label>
           <input type="email" id="shareEmail" placeholder="${isAr ? "example@email.com" : "example@email.com"}" autocomplete="off" />
@@ -33296,31 +33626,74 @@ ${this.customData.serverResponse}`;
   `;
     document.body.appendChild(modal);
     document.getElementById("shareEmail").focus();
+    const existingContainer = document.getElementById("shareExistingContainer");
+    (async () => {
+      try {
+        const sharesSnap = await getDocs(
+          query(
+            collection(db, "deviceShares"),
+            where("ownerUid", "==", user.uid),
+            where("deviceId", "==", device.id)
+          )
+        );
+        existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
+      } catch (_) {
+        existingShares = [];
+      }
+      try {
+        const pendingSnap = await getDocs(
+          query(
+            collection(db, "deviceShareRequests"),
+            where("ownerUid", "==", user.uid),
+            where("deviceId", "==", device.id),
+            where("status", "==", "pending")
+          )
+        );
+        pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
+      } catch (_) {
+        pendingRequests = [];
+      }
+      if (existingContainer) {
+        existingContainer.innerHTML = renderExistingSharesHtml();
+      }
+      resolveSharesLoaded();
+    })();
     document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
     document.getElementById("cancelShare").addEventListener("click", () => modal.remove());
     modal.addEventListener("click", (e) => {
       if (e.target === modal) modal.remove();
     });
-    modal.querySelectorAll(".stop-sharing-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const shareId = btn.dataset.shareId;
-        const email = btn.dataset.email;
-        const msg = isAr ? `\u0625\u064A\u0642\u0627\u0641 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 "${email}"\u061F` : `Stop sharing with "${email}"?`;
-        if (await showConfirmDialog(msg)) {
-          try {
+    modal.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".stop-sharing-btn");
+      if (!btn || !modal.contains(btn)) return;
+      const shareId = btn.dataset.shareId;
+      const requestId = btn.dataset.requestId;
+      const email = btn.dataset.email;
+      const msg = requestId ? isAr ? `\u0625\u0644\u063A\u0627\u0621 \u0637\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u0645\u0631\u0633\u0644 \u0625\u0644\u0649 "${email}"\u061F` : `Cancel pending request to "${email}"?` : isAr ? `\u0625\u064A\u0642\u0627\u0641 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 "${email}"\u061F` : `Stop sharing with "${email}"?`;
+      if (await showConfirmDialog(msg)) {
+        try {
+          if (requestId) {
+            await deleteDoc(doc(db, "deviceShareRequests", requestId));
+          } else {
             await deleteDoc(doc(db, "deviceShares", shareId));
             if (btn.dataset.deviceId && btn.dataset.sharedUid) {
               deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {
               });
             }
-            btn.closest(".share-existing-row").remove();
-            showToast(isAr ? "\u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Sharing stopped", "success");
-          } catch (err) {
-            console.error("[Share] stop sharing error:", err);
-            showToast(isAr ? "\u0641\u0634\u0644 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Failed to stop sharing", "error");
           }
+          btn.closest(".share-existing-row").remove();
+          showToast(
+            requestId ? isAr ? "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628" : "Request canceled" : isAr ? "\u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Sharing stopped",
+            "success"
+          );
+        } catch (err) {
+          console.error("[Share] stop/cancel sharing error:", err);
+          showToast(
+            requestId ? isAr ? "\u0641\u0634\u0644 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628" : "Failed to cancel request" : isAr ? "\u0641\u0634\u0644 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Failed to stop sharing",
+            "error"
+          );
         }
-      });
+      }
     });
     document.getElementById("confirmShare").addEventListener("click", async () => {
       const email = document.getElementById("shareEmail").value.trim().toLowerCase();
@@ -33358,6 +33731,7 @@ ${this.customData.serverResponse}`;
         }
         const recipientDoc = usersSnap.docs[0];
         const recipientUid = recipientDoc.data().uid || recipientDoc.id;
+        await sharesLoaded;
         const existing = existingShares.find((s) => s.sharedWithEmail === email);
         const pending = pendingRequests.find((r) => r.sharedWithEmail === email);
         if (existing) {
@@ -33732,7 +34106,10 @@ ${this.customData.serverResponse}`;
   }
   function initTheme() {
     chrome.storage.local.get(["darkMode"], (result) => {
-      isDark = result.darkMode === true;
+      isDark = result.darkMode !== false;
+      if (typeof result.darkMode === "undefined") {
+        chrome.storage.local.set({ darkMode: true });
+      }
       applyTheme();
     });
     if (themeToggleBtn) {
@@ -33832,11 +34209,11 @@ ${this.customData.serverResponse}`;
       console.warn("[Popup] Pre-auth cache display failed:", e);
     }
   }
-  function loadData() {
+  function loadData(options = {}) {
     cleanupSubscriptions();
     hasLoadedCalls = false;
     hasLoadedNotifications = false;
-    loadSMS();
+    loadSMS(options.smsOptions || {});
     loadDevices();
     loadDevicesAndContacts();
     loadUserSettings();
@@ -33950,7 +34327,7 @@ ${this.customData.serverResponse}`;
     document.getElementById("deleteAllNotifBtn")?.addEventListener("click", deleteSelectedNotifications);
     document.getElementById("refreshBtn")?.addEventListener("click", () => {
       showToast(getCurrentLanguage() === "ar" ? "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B" : "Refreshing...", "info");
-      loadData();
+      loadData({ smsOptions: { forceFull: true } });
     });
   }
   init();

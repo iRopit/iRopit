@@ -35,6 +35,23 @@ import { updateTabBadges } from "./badges.js";
 import { encryptChatMessage, decryptChatMessage } from "./cryptoService.js";
 // Push notifications are now handled automatically by Cloud Function onNewChatMessage
 
+// Keep raw message text by id so copy always uses full unescaped content.
+const chatContentById = new Map();
+
+/**
+ * Auto-resize chat input so it grows upward smoothly until max height.
+ */
+function autoResizeChatInput() {
+  if (!chatInput) return;
+  const style = window.getComputedStyle(chatInput);
+  const maxHeight = parseInt(style.maxHeight, 10) || 120;
+
+  chatInput.style.height = "auto";
+  const nextHeight = Math.min(chatInput.scrollHeight, maxHeight);
+  chatInput.style.height = `${nextHeight}px`;
+  chatInput.style.overflowY = chatInput.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
 /**
  * Convert plain text with URLs into HTML with clickable links.
  * Escapes HTML first, then wraps URLs in <a> tags.
@@ -242,6 +259,11 @@ export function renderChatMessages(messages) {
     filteredMessages = filteredMessages.filter((msg) => starred.has(msg.id));
   }
 
+  chatContentById.clear();
+  filteredMessages.forEach((msg) => {
+    chatContentById.set(msg.id, msg.content || "");
+  });
+
   if (filteredMessages.length === 0) {
     chatMessages.innerHTML = `
       <div class="empty-state">
@@ -300,7 +322,7 @@ export function renderChatMessages(messages) {
       }
       // Text
       else {
-        content = `<div>${linkifyText(msg.content)}</div>`;
+        content = `<div class="chat-message-text">${linkifyText(msg.content)}</div>`;
       }
 
       // Get device name from devices list
@@ -326,7 +348,6 @@ export function renderChatMessages(messages) {
         <div class="chat-message-wrapper ${direction}">
           <div class="chat-message ${direction}" 
                data-msg-id="${escapeHtml(msg.id)}" 
-               data-msg-content="${escapeHtml(msg.content || "")}" 
                data-msg-sender="${escapeHtml(msg.senderId)}">
             ${
               showDeviceName && deviceName
@@ -388,7 +409,8 @@ export function renderChatMessages(messages) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const msgEl = btn.closest(".chat-message-wrapper")?.querySelector(".chat-message");
-      const text = msgEl?.dataset.msgContent || "";
+      const msgId = msgEl?.dataset.msgId;
+      const text = (msgId && chatContentById.get(msgId)) || "";
       navigator.clipboard.writeText(text).then(() => {
         showToast("Copied!", "success");
       }).catch(() => {
@@ -503,6 +525,7 @@ export async function sendChatMessage() {
 
   // Optimistic clear so user can type next message immediately
   chatInput.value = "";
+  autoResizeChatInput();
   clearReply();
 
   try {
@@ -778,7 +801,7 @@ async function sendFileFromPreview() {
  */
 export function setReplyTo(element) {
   const msgId = element.dataset.msgId;
-  const msgContent = element.dataset.msgContent;
+  const msgContent = chatContentById.get(msgId) || "";
   const msgSender = element.dataset.msgSender;
 
   state.setCurrentReplyTo({
@@ -804,8 +827,9 @@ export function setReplyTo(element) {
     <span class="reply-text">↩ ${escapeHtml(msgContent.substring(0, 40))}${
       msgContent.length > 40 ? "..." : ""
     }</span>
-    <button class="reply-close" onclick="window.clearReply()">×</button>
+    <button class="reply-close" type="button">×</button>
   `;
+  replyPreview.querySelector(".reply-close")?.addEventListener("click", clearReply);
   replyPreview.style.display = "flex";
   chatInput.focus();
 }
@@ -826,12 +850,21 @@ export function clearReply() {
  */
 export function initChatListeners() {
   sendChatBtn?.addEventListener("click", sendChatMessage);
+  chatInput?.addEventListener("input", autoResizeChatInput);
+
+  // Ensure correct initial height for textarea input.
+  autoResizeChatInput();
+
+  // Chat input is a textarea: Enter = newline, Ctrl/Cmd+Enter = send.
   chatInput?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       sendChatMessage();
     }
   });
+
+  // Backward-compat for existing static reply preview markup in popup.html.
+  document.getElementById("cancelReply")?.addEventListener("click", clearReply);
 
   // File attachment button - show preview
   document.getElementById("attachFileBtn")?.addEventListener("click", () => {
@@ -884,7 +917,7 @@ export function initChatListeners() {
     }
   });
 
-  // Expose to window for inline onclick
+  // Expose helpers for debug/manual console usage
   window.setReplyTo = setReplyTo;
   window.clearReply = clearReply;
 }

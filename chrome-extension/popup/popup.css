@@ -7,9 +7,9 @@
   --background: #f8fafc;
   --surface: #ffffff;
   --surface-secondary: #f1f5f9;
-  --text: #0f172a;
-  --text-secondary: #64748b;
-  --text-tertiary: #94a3b8;
+  --text: #000000;
+  --text-secondary: #000000;
+  --text-tertiary: #111111;
   --border: #e2e8f0;
   --error: #ef4444;
   --danger: #dc3545;
@@ -294,15 +294,19 @@ body[dir="rtl"] {
 }
 
 .btn-google {
-  background: var(--surface);
-  color: var(--text);
-  border: 2px solid var(--border);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #ffffff;
+  border: 2px solid transparent;
 }
 
 .btn-google:hover {
-  border-color: var(--primary);
-  background: var(--background);
+  filter: brightness(1.04);
   transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+html.dark .btn-google {
+  color: #000000;
 }
 
 .btn-small {
@@ -333,6 +337,21 @@ body[dir="rtl"] {
   text-align: center;
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.auth-version {
+  margin-top: 16px;
+  opacity: 0.5;
+}
+
+html.dark .auth-header p,
+html.dark .auth-switch {
+  color: #ffffff;
+}
+
+html.dark .auth-version {
+  color: #ffffff;
+  opacity: 1;
 }
 
 .auth-switch a {
@@ -388,6 +407,14 @@ body[dir="rtl"] {
 .tab.active {
   color: var(--primary);
   border-bottom-color: var(--primary);
+}
+
+html.dark .tab:not(.active) {
+  color: #ffffff;
+}
+
+html.dark .tab:not(.active):hover {
+  color: #ffffff;
 }
 
 .tab svg {
@@ -514,6 +541,11 @@ body[dir="rtl"] {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+.chat-message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
   min-height: 0;
 }
 
@@ -626,6 +658,8 @@ body[dir="rtl"] {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .notif-search-icon {
@@ -772,6 +806,8 @@ body[dir="rtl"] {
   padding: 8px;
   padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   min-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .list-item {
@@ -819,6 +855,12 @@ body[dir="rtl"] {
 .list-item-title svg {
   flex-shrink: 0;
   vertical-align: middle;
+}
+
+.call-app-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--primary);
 }
 
 .list-item-subtitle {
@@ -1482,7 +1524,7 @@ body[dir="rtl"] .device-tag {
 .chat-input-wrapper {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .chat-input-wrapper input {
@@ -1495,7 +1537,36 @@ body[dir="rtl"] .device-tag {
   color: var(--text);
 }
 
+.chat-input-wrapper textarea {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 14px;
+  background: var(--background);
+  color: var(--text);
+  font-family: inherit;
+  line-height: 1.35;
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: hidden;
+  transition: height 0.14s ease;
+}
+
+.chat-input-wrapper .attach-btn,
+.chat-input-wrapper #sendChatBtn {
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
 .chat-input-wrapper input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.chat-input-wrapper textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--focus-ring);
@@ -2079,7 +2150,7 @@ body[dir="rtl"] .device-tag {
   height: 40px;
   border-radius: 50%;
   background: var(--primary);
-  color: white;
+  color: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2235,7 +2306,7 @@ body[dir="rtl"] .device-tag {
   height: 40px;
   border-radius: 50%;
   background: var(--primary);
-  color: white;
+  color: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3737,6 +3808,26 @@ html.dark .profile-logout-btn-footer {
   font-weight: 500;
 }
 
+.sms-sync-progress {
+  width: 140px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.sms-sync-progress-bar {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.sms-sync-progress-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
 .sync-spinner {
   display: inline-block;
   width: 10px;
@@ -3957,6 +4048,41 @@ html.dark .profile-logout-btn-footer {
   font-size: 13px;
   height: 32px;
   white-space: nowrap;
+}
+
+html.dark #dashFilterBtn {
+  color: #000000;
+}
+
+html.dark #editDeviceModal #saveDeviceName {
+  color: #000000;
+}
+
+html.dark #shareDeviceModal #confirmShare {
+  color: #000000;
+}
+
+html.dark #shareDeviceModal #shareSuccessOkBtn {
+  color: #000000;
+}
+
+#shareDeviceModal .share-perms-row .sync-pref-label {
+  transition: none;
+}
+
+#shareDeviceModal .share-perms-row .sync-pref-label:hover {
+  color: var(--text-secondary);
+}
+
+#shareDeviceModal .share-perms-row .sync-pref-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  transform: none;
+  transition: none;
+}
+
+#shareDeviceModal .share-perms-row .sync-pref-label input[type="checkbox"]:hover {
+  transform: none;
 }
 
 /* Stats cards */
@@ -4531,9 +4657,18 @@ html.dark .dash-stat-sms {
   color: var(--text);
 }
 
+/* Light mode readability: use black text in tour UI */
+html:not(.dark) .tour-title,
+html:not(.dark) .tour-desc,
+html:not(.dark) .tour-counter,
+html:not(.dark) .tour-btn-skip,
+html:not(.dark) .tour-close-btn {
+  color: #000000;
+}
+
 .tour-btn-next {
   background: var(--primary);
-  color: #fff;
+  color: #000000;
   border: none;
   font-size: 12px;
   font-weight: 600;
@@ -4576,7 +4711,12 @@ html.dark .tour-desc {
   color: var(--primary-light, var(--primary));
 }
 
-/* Custom hover preview tooltip (theme-reversed) */
+html.dark .tour-counter,
+html.dark .tour-btn-skip {
+  color: #ffffff;
+}
+
+/* Custom hover preview tooltip */
 .iropit-hover-tooltip {
   position: fixed;
   left: 0;
@@ -4591,18 +4731,53 @@ html.dark .tour-desc {
   white-space: normal;
   word-break: break-word;
   pointer-events: none;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-  background: #111827;
-  color: #f9fafb;
-  border: 1px solid #374151;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  background: #f9fafb;
+  color: #000000;
+  border: 1px solid #d1d5db;
 }
 
-/* Reverse theme: dark UI gets light tooltip */
+/* Keep dark theme tooltip readable too */
 html.dark .iropit-hover-tooltip {
   background: #f9fafb;
   color: #111827;
   border-color: #d1d5db;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* Dark mode SMS rows: keep preview/date text high contrast */
+html.dark #smsTab .list-item-subtitle,
+html.dark #smsTab .list-item-time {
+  color: #ffffff;
+}
+
+/* Dark mode: match SMS high-contrast text in Calls/Notifications/Insights/Devices */
+html.dark #callsTab .list-item-subtitle,
+html.dark #callsTab .list-item-time,
+html.dark #callsTab .call-duration,
+html.dark #callsTab .call-time,
+html.dark #notificationsTab .list-item-subtitle,
+html.dark #notificationsTab .list-item-time,
+html.dark #notificationsTab .notification-app,
+html.dark #dashboardTab .dash-stat-label,
+html.dark #dashboardTab .dashboard-breakdown-title,
+html.dark #dashboardTab .dash-date-count,
+html.dark #dashboardTab .dash-notif-body,
+html.dark #dashboardTab .dash-notif-time,
+html.dark #dashboardTab .dash-insight-label,
+html.dark #dashboardTab .dash-insights-section-title,
+html.dark #dashboardTab .dash-date-spend-label,
+html.dark #devicesTab .list-item-subtitle,
+html.dark #devicesTab .list-item-time,
+html.dark #devicesTab .device-id-info,
+html.dark #devicesTab .device-battery,
+html.dark #devicesTab .sync-pref-title,
+html.dark #devicesTab .sync-pref-label,
+html.dark #devicesTab .shared-devices-header,
+html.dark #devicesTab .share-request-perms,
+html.dark #devicesTab .share-existing-title,
+html.dark #devicesTab .share-existing-perms {
+  color: #ffffff;
 }
 
 .iropit-hover-tooltip.visible {

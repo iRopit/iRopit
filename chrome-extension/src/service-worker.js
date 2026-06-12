@@ -50,6 +50,7 @@ self.addEventListener("unhandledrejection", (event) => {
 
 let currentUser = null;
 let currentDeviceId = null;
+const SMS_CACHE_CAP = 10000;
 // Store last timestamp to avoid duplicate notifications
 let lastNotificationTimestamp = Date.now() - 5 * 60 * 1000; // 5 minutes ago
 let unsubscribeNotifications = [];
@@ -1638,10 +1639,10 @@ async function updateSMSCache(deviceId, deviceName, newMsg) {
     const smsByDevice = result.cached_sms_data?.byDevice || {};
     const existing = smsByDevice[deviceId] || [];
     if (existing.some((m) => m.id === newMsg.id)) return; // already cached
-    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, 500);
+    smsByDevice[deviceId] = [{ ...newMsg, deviceId, deviceName }, ...existing].slice(0, SMS_CACHE_CAP);
     const allMessages = Object.values(smsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 500);
+      .slice(0, SMS_CACHE_CAP);
     await chrome.storage.local.set({
       cached_sms_data: { byDevice: smsByDevice, allMessages },
       cache_timestamp: Date.now(),
@@ -2052,12 +2053,18 @@ async function refreshPopupCache() {
     await Promise.all(mobileDevices.map(async (device) => {
       // ── SMS ──────────────────────────────────────────────────────────────
       const smsNewest = newestTs(smsByDevice, device.id, "timestamp");
+      // When there is no existing per-device SMS cache this is a FULL fetch.
+      // It MUST hit the server (getDocsFromServer): a cold/just-woken service
+      // worker's IndexedDB only holds a truncated window, so cache-first getDocs
+      // would write a tiny SMS set and clobber the popup's full cache — which is
+      // exactly what makes loaded SMS "disappear" on the next popup open.
+      const smsIsFullFetch = !smsNewest;
       const smsQ = smsNewest
         ? query(collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
             where("type", "==", "sms"), where("timestamp", ">", smsNewest),
             orderBy("timestamp", "desc"), limit(100))
         : query(collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
-            where("type", "==", "sms"), orderBy("timestamp", "desc"), limit(500));
+          where("type", "==", "sms"), orderBy("timestamp", "desc"), limit(SMS_CACHE_CAP));
 
       // ── Calls ─────────────────────────────────────────────────────────────
       const callsNewest = newestTs(callsByDevice, device.id, "timestamp");
@@ -2077,18 +2084,18 @@ async function refreshPopupCache() {
 
       try {
         const [smsSnap, callsSnap, notifSnap] = await Promise.all([
-          getDocs(smsQ),
+          smsIsFullFetch ? getDocsFromServer(smsQ) : getDocs(smsQ),
           getDocs(callsQ),
           getDocs(notifQ),
         ]);
 
-        // Merge SMS — always cap to 500 to prevent chrome.storage quota overflow
+        // Merge SMS — cap to agreed bulk size to keep cache consistent with popup full loads.
         {
           const newMsgs = smsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = smsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((m) => m.id));
           const brandNew = newMsgs.filter((m) => !existingIds.has(m.id));
-          newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, 500);
+          newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, SMS_CACHE_CAP);
         }
 
         // Merge Calls — always cap to 200
@@ -2171,7 +2178,7 @@ async function refreshPopupCache() {
     // Rebuild allMessages / allCalls arrays for the popup
     const allMessages = Object.values(newSmsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 500);
+      .slice(0, SMS_CACHE_CAP);
     const allCalls = Object.values(newCallsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .slice(0, 200);
