@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
-import { NativeModules } from 'react-native';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { SMS, SendSMSRequest } from '../types';
 import { COLLECTIONS, SMS_PAGE_SIZE } from '../constants';
 import { useAuthStore } from './authStore';
@@ -23,6 +23,7 @@ import {
 import { encryptSMS, decryptSMS } from '../services/cryptoService';
 
 const { SmsModule } = NativeModules;
+const SMS_INITIAL_LOAD_LIMIT = 2000;
 
 // Track if SMS requests listener is already active
 let smsRequestsUnsubscribe: (() => void) | null = null;
@@ -51,6 +52,17 @@ const phoneNumbersMatch = (phone1: string, phone2: string): boolean => {
 
 interface SMSState {
   messages: SMS[];
+  smsDebug: {
+    deviceId: string | null;
+    strictDocs: number;
+    relaxedDocs: number;
+    legacyDocs: number;
+    decryptedDocs: number;
+    nativeDocs: number;
+    renderedDocs: number;
+    source: string;
+    lastError: string | null;
+  };
   isLoading: boolean;
   isSyncing: boolean;
   isLoadingMore: boolean;
@@ -85,6 +97,17 @@ export const useSMSStore = create<SMSState>()(
   persist(
     (set, get) => ({
       messages: [],
+      smsDebug: {
+        deviceId: null,
+        strictDocs: 0,
+        relaxedDocs: 0,
+        legacyDocs: 0,
+        decryptedDocs: 0,
+        nativeDocs: 0,
+        renderedDocs: 0,
+        source: 'idle',
+        lastError: null,
+      },
       isLoading: false,
       isSyncing: false,
       isLoadingMore: false,
@@ -231,14 +254,27 @@ export const useSMSStore = create<SMSState>()(
           return;
         }
 
-        const deviceId = deviceIdParam || currentDevice.id;
+        const targetDeviceIds = [deviceIdParam || currentDevice.id];
 
         const { unsubscribe: prevUnsubscribe } = get();
         if (prevUnsubscribe) {
           prevUnsubscribe();
         }
 
-        set({ isLoading: true });
+        set({
+          isLoading: true,
+          smsDebug: {
+            deviceId: targetDeviceIds[0] || null,
+            strictDocs: 0,
+            relaxedDocs: 0,
+            legacyDocs: 0,
+            decryptedDocs: 0,
+            nativeDocs: 0,
+            renderedDocs: 0,
+            source: 'listener-start',
+            lastError: null,
+          },
+        });
 
         // Helper to map a decrypted data object to a typed SMS
         const toSMS = (data: any): SMS =>
@@ -258,106 +294,381 @@ export const useSMSStore = create<SMSState>()(
             syncedAt: data.syncedAt || Date.now(),
           } as SMS);
 
-        // Track whether the initial full snapshot has been processed.
-        // Subsequent snapshots only carry changed documents (docChanges),
-        // so we can merge them incrementally without re-decrypting everything.
-        let isInitialSnapshot = true;
+        // Never let one stuck decrypt call block initial SMS rendering.
+        const decryptWithTimeout = async (msg: any, timeoutMs = 300): Promise<any> => {
+          try {
+            const timeoutPromise = new Promise<any>(resolve => {
+              setTimeout(() => resolve(msg), timeoutMs);
+            });
+            return await Promise.race([decryptSMS(msg, user.uid), timeoutPromise]);
+          } catch (_) {
+            return msg;
+          }
+        };
 
-        const unsubscribe = firestore()
-          .collection(COLLECTIONS.USERS)
-          .doc(user.uid)
-          .collection(COLLECTIONS.DEVICES)
-          .doc(deviceId)
-          .collection(COLLECTIONS.NOTIFICATIONS)
-          .where('type', '==', 'sms')
-          .orderBy('timestamp', 'desc')
-          .limit(SMS_PAGE_SIZE)
-          .onSnapshot(
-            async snapshot => {
-              if (isInitialSnapshot) {
-                isInitialSnapshot = false;
+        const messagesByDevice = new Map<string, SMS[]>();
+        let pendingInitial = targetDeviceIds.length;
+        const hasMoreByDevice = new Map<string, boolean>();
+        let attemptedNativeFallback = false;
 
-                // Initial load: process all documents with chunked decryption
-                const rawMessages: any[] = [];
-                snapshot.forEach(doc => {
-                  // Spread doc.data() FIRST, then override id with doc.id
-                  // data.id is notification ID ("0" for Google Messages) - NOT unique!
-                  // doc.id is the Firestore document ID - always unique
-                  rawMessages.push({ ...doc.data(), id: doc.id });
-                });
+        const tryNativeFallbackIfEmpty = async () => {
+          if (attemptedNativeFallback) return;
+          attemptedNativeFallback = true;
 
-                // Decrypt in small chunks with a yield between each, so a large
-                // snapshot (e.g. 10k messages on first load) doesn't freeze the UI.
-                const DECRYPT_CHUNK = 100;
-                const decryptedMessages: any[] = [];
-                for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
-                  const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
-                  const decryptedChunk = await Promise.all(
-                    chunk.map(msg => decryptSMS(msg, user.uid)),
-                  );
-                  decryptedMessages.push(...decryptedChunk);
-                  await new Promise(resolve => setTimeout(resolve, 0));
+          // Native fallback is only valid for the current physical device.
+          if (deviceIdParam && deviceIdParam !== currentDevice.id) return;
+          if (Platform.OS !== 'android') return;
+
+          const { messages: existing } = get();
+          if (existing.length > 0) return;
+
+          try {
+            const hasSmsPermission = await PermissionsAndroid.check(
+              PermissionsAndroid.PERMISSIONS.READ_SMS,
+            );
+            if (!hasSmsPermission) return;
+
+            set(state => ({
+              smsDebug: { ...state.smsDebug, source: 'native-fallback-check' },
+            }));
+
+            const nativeRaw: any[] =
+              (await SmsModule?.getAllSms?.(SMS_PAGE_SIZE)) || [];
+            if (!nativeRaw.length) return;
+
+            const nativeMessages: SMS[] = nativeRaw.map((msg: any, idx: number) => ({
+              id:
+                msg.id?.toString() ||
+                `native_${msg.threadId || 't'}_${msg.date || msg.timestamp || idx}`,
+              threadId: msg.threadId?.toString() || '',
+              userId: user.uid,
+              deviceId: currentDevice.id,
+              body: msg.body || msg.message || msg.text || '',
+              text: msg.body || msg.message || msg.text || '',
+              phoneNumber: msg.address || msg.phoneNumber || msg.sender || '',
+              sender: msg.address || msg.phoneNumber || msg.sender || '',
+              contactName: msg.contactName || msg.name || '',
+              timestamp: parseInt(msg.date || msg.timestamp || msg.dateTime) || Date.now(),
+              read: msg.read === 1 || msg.read === true,
+              type: msg.smsType || (msg.type === 2 || msg.type === 'sent' ? 'sent' : 'inbox'),
+              syncedAt: Date.now(),
+            } as SMS));
+
+            nativeMessages.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const merged = mergeByIdKeepNewest(existing, nativeMessages);
+            merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            set({
+              messages: merged,
+              oldestMessageTimestamp:
+                merged.length > 0
+                  ? Math.min(...merged.map(m => m.timestamp || Infinity))
+                  : null,
+              smsDebug: {
+                ...get().smsDebug,
+                nativeDocs: nativeRaw.length,
+                renderedDocs: merged.length,
+                source: 'native-fallback-applied',
+              },
+            });
+
+            // Best-effort sync to Firebase so next loads can come from server.
+            try {
+              await get().batchSyncNativeSMS(nativeRaw, user.uid);
+            } catch (_) {}
+          } catch (_) {}
+        };
+
+        const mergeAllDevices = () => {
+          let merged: SMS[] = [];
+          messagesByDevice.forEach(deviceMsgs => {
+            merged = merged.concat(deviceMsgs);
+          });
+          merged = mergeByIdKeepNewest([], merged);
+          merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+          // If backend query is temporarily empty, keep already-visible SMS
+          // instead of flashing to an empty screen.
+          const { messages: existingMessages } = get();
+          if (merged.length === 0 && existingMessages.length > 0) {
+            set({
+              isLoading: pendingInitial > 0,
+              hasMoreMessages: Array.from(hasMoreByDevice.values()).some(Boolean),
+              smsDebug: {
+                ...get().smsDebug,
+                renderedDocs: existingMessages.length,
+                source: 'preserve-existing',
+              },
+            });
+            return;
+          }
+
+          const oldestTs =
+            merged.length > 0
+              ? Math.min(...merged.map(m => m.timestamp || Infinity))
+              : null;
+
+          set({
+            messages: merged,
+            oldestMessageTimestamp: oldestTs,
+            hasMoreMessages: Array.from(hasMoreByDevice.values()).some(Boolean),
+            isLoading: pendingInitial > 0,
+            smsDebug: {
+              ...get().smsDebug,
+              renderedDocs: merged.length,
+              source: merged.length > 0 ? 'merged' : get().smsDebug.source,
+            },
+          });
+        };
+
+        const unsubscribers = targetDeviceIds.map(targetDeviceId => {
+          let isInitialSnapshot = true;
+          return firestore()
+            .collection(COLLECTIONS.USERS)
+            .doc(user.uid)
+            .collection(COLLECTIONS.DEVICES)
+            .doc(targetDeviceId)
+            .collection(COLLECTIONS.NOTIFICATIONS)
+            .where('type', '==', 'sms')
+            .orderBy('timestamp', 'desc')
+            .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+            .onSnapshot(
+              async snapshot => {
+                if (isInitialSnapshot) {
+                  isInitialSnapshot = false;
+
+                  try {
+                    const rawMessages: any[] = [];
+                    snapshot.forEach(doc => {
+                      rawMessages.push({ ...doc.data(), id: doc.id });
+                    });
+                    set(state => ({
+                      smsDebug: {
+                        ...state.smsDebug,
+                        strictDocs: rawMessages.length,
+                        source: 'strict-notifications',
+                      },
+                    }));
+
+                  // Compatibility fallback: older app builds stored SMS either
+                  // without type='sms' in notifications, or in legacy top-level
+                  // COLLECTIONS.SMS. If the strict query is empty, try both paths.
+                  if (rawMessages.length === 0) {
+                    try {
+                      let relaxedCount = 0;
+                      const relaxedSnap = await firestore()
+                        .collection(COLLECTIONS.USERS)
+                        .doc(user.uid)
+                        .collection(COLLECTIONS.DEVICES)
+                        .doc(targetDeviceId)
+                        .collection(COLLECTIONS.NOTIFICATIONS)
+                        .orderBy('timestamp', 'desc')
+                        .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+                        .get();
+
+                      relaxedSnap.forEach(doc => {
+                        const data: any = doc.data() || {};
+                        const looksLikeSms =
+                          data.type === 'sms' ||
+                          !!data.smsType ||
+                          data.packageName === 'com.android.mms';
+                        if (looksLikeSms) {
+                          rawMessages.push({ ...data, id: doc.id });
+                          relaxedCount++;
+                        }
+                      });
+                      set(state => ({
+                        smsDebug: {
+                          ...state.smsDebug,
+                          relaxedDocs: relaxedCount,
+                          source: relaxedCount > 0 ? 'relaxed-notifications' : state.smsDebug.source,
+                        },
+                      }));
+                    } catch (_) {}
+                  }
+
+                  if (rawMessages.length === 0) {
+                    try {
+                      let legacyCount = 0;
+                      const legacySnap = await firestore()
+                        .collection(COLLECTIONS.SMS)
+                        .where('userId', '==', user.uid)
+                        .where('deviceId', '==', targetDeviceId)
+                        .orderBy('timestamp', 'desc')
+                        .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+                        .get();
+
+                      legacySnap.forEach(doc => {
+                        rawMessages.push({ ...doc.data(), id: doc.id });
+                        legacyCount++;
+                      });
+                      set(state => ({
+                        smsDebug: {
+                          ...state.smsDebug,
+                          legacyDocs: legacyCount,
+                          source: legacyCount > 0 ? 'legacy-sms' : state.smsDebug.source,
+                        },
+                      }));
+                    } catch (_) {}
+                  }
+
+                    const DECRYPT_CHUNK = 50;
+                    const mergedMessages: any[] = [...rawMessages];
+                    let successfulDecrypts = 0;
+                    for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
+                      const chunk = rawMessages.slice(i, i + DECRYPT_CHUNK);
+                      const decryptedChunk = await Promise.all(
+                        chunk.map(msg => decryptWithTimeout(msg)),
+                      );
+
+                      decryptedChunk.forEach((item, idx) => {
+                        const absoluteIndex = i + idx;
+                        const raw = rawMessages[absoluteIndex] || {};
+                        const candidate = item || raw;
+                        const hasAnyBody =
+                          !!(candidate?.text || candidate?.content || candidate?.body) ||
+                          !!(raw?.text || raw?.content || raw?.body);
+                        const hasAnyTimestamp =
+                          !!(candidate?.timestamp || candidate?.receivedAt) ||
+                          !!(raw?.timestamp || raw?.receivedAt);
+
+                        if (hasAnyBody || hasAnyTimestamp) {
+                          mergedMessages[absoluteIndex] = {
+                            ...raw,
+                            ...candidate,
+                            id: candidate?.id || raw?.id,
+                          };
+                        } else {
+                          mergedMessages[absoluteIndex] = raw;
+                        }
+
+                        if (item && item !== raw) {
+                          successfulDecrypts++;
+                        }
+                      });
+
+                      // Progressive render so user sees SMS quickly instead of waiting
+                      // for full decryption of a huge initial dataset.
+                      if (mergedMessages.length > 0 && (i === 0 || i % (DECRYPT_CHUNK * 5) === 0)) {
+                        const progressiveSms: SMS[] = mergedMessages.map(toSMS);
+                        const seenProgressive = new Set<string>();
+                        const progressiveDeduped = progressiveSms.filter(m => {
+                          const phone = normalizePhoneNumber(m.phoneNumber || m.sender || '');
+                          const body = (m.body || m.text || '').trim().substring(0, 100);
+                          const timeWindow = Math.floor((m.timestamp || 0) / 60000);
+                          const contentKey = `${phone}_${timeWindow}_${body}`;
+                          if (seenProgressive.has(contentKey)) return false;
+                          seenProgressive.add(contentKey);
+                          return true;
+                        });
+                        progressiveDeduped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        messagesByDevice.set(targetDeviceId, progressiveDeduped);
+                        mergeAllDevices();
+                        set(state => ({
+                          smsDebug: {
+                            ...state.smsDebug,
+                            decryptedDocs: successfulDecrypts,
+                            source: 'progressive-decrypt',
+                          },
+                        }));
+                      }
+
+                      await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                    set(state => ({
+                      smsDebug: {
+                        ...state.smsDebug,
+                        decryptedDocs: successfulDecrypts,
+                      },
+                    }));
+
+                    // If still nothing from Firestore, force native fallback.
+                    if (mergedMessages.length === 0) {
+                      await tryNativeFallbackIfEmpty();
+                    }
+
+                    const firebaseMessages: SMS[] = mergedMessages.map(toSMS);
+
+                    const seenContent = new Set<string>();
+                    const dedupedMessages = firebaseMessages.filter(m => {
+                      const phone = normalizePhoneNumber(m.phoneNumber || m.sender || '');
+                      const body = (m.body || m.text || '').trim().substring(0, 100);
+                      const timeWindow = Math.floor((m.timestamp || 0) / 60000);
+                      const contentKey = `${phone}_${timeWindow}_${body}`;
+                      if (seenContent.has(contentKey)) return false;
+                      seenContent.add(contentKey);
+                      return true;
+                    });
+
+                    dedupedMessages.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    messagesByDevice.set(targetDeviceId, dedupedMessages);
+                    hasMoreByDevice.set(targetDeviceId, snapshot.size >= SMS_PAGE_SIZE);
+
+                    pendingInitial = Math.max(0, pendingInitial - 1);
+                    mergeAllDevices();
+                    if (pendingInitial === 0) {
+                      await tryNativeFallbackIfEmpty();
+                    }
+                    return;
+                  } catch (e: any) {
+                    pendingInitial = Math.max(0, pendingInitial - 1);
+                    set(state => ({
+                      isLoading: pendingInitial > 0,
+                      smsDebug: {
+                        ...state.smsDebug,
+                        source: 'processing-error',
+                        lastError: e?.message || 'unknown',
+                      },
+                    }));
+                    if (pendingInitial === 0) {
+                      await tryNativeFallbackIfEmpty();
+                    }
+                    return;
+                  }
                 }
 
-                const firebaseMessages: SMS[] = decryptedMessages.map(toSMS);
+                const changes = snapshot
+                  .docChanges()
+                  .filter(c => c.type === 'added' || c.type === 'modified');
+                if (changes.length === 0) return;
 
-                // Content-based dedup: remove duplicate SMS written by different services
-                // (NotificationService vs BackgroundSmsService create different docIds for same SMS)
-                const seenContent = new Set<string>();
-                const dedupedMessages = firebaseMessages.filter(m => {
-                  const phone = normalizePhoneNumber(
-                    m.phoneNumber || m.sender || '',
-                  );
-                  const body = (m.body || m.text || '').trim().substring(0, 100);
-                  // Round timestamp to 60-second window
-                  const timeWindow = Math.floor((m.timestamp || 0) / 60000);
-                  const contentKey = `${phone}_${timeWindow}_${body}`;
-                  if (seenContent.has(contentKey)) return false;
-                  seenContent.add(contentKey);
-                  return true;
-                });
+                const rawNew = changes.map(c => ({ ...c.doc.data(), id: c.doc.id }));
+                const decrypted = await Promise.all(rawNew.map(msg => decryptSMS(msg, user.uid)));
+                const newMessages: SMS[] = decrypted.map(toSMS);
 
-                dedupedMessages.sort(
-                  (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
-                );
-                const oldestTs =
-                  dedupedMessages.length > 0
-                    ? Math.min(...dedupedMessages.map(m => m.timestamp || Infinity))
-                    : null;
+                const existing = messagesByDevice.get(targetDeviceId) || [];
+                const mergedDevice = mergeByIdKeepNewest(existing, newMessages);
+                mergedDevice.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                messagesByDevice.set(targetDeviceId, mergedDevice);
+                mergeAllDevices();
+              },
+              error => {
+                pendingInitial = Math.max(0, pendingInitial - 1);
                 set({
-                  messages: dedupedMessages,
+                  error: error.message,
                   isLoading: false,
-                  hasMoreMessages: snapshot.size >= SMS_PAGE_SIZE,
-                  oldestMessageTimestamp: oldestTs,
+                  smsDebug: {
+                    ...get().smsDebug,
+                    source: 'listener-error',
+                    lastError: error.message || 'unknown',
+                  },
                 });
-                return;
-              }
+                if (pendingInitial === 0) {
+                  tryNativeFallbackIfEmpty();
+                }
+              },
+            );
+        });
 
-              // Subsequent snapshots: only process added/modified documents so
-              // a single incoming SMS updates the UI immediately instead of
-              // re-decrypting the entire collection.
-              const changes = snapshot
-                .docChanges()
-                .filter(c => c.type === 'added' || c.type === 'modified');
-              if (changes.length === 0) return;
-
-              const rawNew = changes.map(c => ({ ...c.doc.data(), id: c.doc.id }));
-              const decrypted = await Promise.all(
-                rawNew.map(msg => decryptSMS(msg, user.uid)),
-              );
-              const newMessages: SMS[] = decrypted.map(toSMS);
-
-              const { messages: currentMessages } = get();
-              const merged = mergeByIdKeepNewest([...newMessages, ...currentMessages]);
-              merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-              set({ messages: merged });
-            },
-            error => {
-              set({ error: error.message, isLoading: false });
-            },
-          );
-
-        set({ unsubscribe });
+        set({
+          unsubscribe: () => {
+            unsubscribers.forEach(unsub => {
+              try {
+                unsub();
+              } catch (_) {}
+            });
+          },
+        });
       },
 
       loadMoreMessages: async (deviceIdParam?: string) => {
@@ -422,7 +733,7 @@ export const useSMSStore = create<SMSState>()(
               ? Math.min(...olderMessages.map(m => m.timestamp || Infinity))
               : oldestMessageTimestamp;
 
-          const merged = mergeByIdKeepNewest([...messages, ...olderMessages]);
+          const merged = mergeByIdKeepNewest(messages, olderMessages);
           merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
           set({

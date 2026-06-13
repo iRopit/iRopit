@@ -86,15 +86,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         return <WelcomeStep colors={colors} translate={translate} />;
       case 2:
         return (
-          <PrivacyPolicyStep
-            isRTL={isRTL}
-            colors={colors}
-            accepted={privacyAccepted}
-            onAccept={setPrivacyAccepted}
-          />
-        );
-      case 3:
-        return (
           <ThemeSelectionStep
             selectedTheme={selectedTheme}
             actualTheme={actualTheme}
@@ -103,6 +94,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             translate={translate}
             onSelectTheme={setSelectedTheme}
             triggerHaptic={triggerHaptic}
+          />
+        );
+      case 3:
+        return (
+          <PrivacyPolicyStep
+            isRTL={isRTL}
+            colors={colors}
+            accepted={privacyAccepted}
+            onAccept={setPrivacyAccepted}
           />
         );
       case 4:
@@ -133,8 +133,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     const isLastStep = currentStep === totalSteps - 1;
     if (currentStep === 0) return translate('onboarding.language.confirmLanguage');
     if (currentStep === 1) return translate('onboarding.getStarted');
-    if (currentStep === 2) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
-    if (currentStep === 3) return translate('onboarding.theme.setAppearance');
+    if (currentStep === 2) return translate('onboarding.theme.setAppearance');
+    if (currentStep === 3) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
     if (currentStep === 4) return translate('onboarding.permissions.continue');
     if (currentStep === 5) return translate('common.next');
     if (isLastStep) return translate('onboarding.overview.letsGo');
@@ -142,13 +142,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   };
 
   // Check if the Next button should be disabled
-  // - Step 2 (Privacy): must accept terms
+  // - Step 3 (Privacy): must accept terms
   // - Step 4 (Permissions): must grant all required permissions
   const allRequiredPermissionsGranted = permissions
     .filter(p => p.required)
     .every(p => p.granted);
   const isNextDisabled =
-    (currentStep === 2 && !privacyAccepted) ||
+    (currentStep === 3 && !privacyAccepted) ||
     (currentStep === 4 && !allRequiredPermissionsGranted);
 
   const isLastStep = currentStep === totalSteps - 1;
@@ -196,7 +196,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
 
           {currentStep > 0 &&
             currentStep < totalSteps - 1 &&
-            currentStep !== 2 && (
+            currentStep !== 3 && (
               <View style={{ marginTop: 12 }}>
                 <Button
                   title={translate('common.previous')}
@@ -210,7 +210,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             )}
 
           {/* Privacy Policy step - back only, no skip */}
-          {currentStep === 2 && (
+          {currentStep === 3 && (
             <View style={{ marginTop: 12 }}>
               <Button
                 title={translate('common.previous')}

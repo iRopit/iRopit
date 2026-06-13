@@ -278,8 +278,8 @@ const PrivacyPolicyStep: React.FC<PrivacyPolicyStepProps> = ({
               ]}
             >
               {t(
-                'iRopit syncs your Android phone notifications, SMS messages, and call logs with your Chrome browser extension. This allows you to view and manage your phone activity directly from your computer.',
-                'iRopit يقوم بمزامنة إشعارات هاتف Android والرسائل القصيرة وسجل المكالمات مع إضافة متصفح Chrome. يتيح لك ذلك عرض وإدارة نشاط هاتفك مباشرة من جهاز الكمبيوتر.',
+                'To use iRopit, please review our core terms and data governance policies. We are committed to protecting your personal information and ensuring your digital data remains private, secure, and fully encrypted.\n\nYou can view our complete legal documentation at any time using the links provided.',
+                'لاستخدام iRopit، يرجى مراجعة الشروط الأساسية وسياسات حوكمة البيانات الخاصة بنا. نحن ملتزمون بحماية معلوماتك الشخصية وضمان بقاء بياناتك الرقمية خاصة وآمنة ومشفرة بالكامل.\n\nيمكنك الاطلاع على وثائقنا القانونية الكاملة في أي وقت عبر الروابط المتاحة.',
               )}
             </Text>
           </View>

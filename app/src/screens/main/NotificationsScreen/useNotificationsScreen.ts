@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
 
@@ -33,6 +34,7 @@ export const useNotificationsScreen = (
 
   const {
     messages: smsMessages,
+    smsDebug,
     markMessagesAsReadBySender,
     loadMessages: loadSmsMessages,
     deleteMessagesBySender,
@@ -47,6 +49,10 @@ export const useNotificationsScreen = (
   // Device filter state - default to current device
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
+  const smsDeviceId =
+    filterType === 'sms'
+      ? activeDeviceId || undefined
+      : activeDeviceId || undefined;
 
   // Local state
   const [isLoading] = useState(false);
@@ -265,15 +271,46 @@ export const useNotificationsScreen = (
   // Permission handling
   const checkPermission = useCallback(async () => {
     try {
+      if (filterType === 'sms' && Platform.OS === 'android') {
+        const [hasReadSms, hasReceiveSms] = await Promise.all([
+          PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
+          PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS),
+        ]);
+        const granted = hasReadSms && hasReceiveSms;
+        setHasPermission(granted);
+        return granted;
+      }
+
       const granted = await notificationService.isPermissionGranted();
       setHasPermission(granted);
       return granted;
     } catch (_error) {
       return false;
     }
-  }, []);
+  }, [filterType]);
 
   const requestPermission = useCallback(async () => {
+    if (filterType === 'sms' && Platform.OS === 'android') {
+      try {
+        const smsResults = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.READ_SMS,
+          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+        ]);
+        const granted =
+          smsResults[PermissionsAndroid.PERMISSIONS.READ_SMS] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          smsResults[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] ===
+            PermissionsAndroid.RESULTS.GRANTED;
+        setHasPermission(granted);
+        if (granted && user && currentDevice) {
+          loadSmsMessages(smsDeviceId);
+        }
+        return;
+      } catch (_) {
+        return;
+      }
+    }
+
     const isMiui = await notificationService.isMiuiDevice();
 
     if (isMiui) {
@@ -286,7 +323,7 @@ export const useNotificationsScreen = (
         notificationService.openSettings(),
       );
     }
-  }, []);
+  }, [filterType, user, currentDevice, loadSmsMessages, smsDeviceId]);
 
   // Firebase operations
   const saveToFirebase = useCallback(
@@ -438,9 +475,19 @@ export const useNotificationsScreen = (
       // install where there is no cache and the historical batchSyncNativeSMS
       // hasn't run yet). The previous code cleared initialLoading in a
       // .finally() that fires immediately, so the spinner barely flashed.
-      loadSmsMessages(activeDeviceId || undefined);
+      if (filterType !== 'sms' || hasPermission) {
+        loadSmsMessages(smsDeviceId);
+      }
     }
-  }, [user, currentDevice, loadSmsMessages, activeDeviceId]);
+  }, [
+    user,
+    currentDevice,
+    loadSmsMessages,
+    smsDeviceId,
+    devices.length,
+    filterType,
+    hasPermission,
+  ]);
 
   // Clear initialLoading once messages/notifications actually arrive, OR
   // after a generous safety timeout (covers users with a truly empty inbox).
@@ -596,6 +643,8 @@ export const useNotificationsScreen = (
     isLoading,
     initialLoading,
     hasPermission,
+    smsRawCount: smsMessages.length,
+    smsDebug,
 
     // Device filter
     devices,

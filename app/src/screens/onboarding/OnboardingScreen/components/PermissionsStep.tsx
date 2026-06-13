@@ -31,12 +31,14 @@ interface PermissionsStepProps {
 const PermissionsStep: React.FC<PermissionsStepProps> = ({
   permissions,
   isRTL,
+  actualTheme,
   colors,
   translate,
   onRequestPermission,
   onRequestAllPermissions,
 }) => {
   const [grantingAll, setGrantingAll] = React.useState(false);
+  const isDark = actualTheme === 'dark';
   const allGranted = permissions.every(p => p.granted);
   const anyUngranted = permissions.some(p => !p.granted);
 
@@ -77,8 +79,12 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
           disabled={grantingAll}
           activeOpacity={0.8}
         >
-          <Icon name="shield-checkmark-outline" size={20} color="#FFF" />
-          <Text style={localStyles.grantAllText}>
+          <Icon
+            name="shield-checkmark-outline"
+            size={20}
+            color={isDark ? colors.black : '#FFF'}
+          />
+          <Text style={[localStyles.grantAllText, { color: isDark ? colors.black : '#FFF' }]}>
             {grantingAll
               ? (isRTL ? 'جاري المنح...' : 'Granting...')
               : (isRTL ? 'منح جميع الأذونات' : 'Grant All Permissions')}
@@ -134,7 +140,6 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
                     localStyles.permissionDesc,
                     { color: colors.textSecondary },
                   ]}
-                  numberOfLines={2}
                 >
                   {isRTL ? permission.descriptionAr : permission.description}
                 </Text>
@@ -162,7 +167,7 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
                   <Text
                     style={[
                       localStyles.grantButtonText,
-                      { color: colors.text },
+                      { color: isDark ? colors.black : colors.text },
                     ]}
                   >
                     {translate('onboarding.permissions.grant')}

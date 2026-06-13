@@ -10,6 +10,7 @@ const CACHE_KEYS = {
   TIMESTAMP: "cache_timestamp",
   FULL_LOAD_TS: "sms_full_load_ts",  // timestamp of last full (non-delta) Firestore fetch
   SHARED_DEVICES: "cached_shared_devices", // sharedWithMeDevices list
+  DEVICES: "cached_devices", // own devices list for instant reopen render
 };
 
 // Max cache age: 7 days
@@ -24,6 +25,7 @@ const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // the next open after the backfill happens — without having to press Refresh.
 const FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SMS_CACHE_CAP = 10000;
+const CALLS_CACHE_CAP = 2000;
 
 /**
  * Strip non-serializable fields from messages before caching
@@ -118,11 +120,11 @@ export async function cacheCallsData(callsByDevice, allCalls) {
   try {
     const cacheData = {
       byDevice: {},
-      allCalls: stripNonSerializable(allCalls).slice(0, 500),
+      allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP),
     };
 
     for (const [deviceId, calls] of Object.entries(callsByDevice)) {
-      cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, 500);
+      cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, CALLS_CACHE_CAP);
     }
 
     await chrome.storage.local.set({
@@ -330,6 +332,34 @@ export async function getCachedSharedDevices() {
 }
 
 /**
+ * Save own devices list to local cache so device tabs render instantly on reopen.
+ */
+export async function cacheOwnDevices(devices) {
+  try {
+    const safe = (devices || []).map((d) => {
+      const { docRef, ...rest } = d || {};
+      return rest;
+    });
+    await chrome.storage.local.set({ [CACHE_KEYS.DEVICES]: safe });
+  } catch (e) {
+    console.warn("[Cache] Failed to save own devices:", e);
+  }
+}
+
+/**
+ * Load own devices from local cache.
+ * @returns {Array} cached own devices array, or []
+ */
+export async function getCachedOwnDevices() {
+  try {
+    const result = await chrome.storage.local.get(CACHE_KEYS.DEVICES);
+    return result[CACHE_KEYS.DEVICES] || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Clear all cached data
  */
 export async function clearCache() {
@@ -340,6 +370,7 @@ export async function clearCache() {
       CACHE_KEYS.NOTIFICATIONS,
       CACHE_KEYS.TIMESTAMP,
       CACHE_KEYS.SHARED_DEVICES,
+      CACHE_KEYS.DEVICES,
     ]);
     console.log("[Cache] 🗑️ Cache cleared");
   } catch (error) {

@@ -2501,6 +2501,8 @@ export async function markAllSmsAsRead() {
       cacheSMSData(state.allSMS, state.allSMSMessages.map(m =>
         (activeDevice === "all" || m.deviceId === activeDevice) ? { ...m, read: true } : m
       )).catch(() => {});
+      // Mark-all is often followed by closing popup quickly; flush now to persist.
+      await flushSMSCache();
 
       updateTabBadges();
 
@@ -2553,6 +2555,8 @@ async function markConversationAsRead(conversation) {
 
   // Persist to cache in background (non-blocking for badge update)
   cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
+  // Flush immediately so quick popup close/reopen won't restore stale unread flags.
+  flushSMSCache().catch(() => {});
 
   // Write to Firestore (non-blocking for UI â€” state/cache already updated)
   try {

@@ -80,7 +80,7 @@ import { updateInsightsDeviceTabs } from "../ui/dashboard.js";
 import { reRenderNotifications } from "./notifications.js";
 import { renderCalls } from "./calls.js";
 import { renderSMS } from "./sms.js";
-import { cacheSharedDevices, getCachedSharedDevices } from "./cache.js";
+import { cacheSharedDevices, getCachedSharedDevices, cacheOwnDevices, getCachedOwnDevices } from "./cache.js";
 
 let pendingSharedSmsShares = null;
 let sharedSmsDeferredListenerAttached = false;
@@ -284,8 +284,25 @@ export async function loadDevices() {
   const user = state.currentUser;
   if (!user) return;
 
-  await _loadVersionCache();
-  await loadDeviceSyncPrefs();
+  // Restore cached own devices instantly so tabs/list are visible on reopen
+  // before Firestore snapshot network round-trip finishes.
+  getCachedOwnDevices().then((cached) => {
+    if (cached && cached.length > 0) {
+      state.setDevices(cached);
+      renderDevices();
+      updateDeviceSelects();
+    }
+  }).catch(() => {});
+
+  // Load local caches in background; never block realtime subscriptions.
+  _loadVersionCache()
+    .then(() => {
+      if ((state.devices || []).length > 0) renderDevices();
+    })
+    .catch(() => {});
+  loadDeviceSyncPrefs()
+    .then(() => updateDeviceSelects())
+    .catch(() => {});
 
   const q = query(collection(db, "devices"), where("userId", "==", user.uid));
 
@@ -308,6 +325,7 @@ export async function loadDevices() {
       state.setDevices(newDevices);
       renderDevices();
       updateDeviceSelects();
+      cacheOwnDevices(newDevices).catch(() => {});
     },
     (error) => {
       console.error("[Device] loadDevices onSnapshot error:", error?.code, error?.message);

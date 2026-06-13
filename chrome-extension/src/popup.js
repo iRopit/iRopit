@@ -328,8 +328,9 @@ function init() {
   initAuthObserver(
     // On login
     async (user) => {
-      // Register device first so loadDevices snapshot sees it
-      await registerDevice().catch((err) =>
+      // Do not block UI/data loading on registerDevice network latency.
+      // Register in background while tabs start loading immediately.
+      registerDevice().catch((err) =>
         console.error("[Popup] registerDevice error:", err),
       );
       loadData();

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Container } from '../../../components';
 
 import { ConversationScreenProps } from './types';
@@ -11,6 +12,8 @@ import { AppNotification } from '../../../services/notificationService';
 
 const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
   const { title, appName, type, phoneNumber } = route.params;
+  const insets = useSafeAreaInsets();
+  const listBottomPadding = Math.max(insets.bottom + 28, 48);
 
   const {
     conversationNotifications,
@@ -52,7 +55,7 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
       isDark={isDarkMode}
       noPaddingHorizontal
       backgroundColor={bgColor}
-      edges={['top']}
+      edges={['top', 'bottom']}
     >
       {/* Header */}
       <View
@@ -103,7 +106,7 @@ const ConversationScreen = ({ route, navigation }: ConversationScreenProps) => {
           style={{ flex: 1, backgroundColor: bgColor }}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: isSMSType ? 20 : 20 },
+            { paddingBottom: isSMSType ? listBottomPadding : 20 },
           ]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={15}

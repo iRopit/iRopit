@@ -45,7 +45,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   const fcmTokenListenerUnsubscribe = useRef<(() => void) | null>(null);
   const deviceDeleteListenerUnsubscribe = useRef<(() => void) | null>(null);
   const lastContactSyncRef = useRef<number>(0);
-  const initialSyncAttemptedRef = useRef(false);
+  const initialSyncInFlightRef = useRef(false);
 
   // Re-sync contacts when app comes to foreground (max once per 5 minutes)
   useEffect(() => {
@@ -115,15 +115,25 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   // Key includes deviceId so re-installing on a new device re-syncs.
   useEffect(() => {
     if (!user || !currentDevice || Platform.OS !== 'android') return;
-    if (initialSyncAttemptedRef.current) return;
-    initialSyncAttemptedRef.current = true;
+    if (initialSyncInFlightRef.current) return;
+    initialSyncInFlightRef.current = true;
+
+    let isMounted = true;
 
     const doInitialSync = async () => {
       try {
-        // v10: initial call sync capped at 2000; SMS initial sync increased to 10000.
-        const syncKey = `@iRopit:initialDeviceSyncDone_v10_${user.uid}_${currentDevice.id}`;
-        const alreadySynced = await AsyncStorage.getItem(syncKey);
-        if (alreadySynced) {
+        // v11: track call and SMS sync independently so SMS isn't skipped forever
+        // when READ_SMS is granted after initial install.
+        const syncKey = `@iRopit:initialDeviceSyncState_v11_${user.uid}_${currentDevice.id}`;
+        const rawState = await AsyncStorage.getItem(syncKey);
+        let syncState = { callsSynced: false, smsSynced: false };
+        if (rawState) {
+          try {
+            syncState = JSON.parse(rawState);
+          } catch (_) {}
+        }
+
+        if (syncState.callsSynced && syncState.smsSynced) {
           console.log('[InitialSync] Already done, skipping');
           return;
         }
@@ -131,10 +141,31 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         console.log('[InitialSync] Starting first-time device sync...');
 
         // Check permissions before accessing native modules
-        const [hasCallLog, hasSms] = await Promise.all([
+        let [hasCallLog, hasSms] = await Promise.all([
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG),
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
         ]);
+
+        // First-install hardening: request missing history permissions here so
+        // initial sync doesn't silently skip SMS while calls still load.
+        if (!hasCallLog || !hasSms) {
+          try {
+            const req: string[] = [];
+            if (!hasCallLog) req.push(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG);
+            if (!hasSms) req.push(PermissionsAndroid.PERMISSIONS.READ_SMS);
+            if (req.length > 0) {
+              const grant = await PermissionsAndroid.requestMultiple(req as any);
+              hasCallLog =
+                hasCallLog ||
+                grant[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] ===
+                  PermissionsAndroid.RESULTS.GRANTED;
+              hasSms =
+                hasSms ||
+                grant[PermissionsAndroid.PERMISSIONS.READ_SMS] ===
+                  PermissionsAndroid.RESULTS.GRANTED;
+            }
+          } catch (_) {}
+        }
 
         if (!hasCallLog && !hasSms) {
           console.warn('[InitialSync] No READ_CALL_LOG or READ_SMS permissions, skipping');
@@ -144,7 +175,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         // Sync call log — capped at 2000 newest calls on initial/fresh install.
         // Native query uses ORDER BY date DESC so the most recent 2000 are fetched first.
         const INITIAL_CALL_LIMIT = 2000;
-        if (hasCallLog) {
+        if (hasCallLog && !syncState.callsSynced) {
           try {
             let nativeCalls: any[] = [];
             if (CallLogModule) {
@@ -157,6 +188,8 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
               await useCallStore.getState().syncCalls(nativeCalls);
               console.log(`[InitialSync] Synced ${nativeCalls.length} calls to Firebase`);
             }
+            syncState.callsSynced = true;
+            await AsyncStorage.setItem(syncKey, JSON.stringify(syncState));
           } catch (e) {
             console.warn('[InitialSync] Call sync error:', e);
           }
@@ -166,7 +199,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         // Native query uses ORDER BY date DESC so the most recent 10000 are fetched first.
         // Ongoing new SMS are synced in real-time via the SMS listener.
         const INITIAL_SMS_LIMIT = 10000;
-        if (hasSms) {
+        if (hasSms && !syncState.smsSynced) {
           try {
             let nativeSms: any[] = [];
             if (SmsModule) {
@@ -179,15 +212,24 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
               await useSMSStore.getState().batchSyncNativeSMS(nativeSms, user.uid);
               console.log(`[InitialSync] Synced ${nativeSms.length} SMS to Firebase`);
             }
+            syncState.smsSynced = true;
+            await AsyncStorage.setItem(syncKey, JSON.stringify(syncState));
           } catch (e) {
             console.warn('[InitialSync] SMS sync error:', e);
           }
         }
 
-        await AsyncStorage.setItem(syncKey, 'true');
-        console.log('[InitialSync] Complete');
+        if (syncState.callsSynced && syncState.smsSynced) {
+          console.log('[InitialSync] Complete');
+        } else {
+          console.log('[InitialSync] Partial complete, waiting for remaining permission/data path', syncState);
+        }
       } catch (e) {
         console.warn('[InitialSync] Error:', e);
+      } finally {
+        if (isMounted) {
+          initialSyncInFlightRef.current = false;
+        }
       }
     };
 
@@ -199,6 +241,18 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         doInitialSync();
       }, 1500);
     });
+
+    // If user grants READ_SMS later during onboarding/settings, retry on foreground.
+    const syncRetryOnActive = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        doInitialSync();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      syncRetryOnActive.remove();
+    };
   }, [user?.uid, currentDevice?.id]);
 
   // الاستماع لطلبات إرسال SMS من Chrome Extension + بدء Foreground Service
@@ -241,7 +295,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         permissions.push('android.permission.POST_NOTIFICATIONS');
       }
 
-      const results = await PermissionsAndroid.requestMultiple(permissions);
+      const results = await PermissionsAndroid.requestMultiple(permissions as any);
 
       const allGranted = Object.values(results).every(
         result => result === PermissionsAndroid.RESULTS.GRANTED,

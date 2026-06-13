@@ -89,8 +89,8 @@ android {
         applicationId "com.IRopit"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1184
-        versionName "1.1.8.4"
+        versionCode 1187
+        versionName "1.1.8.7"
     }
     signingConfigs {
         debug {

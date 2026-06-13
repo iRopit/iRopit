@@ -56,9 +56,9 @@ export const useOnboarding = () => {
       name: 'Read SMS',
       nameAr: 'قراءة الرسائل',
       description:
-        'Read all SMS messages (sent & received) to sync with extension',
+        'iRopit requires permission to read SMS messages to sync them to your Chrome extension client seamlessly even when the app is closed, minimized, or not in use.',
       descriptionAr:
-        'قراءة جميع الرسائل المرسلة والمستلمة لمزامنتها مع الإكستنشن',
+        'يصل iRopit إلى سجل المكالمات الخاص بك *حتى عندما يكون التطبيق مغلقا أو مصغرا أو غير مستخدم* لتقديم تنبيهات فورية منبثقة على سطح المكتب للمكالمات الواردة أثناء عملك على الكمبيوتر.',
       icon: 'mail-open-outline',
       required: true,
       granted: false,
@@ -93,7 +93,7 @@ export const useOnboarding = () => {
   const [permissionsAlreadyHandled, setPermissionsAlreadyHandled] =
     useState(false);
 
-  const totalSteps = 7; // Welcome, Language, PrivacyPolicy, Theme, Permissions, Overview, Security
+  const totalSteps = 7; // Language, Welcome, Theme, PrivacyPolicy, Permissions, Overview, Security
 
   // Update actual theme when selection or system changes
   useEffect(() => {

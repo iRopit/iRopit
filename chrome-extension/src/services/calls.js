@@ -38,6 +38,8 @@ import { getContactName } from "./contacts.js";
 import { getCachedCalls, cacheCallsData } from "./cache.js";
 import { wireHoverPreview } from "../utils/hoverPreview.js";
 
+const CALLS_FETCH_LIMIT = 2000;
+
 function isUnavailableError(error) {
   const code = String(error?.code || "").toLowerCase();
   const msg = String(error?.message || "").toLowerCase();
@@ -353,6 +355,7 @@ export async function loadCalls() {
   let hasCachedData = false;
   // Track newest cached timestamp per device for delta loading
   const cachedNewestTimestamps = {};
+  const cachedCallCounts = {};
   try {
     const cached = await getCachedCalls();
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
@@ -382,6 +385,7 @@ export async function loadCalls() {
         if (cached.byDevice) {
           for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
             state.setCallsByDevice(deviceId, calls);
+            cachedCallCounts[deviceId] = calls?.length || 0;
             // Record newest timestamp per device for delta fetch
             if (calls && calls.length > 0) {
               cachedNewestTimestamps[deviceId] = Math.max(
@@ -464,7 +468,9 @@ export async function loadCalls() {
   const loadPromises = devicesList.map(async (device) => {
     // Delta fetch: if we have cached data, only query calls newer than cache
     const cachedNewestTs = cachedNewestTimestamps[device.id];
-    const isDelta = !!cachedNewestTs;
+    const cachedDeviceCount = cachedCallCounts[device.id] || 0;
+    // If cached history is still below target, force full fetch to backfill older calls.
+    const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
 
     let q;
     if (isDelta) {
@@ -473,14 +479,14 @@ export async function loadCalls() {
         collection(db, "users", user.uid, "devices", device.id, "calls"),
         where("timestamp", ">", cachedNewestTs),
         orderBy("timestamp", "desc"),
-        limit(200),
+        limit(CALLS_FETCH_LIMIT),
       );
     } else {
       // No cache - full fetch
       q = query(
         collection(db, "users", user.uid, "devices", device.id, "calls"),
         orderBy("timestamp", "desc"),
-        limit(200),
+        limit(CALLS_FETCH_LIMIT),
       );
     }
 
@@ -501,7 +507,16 @@ export async function loadCalls() {
           snapshot = await getDocs(q);
         }
       } else {
-        snapshot = await getDocs(q);
+        try {
+          snapshot = await getDocsFromServer(q);
+        } catch (serverErr) {
+          if (!isUnavailableError(serverErr)) throw serverErr;
+          logCallsUnavailableOnce(
+            `full:${device.id}`,
+            `[Calls] Server unavailable for full ${device.id}, using local cache fallback`,
+          );
+          snapshot = await getDocs(q);
+        }
       }
       console.log(
         `[Calls] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} calls from device ${device.id}`,
@@ -1444,7 +1459,7 @@ export async function loadSharedDevicesCalls(shares) {
       const q = query(
         collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
         orderBy("timestamp", "desc"),
-        limit(200),
+        limit(CALLS_FETCH_LIMIT),
       );
       const snapshot = await getDocs(q);
       const calls = await Promise.all(

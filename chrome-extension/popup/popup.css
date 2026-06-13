@@ -1706,7 +1706,7 @@ body[dir="rtl"] .device-tag {
 .profile-name-footer {
   font-size: 13px;
   font-weight: 600;
-  color: white;
+  color: #000000;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1714,7 +1714,7 @@ body[dir="rtl"] .device-tag {
 
 .profile-email-footer {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(0, 0, 0, 0.8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1723,7 +1723,7 @@ body[dir="rtl"] .device-tag {
 .profile-version-footer {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(0, 0, 0, 0.85);
   white-space: nowrap;
   flex-shrink: 0;
   align-self: center;
@@ -3559,11 +3559,15 @@ html.dark .profile-avatar-footer {
 }
 
 html.dark .profile-name-footer {
-  color: var(--primary-light);
+  color: #ffffff;
 }
 
 html.dark .profile-email-footer {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+html.dark .profile-version-footer {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 html.dark .profile-logout-btn-footer {

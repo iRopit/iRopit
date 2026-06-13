@@ -85,7 +85,9 @@ const Button: React.FC<ButtonProps> = ({
             ...SHADOWS.sm,
           },
           text: {
-            color: isDisabled ? colors.textTertiary : colors.white,
+            color: isDisabled
+              ? (isDark ? 'rgba(0, 0, 0, 0.55)' : colors.textTertiary)
+              : (isDark ? colors.black : colors.white),
           },
         };
       case 'secondary':

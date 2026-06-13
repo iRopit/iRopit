@@ -26019,10 +26019,10 @@ ${this.customData.serverResponse}`;
     try {
       const cacheData = {
         byDevice: {},
-        allCalls: stripNonSerializable(allCalls).slice(0, 500)
+        allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP)
       };
       for (const [deviceId, calls] of Object.entries(callsByDevice)) {
-        cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, 500);
+        cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, CALLS_CACHE_CAP);
       }
       await chrome.storage.local.set({
         [CACHE_KEYS.CALLS]: cacheData
@@ -26165,6 +26165,25 @@ ${this.customData.serverResponse}`;
       return [];
     }
   }
+  async function cacheOwnDevices(devices2) {
+    try {
+      const safe = (devices2 || []).map((d) => {
+        const { docRef, ...rest } = d || {};
+        return rest;
+      });
+      await chrome.storage.local.set({ [CACHE_KEYS.DEVICES]: safe });
+    } catch (e) {
+      console.warn("[Cache] Failed to save own devices:", e);
+    }
+  }
+  async function getCachedOwnDevices() {
+    try {
+      const result = await chrome.storage.local.get(CACHE_KEYS.DEVICES);
+      return result[CACHE_KEYS.DEVICES] || [];
+    } catch {
+      return [];
+    }
+  }
   async function clearCache() {
     try {
       await chrome.storage.local.remove([
@@ -26172,14 +26191,15 @@ ${this.customData.serverResponse}`;
         CACHE_KEYS.CALLS,
         CACHE_KEYS.NOTIFICATIONS,
         CACHE_KEYS.TIMESTAMP,
-        CACHE_KEYS.SHARED_DEVICES
+        CACHE_KEYS.SHARED_DEVICES,
+        CACHE_KEYS.DEVICES
       ]);
       console.log("[Cache] \u{1F5D1}\uFE0F Cache cleared");
     } catch (error) {
       console.warn("[Cache] Failed to clear cache:", error);
     }
   }
-  var CACHE_KEYS, MAX_CACHE_AGE_MS, FULL_LOAD_INTERVAL_MS, SMS_CACHE_CAP, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
+  var CACHE_KEYS, MAX_CACHE_AGE_MS, FULL_LOAD_INTERVAL_MS, SMS_CACHE_CAP, CALLS_CACHE_CAP, smsCacheWriteTimer, smsCachePending, NOTIF_CACHE_CAP_PER_DEVICE, notifCacheWriteTimer, notifCachePending;
   var init_cache = __esm({
     "src/services/cache.js"() {
       CACHE_KEYS = {
@@ -26189,12 +26209,15 @@ ${this.customData.serverResponse}`;
         TIMESTAMP: "cache_timestamp",
         FULL_LOAD_TS: "sms_full_load_ts",
         // timestamp of last full (non-delta) Firestore fetch
-        SHARED_DEVICES: "cached_shared_devices"
+        SHARED_DEVICES: "cached_shared_devices",
         // sharedWithMeDevices list
+        DEVICES: "cached_devices"
+        // own devices list for instant reopen render
       };
       MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
       FULL_LOAD_INTERVAL_MS = 24 * 60 * 60 * 1e3;
       SMS_CACHE_CAP = 1e4;
+      CALLS_CACHE_CAP = 2e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
       NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
@@ -26501,6 +26524,7 @@ ${this.customData.serverResponse}`;
     }
     let hasCachedData = false;
     const cachedNewestTimestamps = {};
+    const cachedCallCounts = {};
     try {
       const cached = await getCachedCalls();
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
@@ -26521,6 +26545,7 @@ ${this.customData.serverResponse}`;
           if (cached.byDevice) {
             for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
               setCallsByDevice(deviceId, calls);
+              cachedCallCounts[deviceId] = calls?.length || 0;
               if (calls && calls.length > 0) {
                 cachedNewestTimestamps[deviceId] = Math.max(
                   ...calls.map((c) => c.timestamp || 0)
@@ -26584,20 +26609,21 @@ ${this.customData.serverResponse}`;
     }
     const loadPromises = devicesList2.map(async (device) => {
       const cachedNewestTs = cachedNewestTimestamps[device.id];
-      const isDelta = !!cachedNewestTs;
+      const cachedDeviceCount = cachedCallCounts[device.id] || 0;
+      const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
       let q2;
       if (isDelta) {
         q2 = query(
           collection(db, "users", user.uid, "devices", device.id, "calls"),
           where("timestamp", ">", cachedNewestTs),
           orderBy("timestamp", "desc"),
-          limit(200)
+          limit(CALLS_FETCH_LIMIT)
         );
       } else {
         q2 = query(
           collection(db, "users", user.uid, "devices", device.id, "calls"),
           orderBy("timestamp", "desc"),
-          limit(200)
+          limit(CALLS_FETCH_LIMIT)
         );
       }
       try {
@@ -26614,7 +26640,16 @@ ${this.customData.serverResponse}`;
             snapshot = await getDocs(q2);
           }
         } else {
-          snapshot = await getDocs(q2);
+          try {
+            snapshot = await getDocsFromServer(q2);
+          } catch (serverErr) {
+            if (!isUnavailableError(serverErr)) throw serverErr;
+            logCallsUnavailableOnce(
+              `full:${device.id}`,
+              `[Calls] Server unavailable for full ${device.id}, using local cache fallback`
+            );
+            snapshot = await getDocs(q2);
+          }
         }
         console.log(
           `[Calls] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} calls from device ${device.id}`
@@ -27361,7 +27396,7 @@ ${this.customData.serverResponse}`;
         const q2 = query(
           collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
           orderBy("timestamp", "desc"),
-          limit(200)
+          limit(CALLS_FETCH_LIMIT)
         );
         const snapshot = await getDocs(q2);
         const calls = await Promise.all(
@@ -27379,7 +27414,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
+  var CALLS_FETCH_LIMIT, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -27394,6 +27429,7 @@ ${this.customData.serverResponse}`;
       init_contacts();
       init_cache();
       init_hoverPreview();
+      CALLS_FETCH_LIMIT = 2e3;
       callsUnavailableLogKeys = /* @__PURE__ */ new Set();
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
@@ -29331,6 +29367,7 @@ ${this.customData.serverResponse}`;
           (m) => activeDevice === "all" || m.deviceId === activeDevice ? { ...m, read: true } : m
         )).catch(() => {
         });
+        await flushSMSCache();
         updateTabBadges();
         if (currentConversation) {
           showConversation(currentConversation);
@@ -29364,6 +29401,8 @@ ${this.customData.serverResponse}`;
     });
     updateTabBadges();
     cacheSMSData(allSMS, updatedMessages).catch(() => {
+    });
+    flushSMSCache().catch(() => {
     });
     try {
       const batch = writeBatch(db);
@@ -32710,8 +32749,20 @@ ${this.customData.serverResponse}`;
   async function loadDevices() {
     const user = currentUser;
     if (!user) return;
-    await _loadVersionCache();
-    await loadDeviceSyncPrefs();
+    getCachedOwnDevices().then((cached) => {
+      if (cached && cached.length > 0) {
+        setDevices(cached);
+        renderDevices();
+        updateDeviceSelects();
+      }
+    }).catch(() => {
+    });
+    _loadVersionCache().then(() => {
+      if ((devices || []).length > 0) renderDevices();
+    }).catch(() => {
+    });
+    loadDeviceSyncPrefs().then(() => updateDeviceSelects()).catch(() => {
+    });
     const q2 = query(collection(db, "devices"), where("userId", "==", user.uid));
     const unsub = onSnapshot(
       q2,
@@ -32730,6 +32781,8 @@ ${this.customData.serverResponse}`;
         setDevices(newDevices);
         renderDevices();
         updateDeviceSelects();
+        cacheOwnDevices(newDevices).catch(() => {
+        });
       },
       (error) => {
         console.error("[Device] loadDevices onSnapshot error:", error?.code, error?.message);
@@ -34302,7 +34355,7 @@ ${this.customData.serverResponse}`;
     initAuthObserver(
       // On login
       async (user) => {
-        await registerDevice().catch(
+        registerDevice().catch(
           (err) => console.error("[Popup] registerDevice error:", err)
         );
         loadData();
