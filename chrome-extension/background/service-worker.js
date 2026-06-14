@@ -18866,6 +18866,9 @@ var SMS_CACHE_CAP = 1e4;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
 var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
+var NOTIFICATION_DEDUPE_WINDOW_MS = 30 * 1e3;
+var NOTIFICATION_DEDUPE_MAX_KEYS = 400;
+var recentNotificationFingerprints = {};
 var lastChatPollTimestamp = Date.now() - 2 * 60 * 1e3;
 var seenChatMessageIds = /* @__PURE__ */ new Set();
 var serviceWorkerStartTime = Date.now();
@@ -18899,7 +18902,8 @@ chrome.storage.local.get(
     "smartAction_incomingCallPopup",
     "smartAction_outgoingCallPopup",
     "lastChatPollTimestamp",
-    "seenChatMessageIds"
+    "seenChatMessageIds",
+    "recentNotificationFingerprints"
   ],
   (result) => {
     console.log(
@@ -18911,6 +18915,9 @@ chrome.storage.local.get(
     }
     if (result.seenNotifications) {
       seenNotifications = new Set(result.seenNotifications);
+    }
+    if (result.recentNotificationFingerprints && typeof result.recentNotificationFingerprints === "object") {
+      recentNotificationFingerprints = result.recentNotificationFingerprints;
     }
     refreshBadgeFromCachedNotifications(result.badgeCount);
     if (result.snoozeUntil) {
@@ -19416,7 +19423,47 @@ function listenToDevice(deviceId, deviceName) {
 }
 var incomingCallWindowIds = /* @__PURE__ */ new Map();
 var incomingCallLastKey = /* @__PURE__ */ new Map();
+var incomingCallLastTs = /* @__PURE__ */ new Map();
+var incomingCallRunSeq = /* @__PURE__ */ new Map();
 var incomingCallNotifIds = /* @__PURE__ */ new Map();
+var incomingCallNotifKeys = /* @__PURE__ */ new Map();
+function clearIncomingCallNotificationsForDevice(deviceId, keepId) {
+  const prefix = `iropit_incoming_call_${deviceId}`;
+  try {
+    chrome.notifications.getAll((items) => {
+      Object.keys(items || {}).forEach((id) => {
+        if (!id.startsWith(prefix)) return;
+        if (keepId && id === keepId) return;
+        try {
+          chrome.notifications.clear(id);
+        } catch (_) {
+        }
+      });
+    });
+  } catch (_) {
+  }
+}
+async function closeIncomingCallPopupWindowsForDevice(deviceId, keepWindowId) {
+  try {
+    const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["popup"] });
+    const marker = `deviceId=${encodeURIComponent(deviceId)}`;
+    for (const win of windows || []) {
+      if (!win?.id) continue;
+      if (keepWindowId && win.id === keepWindowId) continue;
+      const tabs = win.tabs || [];
+      const hasIncomingForDevice = tabs.some((tab) => {
+        const url = tab?.url || "";
+        return url.includes("/popup/incoming-call.html") && url.includes(marker);
+      });
+      if (!hasIncomingForDevice) continue;
+      try {
+        await chrome.windows.remove(win.id);
+      } catch (_) {
+      }
+    }
+  } catch (_) {
+  }
+}
 function normalizePhoneForMatch(phone) {
   if (!phone || typeof phone !== "string") return "";
   const digits = phone.replace(/\D/g, "");
@@ -19458,6 +19505,9 @@ async function lookupContactNameByPhone(deviceId, phone) {
   }
   return "";
 }
+var incomingCallPending = /* @__PURE__ */ new Map();
+var incomingCallDebounceTimers = /* @__PURE__ */ new Map();
+var INCOMING_CALL_DEBOUNCE_MS = 300;
 function listenForRingingCallFromDevice(deviceId, deviceName) {
   if (!currentUser) return;
   console.log("ZyncIT: \u{1F4DE} Setting up ringing_call listener for device:", deviceId, deviceName);
@@ -19472,166 +19522,40 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
   );
   const unsub = onSnapshot(
     ringingDocRef,
-    async (snap) => {
+    (snap) => {
       console.log("ZyncIT: \u{1F4DE} ringing_call snapshot \u2014 exists:", snap.exists(), "device:", deviceId);
-      if (snap.exists()) {
-        const data = snap.data();
-        console.log("ZyncIT: \u{1F4DE} ringing_call data:", data);
-        if (data.status === "ringing") {
-          const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
-          if (docTs > 0 && Date.now() - docTs > 6e4) {
-            console.warn(
-              "ZyncIT: \u{1F4DE} Ignoring stale ringing_call doc \u2014 age:",
-              Math.round((Date.now() - docTs) / 1e3),
-              "s"
-            );
-            return;
-          }
-          const uid = currentUser.uid;
-          const phoneRaw = data.phoneNumber || "";
-          const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
-          const contactRaw = data.contactName || "";
-          let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
-          if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
-          if (!contact && phone) {
-            try {
-              const resolved = await lookupContactNameByPhone(deviceId, phone);
-              if (resolved && resolved !== phone) {
-                contact = resolved;
-                console.log("ZyncIT: \u{1F4DE} Resolved contact from local lookup:", contact);
-              }
-            } catch (e) {
-              console.warn("ZyncIT: \u{1F4DE} Contact lookup failed:", e);
-            }
-          }
-          if (!phone) {
-            console.log("ZyncIT: \u{1F4DE} Skipping popup \u2014 no phone number in ringing_call doc");
-            return;
-          }
-          const deviceLabel = deviceName || data.deviceName || "Android Device";
-          const simSlot = data.simSlot;
-          const simLabel = simSlot === 0 || simSlot === 1 ? `SIM ${simSlot + 1}` : "SIM";
-          const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
-          const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
-          const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
-          const popupEnabled = smartAction_incomingCallPopup !== false;
-          const callKey = `${phone}|${contact}|${Math.round(docTs / 5e3)}`;
-          if (incomingCallLastKey.get(deviceId) === callKey) {
-            console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 skipping duplicate popup");
-            return;
-          }
-          incomingCallLastKey.set(deviceId, callKey);
-          const existingWindowId = incomingCallWindowIds.get(deviceId);
-          if (!existingWindowId && popupEnabled) {
-            const params = new URLSearchParams({
-              contact: contact || "Unknown",
-              phone: phone || "",
-              device: deviceLabel,
-              sim: String(simSlot ?? -1)
-            });
-            const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
-            console.log("ZyncIT: \u{1F4DE} Opening popup window:", url);
-            try {
-              const win = await chrome.windows.create({
-                url,
-                type: "popup",
-                width: 360,
-                height: 360,
-                focused: true,
-                top: 80,
-                left: 80
-              });
-              if (win?.id) {
-                incomingCallWindowIds.set(deviceId, win.id);
-                console.log("ZyncIT: \u2705 Popup window opened \u2014 id:", win.id);
-                const onRemoved = (removedId) => {
-                  if (removedId === win.id) {
-                    incomingCallWindowIds.delete(deviceId);
-                    chrome.windows.onRemoved.removeListener(onRemoved);
-                  }
-                };
-                chrome.windows.onRemoved.addListener(onRemoved);
-              }
-            } catch (e) {
-              console.error("ZyncIT: \u274C Could not open popup window:", e);
-            }
-          } else if (popupEnabled) {
-            try {
-              await chrome.windows.remove(existingWindowId);
-            } catch (_) {
-            }
-            incomingCallWindowIds.delete(deviceId);
-            const params = new URLSearchParams({
-              contact: contact || "Unknown",
-              phone: phone || "",
-              device: deviceLabel,
-              sim: String(simSlot ?? -1)
-            });
-            const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
-            console.log("ZyncIT: \u{1F4DE} Re-opening popup window for new call:", url);
-            try {
-              const win = await chrome.windows.create({
-                url,
-                type: "popup",
-                width: 360,
-                height: 360,
-                focused: true,
-                top: 80,
-                left: 80
-              });
-              if (win?.id) {
-                incomingCallWindowIds.set(deviceId, win.id);
-                console.log("ZyncIT: \u2705 New popup window opened \u2014 id:", win.id);
-                const onRemoved = (removedId) => {
-                  if (removedId === win.id) {
-                    incomingCallWindowIds.delete(deviceId);
-                    chrome.windows.onRemoved.removeListener(onRemoved);
-                  }
-                };
-                chrome.windows.onRemoved.addListener(onRemoved);
-              }
-            } catch (e) {
-              console.error("ZyncIT: \u274C Could not re-open popup window:", e);
-            }
-          }
-          if (!incomingCallNotifIds.has(deviceId)) {
-            const notificationId = `iropit_incoming_call_${deviceId}_${Date.now()}`;
-            incomingCallNotifIds.set(deviceId, notificationId);
-            createNotificationIfNotSnoozed(notificationId, {
-              type: "basic",
-              iconUrl: chrome.runtime.getURL("assets/icon128.png"),
-              title: `\u{1F4DE} Incoming call: ${callerLine}`,
-              message: subtitle,
-              contextMessage: subtitle,
-              priority: 2,
-              requireInteraction: true,
-              silent: false
-            }, (createdId) => {
-              console.log("ZyncIT: \u2705 Incoming call notification created:", createdId);
-            });
-          }
-        }
-      } else {
-        incomingCallLastKey.delete(deviceId);
-        const windowId = incomingCallWindowIds.get(deviceId);
-        if (windowId) {
-          incomingCallWindowIds.delete(deviceId);
-          try {
-            await chrome.windows.remove(windowId);
-            console.log("ZyncIT: \u{1F4DE} Closed popup window for device:", deviceId);
-          } catch (_) {
-          }
-        }
-        const notifId = incomingCallNotifIds.get(deviceId);
-        if (notifId) {
-          incomingCallNotifIds.delete(deviceId);
-          try {
-            chrome.notifications.clear(notifId);
-            console.log("ZyncIT: \u{1F4DE} Cleared incoming call notification for device:", deviceId);
-          } catch (_) {
-          }
-        }
+      if (!snap.exists()) {
+        handleRingingCallCleanup(deviceId);
+        return;
       }
+      const data = snap.data();
+      if (data.status !== "ringing") {
+        handleRingingCallCleanup(deviceId);
+        return;
+      }
+      const docTs = typeof data.timestamp === "number" ? data.timestamp : 0;
+      if (docTs > 0 && Date.now() - docTs > 6e4) {
+        console.warn(
+          "ZyncIT: \u{1F4DE} Ignoring stale ringing_call doc \u2014 age:",
+          Math.round((Date.now() - docTs) / 1e3),
+          "s"
+        );
+        return;
+      }
+      const pending = incomingCallPending.get(deviceId);
+      if (pending && docTs > 0 && pending.docTs > docTs) {
+        console.log("ZyncIT: \u{1F4DE} Ignoring out-of-order ringing snapshot \u2014 docTs:", docTs, "pendingTs:", pending.docTs);
+        return;
+      }
+      incomingCallPending.set(deviceId, { data, docTs });
+      const prevTimer = incomingCallDebounceTimers.get(deviceId);
+      if (prevTimer) clearTimeout(prevTimer);
+      incomingCallDebounceTimers.set(deviceId, setTimeout(() => {
+        incomingCallDebounceTimers.delete(deviceId);
+        const latest = incomingCallPending.get(deviceId);
+        if (!latest) return;
+        processRingingCall(deviceId, deviceName, latest.data, latest.docTs).catch((e) => console.error("ZyncIT: \u{1F4DE} processRingingCall error:", e));
+      }, INCOMING_CALL_DEBOUNCE_MS));
     },
     (error) => {
       if (error?.code === "permission-denied") {
@@ -19642,6 +19566,151 @@ function listenForRingingCallFromDevice(deviceId, deviceName) {
     }
   );
   unsubscribeNotifications.push(unsub);
+}
+async function processRingingCall(deviceId, deviceName, data, docTs) {
+  const uid = currentUser?.uid;
+  if (!uid) return;
+  const phoneRaw = data.phoneNumber || "";
+  const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
+  if (!phone) {
+    console.log("ZyncIT: \u{1F4DE} Skipping \u2014 no phone number in ringing_call doc");
+    return;
+  }
+  const contactRaw = data.contactName || "";
+  let contact = contactRaw ? await decrypt(contactRaw, uid).catch(() => contactRaw) : "";
+  if (!contact || contact.startsWith("ENC:") || contact === phone) contact = "";
+  if (!contact) {
+    try {
+      const resolved = await lookupContactNameByPhone(deviceId, phone);
+      if (resolved && resolved !== phone) {
+        contact = resolved;
+        console.log("ZyncIT: \u{1F4DE} Resolved contact from local lookup:", contact);
+      }
+    } catch (e) {
+      console.warn("ZyncIT: \u{1F4DE} Contact lookup failed:", e);
+    }
+  }
+  const stillLatest = incomingCallPending.get(deviceId);
+  if (stillLatest && docTs > 0 && stillLatest.docTs > docTs) {
+    console.log("ZyncIT: \u{1F4DE} Newer ringing snapshot arrived during processing \u2014 abandoning stale run");
+    return;
+  }
+  const callKey = `${phone}|${Math.round((docTs || Date.now()) / 5e3)}`;
+  if (incomingCallLastKey.get(deviceId) === callKey) {
+    console.log("ZyncIT: \u{1F4DE} Same ringing event \u2014 already shown, skipping");
+    return;
+  }
+  incomingCallLastKey.set(deviceId, callKey);
+  incomingCallLastTs.set(deviceId, docTs);
+  const deviceLabel = deviceName || data.deviceName || "Android Device";
+  const simSlot = data.simSlot;
+  const simLabel = simSlot === 0 || simSlot === 1 ? `SIM ${simSlot + 1}` : "SIM";
+  const callerLine = contact ? `${contact} \u2022 ${phone}` : phone || "Unknown";
+  const subtitle = `${deviceLabel} \u2022 ${simLabel}`;
+  const notificationId = `iropit_incoming_call_${deviceId}_${docTs || Date.now()}`;
+  incomingCallNotifIds.set(deviceId, notificationId);
+  incomingCallNotifKeys.set(deviceId, callKey);
+  clearIncomingCallNotificationsForDevice(deviceId, notificationId);
+  if (isSnoozed()) {
+    console.log("ZyncIT: \u{1F515} Incoming call notification suppressed (snoozed):", callerLine);
+  } else {
+    chrome.notifications.create(notificationId, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+      title: `\u{1F4DE} Incoming call: ${callerLine}`,
+      message: subtitle,
+      contextMessage: subtitle,
+      priority: 2,
+      requireInteraction: true,
+      silent: false
+    }, (createdId) => {
+      console.log("ZyncIT: \u2705 Incoming call notification created:", createdId);
+    });
+  }
+  const { smartAction_incomingCallPopup } = await chrome.storage.local.get("smartAction_incomingCallPopup");
+  const popupEnabled = smartAction_incomingCallPopup !== false;
+  if (!popupEnabled) return;
+  const stillLatest2 = incomingCallPending.get(deviceId);
+  if (stillLatest2 && docTs > 0 && stillLatest2.docTs > docTs) return;
+  const params = new URLSearchParams({
+    contact: contact || "Unknown",
+    phone: phone || "",
+    device: deviceLabel,
+    deviceId,
+    sim: String(simSlot ?? -1)
+  });
+  const url = chrome.runtime.getURL(`popup/incoming-call.html?${params}`);
+  console.log("ZyncIT: \u{1F4DE} Opening popup window:", url);
+  const existingWindowId = incomingCallWindowIds.get(deviceId);
+  if (existingWindowId) {
+    try {
+      await chrome.windows.remove(existingWindowId);
+    } catch (_) {
+    }
+    incomingCallWindowIds.delete(deviceId);
+  }
+  await closeIncomingCallPopupWindowsForDevice(deviceId);
+  try {
+    const win = await chrome.windows.create({
+      url,
+      type: "popup",
+      width: 360,
+      height: 360,
+      focused: true,
+      top: 80,
+      left: 80
+    });
+    if (win?.id) {
+      const latestNow = incomingCallPending.get(deviceId);
+      if (latestNow && docTs > 0 && latestNow.docTs > docTs) {
+        try {
+          await chrome.windows.remove(win.id);
+        } catch (_) {
+        }
+        return;
+      }
+      incomingCallWindowIds.set(deviceId, win.id);
+      console.log("ZyncIT: \u2705 Popup window opened \u2014 id:", win.id);
+      const onRemoved = (removedId) => {
+        if (removedId === win.id) {
+          incomingCallWindowIds.delete(deviceId);
+          chrome.windows.onRemoved.removeListener(onRemoved);
+        }
+      };
+      chrome.windows.onRemoved.addListener(onRemoved);
+    }
+  } catch (e) {
+    console.error("ZyncIT: \u274C Could not open popup window:", e);
+  }
+}
+function handleRingingCallCleanup(deviceId) {
+  const prevTimer = incomingCallDebounceTimers.get(deviceId);
+  if (prevTimer) {
+    clearTimeout(prevTimer);
+    incomingCallDebounceTimers.delete(deviceId);
+  }
+  incomingCallPending.delete(deviceId);
+  incomingCallLastKey.delete(deviceId);
+  incomingCallLastTs.delete(deviceId);
+  incomingCallRunSeq.delete(deviceId);
+  incomingCallNotifKeys.delete(deviceId);
+  clearIncomingCallNotificationsForDevice(deviceId);
+  const windowId = incomingCallWindowIds.get(deviceId);
+  if (windowId) {
+    incomingCallWindowIds.delete(deviceId);
+    chrome.windows.remove(windowId).then(() => console.log("ZyncIT: \u{1F4DE} Closed popup window for device:", deviceId)).catch(() => {
+    });
+  }
+  closeIncomingCallPopupWindowsForDevice(deviceId);
+  const notifId = incomingCallNotifIds.get(deviceId);
+  if (notifId) {
+    incomingCallNotifIds.delete(deviceId);
+    try {
+      chrome.notifications.clear(notifId);
+      console.log("ZyncIT: \u{1F4DE} Cleared incoming call notification for device:", deviceId);
+    } catch (_) {
+    }
+  }
 }
 var outgoingCallWindowIds = /* @__PURE__ */ new Map();
 var outgoingCallLastTs = /* @__PURE__ */ new Map();
@@ -19811,6 +19880,9 @@ function listenForCallsFromDevice(deviceId, deviceName) {
           });
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1e3;
           if (callTime > fiveMinutesAgo) {
+            if ((call.type || "").toLowerCase() === "incoming") {
+              return;
+            }
             seenNotifications.add(callKey);
             const callWithDevice = {
               ...call,
@@ -20552,6 +20624,26 @@ function setBadgeCount(count) {
   chrome.storage.local.set({ badgeCount });
   updateBadge();
 }
+function normalizeNotificationText(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+function buildNotificationFingerprint(options) {
+  const type = normalizeNotificationText(options?.type || "basic");
+  const title = normalizeNotificationText(options?.title);
+  const message = normalizeNotificationText(options?.message);
+  const context = normalizeNotificationText(options?.contextMessage);
+  return `${type}|${title}|${message}|${context}`;
+}
+function pruneRecentNotificationFingerprints(store, now) {
+  const pruned = {};
+  Object.entries(store || {}).forEach(([key, ts]) => {
+    if (typeof ts !== "number") return;
+    if (now - ts > NOTIFICATION_DEDUPE_WINDOW_MS) return;
+    pruned[key] = ts;
+  });
+  const sorted = Object.entries(pruned).sort((a, b) => b[1] - a[1]).slice(0, NOTIFICATION_DEDUPE_MAX_KEYS);
+  return Object.fromEntries(sorted);
+}
 function setUnreadIdsForSource(sourceKey, unreadIds) {
   unreadIdsBySource.set(sourceKey, unreadIds || /* @__PURE__ */ new Set());
   const allUnreadIds = /* @__PURE__ */ new Set();
@@ -20572,8 +20664,30 @@ function createNotificationIfNotSnoozed(notifId, options, callback) {
     console.log("ZyncIT: \u{1F515} Notification suppressed (snoozed):", options.title);
     return;
   }
-  chrome.notifications.create(notifId, options, (createdId) => {
-    if (callback) callback(createdId);
+  const now = Date.now();
+  const fingerprint = buildNotificationFingerprint(options);
+  const inMemoryTs = recentNotificationFingerprints[fingerprint];
+  if (typeof inMemoryTs === "number" && now - inMemoryTs < NOTIFICATION_DEDUPE_WINDOW_MS) {
+    console.log("ZyncIT: \u23ED\uFE0F Duplicate notification suppressed (memory):", options.title);
+    return;
+  }
+  chrome.storage.local.get(["recentNotificationFingerprints"], (result) => {
+    const persisted = result.recentNotificationFingerprints && typeof result.recentNotificationFingerprints === "object" ? result.recentNotificationFingerprints : {};
+    const persistedTs = persisted[fingerprint];
+    if (typeof persistedTs === "number" && now - persistedTs < NOTIFICATION_DEDUPE_WINDOW_MS) {
+      console.log("ZyncIT: \u23ED\uFE0F Duplicate notification suppressed (storage):", options.title);
+      recentNotificationFingerprints = pruneRecentNotificationFingerprints(persisted, now);
+      return;
+    }
+    const merged = {
+      ...persisted,
+      [fingerprint]: now
+    };
+    recentNotificationFingerprints = pruneRecentNotificationFingerprints(merged, now);
+    chrome.storage.local.set({ recentNotificationFingerprints });
+    chrome.notifications.create(notifId, options, (createdId) => {
+      if (callback) callback(createdId);
+    });
   });
 }
 function buildContextMenus() {
@@ -21091,9 +21205,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "clearSeenNotifications") {
     seenNotifications.clear();
+    recentNotificationFingerprints = {};
     chrome.storage.local.remove([
       "seenNotifications",
-      "lastNotificationTimestamp"
+      "lastNotificationTimestamp",
+      "recentNotificationFingerprints"
     ]);
     sendResponse({ success: true });
   }

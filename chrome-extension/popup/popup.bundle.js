@@ -28626,13 +28626,13 @@ ${this.customData.serverResponse}`;
         const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
         const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
         return `
-    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}" data-hover-preview="${escapeHtml(listHoverPreview)}">
+    <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content">
+        <div class="list-item-title">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
