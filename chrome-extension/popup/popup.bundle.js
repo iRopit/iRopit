@@ -24489,6 +24489,7 @@ ${this.customData.serverResponse}`;
           tooltip_back: "Back",
           tooltip_send_image: "Send Image",
           tooltip_send_file: "Send File",
+          tooltip_send_message: "Send Message",
           tooltip_logout: "Logout",
           tooltip_toggle_profile: "Toggle Profile",
           sms_modal_title: "Send SMS",
@@ -24638,6 +24639,7 @@ ${this.customData.serverResponse}`;
           tooltip_back: "\u0631\u062C\u0648\u0639",
           tooltip_send_image: "\u0625\u0631\u0633\u0627\u0644 \u0635\u0648\u0631\u0629",
           tooltip_send_file: "\u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u0641",
+          tooltip_send_message: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
           tooltip_logout: "\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062E\u0631\u0648\u062C",
           tooltip_toggle_profile: "\u0639\u0631\u0636 \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
           sms_modal_title: "\u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629",
@@ -30519,7 +30521,17 @@ ${this.customData.serverResponse}`;
           limit(NOTIF_PAGE_SIZE)
         );
         try {
-          const snapshot = await getDocs(q2);
+          let snapshot;
+          try {
+            snapshot = await getDocsFromServer(q2);
+          } catch (serverErr) {
+            if (!isUnavailableError3(serverErr)) throw serverErr;
+            logNotifUnavailableOnce(
+              `loadMore:${deviceId}`,
+              `[Notifications] Server unavailable while loading more for ${deviceId}, using local cache fallback`
+            );
+            snapshot = await getDocs(q2);
+          }
           console.log(`[Notifications] \u{1F4DC} Loaded ${snapshot.size} more from device ${deviceId}`);
           if (snapshot.empty) {
             deviceState.hasMore = false;
@@ -30633,6 +30645,7 @@ ${this.customData.serverResponse}`;
     }
     const notifUnreadCb = document.getElementById("notifShowUnread");
     if (notifUnreadCb) {
+      notifUnreadCb.checked = false;
       notifUnreadCb.addEventListener("change", () => {
         reRenderNotifications();
       });

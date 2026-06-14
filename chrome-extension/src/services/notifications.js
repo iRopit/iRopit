@@ -679,7 +679,17 @@ async function loadMoreNotifications() {
       );
 
       try {
-        const snapshot = await getDocs(q);
+        let snapshot;
+        try {
+          snapshot = await getDocsFromServer(q);
+        } catch (serverErr) {
+          if (!isUnavailableError(serverErr)) throw serverErr;
+          logNotifUnavailableOnce(
+            `loadMore:${deviceId}`,
+            `[Notifications] Server unavailable while loading more for ${deviceId}, using local cache fallback`,
+          );
+          snapshot = await getDocs(q);
+        }
         console.log(`[Notifications] 📜 Loaded ${snapshot.size} more from device ${deviceId}`);
 
         if (snapshot.empty) {
@@ -829,6 +839,8 @@ function wireSearchAndDetail() {
 
   const notifUnreadCb = document.getElementById("notifShowUnread");
   if (notifUnreadCb) {
+    // Keep history visible on tab open; user can still enable unread-only.
+    notifUnreadCb.checked = false;
     notifUnreadCb.addEventListener("change", () => {
       reRenderNotifications();
     });

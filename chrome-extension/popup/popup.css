@@ -10,6 +10,7 @@
   --text: #000000;
   --text-secondary: #000000;
   --text-tertiary: #111111;
+  --list-preview-text: #6b7280;
   --border: #e2e8f0;
   --error: #ef4444;
   --danger: #dc3545;
@@ -46,6 +47,7 @@ html.dark {
   --text: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
+  --list-preview-text: #9aa8ba;
   --border: #334155;
   --error: #f87171;
   --danger: #f87171;
@@ -865,7 +867,7 @@ html.dark .tab:not(.active):hover {
 
 .list-item-subtitle {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--list-preview-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2237,7 +2239,7 @@ html.dark #dashInsightsDeviceTabs {
 
 .notification-app {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--list-preview-text);
   margin-top: 4px;
   display: flex;
   align-items: center;
@@ -4200,8 +4202,25 @@ html.dark #dashFilterBtn {
   color: #000000;
 }
 
+/* Settings: keep Save button text black in dark mode */
+html.dark #settingsTab #saveDisplayNameBtn,
+html.dark #settingsTab .settings-save-btn {
+  color: #000000;
+}
+
 html.dark #editDeviceModal #saveDeviceName {
   color: #000000;
+}
+
+/* Edit Device Name modal: white labels, muted values in dark mode */
+html.dark #editDeviceModal .info-label,
+html.dark #editDeviceModal .form-group label {
+  color: #ffffff;
+}
+
+html.dark #editDeviceModal .info-value,
+html.dark #editDeviceModal #deviceNickname {
+  color: var(--list-preview-text);
 }
 
 html.dark #shareDeviceModal #confirmShare {
@@ -4878,33 +4897,38 @@ html.dark .tour-btn-skip {
   word-break: break-word;
   pointer-events: none;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-  background: #f9fafb;
+  background: #d5c19e;
   color: #000000;
-  border: 1px solid #d1d5db;
+  border: 1px solid #c9b48f;
 }
 
 /* Keep dark theme tooltip readable too */
 html.dark .iropit-hover-tooltip {
-  background: #f9fafb;
+  background: #d5c19e;
   color: #111827;
-  border-color: #d1d5db;
+  border-color: #c9b48f;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
-/* Dark mode SMS rows: keep preview/date text high contrast */
+/* Dark mode: keep SMS/Calls/Notifications preview text muted */
 html.dark #smsTab .list-item-subtitle,
 html.dark #smsTab .list-item-time {
-  color: #ffffff;
+  color: var(--list-preview-text);
 }
 
-/* Dark mode: match SMS high-contrast text in Calls/Notifications/Insights/Devices */
+/* Dark mode: keep Calls/Notifications preview text muted */
 html.dark #callsTab .list-item-subtitle,
 html.dark #callsTab .list-item-time,
 html.dark #callsTab .call-duration,
 html.dark #callsTab .call-time,
 html.dark #notificationsTab .list-item-subtitle,
 html.dark #notificationsTab .list-item-time,
-html.dark #notificationsTab .notification-app,
+html.dark #notificationsTab .notification-app
+{
+  color: var(--list-preview-text);
+}
+
+/* Keep dashboard labels high-contrast */
 html.dark #dashboardTab .dash-stat-label,
 html.dark #dashboardTab .dashboard-breakdown-title,
 html.dark #dashboardTab .dash-date-count,
@@ -4912,7 +4936,11 @@ html.dark #dashboardTab .dash-notif-body,
 html.dark #dashboardTab .dash-notif-time,
 html.dark #dashboardTab .dash-insight-label,
 html.dark #dashboardTab .dash-insights-section-title,
-html.dark #dashboardTab .dash-date-spend-label,
+html.dark #dashboardTab .dash-date-spend-label {
+  color: #ffffff;
+}
+
+/* Devices tab: keep supporting text muted for hierarchy */
 html.dark #devicesTab .list-item-subtitle,
 html.dark #devicesTab .list-item-time,
 html.dark #devicesTab .device-id-info,
@@ -4923,7 +4951,12 @@ html.dark #devicesTab .shared-devices-header,
 html.dark #devicesTab .share-request-perms,
 html.dark #devicesTab .share-existing-title,
 html.dark #devicesTab .share-existing-perms {
-  color: #ffffff;
+  color: var(--list-preview-text);
+}
+
+/* Devices tab icon glyph: force black for visibility */
+#devicesTab .list-item-icon {
+  color: #000000;
 }
 
 .iropit-hover-tooltip.visible {
