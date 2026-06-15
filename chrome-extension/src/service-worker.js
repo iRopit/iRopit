@@ -1043,7 +1043,10 @@ async function processRingingCall(deviceId, deviceName, data, docTs) {
   const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
 
   if (!phone) {
-    console.log("ZyncIT: 📞 Skipping — no phone number in ringing_call doc");
+    console.log("ZyncIT: 📞 No phone number in ringing_call doc (likely VoIP/Meet) — clearing stale call UI");
+    // Prevent stale PSTN caller popups/toasts from staying visible when the
+    // device reports a non-telephony ringing event without a phone number.
+    handleRingingCallCleanup(deviceId);
     return;
   }
 

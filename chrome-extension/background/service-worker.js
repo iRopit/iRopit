@@ -19573,7 +19573,8 @@ async function processRingingCall(deviceId, deviceName, data, docTs) {
   const phoneRaw = data.phoneNumber || "";
   const phone = await decrypt(phoneRaw, uid).catch(() => phoneRaw);
   if (!phone) {
-    console.log("ZyncIT: \u{1F4DE} Skipping \u2014 no phone number in ringing_call doc");
+    console.log("ZyncIT: \u{1F4DE} No phone number in ringing_call doc (likely VoIP/Meet) \u2014 clearing stale call UI");
+    handleRingingCallCleanup(deviceId);
     return;
   }
   const contactRaw = data.contactName || "";

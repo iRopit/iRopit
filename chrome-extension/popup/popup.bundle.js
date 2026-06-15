@@ -30184,7 +30184,7 @@ ${this.customData.serverResponse}`;
     } else {
       updateNotificationsList(deviceId, [notif, ...existing]);
     }
-    if (!isSyncingNotif) {
+    if (!isSyncingNotif && notifHydrated) {
       cacheNotificationsData(allNotifications).catch(() => {
       });
     }
@@ -30193,6 +30193,7 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     if (!user) return;
     suppressNotifSyncIndicator = false;
+    notifHydrated = false;
     isSyncingNotif = true;
     const listHasContent = notificationsList && !notificationsList.querySelector(".loading-state") && notificationsList.children.length > 0 && !notificationsList.querySelector(".empty-state");
     if (notificationsList && !listHasContent) showListLoading(notificationsList);
@@ -30218,6 +30219,7 @@ ${this.customData.serverResponse}`;
           if (hasData) {
             hasCachedData = true;
             suppressNotifSyncIndicator = true;
+            notifHydrated = true;
             for (const [deviceId, notifs] of Object.entries(cached.byDevice)) {
               if (notifs.length > 0) setNotificationsData(deviceId, notifs);
             }
@@ -30353,6 +30355,7 @@ ${this.customData.serverResponse}`;
     Promise.all(notifFetchPromises).then(() => {
       cacheNotificationsData(allNotifications).catch(() => {
       });
+      notifHydrated = true;
       isSyncingNotif = false;
       updateNotifSyncIndicator();
       try {
@@ -30666,6 +30669,16 @@ ${this.customData.serverResponse}`;
     detailTitle.textContent = appName;
     mainView.style.display = "none";
     detailView.style.display = "flex";
+    const unreadInGroup = notifications.filter((n) => !n.read);
+    if (unreadInGroup.length > 0) {
+      const seen = /* @__PURE__ */ new Set();
+      unreadInGroup.forEach((n) => {
+        const key = `${n.deviceId || ""}:${n.id || ""}`;
+        if (!n.id || seen.has(key)) return;
+        seen.add(key);
+        markNotificationAsRead(n.deviceId, n.id);
+      });
+    }
     const dedupMap = /* @__PURE__ */ new Map();
     notifications.forEach((n) => {
       const ts = n.receivedAt || n.timestamp || 0;
@@ -30675,10 +30688,6 @@ ${this.customData.serverResponse}`;
       }
     });
     const dedupedNotifications = Array.from(dedupMap.values());
-    const unreadInGroup = dedupedNotifications.filter((n) => !n.read);
-    if (unreadInGroup.length > 0) {
-      unreadInGroup.forEach((n) => markNotificationAsRead(n.deviceId, n.id));
-    }
     const displayNotifications = dedupedNotifications.map((n) => ({ ...n, read: true }));
     detailList.innerHTML = displayNotifications.map((notif) => `
     <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
@@ -31282,7 +31291,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -31300,6 +31309,7 @@ ${this.customData.serverResponse}`;
       isSyncingNotif = false;
       pendingNotifSnapshots = 0;
       suppressNotifSyncIndicator = false;
+      notifHydrated = false;
       NOTIF_INITIAL_LIMIT = 500;
       NOTIF_PAGE_SIZE = 200;
       notifPaginationState = {};
@@ -34408,9 +34418,11 @@ ${this.customData.serverResponse}`;
       flushSMSCache();
     } catch (_) {
     }
-    try {
-      flushNotificationsCache(allNotifications);
-    } catch (_) {
+    if (hasLoadedNotifications) {
+      try {
+        flushNotificationsCache(allNotifications);
+      } catch (_) {
+      }
     }
     chrome.runtime.sendMessage({ type: "popupClosed" }).catch(() => {
     });

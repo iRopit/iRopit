@@ -82,6 +82,7 @@ function linkifyText(text) {
 let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
 let suppressNotifSyncIndicator = false;
+let notifHydrated = false;
 
 export function isNotificationsSyncing() {
   return isSyncingNotif;
@@ -206,7 +207,10 @@ export async function injectPushedNotification(data) {
   // temporarily empty (e.g. auth init window between showCachedDataBeforeAuth
   // and loadNotifications seeding state). The isSyncingNotif guard below is a
   // secondary safety net for the brief window while loadNotifications is running.
-  if (!isSyncingNotif) {
+  // Guard against cache clobber on popup startup: before notifications are
+  // hydrated from cache/server, a single SW push would otherwise overwrite the
+  // historical cache with just that one item.
+  if (!isSyncingNotif && notifHydrated) {
     cacheNotificationsData(state.allNotifications).catch(() => {});
   }
 }
@@ -217,6 +221,7 @@ export async function loadNotifications() {
 
   // Reset per-load UI suppression state.
   suppressNotifSyncIndicator = false;
+  notifHydrated = false;
 
   // Mark syncing immediately (before any await) so injectPushedNotification
   // skips flushing during the initial load window when state may be empty.
@@ -266,6 +271,7 @@ export async function loadNotifications() {
         if (hasData) {
           hasCachedData = true;
           suppressNotifSyncIndicator = true;
+          notifHydrated = true;
           // Seed state from cache and render immediately (instant load).
           // Do NOT clear state afterwards — the delta-merge in Step 3 reads
           // state.allNotifications[deviceId] to combine cached items with newly
@@ -458,6 +464,7 @@ export async function loadNotifications() {
   // Run all device fetches in parallel, then persist cache
   Promise.all(notifFetchPromises).then(() => {
     cacheNotificationsData(state.allNotifications).catch(() => {});
+    notifHydrated = true;
     isSyncingNotif = false;
     updateNotifSyncIndicator();
     // Pagination state is now fully configured. Kick off autoFill explicitly:
@@ -866,6 +873,20 @@ function showNotifDetail(appKey, appName, notifications) {
   mainView.style.display = "none";
   detailView.style.display = "flex";
 
+  // Mark ALL unread notifications in this app group as read (not just a
+  // deduplicated subset). Group unread badges are computed from the raw group
+  // items, so only marking deduped rows can leave the app unread count > 0.
+  const unreadInGroup = notifications.filter((n) => !n.read);
+  if (unreadInGroup.length > 0) {
+    const seen = new Set();
+    unreadInGroup.forEach((n) => {
+      const key = `${n.deviceId || ""}:${n.id || ""}`;
+      if (!n.id || seen.has(key)) return;
+      seen.add(key);
+      markNotificationAsRead(n.deviceId, n.id);
+    });
+  }
+
   // Deduplicate by title+body+timestamp — keep the entry with a deviceId if possible
   const dedupMap = new Map();
   notifications.forEach(n => {
@@ -876,12 +897,6 @@ function showNotifDetail(appKey, appName, notifications) {
     }
   });
   const dedupedNotifications = Array.from(dedupMap.values());
-
-  // Auto-mark all unread notifications in this group as read
-  const unreadInGroup = dedupedNotifications.filter(n => !n.read);
-  if (unreadInGroup.length > 0) {
-    unreadInGroup.forEach(n => markNotificationAsRead(n.deviceId, n.id));
-  }
 
   // Treat everything as read for rendering — state was already updated above
   const displayNotifications = dedupedNotifications.map(n => ({ ...n, read: true }));
