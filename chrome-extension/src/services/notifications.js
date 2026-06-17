@@ -135,6 +135,108 @@ function notifSnapshotReady() {
 let notifSelectionMode = false;
 let selectedNotifApps = new Set(); // keyed by app key (packageName or appName)
 
+const NOTIF_SNOOZE_STORAGE_KEY = "notifSnoozedGroups";
+let notifSnoozedGroups = {}; // { [appKey]: epochMs | "permanent" }
+let notifSnoozeHydrated = false;
+const NOTIF_PIN_STORAGE_KEY = "notifPinnedGroups";
+let notifPinnedGroups = {}; // { [appKey]: true }
+let notifPinHydrated = false;
+
+function tr(en, ar) {
+  return getCurrentLanguage() === "ar" ? ar : en;
+}
+
+async function hydrateNotifSnoozedGroups() {
+  if (notifSnoozeHydrated) return;
+  notifSnoozeHydrated = true;
+  try {
+    if (!chrome?.storage?.local) return;
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get([NOTIF_SNOOZE_STORAGE_KEY], resolve);
+    });
+    const map = result?.[NOTIF_SNOOZE_STORAGE_KEY];
+    if (map && typeof map === "object") notifSnoozedGroups = map;
+  } catch (_) {}
+}
+
+async function persistNotifSnoozedGroups() {
+  try {
+    if (!chrome?.storage?.local) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [NOTIF_SNOOZE_STORAGE_KEY]: notifSnoozedGroups }, resolve);
+    });
+  } catch (_) {}
+}
+
+async function hydrateNotifPinnedGroups() {
+  if (notifPinHydrated) return;
+  notifPinHydrated = true;
+  try {
+    if (!chrome?.storage?.local) return;
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get([NOTIF_PIN_STORAGE_KEY], resolve);
+    });
+    const map = result?.[NOTIF_PIN_STORAGE_KEY];
+    if (map && typeof map === "object") notifPinnedGroups = map;
+  } catch (_) {}
+}
+
+async function persistNotifPinnedGroups() {
+  try {
+    if (!chrome?.storage?.local) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [NOTIF_PIN_STORAGE_KEY]: notifPinnedGroups }, resolve);
+    });
+  } catch (_) {}
+}
+
+function isNotifGroupPinned(appKey) {
+  if (!appKey) return false;
+  return !!notifPinnedGroups[appKey];
+}
+
+async function toggleNotifGroupPin(appKey) {
+  if (!appKey) return false;
+  if (notifPinnedGroups[appKey]) {
+    delete notifPinnedGroups[appKey];
+    await persistNotifPinnedGroups();
+    return false;
+  }
+  notifPinnedGroups[appKey] = true;
+  await persistNotifPinnedGroups();
+  return true;
+}
+
+function isNotifGroupSnoozed(appKey) {
+  if (!appKey) return false;
+  const raw = notifSnoozedGroups[appKey];
+  if (raw === "permanent") return true;
+  const until = Number(raw || 0);
+  if (!until) return false;
+  if (until <= Date.now()) {
+    delete notifSnoozedGroups[appKey];
+    persistNotifSnoozedGroups();
+    return false;
+  }
+  return true;
+}
+
+async function snoozeNotifGroup(appKey, durationMs) {
+  if (!appKey) return;
+  if (durationMs === "permanent") {
+    notifSnoozedGroups[appKey] = "permanent";
+  } else {
+    notifSnoozedGroups[appKey] = Date.now() + Number(durationMs || 0);
+  }
+  await persistNotifSnoozedGroups();
+}
+
+async function unsnoozeNotifGroup(appKey) {
+  if (!appKey) return;
+  delete notifSnoozedGroups[appKey];
+  await persistNotifSnoozedGroups();
+}
+
 // Returns a human-friendly app label. If appName looks like a package id
 // (e.g. "com.pushbullet.android"), derive a pretty name from the last segment
 // of the packageName instead. Falls back to whichever value is least ugly.
@@ -218,6 +320,9 @@ export async function injectPushedNotification(data) {
 export async function loadNotifications() {
   const user = state.currentUser;
   if (!user) return;
+
+  await hydrateNotifSnoozedGroups();
+  await hydrateNotifPinnedGroups();
 
   // Reset per-load UI suppression state.
   suppressNotifSyncIndicator = false;
@@ -853,6 +958,15 @@ function wireSearchAndDetail() {
     });
   }
 
+  const notifMutedCb = document.getElementById("notifShowMuted");
+  if (notifMutedCb) {
+    // Hidden by default so list focuses on active groups.
+    notifMutedCb.checked = false;
+    notifMutedCb.addEventListener("change", () => {
+      reRenderNotifications();
+    });
+  }
+
   document.getElementById("notifBackBtn")?.addEventListener("click", () => {
     hideNotifDetail();
   });
@@ -867,6 +981,10 @@ function showNotifDetail(appKey, appName, notifications) {
   const detailView = document.getElementById("notifDetailView");
   const detailList = document.getElementById("notifDetailList");
   const detailTitle = document.getElementById("notifDetailTitle");
+  const detailSearchInput = document.getElementById("notifDetailSearchInput");
+  const detailSnoozeSelect = document.getElementById("notifDetailSnoozeSelect");
+  const detailSnoozeBtn = document.getElementById("notifDetailSnoozeBtn");
+  const detailUnsnoozeBtn = document.getElementById("notifDetailUnsnoozeBtn");
   if (!mainView || !detailView || !detailList) return;
 
   detailTitle.textContent = appName;
@@ -887,59 +1005,135 @@ function showNotifDetail(appKey, appName, notifications) {
     });
   }
 
-  // Deduplicate by title+body+timestamp — keep the entry with a deviceId if possible
-  const dedupMap = new Map();
-  notifications.forEach(n => {
-    const ts = n.receivedAt || n.timestamp || 0;
-    const dedupeKey = `${n.title || ""}|${n.text || n.body || ""}|${Math.round(ts / 1000)}`;
-    if (!dedupMap.has(dedupeKey) || !dedupMap.get(dedupeKey).deviceId) {
-      dedupMap.set(dedupeKey, n);
+  // Deduplicate noisy repeated notifications from the same app/content.
+  // Keep only the newest entry when identical title/body repeats within 15 min.
+  const DEDUP_WINDOW_MS = 15 * 60 * 1000;
+  const byContent = new Map();
+  notifications.forEach((n) => {
+    const ts = Number(n.receivedAt || n.timestamp || 0);
+    const contentKey = `${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
+    const current = byContent.get(contentKey);
+    if (!current) {
+      byContent.set(contentKey, n);
+      return;
+    }
+
+    const currentTs = Number(current.receivedAt || current.timestamp || 0);
+    const sameBurst = Math.abs(ts - currentTs) <= DEDUP_WINDOW_MS;
+    if (sameBurst) {
+      if (ts >= currentTs) byContent.set(contentKey, n);
+      return;
+    }
+
+    // Outside dedupe window: keep both by extending key with time bucket.
+    const bucketKey = `${contentKey}|${Math.floor(ts / DEDUP_WINDOW_MS)}`;
+    const bucketCurrent = byContent.get(bucketKey);
+    if (!bucketCurrent || ts >= Number(bucketCurrent.receivedAt || bucketCurrent.timestamp || 0)) {
+      byContent.set(bucketKey, n);
     }
   });
-  const dedupedNotifications = Array.from(dedupMap.values());
+  const dedupedNotifications = Array.from(byContent.values());
 
   // Treat everything as read for rendering — state was already updated above
   const displayNotifications = dedupedNotifications.map(n => ({ ...n, read: true }));
 
-  detailList.innerHTML = displayNotifications.map(notif => `
-    <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
-         data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
-      <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">●</span>'}</div>
-      <div class="notif-bubble-body">${linkifyText(notif.text || notif.body || "")}</div>
-      <div class="notif-bubble-footer">
-        ${resolveDeviceName(notif) ? `<span class="notification-device">📱 ${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
-        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+  const renderDetailRows = () => {
+    const q = (detailSearchInput?.value || "").trim().toLowerCase();
+    const filteredRows = q
+      ? displayNotifications.filter((n) =>
+          (n.title || "").toLowerCase().includes(q) ||
+          (n.text || n.body || "").toLowerCase().includes(q) ||
+          (n.appName || "").toLowerCase().includes(q),
+        )
+      : displayNotifications;
+
+    if (filteredRows.length === 0) {
+      detailList.innerHTML = `
+        <div class="empty-state">
+          <p>${tr("No matching notifications", "لا توجد إشعارات مطابقة")}</p>
+        </div>
+      `;
+      return;
+    }
+
+    detailList.innerHTML = filteredRows.map(notif => `
+      <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
+           data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
+        <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">●</span>'}</div>
+        <div class="notif-bubble-body">${linkifyText(notif.text || notif.body || "")}</div>
+        <div class="notif-bubble-footer">
+          ${resolveDeviceName(notif) ? `<span class="notification-device">${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+          <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `).join("");
+
+    bindDetailRowActions();
+  };
 
   const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
 
-  detailList.querySelectorAll(".notif-detail-bubble[data-notif-id]").forEach(item => {
-    item.addEventListener("click", async () => {
-      const notifId = item.dataset.notifId;
-      const deviceId = item.dataset.deviceId;
-      if (notifId && deviceId) {
-        await markNotificationAsRead(deviceId, notifId);
-        item.classList.remove("unread");
-        item.querySelector(".unread-dot")?.remove();
-      }
-      if (isWhatsApp) {
-        const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
-        const cleanTitle = title.replace(/●/g, "").trim();
-        const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
-        if (phoneMatch) {
-          let phone = cleanTitle.replace(/[^\d+]/g, "");
-          if (phone.startsWith("+")) phone = phone.slice(1);
-          else if (phone.startsWith("00")) phone = phone.slice(2);
-          else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
-          window.open(`https://wa.me/${phone}`, "_blank");
-        } else {
-          window.open("https://web.whatsapp.com/", "_blank");
+  const bindDetailRowActions = () => {
+    detailList.querySelectorAll(".notif-detail-bubble[data-notif-id]").forEach(item => {
+      item.addEventListener("click", async () => {
+        const notifId = item.dataset.notifId;
+        const deviceId = item.dataset.deviceId;
+        if (notifId && deviceId) {
+          await markNotificationAsRead(deviceId, notifId);
+          item.classList.remove("unread");
+          item.querySelector(".unread-dot")?.remove();
         }
-      }
+        if (isWhatsApp) {
+          const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
+          const cleanTitle = title.replace(/●/g, "").trim();
+          const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
+          if (phoneMatch) {
+            let phone = cleanTitle.replace(/[^\d+]/g, "");
+            if (phone.startsWith("+")) phone = phone.slice(1);
+            else if (phone.startsWith("00")) phone = phone.slice(2);
+            else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
+            window.open(`https://wa.me/${phone}`, "_blank");
+          } else {
+            window.open("https://web.whatsapp.com/", "_blank");
+          }
+        }
+      });
     });
-  });
+  };
+
+  if (detailSearchInput) {
+    detailSearchInput.value = "";
+    detailSearchInput.oninput = () => renderDetailRows();
+  }
+
+  const refreshSnoozeButtons = () => {
+    const snoozed = isNotifGroupSnoozed(appKey);
+    if (detailSnoozeBtn) detailSnoozeBtn.style.display = snoozed ? "none" : "inline-flex";
+    if (detailUnsnoozeBtn) detailUnsnoozeBtn.style.display = snoozed ? "inline-flex" : "none";
+  };
+
+  if (detailSnoozeBtn) {
+    detailSnoozeBtn.onclick = async () => {
+      const selected = detailSnoozeSelect?.value || "86400000";
+      const durationMs = selected === "permanent" ? "permanent" : Number(selected);
+      await snoozeNotifGroup(appKey, durationMs);
+      showToast(tr(`${appName} notifications muted`, `تم كتم إشعارات ${appName}`), "success");
+      refreshSnoozeButtons();
+      hideNotifDetail();
+    };
+  }
+
+  if (detailUnsnoozeBtn) {
+    detailUnsnoozeBtn.onclick = async () => {
+      await unsnoozeNotifGroup(appKey);
+      showToast(tr(`${appName} notifications unmuted`, `تم إلغاء كتم إشعارات ${appName}`), "success");
+      refreshSnoozeButtons();
+      reRenderNotifications();
+    };
+  }
+
+  refreshSnoozeButtons();
+  renderDetailRows();
 }
 
 function hideNotifDetail() {
@@ -1036,6 +1230,7 @@ function scheduleRender() {
           notifListHeight: document.getElementById("notificationsList")?.clientHeight,
           notifListScrollHeight: document.getElementById("notificationsList")?.scrollHeight,
           showUnread: document.getElementById("notifShowUnread")?.checked,
+          showMuted: document.getElementById("notifShowMuted")?.checked,
           searchVal: document.getElementById("notifSearch")?.value || "",
           selectedDeviceTab: document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device,
         };
@@ -1105,16 +1300,38 @@ function renderNotifications(notifications) {
   if (document.getElementById("notifShowUnread")?.checked) {
     groupEntries = groupEntries.filter(([, group]) => group.items.some(n => !n.read));
   }
+  const showMutedOnly = document.getElementById("notifShowMuted")?.checked;
+  if (showMutedOnly) {
+    groupEntries = groupEntries.filter(([key]) => isNotifGroupSnoozed(key));
+  } else {
+    groupEntries = groupEntries.filter(([key]) => !isNotifGroupSnoozed(key));
+  }
+
+  groupEntries.sort((a, b) => {
+    const aPinned = isNotifGroupPinned(a[0]) ? 1 : 0;
+    const bPinned = isNotifGroupPinned(b[0]) ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
+    const aTs = Number(a[1]?.items?.[0]?.receivedAt || a[1]?.items?.[0]?.timestamp || 0);
+    const bTs = Number(b[1]?.items?.[0]?.receivedAt || b[1]?.items?.[0]?.timestamp || 0);
+    return bTs - aTs;
+  });
 
   if (groupEntries.length === 0) {
+    const hasUnreadFilter = document.getElementById("notifShowUnread")?.checked;
+    const emptyTitle = hasUnreadFilter
+      ? tr("No unread notifications", "لا توجد إشعارات غير مقروءة")
+      : tr("No notifications match current filters", "لا توجد إشعارات مطابقة للفلاتر الحالية");
+    const emptySub = hasUnreadFilter
+      ? tr("All notifications have been read", "تمت قراءة جميع الإشعارات")
+      : tr("Try changing search or filter options", "جرّب تغيير خيارات البحث أو الفلترة");
     notificationsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 01-3.46 0"/>
         </svg>
-        <p>No unread notifications</p>
-        <span>All notifications have been read</span>
+        <p>${emptyTitle}</p>
+        <span>${emptySub}</span>
       </div>
     `;
     updateTabBadges();
@@ -1124,6 +1341,8 @@ function renderNotifications(notifications) {
 
   notificationsList.innerHTML = groupEntries.map(([key, group]) => {
     const latest = group.items[0];
+    const isSnoozed = isNotifGroupSnoozed(key);
+    const isPinned = isNotifGroupPinned(key);
     const unreadCount = group.items.filter(n => !n.read).length;
     const hasUnread = unreadCount > 0;
     const isSelected = notifSelectionMode && selectedNotifApps.has(key);
@@ -1140,7 +1359,7 @@ function renderNotifications(notifications) {
     // Find device name from any item in the group (latest may be a user-level entry with no deviceName)
     const groupDeviceName = resolveDeviceName(latest) || group.items.map(resolveDeviceName).find(Boolean) || null;
     return `
-      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
+      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}${isSnoozed ? " snoozed" : ""}"
            data-app-key="${escapeHtml(key)}"
            data-app-name="${escapeHtml(group.appName)}">
         ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
@@ -1150,17 +1369,33 @@ function renderNotifications(notifications) {
         <div class="list-item-content">
           <div class="list-item-title">
             ${escapeHtml(group.appName)}
+            ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "مكتوم")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
           <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
-            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
-            ${groupDeviceName ? `<span class="notification-device">📱 ${escapeHtml(groupDeviceName)}</span>` : ""}
+            ${groupDeviceName ? `<span class="notification-device">${escapeHtml(groupDeviceName)}</span>` : ""}
+            ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "إلغاء الكتم")}</button>` : ""}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <div class="notification-right-meta">
+          <button class="notif-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${isPinned ? tr("Unpin", "إلغاء التثبيت") : tr("Pin", "تثبيت")}" aria-label="${isPinned ? tr("Unpin", "إلغاء التثبيت") : tr("Pin", "تثبيت")}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+              <path d="M12 13v8"></path>
+            </svg>
+          </button>
           <span class="list-item-time">${formatTime(latest.receivedAt || latest.timestamp)}</span>
-          ${unreadCount > 1 ? `<span class="tab-badge" style="position:static;display:inline-block;">${unreadCount}</span>` : ""}
+          <div class="notification-badge-row">
+            ${unreadCount > 1 ? `<span class="tab-badge">${unreadCount}</span>` : ""}
+            ${isSnoozed ? `<span class="notification-muted-icon" aria-label="${tr("Muted", "مكتوم")}" title="${tr("Muted", "مكتوم")}" >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 01-3.46 0"></path>
+                <line x1="4" y1="4" x2="20" y2="20"></line>
+              </svg>
+            </span>` : ""}
+          </div>
         </div>
       </div>
     `;
@@ -1171,6 +1406,37 @@ function renderNotifications(notifications) {
   const appKeys = groupEntries.map(([key]) => key);
 
   // Click → toggle selection or show detail
+  notificationsList.querySelectorAll(".notif-unsnooze-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const item = e.target.closest(".notification-item");
+      const key = item?.dataset?.appKey;
+      const appName = item?.dataset?.appName || key || "App";
+      if (!key) return;
+      await unsnoozeNotifGroup(key);
+      showToast(tr(`${appName} notifications unmuted`, `تم إلغاء كتم إشعارات ${appName}`), "success");
+      reRenderNotifications();
+    });
+  });
+
+  notificationsList.querySelectorAll(".notif-pin-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const item = e.target.closest(".notification-item");
+      const key = item?.dataset?.appKey;
+      const appName = item?.dataset?.appName || key || "App";
+      if (!key) return;
+      const pinned = await toggleNotifGroupPin(key);
+      showToast(
+        pinned
+          ? tr(`${appName} pinned`, `تم تثبيت ${appName}`)
+          : tr(`${appName} unpinned`, `تم إلغاء تثبيت ${appName}`),
+        "success",
+      );
+      reRenderNotifications();
+    });
+  });
+
   notificationsList.querySelectorAll(".notification-item").forEach(item => {
     item.addEventListener("click", () => {
       const key = item.dataset.appKey;
@@ -1535,6 +1801,8 @@ export async function deleteSelectedNotifications() {
 export function exportNotificationsToCSV() {
   const activeDevice =
     document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+  const isAr = getCurrentLanguage() === "ar";
+  const locale = isAr ? "ar-EG" : "en-GB";
   const knownDeviceIds = new Set([
     ...state.devices.map((d) => d.id),
     ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
@@ -1547,11 +1815,13 @@ export function exportNotificationsToCSV() {
     alert("No notifications to export.");
     return;
   }
-  const header = ["Date", "Time", "App", "Title", "Body", "Device"];
+  const header = isAr
+    ? ["التاريخ", "الوقت", "التطبيق", "العنوان", "المحتوى", "الجهاز"]
+    : ["Date", "Time", "App", "Title", "Body", "Device"];
   const rows = notifications.map((n) => {
     const d = new Date(n.receivedAt || n.timestamp || 0);
-    const date = d.toLocaleDateString("en-GB");
-    const time = d.toLocaleTimeString();
+    const date = d.toLocaleDateString(locale);
+    const time = d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
     const app = prettyAppName(n.appName, n.packageName);
     const title = n.title || "";
     const body = n.text || n.body || "";

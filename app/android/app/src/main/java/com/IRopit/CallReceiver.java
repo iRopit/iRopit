@@ -189,7 +189,11 @@ public class CallReceiver extends BroadcastReceiver {
             // On Android 10+, lastNumber may be empty (EXTRA_INCOMING_NUMBER is null
             // for non-default-dialer apps). Still write ringing_call so the Chrome
             // extension shows "Unknown" — better than nothing.
-            String ringNumber = (lastNumber != null && !lastNumber.isEmpty()) ? lastNumber : "";
+            // Only trust the number from THIS RINGING broadcast. Reusing lastNumber
+            // here can leak stale PSTN caller data into unrelated VoIP events
+            // (e.g., WhatsApp call overlays) when the framework reports RINGING
+            // without EXTRA_INCOMING_NUMBER.
+            String ringNumber = (phoneNumber != null && !phoneNumber.isEmpty()) ? phoneNumber : "";
             String ringContact = "";
             if (!ringNumber.isEmpty()) {
                 ringContact = getContactName(context, ringNumber);

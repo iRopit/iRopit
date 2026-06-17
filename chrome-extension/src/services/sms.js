@@ -178,6 +178,47 @@ export function isSMSSyncing() {
 // Selection mode state
 let selectionMode = false;
 let selectedConversations = new Set();
+const SMS_PIN_STORAGE_KEY = "smsPinnedConversations";
+let smsPinnedConversations = {};
+let smsPinHydrated = false;
+
+async function hydrateSmsPinnedConversations() {
+  if (smsPinHydrated) return;
+  smsPinHydrated = true;
+  try {
+    if (!chrome?.storage?.local) return;
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get([SMS_PIN_STORAGE_KEY], resolve);
+    });
+    const map = result?.[SMS_PIN_STORAGE_KEY];
+    if (map && typeof map === "object") smsPinnedConversations = map;
+  } catch (_) {}
+}
+
+async function persistSmsPinnedConversations() {
+  try {
+    if (!chrome?.storage?.local) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [SMS_PIN_STORAGE_KEY]: smsPinnedConversations }, resolve);
+    });
+  } catch (_) {}
+}
+
+function isSmsConversationPinned(key) {
+  return !!smsPinnedConversations[key];
+}
+
+async function toggleSmsConversationPin(key) {
+  if (!key) return false;
+  if (smsPinnedConversations[key]) {
+    delete smsPinnedConversations[key];
+    await persistSmsPinnedConversations();
+    return false;
+  }
+  smsPinnedConversations[key] = true;
+  await persistSmsPinnedConversations();
+  return true;
+}
 
 // Per-message selection mode (inside an open conversation)
 let messageSelectionMode = false;
@@ -344,6 +385,8 @@ export async function loadSMS() {
     logger.warn("No current user");
     return;
   }
+
+  await hydrateSmsPinnedConversations();
 
   // Stop any previous listeners first
   stopSMSListener();
@@ -1443,6 +1486,13 @@ export function renderSMS(messages) {
     conversations = conversations.filter(c => c.messages.some(m => smsStarred.has(m.id)));
   }
 
+  conversations.sort((a, b) => {
+    const aPinned = isSmsConversationPinned(a.normalizedPhone) ? 1 : 0;
+    const bPinned = isSmsConversationPinned(b.normalizedPhone) ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
+    return (b.lastMessage.timestamp || 0) - (a.lastMessage.timestamp || 0);
+  });
+
   if (conversations.length === 0) {
     const lang = getCurrentLanguage();
     const isStarredFilter = document.getElementById("smsShowStarred")?.checked;
@@ -1487,6 +1537,7 @@ export function renderSMS(messages) {
     const lastLabel = getCurrentLanguage() === "ar" ? "آخر رسالة" : "Last SMS";
     const lastFallback = getCurrentLanguage() === "ar" ? "بدون نص" : "No text";
     const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
+    const isPinned = isSmsConversationPinned(conv.normalizedPhone);
     return `
     <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
@@ -1516,6 +1567,12 @@ export function renderSMS(messages) {
         </button>
       </div>` : ""}
       <div class="list-item-meta">
+        <button class="sms-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${getCurrentLanguage() === "ar" ? (isPinned ? "إلغاء التثبيت" : "تثبيت") : (isPinned ? "Unpin" : "Pin")}" aria-label="${getCurrentLanguage() === "ar" ? (isPinned ? "إلغاء التثبيت" : "تثبيت") : (isPinned ? "Unpin" : "Pin")}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+            <path d="M12 13v8"></path>
+          </svg>
+        </button>
         <span class="list-item-time">${formatTime(
           conv.lastMessage.timestamp,
         )}</span>
@@ -1574,7 +1631,23 @@ export function renderSMS(messages) {
   smsList2?.addEventListener("pointercancel", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
   smsList2?.addEventListener("pointermove", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
 
-  smsList2?.addEventListener("click", (e) => {
+  smsList2?.addEventListener("click", async (e) => {
+    const pinBtn = e.target.closest(".sms-pin-btn");
+    if (pinBtn) {
+      e.stopPropagation();
+      const conv = pinBtn.closest(".sms-conversation");
+      const key = conv?.dataset?.phone;
+      const name = conv?.querySelector(".list-item-title")?.textContent?.trim() || key || "Conversation";
+      const pinned = await toggleSmsConversationPin(key);
+      showToast(
+        getCurrentLanguage() === "ar"
+          ? (pinned ? `تم تثبيت ${name}` : `تم إلغاء تثبيت ${name}`)
+          : (pinned ? `${name} pinned` : `${name} unpinned`),
+        "success",
+      );
+      renderSMS(state.allSMSMessages);
+      return;
+    }
     // Handle hover action buttons
     const callBtn = e.target.closest(".sms-hover-call");
     if (callBtn) {

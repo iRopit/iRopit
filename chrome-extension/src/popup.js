@@ -33,7 +33,7 @@ import { initTour } from "./ui/tour.js";
 
 // Import services
 import { initAuthObserver, initAuthListeners } from "./services/auth.js";
-import { registerDevice, loadDevices } from "./services/devices.js";
+import { registerDevice, loadDevices, updateDeviceSelects, renderDevices } from "./services/devices.js";
 import {
   loadSMS,
   renderSMS,
@@ -49,7 +49,7 @@ import {
 } from "./services/sms.js";
 import { loadCalls, renderCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
 import { loadNotifications, injectPushedNotification, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
-import { subscribeToChat, initChatListeners } from "./services/chat.js";
+import { subscribeToChat, initChatListeners, injectPushedChatMessage, refreshChatNow } from "./services/chat.js";
 import {
   loadUserSettings,
   initSettingsListeners,
@@ -64,6 +64,27 @@ import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./uti
 let hasLoadedCalls = false;
 let hasLoadedNotifications = false;
 let lazyTabLoadsWired = false;
+
+async function drainPendingChatPushes() {
+  const key = "pendingChatPushes";
+  try {
+    const result = await chrome.storage.local.get([key]);
+    const pending = Array.isArray(result[key]) ? result[key] : [];
+    if (pending.length === 0) return;
+
+    const ordered = pending
+      .filter((m) => m?.id)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    for (const msg of ordered) {
+      // eslint-disable-next-line no-await-in-loop
+      await injectPushedChatMessage(msg);
+    }
+
+    await refreshChatNow().catch(() => {});
+    await chrome.storage.local.set({ [key]: [] });
+  } catch (_) {}
+}
 
 function loadCallsIfNeeded(force = false) {
   if (!force && hasLoadedCalls) return;
@@ -205,6 +226,7 @@ function loadData(options = {}) {
 
   loadUserSettings();
   subscribeToChat();
+  drainPendingChatPushes().catch(() => {});
 
   // If user refreshes while already inside Calls/Notifications, refresh that tab too.
   const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
@@ -259,6 +281,12 @@ function setupServiceWorkerListener() {
       sendResponse({ received: true });
       return true;
     }
+    if (message.type === "newChat") {
+      injectPushedChatMessage(message.data).catch(() => {});
+      refreshChatNow().catch(() => {});
+      sendResponse({ received: true });
+      return true;
+    }
     // For all other messages (e.g. offscreen-copy), don't respond —
     // let the intended recipient (offscreen document) handle them.
     return false;
@@ -287,6 +315,9 @@ function initLangToggle() {
     setCurrentLanguage(next);
     updateLabel(next);
     applyTranslations();
+    // Re-render dynamic sections that contain language-dependent strings.
+    renderDevices();
+    updateDeviceSelects();
   });
 }
 

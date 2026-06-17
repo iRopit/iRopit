@@ -1246,6 +1246,7 @@ export async function deleteDevice(docId, deviceId) {
  */
 export function showEditDeviceNameModal(device) {
   const currentName = getFriendlyDeviceName(device);
+  const unknownText = t("device_unknown");
 
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
@@ -1253,32 +1254,32 @@ export function showEditDeviceNameModal(device) {
   modal.innerHTML = `
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Edit Device Name</h3>
+        <h3>${t("device_edit_modal_title")}</h3>
         <button class="modal-close-btn" id="closeEditModal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="device-info-preview">
           <div class="info-row">
-            <span class="info-label">Device ID:</span>
+            <span class="info-label">${t("device_id_label")}:</span>
             <span class="info-value">${escapeHtml(device.id)}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Model:</span>
-            <span class="info-value">${escapeHtml(device.model || "Unknown")}</span>
+            <span class="info-label">${t("device_model_label")}:</span>
+            <span class="info-value">${escapeHtml(device.model || unknownText)}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Platform:</span>
-            <span class="info-value">${escapeHtml(device.platform || "Unknown")}</span>
+            <span class="info-label">${t("device_platform_label")}:</span>
+            <span class="info-value">${escapeHtml(device.platform || unknownText)}</span>
           </div>
         </div>
         <div class="form-group">
-          <label for="deviceNickname">Nickname</label>
-          <input type="text" id="deviceNickname" value="${escapeHtml(currentName)}" placeholder="Enter device nickname..." />
+          <label for="deviceNickname">${t("device_nickname_label")}</label>
+          <input type="text" id="deviceNickname" value="${escapeHtml(currentName)}" placeholder="${t("device_nickname_placeholder")}" />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelEditDevice">Cancel</button>
-        <button class="btn btn-primary" id="saveDeviceName">Save</button>
+        <button class="btn btn-secondary" id="cancelEditDevice">${t("sms_btn_cancel")}</button>
+        <button class="btn btn-primary" id="saveDeviceName">${t("settings_save")}</button>
       </div>
     </div>
   `;

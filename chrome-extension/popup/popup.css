@@ -440,6 +440,11 @@ html.dark .tab:not(.active):hover {
   padding: 0 3px;
 }
 
+#callsBadge.tab-badge {
+  background: #f5e7c8;
+  color: #000000;
+}
+
 .sim-badge {
   display: inline-flex;
   align-items: center;
@@ -728,6 +733,29 @@ html.dark .tab:not(.active):hover {
   border-left: 3px solid var(--primary);
 }
 
+.notif-detail-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#notifDetailSearchInput {
+  min-width: 170px;
+}
+
+.notif-detail-snooze-select {
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
 .content-header {
   display: flex;
   align-items: center;
@@ -890,7 +918,8 @@ html.dark .tab:not(.active):hover {
   to { transform: rotate(360deg); }
 }
 
-.device-tag {
+.device-tag,
+.notification-device {
   display: inline-block;
   font-size: 10px;
   padding: 2px 6px;
@@ -900,6 +929,7 @@ html.dark .tab:not(.active):hover {
   color: #000000;
   border-radius: 4px;
   font-weight: 500;
+  line-height: 1;
   vertical-align: middle;
 }
 
@@ -2184,8 +2214,11 @@ html.dark #dashInsightsDeviceTabs {
 /* Notifications */
 .notification-item {
   border-left: 3px solid var(--primary);
+  padding: 10px 12px;
+  gap: 10px;
   cursor: pointer;
   transition: background 0.2s;
+  position: relative;
 }
 
 .notification-item:hover {
@@ -2198,6 +2231,154 @@ html.dark #dashInsightsDeviceTabs {
 
 .notification-item.unread .list-item-title {
   font-weight: 600;
+}
+
+.notification-item.snoozed {
+  opacity: 0.82;
+}
+
+.notification-snoozed-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #f5e7c8;
+  color: #000000;
+  font-weight: 600;
+}
+
+.notif-unsnooze-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 10px;
+  border-radius: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+.notif-unsnooze-btn:hover {
+  border-color: var(--primary);
+}
+
+.notif-pin-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.notif-pin-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.notif-pin-btn.pinned {
+  background: #f5e7c8;
+  color: #111;
+  border-color: #d5c09a;
+}
+
+.notification-right-meta {
+  display: grid;
+  grid-template-rows: 20px 14px 18px;
+  justify-items: end;
+  align-content: start;
+  row-gap: 4px;
+  padding-top: 1px;
+}
+
+#callsTab .list-item-meta {
+  display: grid;
+  grid-template-rows: 20px 14px 18px;
+  justify-items: end;
+  align-content: start;
+  row-gap: 4px;
+  padding-top: 1px;
+}
+
+#notificationsTab .notification-right-meta {
+  justify-items: end;
+}
+
+#callsTab .call-pin-btn,
+#notificationsTab .notif-pin-btn {
+  grid-row: 1;
+}
+
+#callsTab .list-item-time,
+#notificationsTab .list-item-time {
+  grid-row: 2;
+  align-self: start;
+  line-height: 14px;
+}
+
+#callsTab .list-item-badge,
+#notificationsTab .notification-badge-row {
+  grid-row: 3;
+}
+
+.notification-badge-row {
+  display: grid;
+  grid-template-columns: auto 18px;
+  align-items: center;
+  column-gap: 6px;
+  min-height: 18px;
+}
+
+.notification-badge-row .tab-badge {
+  grid-column: 1;
+  position: static;
+  display: inline-block;
+  justify-self: end;
+}
+
+.sms-pin-btn,
+.call-pin-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sms-pin-btn:hover,
+.call-pin-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.sms-pin-btn.pinned,
+.call-pin-btn.pinned {
+  background: #f5e7c8;
+  color: #111;
+  border-color: #d5c09a;
+}
+
+.notification-muted-icon {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f5e7c8;
+  color: #111;
+  border: 1px solid #d5c09a;
+  flex: 0 0 auto;
 }
 
 .unread-dot {
@@ -2228,8 +2409,8 @@ html.dark #dashInsightsDeviceTabs {
 
 .notification-icon {
   font-size: 24px;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2240,18 +2421,10 @@ html.dark #dashInsightsDeviceTabs {
 .notification-app {
   font-size: 11px;
   color: var(--list-preview-text);
-  margin-top: 4px;
+  margin-top: 2px;
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.notification-device {
-  font-size: 10px;
-  background: var(--primary-light);
-  color: #000000;
-  padding: 2px 6px;
-  border-radius: 8px;
 }
 
 /* Password Toggle */
@@ -2321,6 +2494,30 @@ html.dark #dashInsightsDeviceTabs {
 
 .sms-conversation.selected {
   background: var(--primary-light, rgba(99, 102, 241, 0.12));
+}
+
+/* Keep SMS right-side time aligned consistently across rows */
+#smsTab .sms-conversation .list-item-meta {
+  display: grid;
+  grid-template-rows: 20px 14px 18px;
+  justify-items: end;
+  align-content: start;
+  row-gap: 4px;
+  padding-top: 1px;
+}
+
+#smsTab .sms-conversation .sms-pin-btn {
+  grid-row: 1;
+}
+
+#smsTab .sms-conversation .list-item-time {
+  grid-row: 2;
+  align-self: start;
+  line-height: 14px;
+}
+
+#smsTab .sms-conversation .list-item-badge {
+  grid-row: 3;
 }
 
 /* Checkbox shown on conversation rows in selection mode */
@@ -2630,7 +2827,7 @@ html.dark #dashInsightsDeviceTabs {
   height: 18px;
   border-radius: 9px;
   background: var(--primary);
-  color: white;
+  color: #000000;
   font-size: 11px;
   font-weight: 600;
   display: flex;
@@ -2640,7 +2837,17 @@ html.dark #dashInsightsDeviceTabs {
 }
 
 .list-item-badge.missed {
-  background: var(--missed);
+  background: #f5e7c8;
+  color: #000000;
+}
+
+.call-group .list-item-badge {
+  background: #f5e7c8;
+  color: #000000;
+}
+
+.sms-conversation .list-item-badge {
+  color: #000000;
 }
 
 /* Conversation Input */
@@ -2744,6 +2951,7 @@ html.dark #dashInsightsDeviceTabs {
 .call-group {
   cursor: pointer;
   transition: background 0.2s;
+  position: relative;
 }
 
 .call-group:hover {
@@ -4044,13 +4252,13 @@ html.dark .profile-logout-btn-footer {
 }
 
 .confirm-ok {
-  background: var(--danger, #ef4444);
-  color: #fff;
-  border-color: transparent;
+  background: #ead8b7;
+  color: #111;
+  border-color: #d5c09a;
 }
 
 .confirm-ok:hover {
-  opacity: 0.85;
+  background: #e2cdab;
 }
 
 /* Custom Confirm Dialog */
@@ -4061,8 +4269,8 @@ html.dark .profile-logout-btn-footer {
 .confirm-btn{padding:7px 18px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
 .confirm-cancel{background:var(--background);color:var(--text);}
 .confirm-cancel:hover{background:var(--surface);}
-.confirm-ok{background:var(--danger,#ef4444);color:#fff;border-color:transparent;}
-.confirm-ok:hover{opacity:.85;}
+.confirm-ok{background:#ead8b7;color:#111;border-color:#d5c09a;}
+.confirm-ok:hover{background:#e2cdab;}
 
 /* ========== Dashboard Tab ========== */
 #dashboardTab {

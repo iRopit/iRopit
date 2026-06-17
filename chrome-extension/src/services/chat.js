@@ -19,6 +19,8 @@ import {
   doc,
   getDoc,
   setDoc,
+  getDocs,
+  getDocsFromServer,
 } from "../config/firebase.js";
 
 import { chatMessages, chatInput, sendChatBtn } from "../ui/dom.js";
@@ -37,6 +39,23 @@ import { encryptChatMessage, decryptChatMessage } from "./cryptoService.js";
 
 // Keep raw message text by id so copy always uses full unescaped content.
 const chatContentById = new Map();
+let forceRefreshChats = null;
+const pendingPushedById = new Map();
+const PENDING_PUSH_TTL_MS = 2 * 60 * 1000;
+
+function toTimestampMs(ts) {
+  if (typeof ts === "number") return ts;
+  if (ts && typeof ts.toMillis === "function") {
+    try {
+      return ts.toMillis();
+    } catch (_) {}
+  }
+  if (ts && typeof ts.seconds === "number") {
+    const nanos = typeof ts.nanoseconds === "number" ? ts.nanoseconds : 0;
+    return ts.seconds * 1000 + Math.floor(nanos / 1e6);
+  }
+  return 0;
+}
 
 /**
  * Auto-resize chat input so it grows upward smoothly until max height.
@@ -74,6 +93,12 @@ export function subscribeToChat() {
   const user = state.currentUser;
   if (!user) return;
 
+  // Clear stale UI filters that can make new incoming messages appear "missing".
+  const chatSearchInput = document.getElementById("chatSearchInput");
+  if (chatSearchInput) chatSearchInput.value = "";
+  const chatShowStarred = document.getElementById("chatShowStarred");
+  if (chatShowStarred) chatShowStarred.checked = false;
+
   // Restore starred messages from Firestore (survives reinstalls).
   // Re-render once the async load completes so stars show correctly on first open.
   loadStarredMessagesFromFirestore().then(() => {
@@ -87,41 +112,134 @@ export function subscribeToChat() {
     collection(db, "chats"),
     where("participants", "array-contains", user.uid),
     orderBy("timestamp", "desc"),
-    limit(100),
+    limit(500),
   );
 
-  // Track message IDs we've already seen to detect truly new ones
-  const seenMessageIds = new Set();
-  let initialLoadDone = false;
+  let refreshInFlight = false;
 
-  const unsub = onSnapshot(q, async (snapshot) => {
+  const applySnapshot = async (snapshot) => {
     const rawMessages = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      rawMessages.push({ id: doc.id, ...data });
+    snapshot.forEach((docSnap) => {
+      rawMessages.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // Sort by timestamp locally
-    rawMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-    // Decrypt messages
     const messages = await Promise.all(
-      rawMessages.map((msg) => decryptChatMessage(msg, user.uid)),
+      rawMessages.map(async (msg) => {
+        try {
+          return await decryptChatMessage(msg, user.uid);
+        } catch (_) {
+          return msg;
+        }
+      }),
     );
 
-    // Smart actions (Universal Copy, Open URLs, Open Images) are handled exclusively
-    // by the service worker poll to avoid duplicate opens (popup + SW snapshot + SW poll).
-    // See pollForChatSmartActions in src/service-worker.js.
+    const snapshotById = new Map(messages.map((m) => [m.id, m]));
+    const existingById = new Map((state.cachedChatMessages || []).map((m) => [m.id, m]));
+    const now = Date.now();
 
-    // Mark all current messages as seen
-    messages.forEach((msg) => seenMessageIds.add(msg.id));
-    initialLoadDone = true;
+    // Keep freshly pushed messages visible for a short grace window when
+    // cache-first snapshots arrive before server data catches up.
+    for (const [id, queuedAt] of pendingPushedById) {
+      if (now - queuedAt > PENDING_PUSH_TTL_MS) {
+        pendingPushedById.delete(id);
+        continue;
+      }
+      if (snapshotById.has(id)) {
+        pendingPushedById.delete(id);
+        continue;
+      }
+      const pendingMsg = existingById.get(id);
+      if (pendingMsg) snapshotById.set(id, pendingMsg);
+    }
 
-    state.setCachedChatMessages(messages);
-    renderChatMessages(messages);
-  });
+    const merged = [...snapshotById.values()].sort(
+      (a, b) => toTimestampMs(a.timestamp) - toTimestampMs(b.timestamp),
+    );
+
+    state.setCachedChatMessages(merged);
+    renderChatMessages(merged);
+  };
+
+  const unsub = onSnapshot(
+    q,
+    async (snapshot) => {
+      try {
+        await applySnapshot(snapshot);
+      } catch (err) {
+        console.warn("[Chat] Snapshot processing failed, falling back to full refresh:", err);
+        try {
+          await applySnapshot(snapshot);
+        } catch (_) {}
+      }
+    },
+    (error) => {
+      console.error("[Chat] Realtime listener error:", error);
+      showToast("Chat sync error", "error");
+    },
+  );
 
   state.addUnsubscriber(unsub);
+
+  forceRefreshChats = async () => {
+    if (!state.currentUser || state.currentUser.uid !== user.uid) return;
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      let snap;
+      try {
+        snap = await getDocsFromServer(q);
+      } catch (_) {
+        snap = await getDocs(q);
+      }
+      await applySnapshot(snap);
+    } catch (_) {
+    } finally {
+      refreshInFlight = false;
+    }
+  };
+  state.addUnsubscriber(() => {
+    forceRefreshChats = null;
+  });
+
+  // Server-first kick once on subscribe so messages sent while popup was closed
+  // appear immediately even if onSnapshot delivery is delayed/throttled.
+  forceRefreshChats().catch(() => {});
+}
+
+export async function refreshChatNow() {
+  if (typeof forceRefreshChats === "function") {
+    await forceRefreshChats();
+  }
+}
+
+/**
+ * Inject a freshly pushed chat message (from service worker) into popup state
+ * so users see context-menu/chat sends immediately without waiting for snapshot.
+ */
+export async function injectPushedChatMessage(message) {
+  if (!message) return;
+
+  const user = state.currentUser;
+
+  let normalized = message;
+  if (user?.uid) {
+    try {
+      normalized = await decryptChatMessage(message, user.uid);
+    } catch (_) {}
+  }
+
+  const existing = state.cachedChatMessages || [];
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  byId.set(normalized.id, normalized);
+
+  const merged = [...byId.values()].sort(
+    (a, b) => toTimestampMs(a.timestamp) - toTimestampMs(b.timestamp),
+  );
+  if (normalized?.id) {
+    pendingPushedById.set(normalized.id, Date.now());
+  }
+  state.setCachedChatMessages(merged);
+  renderChatMessages(merged);
 }
 
 // ── Starred messages persistence ─────────────────────────────────────────────
@@ -216,6 +334,16 @@ export function renderChatMessages(messages) {
   let filteredMessages = messages;
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => {
+      const fromExtension =
+        msg.senderPlatform === "chrome-extension" ||
+        (msg.senderDeviceId || "").startsWith("ext_");
+      // For extension-originated messages, route visibility by receiver device.
+      // Targeted sends should only appear in that target's tab, while broadcast
+      // sends (receiverDeviceId null/empty) can appear in all device tabs.
+      if (fromExtension) {
+        const target = msg.receiverDeviceId || null;
+        return target === null || target === selectedTab;
+      }
       // Show only messages sent TO or FROM this specific device
       return (
         msg.senderDeviceId === selectedTab ||
@@ -233,7 +361,7 @@ export function renderChatMessages(messages) {
   const starred = getStarredMessages();
   const keyToBestMsg = new Map();
   filteredMessages.forEach((msg) => {
-    const key = `${msg.senderDeviceId}|${msg.timestamp}`;
+    const key = `${msg.senderDeviceId || ""}|${toTimestampMs(msg.timestamp)}|${msg.type || "text"}|${msg.content || ""}`;
     if (!keyToBestMsg.has(key)) {
       keyToBestMsg.set(key, msg);
     } else if (starred.has(msg.id) && !starred.has(keyToBestMsg.get(key).id)) {

@@ -223,9 +223,9 @@ async function startListening() {
   // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
   listenToUserNotifications();
 
-  // 2. Chat smart actions are handled exclusively by pollForChatSmartActions (alarm-driven, runs every 10s)
-  // to avoid duplicate opens from snapshot listener + poll + popup.
-  // listenToChatMessages(); // disabled — see pollForChatSmartActions
+  // 2. Chat realtime bridge for instant popup updates + smart actions.
+  // Poll remains as backup when realtime listeners are throttled/dropped.
+  listenToChatMessages();
 
   // 2. Get all user devices
   const devicesQuery = query(
@@ -279,11 +279,60 @@ async function startListening() {
 }
 
 // Listen to chat messages for smart actions (open images, universal copy)
+const PENDING_CHAT_PUSHES_KEY = "pendingChatPushes";
+
+function toChatTimestampMs(ts) {
+  if (typeof ts === "number") return ts;
+  if (ts && typeof ts.toMillis === "function") {
+    try {
+      return ts.toMillis();
+    } catch (_) {}
+  }
+  if (ts && typeof ts.seconds === "number") {
+    const nanos = typeof ts.nanoseconds === "number" ? ts.nanoseconds : 0;
+    return ts.seconds * 1000 + Math.floor(nanos / 1e6);
+  }
+  return 0;
+}
+
+async function enqueuePendingChatPush(message) {
+  try {
+    const result = await chrome.storage.local.get([PENDING_CHAT_PUSHES_KEY]);
+    const existing = Array.isArray(result[PENDING_CHAT_PUSHES_KEY])
+      ? result[PENDING_CHAT_PUSHES_KEY]
+      : [];
+    const now = Date.now();
+    const normalized = {
+      ...message,
+      timestamp: toChatTimestampMs(message?.timestamp),
+      _queuedAt: now,
+    };
+    const dedup = new Map();
+    [...existing, normalized].forEach((item) => {
+      if (!item?.id) return;
+      // Keep only recent queued pushes to avoid unbounded growth.
+      if ((item._queuedAt || now) < now - 10 * 60 * 1000) return;
+      dedup.set(item.id, item);
+    });
+    const compact = [...dedup.values()].slice(-300);
+    await chrome.storage.local.set({ [PENDING_CHAT_PUSHES_KEY]: compact });
+  } catch (_) {}
+}
+
+function pushChatToPopup(message) {
+  if (!message?.id) return;
+  const normalized = {
+    ...message,
+    timestamp: toChatTimestampMs(message.timestamp),
+  };
+  chrome.runtime.sendMessage({ type: "newChat", data: normalized }).catch(() => {});
+  enqueuePendingChatPush(normalized).catch(() => {});
+}
+
 function listenToChatMessages() {
   if (!currentUser) return;
 
   let isFirstChatSnapshot = true;
-  const seenChatIds = new Set();
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
   const q = query(
@@ -298,11 +347,19 @@ function listenToChatMessages() {
       isFirstChatSnapshot = false;
       // On first load, process very recent messages that arrived while SW was inactive
       snapshot.docs.forEach((d) => {
-        seenChatIds.add(d.id);
+        // Skip messages already handled in a previous SW lifetime.
+        if (seenChatMessageIds.has(d.id)) return;
+        seenChatMessageIds.add(d.id);
         const msg = d.data();
-        const ts = msg.timestamp || 0;
+        const ts =
+          typeof msg.timestamp === "number"
+            ? msg.timestamp
+            : typeof msg.timestamp?.toMillis === "function"
+              ? msg.timestamp.toMillis()
+              : 0;
         if (ts < fiveMinutesAgo) return;
-        // Skip messages sent by this extension
+        pushChatToPopup({ id: d.id, ...msg });
+        // Smart actions are only for messages received from other devices.
         if (msg.senderPlatform === "chrome-extension") return;
         if ((msg.senderDeviceId || "").startsWith("ext_")) return;
         processChatMessageSmartActions(msg);
@@ -313,14 +370,19 @@ function listenToChatMessages() {
     snapshot.docChanges().forEach((change) => {
       if (change.type !== "added") return;
       const docId = change.doc.id;
-      if (seenChatIds.has(docId)) return;
-      seenChatIds.add(docId);
+      if (seenChatMessageIds.has(docId)) return;
+      seenChatMessageIds.add(docId);
 
       const msg = change.doc.data();
+      pushChatToPopup({ id: docId, ...msg });
+      // Smart actions are only for messages received from other devices.
       if (msg.senderPlatform === "chrome-extension") return;
       if ((msg.senderDeviceId || "").startsWith("ext_")) return;
       processChatMessageSmartActions(msg);
     });
+
+    const seenArray = Array.from(seenChatMessageIds).slice(-500);
+    chrome.storage.local.set({ seenChatMessageIds: seenArray });
   }, (error) => {
     if (error?.code === "permission-denied") return;
     console.error("ZyncIT: Chat listener error:", error);
@@ -1954,12 +2016,19 @@ async function pollForChatSmartActions() {
       if (seenChatMessageIds.has(docId)) continue;
       seenChatMessageIds.add(docId);
 
-      // Skip messages sent by this extension
+      pushChatToPopup({ id: docId, ...msg });
+
+      const ts =
+        typeof msg.timestamp === "number"
+          ? msg.timestamp
+          : typeof msg.timestamp?.toMillis === "function"
+            ? msg.timestamp.toMillis()
+            : 0;
+      if (ts > latestTs) latestTs = ts;
+
+      // Smart actions are only for messages received from other devices.
       if (msg.senderPlatform === "chrome-extension") continue;
       if ((msg.senderDeviceId || "").startsWith("ext_")) continue;
-
-      if (msg.timestamp > latestTs) latestTs = msg.timestamp;
-
       await processChatMessageSmartActions(msg, sa);
     }
 
@@ -2732,18 +2801,23 @@ async function sendTextToDevice(content, targetDeviceId) {
   };
 
   try {
+    let firstRef = null;
     if (!targetDeviceId) {
       if (contextMenuDevices.length === 0) {
-        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+        firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
       } else {
-        await Promise.all(
+        const refs = await Promise.all(
           contextMenuDevices.map((dev) =>
             addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
           )
         );
+        firstRef = refs[0] || null;
       }
     } else {
-      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+      firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    if (firstRef?.id) {
+      pushChatToPopup({ ...base, id: firstRef.id, receiverDeviceId: targetDeviceId || null });
     }
     console.log("ZyncIT: ✅ Text sent:", content.slice(0, 50), "→", targetDeviceId || "all");
   } catch (e) {
@@ -2769,20 +2843,25 @@ async function sendPageToDevice(url, targetDeviceId) {
   };
 
   try {
+    let firstRef = null;
     if (!targetDeviceId) {
       // Send to each mobile device individually
       if (contextMenuDevices.length === 0) {
         // Fallback: broadcast with no specific receiver
-        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+        firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
       } else {
-        await Promise.all(
+        const refs = await Promise.all(
           contextMenuDevices.map((dev) =>
             addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
           )
         );
+        firstRef = refs[0] || null;
       }
     } else {
-      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+      firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    if (firstRef?.id) {
+      pushChatToPopup({ ...base, id: firstRef.id, receiverDeviceId: targetDeviceId || null });
     }
     console.log("ZyncIT: ✅ Page sent:", url, "→", targetDeviceId || "all");
   } catch (e) {
@@ -2833,18 +2912,23 @@ async function sendImageToDevice(srcUrl, targetDeviceId) {
       timestamp: Date.now(),
       participants: [currentUser.uid],
     };
+    let firstRef = null;
     if (!targetDeviceId) {
       if (contextMenuDevices.length === 0) {
-        await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
+        firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: null });
       } else {
-        await Promise.all(
+        const refs = await Promise.all(
           contextMenuDevices.map((dev) =>
             addDoc(collection(db, "chats"), { ...base, receiverDeviceId: dev.id })
           )
         );
+        firstRef = refs[0] || null;
       }
     } else {
-      await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+      firstRef = await addDoc(collection(db, "chats"), { ...base, receiverDeviceId: targetDeviceId });
+    }
+    if (firstRef?.id) {
+      pushChatToPopup({ ...base, id: firstRef.id, receiverDeviceId: targetDeviceId || null });
     }
     console.log("ZyncIT: ✅ Image uploaded & sent:", storagePath, "→", targetDeviceId || "all");
   } catch (e) {

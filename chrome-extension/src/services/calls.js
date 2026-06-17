@@ -72,6 +72,47 @@ function getCallTypeLabel(type) {
 // ── Selection mode state ──────────────────────────────────────────────────────
 let callsSelectionMode = false;
 let selectedCallGroups = new Set(); // keyed by group.phoneNumber
+const CALLS_PIN_STORAGE_KEY = "callsPinnedGroups";
+let callsPinnedGroups = {};
+let callsPinHydrated = false;
+
+async function hydrateCallsPinnedGroups() {
+  if (callsPinHydrated) return;
+  callsPinHydrated = true;
+  try {
+    if (!chrome?.storage?.local) return;
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get([CALLS_PIN_STORAGE_KEY], resolve);
+    });
+    const map = result?.[CALLS_PIN_STORAGE_KEY];
+    if (map && typeof map === "object") callsPinnedGroups = map;
+  } catch (_) {}
+}
+
+async function persistCallsPinnedGroups() {
+  try {
+    if (!chrome?.storage?.local) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [CALLS_PIN_STORAGE_KEY]: callsPinnedGroups }, resolve);
+    });
+  } catch (_) {}
+}
+
+function isCallGroupPinned(key) {
+  return !!callsPinnedGroups[key];
+}
+
+async function toggleCallGroupPin(key) {
+  if (!key) return false;
+  if (callsPinnedGroups[key]) {
+    delete callsPinnedGroups[key];
+    await persistCallsPinnedGroups();
+    return false;
+  }
+  callsPinnedGroups[key] = true;
+  await persistCallsPinnedGroups();
+  return true;
+}
 
 function _updateCallsSelectionToolbar(totalGroups) {
   const deleteBtn = document.getElementById("deleteAllCallsBtn");
@@ -331,6 +372,8 @@ function resolveCallDeviceName(call) {
 export async function loadCalls() {
   const user = state.currentUser;
   if (!user) return;
+
+  await hydrateCallsPinnedGroups();
 
   // Reset per-load UI suppression state.
   suppressCallsSyncIndicator = false;
@@ -865,6 +908,13 @@ export function renderCalls(calls) {
     callGroups = callGroups.filter(g => g.unviewedMissedCount > 0);
   }
 
+  callGroups.sort((a, b) => {
+    const aPinned = isCallGroupPinned(a.key) ? 1 : 0;
+    const bPinned = isCallGroupPinned(b.key) ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
+    return (b.lastCall.timestamp || 0) - (a.lastCall.timestamp || 0);
+  });
+
   if (callGroups.length === 0) {
     callsList.innerHTML = `
       <div class="empty-state">
@@ -904,6 +954,7 @@ export function renderCalls(calls) {
         const lastLabel = isAr ? "آخر مكالمة" : "Last Call";
         const callTypeText = group.lastCall.type ? getCallTypeLabel(group.lastCall.type) : (isAr ? "غير معروف" : "Unknown");
         const callHoverPreview = `${lastLabel}: ${lastTime} - ${displayName} - ${callTypeText} · ${methodLabel}`;
+        const isPinned = isCallGroupPinned(group.key);
         return `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${
       group.phoneNumber
@@ -934,6 +985,12 @@ export function renderCalls(calls) {
         </button>
       </div>` : ""}
       <div class="list-item-meta">
+        <button class="call-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${isAr ? (isPinned ? "إلغاء التثبيت" : "تثبيت") : (isPinned ? "Unpin" : "Pin")}" aria-label="${isAr ? (isPinned ? "إلغاء التثبيت" : "تثبيت") : (isPinned ? "Unpin" : "Pin")}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+            <path d="M12 13v8"></path>
+          </svg>
+        </button>
         <span class="list-item-time">${formatTime(
           group.lastCall.timestamp,
         )}</span>
@@ -950,6 +1007,23 @@ export function renderCalls(calls) {
   wireHoverPreview(callsList);
 
   // Add click handlers for call groups
+  document.querySelectorAll(".call-pin-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const groupEl = btn.closest(".call-group");
+      const key = groupEl?.dataset?.groupKey;
+      const name = groupEl?.querySelector(".call-contact-name")?.textContent?.trim() || key || "Calls";
+      const pinned = await toggleCallGroupPin(key);
+      showToast(
+        getCurrentLanguage() === "ar"
+          ? (pinned ? `تم تثبيت ${name}` : `تم إلغاء تثبيت ${name}`)
+          : (pinned ? `${name} pinned` : `${name} unpinned`),
+        "success",
+      );
+      renderCalls(state.allCallsData);
+    });
+  });
+
   document.querySelectorAll(".call-group").forEach((el) => {
     el.addEventListener("click", (e) => {
       const groupKey = el.dataset.groupKey;

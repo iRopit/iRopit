@@ -24418,6 +24418,7 @@ ${this.customData.serverResponse}`;
           nav_chat: "Chat",
           nav_notifications: "Notifications",
           nav_devices: "Devices",
+          devices_tab_title: "Your Devices",
           settings_title: "Settings",
           settings_language: "Language",
           settings_profile: "User Profile",
@@ -24454,7 +24455,17 @@ ${this.customData.serverResponse}`;
           chat_type_message: "Type a message...",
           search_calls: "Search calls...",
           search_notifications: "Search notifications...",
+          search_notifications_in_group: "Search in this app notifications...",
+          notif_snooze_1h: "Mute 1h",
+          notif_snooze_8h: "Mute 8h",
+          notif_snooze_24h: "Mute 24h",
+          notif_snooze_7d: "Mute 7d",
+          notif_snooze_permanent: "Mute until unmute",
+          notif_snooze_btn: "Mute",
+          notif_unsnooze_btn: "Unmute",
           section_messages: "Messages",
+          section_sms: "SMS",
+          section_chat: "Chat",
           section_call_history: "Call History",
           section_notifications: "Notifications",
           new_sms: "New SMS",
@@ -24485,6 +24496,7 @@ ${this.customData.serverResponse}`;
           tooltip_delete_device: "Delete device",
           filter_show_starred: "Show Starred Messages",
           filter_show_unread: "Show Unread",
+          filter_show_muted: "Show Muted",
           sms_filter_show_starred: "Show Starred",
           tooltip_back: "Back",
           tooltip_send_image: "Send Image",
@@ -24541,6 +24553,13 @@ ${this.customData.serverResponse}`;
           device_shared_with_me: "Shared with me",
           device_pending_badge: "(Pending)",
           device_edit_name: "Edit name",
+          device_edit_modal_title: "Edit Device Name",
+          device_id_label: "Device ID",
+          device_model_label: "Model",
+          device_platform_label: "Platform",
+          device_nickname_label: "Nickname",
+          device_nickname_placeholder: "Enter device nickname...",
+          device_unknown: "Unknown",
           tour_welcome_title: "Welcome to iRopit!",
           tour_welcome_desc: "Sync your phone's SMS, calls, and notifications right in your browser. Let's take a quick look at what you can do.",
           tour_chat_title: "Chat",
@@ -24568,6 +24587,7 @@ ${this.customData.serverResponse}`;
           nav_chat: "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
           nav_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
           nav_devices: "\u0627\u0644\u0623\u062C\u0647\u0632\u0629",
+          devices_tab_title: "\u0623\u062C\u0647\u0632\u062A\u0643",
           settings_title: "\u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A",
           settings_language: "\u0627\u0644\u0644\u063A\u0629 / Language",
           settings_profile: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
@@ -24604,7 +24624,17 @@ ${this.customData.serverResponse}`;
           chat_type_message: "...\u0627\u0643\u062A\u0628 \u0631\u0633\u0627\u0644\u0629",
           search_calls: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           search_notifications: "...\u0628\u062D\u062B \u0641\u064A \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
+          search_notifications_in_group: "...\u0628\u062D\u062B \u062F\u0627\u062E\u0644 \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0647\u0630\u0627 \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
+          notif_snooze_1h: "\u0643\u062A\u0645 \u0633\u0627\u0639\u0629",
+          notif_snooze_8h: "\u0643\u062A\u0645 8 \u0633\u0627\u0639\u0627\u062A",
+          notif_snooze_24h: "\u0643\u062A\u0645 24 \u0633\u0627\u0639\u0629",
+          notif_snooze_7d: "\u0643\u062A\u0645 7 \u0623\u064A\u0627\u0645",
+          notif_snooze_permanent: "\u0643\u062A\u0645 \u062D\u062A\u0649 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0643\u062A\u0645",
+          notif_snooze_btn: "\u0643\u062A\u0645",
+          notif_unsnooze_btn: "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0643\u062A\u0645",
           section_messages: "\u0627\u0644\u0631\u0633\u0627\u0626\u0644",
+          section_sms: "SMS",
+          section_chat: "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
           section_call_history: "\u0633\u062C\u0644 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A",
           section_notifications: "\u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A",
           new_sms: "\u0631\u0633\u0627\u0644\u0629 \u062C\u062F\u064A\u062F\u0629",
@@ -24635,6 +24665,7 @@ ${this.customData.serverResponse}`;
           tooltip_delete_device: "\u062D\u0630\u0641 \u0627\u0644\u062C\u0647\u0627\u0632",
           filter_show_starred: "\u0639\u0631\u0636 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0645\u0641\u0636\u0644\u0629",
           filter_show_unread: "\u0639\u0631\u0636 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621",
+          filter_show_muted: "\u0639\u0631\u0636 \u0627\u0644\u0645\u0643\u062A\u0648\u0645",
           sms_filter_show_starred: "\u0639\u0631\u0636 \u0627\u0644\u0645\u0645\u064A\u0632\u0629",
           tooltip_back: "\u0631\u062C\u0648\u0639",
           tooltip_send_image: "\u0625\u0631\u0633\u0627\u0644 \u0635\u0648\u0631\u0629",
@@ -24690,6 +24721,13 @@ ${this.customData.serverResponse}`;
           device_shared_with_me: "\u0645\u0634\u0627\u0631\u0643 \u0645\u0639\u064A",
           device_pending_badge: "(\u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631)",
           device_edit_name: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0627\u0633\u0645",
+          device_edit_modal_title: "\u062A\u0639\u062F\u064A\u0644 \u0627\u0633\u0645 \u0627\u0644\u062C\u0647\u0627\u0632",
+          device_id_label: "\u0645\u0639\u0631\u0651\u0641 \u0627\u0644\u062C\u0647\u0627\u0632",
+          device_model_label: "\u0627\u0644\u0637\u0631\u0627\u0632",
+          device_platform_label: "\u0627\u0644\u0646\u0638\u0627\u0645",
+          device_nickname_label: "\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u062E\u062A\u0635\u0631",
+          device_nickname_placeholder: "\u0623\u062F\u062E\u0644 \u0627\u0633\u0645\u064B\u0627 \u0645\u062E\u062A\u0635\u0631\u064B\u0627 \u0644\u0644\u062C\u0647\u0627\u0632...",
+          device_unknown: "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641",
           toast_refreshing: "...\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u062F\u064A\u062B",
           tour_welcome_title: "!\u0623\u0647\u0644\u0627\u064B \u0628\u0643 \u0641\u064A iRopit",
           tour_welcome_desc: "\u0632\u0627\u0645\u0646 \u0631\u0633\u0627\u0626\u0644 \u0647\u0627\u062A\u0641\u0643 \u0648\u0645\u0643\u0627\u0644\u0645\u0627\u062A\u0647 \u0648\u0625\u0634\u0639\u0627\u0631\u0627\u062A\u0647 \u0645\u0628\u0627\u0634\u0631\u0629\u064B \u0641\u064A \u0645\u062A\u0635\u0641\u062D\u0643. \u062F\u0639\u0646\u0627 \u0646\u0623\u062E\u0630 \u062C\u0648\u0644\u0629 \u0633\u0631\u064A\u0639\u0629 \u0644\u0646\u062A\u0639\u0631\u0641 \u0639\u0644\u0649 \u0645\u0627 \u064A\u0645\u0643\u0646\u0643 \u0641\u0639\u0644\u0647.",
@@ -25177,13 +25215,29 @@ ${this.customData.serverResponse}`;
   __export(chat_exports, {
     clearReply: () => clearReply,
     initChatListeners: () => initChatListeners,
+    injectPushedChatMessage: () => injectPushedChatMessage,
     loadStarredMessagesFromFirestore: () => loadStarredMessagesFromFirestore,
+    refreshChatNow: () => refreshChatNow,
     renderChatMessages: () => renderChatMessages,
     scrollChatToBottom: () => scrollChatToBottom,
     sendChatMessage: () => sendChatMessage,
     setReplyTo: () => setReplyTo,
     subscribeToChat: () => subscribeToChat
   });
+  function toTimestampMs(ts) {
+    if (typeof ts === "number") return ts;
+    if (ts && typeof ts.toMillis === "function") {
+      try {
+        return ts.toMillis();
+      } catch (_) {
+      }
+    }
+    if (ts && typeof ts.seconds === "number") {
+      const nanos = typeof ts.nanoseconds === "number" ? ts.nanoseconds : 0;
+      return ts.seconds * 1e3 + Math.floor(nanos / 1e6);
+    }
+    return 0;
+  }
   function autoResizeChatInput() {
     if (!chatInput) return;
     const style = window.getComputedStyle(chatInput);
@@ -25206,6 +25260,10 @@ ${this.customData.serverResponse}`;
   function subscribeToChat() {
     const user = currentUser;
     if (!user) return;
+    const chatSearchInput = document.getElementById("chatSearchInput");
+    if (chatSearchInput) chatSearchInput.value = "";
+    const chatShowStarred = document.getElementById("chatShowStarred");
+    if (chatShowStarred) chatShowStarred.checked = false;
     loadStarredMessagesFromFirestore().then(() => {
       const cached = cachedChatMessages;
       if (cached && cached.length > 0) {
@@ -25216,26 +25274,112 @@ ${this.customData.serverResponse}`;
       collection(db, "chats"),
       where("participants", "array-contains", user.uid),
       orderBy("timestamp", "desc"),
-      limit(100)
+      limit(500)
     );
-    const seenMessageIds = /* @__PURE__ */ new Set();
-    let initialLoadDone = false;
-    const unsub = onSnapshot(q2, async (snapshot) => {
+    let refreshInFlight = false;
+    const applySnapshot = async (snapshot) => {
       const rawMessages = [];
-      snapshot.forEach((doc2) => {
-        const data = doc2.data();
-        rawMessages.push({ id: doc2.id, ...data });
+      snapshot.forEach((docSnap) => {
+        rawMessages.push({ id: docSnap.id, ...docSnap.data() });
       });
-      rawMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       const messages = await Promise.all(
-        rawMessages.map((msg) => decryptChatMessage(msg, user.uid))
+        rawMessages.map(async (msg) => {
+          try {
+            return await decryptChatMessage(msg, user.uid);
+          } catch (_) {
+            return msg;
+          }
+        })
       );
-      messages.forEach((msg) => seenMessageIds.add(msg.id));
-      initialLoadDone = true;
-      setCachedChatMessages(messages);
-      renderChatMessages(messages);
-    });
+      const snapshotById = new Map(messages.map((m) => [m.id, m]));
+      const existingById = new Map((cachedChatMessages || []).map((m) => [m.id, m]));
+      const now = Date.now();
+      for (const [id, queuedAt] of pendingPushedById) {
+        if (now - queuedAt > PENDING_PUSH_TTL_MS) {
+          pendingPushedById.delete(id);
+          continue;
+        }
+        if (snapshotById.has(id)) {
+          pendingPushedById.delete(id);
+          continue;
+        }
+        const pendingMsg = existingById.get(id);
+        if (pendingMsg) snapshotById.set(id, pendingMsg);
+      }
+      const merged = [...snapshotById.values()].sort(
+        (a, b) => toTimestampMs(a.timestamp) - toTimestampMs(b.timestamp)
+      );
+      setCachedChatMessages(merged);
+      renderChatMessages(merged);
+    };
+    const unsub = onSnapshot(
+      q2,
+      async (snapshot) => {
+        try {
+          await applySnapshot(snapshot);
+        } catch (err) {
+          console.warn("[Chat] Snapshot processing failed, falling back to full refresh:", err);
+          try {
+            await applySnapshot(snapshot);
+          } catch (_) {
+          }
+        }
+      },
+      (error) => {
+        console.error("[Chat] Realtime listener error:", error);
+        showToast("Chat sync error", "error");
+      }
+    );
     addUnsubscriber(unsub);
+    forceRefreshChats = async () => {
+      if (!currentUser || currentUser.uid !== user.uid) return;
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      try {
+        let snap;
+        try {
+          snap = await getDocsFromServer(q2);
+        } catch (_) {
+          snap = await getDocs(q2);
+        }
+        await applySnapshot(snap);
+      } catch (_) {
+      } finally {
+        refreshInFlight = false;
+      }
+    };
+    addUnsubscriber(() => {
+      forceRefreshChats = null;
+    });
+    forceRefreshChats().catch(() => {
+    });
+  }
+  async function refreshChatNow() {
+    if (typeof forceRefreshChats === "function") {
+      await forceRefreshChats();
+    }
+  }
+  async function injectPushedChatMessage(message) {
+    if (!message) return;
+    const user = currentUser;
+    let normalized = message;
+    if (user?.uid) {
+      try {
+        normalized = await decryptChatMessage(message, user.uid);
+      } catch (_) {
+      }
+    }
+    const existing = cachedChatMessages || [];
+    const byId = new Map(existing.map((m) => [m.id, m]));
+    byId.set(normalized.id, normalized);
+    const merged = [...byId.values()].sort(
+      (a, b) => toTimestampMs(a.timestamp) - toTimestampMs(b.timestamp)
+    );
+    if (normalized?.id) {
+      pendingPushedById.set(normalized.id, Date.now());
+    }
+    setCachedChatMessages(merged);
+    renderChatMessages(merged);
   }
   function getStarredMessages() {
     try {
@@ -25300,13 +25444,18 @@ ${this.customData.serverResponse}`;
     let filteredMessages = messages;
     if (selectedTab !== "all") {
       filteredMessages = messages.filter((msg) => {
+        const fromExtension = msg.senderPlatform === "chrome-extension" || (msg.senderDeviceId || "").startsWith("ext_");
+        if (fromExtension) {
+          const target = msg.receiverDeviceId || null;
+          return target === null || target === selectedTab;
+        }
         return msg.senderDeviceId === selectedTab || msg.receiverDeviceId === selectedTab;
       });
     }
     const starred = getStarredMessages();
     const keyToBestMsg = /* @__PURE__ */ new Map();
     filteredMessages.forEach((msg) => {
-      const key = `${msg.senderDeviceId}|${msg.timestamp}`;
+      const key = `${msg.senderDeviceId || ""}|${toTimestampMs(msg.timestamp)}|${msg.type || "text"}|${msg.content || ""}`;
       if (!keyToBestMsg.has(key)) {
         keyToBestMsg.set(key, msg);
       } else if (starred.has(msg.id) && !starred.has(keyToBestMsg.get(key).id)) {
@@ -25793,7 +25942,7 @@ ${this.customData.serverResponse}`;
     window.setReplyTo = setReplyTo;
     window.clearReply = clearReply;
   }
-  var chatContentById, STARRED_LS_KEY, pendingFile;
+  var chatContentById, forceRefreshChats, pendingPushedById, PENDING_PUSH_TTL_MS, STARRED_LS_KEY, pendingFile;
   var init_chat = __esm({
     "src/services/chat.js"() {
       init_firebase();
@@ -25805,6 +25954,9 @@ ${this.customData.serverResponse}`;
       init_badges();
       init_cryptoService();
       chatContentById = /* @__PURE__ */ new Map();
+      forceRefreshChats = null;
+      pendingPushedById = /* @__PURE__ */ new Map();
+      PENDING_PUSH_TTL_MS = 2 * 60 * 1e3;
       STARRED_LS_KEY = "chatStarredMessages";
       pendingFile = null;
     }
@@ -26378,6 +26530,42 @@ ${this.customData.serverResponse}`;
         return type;
     }
   }
+  async function hydrateCallsPinnedGroups() {
+    if (callsPinHydrated) return;
+    callsPinHydrated = true;
+    try {
+      if (!chrome?.storage?.local) return;
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get([CALLS_PIN_STORAGE_KEY], resolve);
+      });
+      const map = result?.[CALLS_PIN_STORAGE_KEY];
+      if (map && typeof map === "object") callsPinnedGroups = map;
+    } catch (_) {
+    }
+  }
+  async function persistCallsPinnedGroups() {
+    try {
+      if (!chrome?.storage?.local) return;
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [CALLS_PIN_STORAGE_KEY]: callsPinnedGroups }, resolve);
+      });
+    } catch (_) {
+    }
+  }
+  function isCallGroupPinned(key) {
+    return !!callsPinnedGroups[key];
+  }
+  async function toggleCallGroupPin(key) {
+    if (!key) return false;
+    if (callsPinnedGroups[key]) {
+      delete callsPinnedGroups[key];
+      await persistCallsPinnedGroups();
+      return false;
+    }
+    callsPinnedGroups[key] = true;
+    await persistCallsPinnedGroups();
+    return true;
+  }
   function _updateCallsSelectionToolbar(totalGroups) {
     const deleteBtn = document.getElementById("deleteAllCallsBtn");
     const countSpan = document.getElementById("callsSelectedCount");
@@ -26517,6 +26705,7 @@ ${this.customData.serverResponse}`;
   async function loadCalls() {
     const user = currentUser;
     if (!user) return;
+    await hydrateCallsPinnedGroups();
     suppressCallsSyncIndicator = false;
     const listHasContent = callsList && !callsList.querySelector(".loading-state") && callsList.children.length > 0 && !callsList.querySelector(".empty-state");
     if (callsList && !listHasContent) {
@@ -26910,6 +27099,12 @@ ${this.customData.serverResponse}`;
     if (document.getElementById("callsShowUnread")?.checked) {
       callGroups = callGroups.filter((g) => g.unviewedMissedCount > 0);
     }
+    callGroups.sort((a, b) => {
+      const aPinned = isCallGroupPinned(a.key) ? 1 : 0;
+      const bPinned = isCallGroupPinned(b.key) ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      return (b.lastCall.timestamp || 0) - (a.lastCall.timestamp || 0);
+    });
     if (callGroups.length === 0) {
       callsList.innerHTML = `
       <div class="empty-state">
@@ -26938,6 +27133,7 @@ ${this.customData.serverResponse}`;
         const lastLabel = isAr ? "\u0622\u062E\u0631 \u0645\u0643\u0627\u0644\u0645\u0629" : "Last Call";
         const callTypeText = group.lastCall.type ? getCallTypeLabel(group.lastCall.type) : isAr ? "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" : "Unknown";
         const callHoverPreview = `${lastLabel}: ${lastTime} - ${displayName} - ${callTypeText} \xB7 ${methodLabel}`;
+        const isPinned = isCallGroupPinned(group.key);
         return `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.key}">
       ${callsSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="call-checkbox" ${selectedCallGroups.has(group.key) ? "checked" : ""} tabindex="-1" /></div>` : ""}
@@ -26960,6 +27156,12 @@ ${this.customData.serverResponse}`;
         </button>
       </div>` : ""}
       <div class="list-item-meta">
+        <button class="call-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${isAr ? isPinned ? "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A" : "\u062A\u062B\u0628\u064A\u062A" : isPinned ? "Unpin" : "Pin"}" aria-label="${isAr ? isPinned ? "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A" : "\u062A\u062B\u0628\u064A\u062A" : isPinned ? "Unpin" : "Pin"}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+            <path d="M12 13v8"></path>
+          </svg>
+        </button>
         <span class="list-item-time">${formatTime(
           group.lastCall.timestamp
         )}</span>
@@ -26970,6 +27172,20 @@ ${this.customData.serverResponse}`;
       }
     ).join("");
     wireHoverPreview(callsList);
+    document.querySelectorAll(".call-pin-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const groupEl = btn.closest(".call-group");
+        const key = groupEl?.dataset?.groupKey;
+        const name5 = groupEl?.querySelector(".call-contact-name")?.textContent?.trim() || key || "Calls";
+        const pinned = await toggleCallGroupPin(key);
+        showToast(
+          getCurrentLanguage() === "ar" ? pinned ? `\u062A\u0645 \u062A\u062B\u0628\u064A\u062A ${name5}` : `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062B\u0628\u064A\u062A ${name5}` : pinned ? `${name5} pinned` : `${name5} unpinned`,
+          "success"
+        );
+        renderCalls(allCallsData);
+      });
+    });
     document.querySelectorAll(".call-group").forEach((el) => {
       el.addEventListener("click", (e) => {
         const groupKey = el.dataset.groupKey;
@@ -27416,7 +27632,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var CALLS_FETCH_LIMIT, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, callDecryptionCache, callListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
+  var CALLS_FETCH_LIMIT, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -27435,6 +27651,9 @@ ${this.customData.serverResponse}`;
       callsUnavailableLogKeys = /* @__PURE__ */ new Set();
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
+      CALLS_PIN_STORAGE_KEY = "callsPinnedGroups";
+      callsPinnedGroups = {};
+      callsPinHydrated = false;
       callDecryptionCache = /* @__PURE__ */ new Map();
       callListenerUnsubs = [];
       isSyncingCalls = false;
@@ -27718,6 +27937,42 @@ ${this.customData.serverResponse}`;
   function isSMSSyncing() {
     return isSyncing;
   }
+  async function hydrateSmsPinnedConversations() {
+    if (smsPinHydrated) return;
+    smsPinHydrated = true;
+    try {
+      if (!chrome?.storage?.local) return;
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get([SMS_PIN_STORAGE_KEY], resolve);
+      });
+      const map = result?.[SMS_PIN_STORAGE_KEY];
+      if (map && typeof map === "object") smsPinnedConversations = map;
+    } catch (_) {
+    }
+  }
+  async function persistSmsPinnedConversations() {
+    try {
+      if (!chrome?.storage?.local) return;
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [SMS_PIN_STORAGE_KEY]: smsPinnedConversations }, resolve);
+      });
+    } catch (_) {
+    }
+  }
+  function isSmsConversationPinned(key) {
+    return !!smsPinnedConversations[key];
+  }
+  async function toggleSmsConversationPin(key) {
+    if (!key) return false;
+    if (smsPinnedConversations[key]) {
+      delete smsPinnedConversations[key];
+      await persistSmsPinnedConversations();
+      return false;
+    }
+    smsPinnedConversations[key] = true;
+    await persistSmsPinnedConversations();
+    return true;
+  }
   async function decryptSMSCached(data, userId, docId) {
     const cached = decryptionCache.get(docId);
     if (cached && cached.timestamp === data.timestamp) {
@@ -27806,6 +28061,7 @@ ${this.customData.serverResponse}`;
       smsLogger.warn("No current user");
       return;
     }
+    await hydrateSmsPinnedConversations();
     stopSMSListener();
     const listHasContent = smsList && !smsList.querySelector(".loading-state") && smsList.children.length > 0 && !smsList.querySelector(".empty-state");
     if (smsList && !listHasContent) {
@@ -28590,6 +28846,12 @@ ${this.customData.serverResponse}`;
       const smsStarred = getSmsStarredMessages();
       conversations = conversations.filter((c) => c.messages.some((m) => smsStarred.has(m.id)));
     }
+    conversations.sort((a, b) => {
+      const aPinned = isSmsConversationPinned(a.normalizedPhone) ? 1 : 0;
+      const bPinned = isSmsConversationPinned(b.normalizedPhone) ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      return (b.lastMessage.timestamp || 0) - (a.lastMessage.timestamp || 0);
+    });
     if (conversations.length === 0) {
       const lang = getCurrentLanguage();
       const isStarredFilter = document.getElementById("smsShowStarred")?.checked;
@@ -28625,6 +28887,7 @@ ${this.customData.serverResponse}`;
         const lastLabel = getCurrentLanguage() === "ar" ? "\u0622\u062E\u0631 \u0631\u0633\u0627\u0644\u0629" : "Last SMS";
         const lastFallback = getCurrentLanguage() === "ar" ? "\u0628\u062F\u0648\u0646 \u0646\u0635" : "No text";
         const listHoverPreview = `${lastLabel}: ${lastTime}${lastBody ? ` - ${lastBody}` : ` - ${lastFallback}`}`;
+        const isPinned = isSmsConversationPinned(conv.normalizedPhone);
         return `
     <div class="list-item sms-conversation${selectionMode && selectedConversations.has(conv.normalizedPhone) ? " selected" : ""}" data-phone="${escapeHtml(conv.normalizedPhone)}" data-hover-phone="${escapeHtml(hoverPhone)}">
       ${selectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="conv-checkbox" ${selectedConversations.has(conv.normalizedPhone) ? "checked" : ""} tabindex="-1" /></div>` : ""}
@@ -28655,6 +28918,12 @@ ${this.customData.serverResponse}`;
         </button>
       </div>` : ""}
       <div class="list-item-meta">
+        <button class="sms-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${getCurrentLanguage() === "ar" ? isPinned ? "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A" : "\u062A\u062B\u0628\u064A\u062A" : isPinned ? "Unpin" : "Pin"}" aria-label="${getCurrentLanguage() === "ar" ? isPinned ? "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A" : "\u062A\u062B\u0628\u064A\u062A" : isPinned ? "Unpin" : "Pin"}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+            <path d="M12 13v8"></path>
+          </svg>
+        </button>
         <span class="list-item-time">${formatTime(
           conv.lastMessage.timestamp
         )}</span>
@@ -28715,7 +28984,21 @@ ${this.customData.serverResponse}`;
         longPressTimer = null;
       }
     });
-    smsList2?.addEventListener("click", (e) => {
+    smsList2?.addEventListener("click", async (e) => {
+      const pinBtn = e.target.closest(".sms-pin-btn");
+      if (pinBtn) {
+        e.stopPropagation();
+        const conv = pinBtn.closest(".sms-conversation");
+        const key = conv?.dataset?.phone;
+        const name5 = conv?.querySelector(".list-item-title")?.textContent?.trim() || key || "Conversation";
+        const pinned = await toggleSmsConversationPin(key);
+        showToast(
+          getCurrentLanguage() === "ar" ? pinned ? `\u062A\u0645 \u062A\u062B\u0628\u064A\u062A ${name5}` : `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062B\u0628\u064A\u062A ${name5}` : pinned ? `${name5} pinned` : `${name5} unpinned`,
+          "success"
+        );
+        renderSMS(allSMSMessages);
+        return;
+      }
       const callBtn = e.target.closest(".sms-hover-call");
       if (callBtn) {
         e.stopPropagation();
@@ -29873,7 +30156,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnavailableLogKeys, smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, smsUnsubscribeFunctions, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29902,6 +30185,9 @@ ${this.customData.serverResponse}`;
       isSyncing = false;
       selectionMode = false;
       selectedConversations = /* @__PURE__ */ new Set();
+      SMS_PIN_STORAGE_KEY = "smsPinnedConversations";
+      smsPinnedConversations = {};
+      smsPinHydrated = false;
       messageSelectionMode = false;
       selectedMessages = /* @__PURE__ */ new Set();
       _msgClickHandler = null;
@@ -30132,6 +30418,95 @@ ${this.customData.serverResponse}`;
       document.dispatchEvent(new CustomEvent("notificationsDataUpdated"));
     }
   }
+  function tr(en2, ar) {
+    return getCurrentLanguage() === "ar" ? ar : en2;
+  }
+  async function hydrateNotifSnoozedGroups() {
+    if (notifSnoozeHydrated) return;
+    notifSnoozeHydrated = true;
+    try {
+      if (!chrome?.storage?.local) return;
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get([NOTIF_SNOOZE_STORAGE_KEY], resolve);
+      });
+      const map = result?.[NOTIF_SNOOZE_STORAGE_KEY];
+      if (map && typeof map === "object") notifSnoozedGroups = map;
+    } catch (_) {
+    }
+  }
+  async function persistNotifSnoozedGroups() {
+    try {
+      if (!chrome?.storage?.local) return;
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [NOTIF_SNOOZE_STORAGE_KEY]: notifSnoozedGroups }, resolve);
+      });
+    } catch (_) {
+    }
+  }
+  async function hydrateNotifPinnedGroups() {
+    if (notifPinHydrated) return;
+    notifPinHydrated = true;
+    try {
+      if (!chrome?.storage?.local) return;
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get([NOTIF_PIN_STORAGE_KEY], resolve);
+      });
+      const map = result?.[NOTIF_PIN_STORAGE_KEY];
+      if (map && typeof map === "object") notifPinnedGroups = map;
+    } catch (_) {
+    }
+  }
+  async function persistNotifPinnedGroups() {
+    try {
+      if (!chrome?.storage?.local) return;
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [NOTIF_PIN_STORAGE_KEY]: notifPinnedGroups }, resolve);
+      });
+    } catch (_) {
+    }
+  }
+  function isNotifGroupPinned(appKey) {
+    if (!appKey) return false;
+    return !!notifPinnedGroups[appKey];
+  }
+  async function toggleNotifGroupPin(appKey) {
+    if (!appKey) return false;
+    if (notifPinnedGroups[appKey]) {
+      delete notifPinnedGroups[appKey];
+      await persistNotifPinnedGroups();
+      return false;
+    }
+    notifPinnedGroups[appKey] = true;
+    await persistNotifPinnedGroups();
+    return true;
+  }
+  function isNotifGroupSnoozed(appKey) {
+    if (!appKey) return false;
+    const raw = notifSnoozedGroups[appKey];
+    if (raw === "permanent") return true;
+    const until = Number(raw || 0);
+    if (!until) return false;
+    if (until <= Date.now()) {
+      delete notifSnoozedGroups[appKey];
+      persistNotifSnoozedGroups();
+      return false;
+    }
+    return true;
+  }
+  async function snoozeNotifGroup(appKey, durationMs) {
+    if (!appKey) return;
+    if (durationMs === "permanent") {
+      notifSnoozedGroups[appKey] = "permanent";
+    } else {
+      notifSnoozedGroups[appKey] = Date.now() + Number(durationMs || 0);
+    }
+    await persistNotifSnoozedGroups();
+  }
+  async function unsnoozeNotifGroup(appKey) {
+    if (!appKey) return;
+    delete notifSnoozedGroups[appKey];
+    await persistNotifSnoozedGroups();
+  }
   function _looksLikePackageId(s) {
     return typeof s === "string" && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,}$/i.test(s);
   }
@@ -30192,6 +30567,8 @@ ${this.customData.serverResponse}`;
   async function loadNotifications() {
     const user = currentUser;
     if (!user) return;
+    await hydrateNotifSnoozedGroups();
+    await hydrateNotifPinnedGroups();
     suppressNotifSyncIndicator = false;
     notifHydrated = false;
     isSyncingNotif = true;
@@ -30653,6 +31030,13 @@ ${this.customData.serverResponse}`;
         reRenderNotifications();
       });
     }
+    const notifMutedCb = document.getElementById("notifShowMuted");
+    if (notifMutedCb) {
+      notifMutedCb.checked = false;
+      notifMutedCb.addEventListener("change", () => {
+        reRenderNotifications();
+      });
+    }
     document.getElementById("notifBackBtn")?.addEventListener("click", () => {
       hideNotifDetail();
     });
@@ -30665,6 +31049,10 @@ ${this.customData.serverResponse}`;
     const detailView = document.getElementById("notifDetailView");
     const detailList = document.getElementById("notifDetailList");
     const detailTitle = document.getElementById("notifDetailTitle");
+    const detailSearchInput = document.getElementById("notifDetailSearchInput");
+    const detailSnoozeSelect = document.getElementById("notifDetailSnoozeSelect");
+    const detailSnoozeBtn = document.getElementById("notifDetailSnoozeBtn");
+    const detailUnsnoozeBtn = document.getElementById("notifDetailUnsnoozeBtn");
     if (!mainView || !detailView || !detailList) return;
     detailTitle.textContent = appName;
     mainView.style.display = "none";
@@ -30679,53 +31067,113 @@ ${this.customData.serverResponse}`;
         markNotificationAsRead(n.deviceId, n.id);
       });
     }
-    const dedupMap = /* @__PURE__ */ new Map();
+    const DEDUP_WINDOW_MS = 15 * 60 * 1e3;
+    const byContent = /* @__PURE__ */ new Map();
     notifications.forEach((n) => {
-      const ts = n.receivedAt || n.timestamp || 0;
-      const dedupeKey = `${n.title || ""}|${n.text || n.body || ""}|${Math.round(ts / 1e3)}`;
-      if (!dedupMap.has(dedupeKey) || !dedupMap.get(dedupeKey).deviceId) {
-        dedupMap.set(dedupeKey, n);
+      const ts = Number(n.receivedAt || n.timestamp || 0);
+      const contentKey = `${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
+      const current = byContent.get(contentKey);
+      if (!current) {
+        byContent.set(contentKey, n);
+        return;
+      }
+      const currentTs = Number(current.receivedAt || current.timestamp || 0);
+      const sameBurst = Math.abs(ts - currentTs) <= DEDUP_WINDOW_MS;
+      if (sameBurst) {
+        if (ts >= currentTs) byContent.set(contentKey, n);
+        return;
+      }
+      const bucketKey = `${contentKey}|${Math.floor(ts / DEDUP_WINDOW_MS)}`;
+      const bucketCurrent = byContent.get(bucketKey);
+      if (!bucketCurrent || ts >= Number(bucketCurrent.receivedAt || bucketCurrent.timestamp || 0)) {
+        byContent.set(bucketKey, n);
       }
     });
-    const dedupedNotifications = Array.from(dedupMap.values());
+    const dedupedNotifications = Array.from(byContent.values());
     const displayNotifications = dedupedNotifications.map((n) => ({ ...n, read: true }));
-    detailList.innerHTML = displayNotifications.map((notif) => `
-    <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
-         data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
-      <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
-      <div class="notif-bubble-body">${linkifyText3(notif.text || notif.body || "")}</div>
-      <div class="notif-bubble-footer">
-        ${resolveDeviceName2(notif) ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(resolveDeviceName2(notif))}</span>` : `<span></span>`}
-        <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+    const renderDetailRows = () => {
+      const q2 = (detailSearchInput?.value || "").trim().toLowerCase();
+      const filteredRows = q2 ? displayNotifications.filter(
+        (n) => (n.title || "").toLowerCase().includes(q2) || (n.text || n.body || "").toLowerCase().includes(q2) || (n.appName || "").toLowerCase().includes(q2)
+      ) : displayNotifications;
+      if (filteredRows.length === 0) {
+        detailList.innerHTML = `
+        <div class="empty-state">
+          <p>${tr("No matching notifications", "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u0637\u0627\u0628\u0642\u0629")}</p>
+        </div>
+      `;
+        return;
+      }
+      detailList.innerHTML = filteredRows.map((notif) => `
+      <div class="notif-detail-bubble ${notif.read ? "" : "unread"}"
+           data-notif-id="${notif.id}" data-device-id="${notif.deviceId}">
+        <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">\u25CF</span>'}</div>
+        <div class="notif-bubble-body">${linkifyText3(notif.text || notif.body || "")}</div>
+        <div class="notif-bubble-footer">
+          ${resolveDeviceName2(notif) ? `<span class="notification-device">${escapeHtml(resolveDeviceName2(notif))}</span>` : `<span></span>`}
+          <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `).join("");
+      bindDetailRowActions();
+    };
     const isWhatsApp = appKey && (appKey.includes("whatsapp") || appKey.includes("WhatsApp"));
-    detailList.querySelectorAll(".notif-detail-bubble[data-notif-id]").forEach((item) => {
-      item.addEventListener("click", async () => {
-        const notifId = item.dataset.notifId;
-        const deviceId = item.dataset.deviceId;
-        if (notifId && deviceId) {
-          await markNotificationAsRead(deviceId, notifId);
-          item.classList.remove("unread");
-          item.querySelector(".unread-dot")?.remove();
-        }
-        if (isWhatsApp) {
-          const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
-          const cleanTitle = title.replace(/●/g, "").trim();
-          const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
-          if (phoneMatch) {
-            let phone = cleanTitle.replace(/[^\d+]/g, "");
-            if (phone.startsWith("+")) phone = phone.slice(1);
-            else if (phone.startsWith("00")) phone = phone.slice(2);
-            else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
-            window.open(`https://wa.me/${phone}`, "_blank");
-          } else {
-            window.open("https://web.whatsapp.com/", "_blank");
+    const bindDetailRowActions = () => {
+      detailList.querySelectorAll(".notif-detail-bubble[data-notif-id]").forEach((item) => {
+        item.addEventListener("click", async () => {
+          const notifId = item.dataset.notifId;
+          const deviceId = item.dataset.deviceId;
+          if (notifId && deviceId) {
+            await markNotificationAsRead(deviceId, notifId);
+            item.classList.remove("unread");
+            item.querySelector(".unread-dot")?.remove();
           }
-        }
+          if (isWhatsApp) {
+            const title = item.querySelector(".notif-bubble-title")?.textContent?.trim() || "";
+            const cleanTitle = title.replace(/●/g, "").trim();
+            const phoneMatch = cleanTitle.match(/^\+?[\d\s\-().]{7,20}$/);
+            if (phoneMatch) {
+              let phone = cleanTitle.replace(/[^\d+]/g, "");
+              if (phone.startsWith("+")) phone = phone.slice(1);
+              else if (phone.startsWith("00")) phone = phone.slice(2);
+              else if (phone.startsWith("0")) phone = "20" + phone.slice(1);
+              window.open(`https://wa.me/${phone}`, "_blank");
+            } else {
+              window.open("https://web.whatsapp.com/", "_blank");
+            }
+          }
+        });
       });
-    });
+    };
+    if (detailSearchInput) {
+      detailSearchInput.value = "";
+      detailSearchInput.oninput = () => renderDetailRows();
+    }
+    const refreshSnoozeButtons = () => {
+      const snoozed = isNotifGroupSnoozed(appKey);
+      if (detailSnoozeBtn) detailSnoozeBtn.style.display = snoozed ? "none" : "inline-flex";
+      if (detailUnsnoozeBtn) detailUnsnoozeBtn.style.display = snoozed ? "inline-flex" : "none";
+    };
+    if (detailSnoozeBtn) {
+      detailSnoozeBtn.onclick = async () => {
+        const selected = detailSnoozeSelect?.value || "86400000";
+        const durationMs = selected === "permanent" ? "permanent" : Number(selected);
+        await snoozeNotifGroup(appKey, durationMs);
+        showToast(tr(`${appName} notifications muted`, `\u062A\u0645 \u0643\u062A\u0645 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${appName}`), "success");
+        refreshSnoozeButtons();
+        hideNotifDetail();
+      };
+    }
+    if (detailUnsnoozeBtn) {
+      detailUnsnoozeBtn.onclick = async () => {
+        await unsnoozeNotifGroup(appKey);
+        showToast(tr(`${appName} notifications unmuted`, `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0643\u062A\u0645 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${appName}`), "success");
+        refreshSnoozeButtons();
+        reRenderNotifications();
+      };
+    }
+    refreshSnoozeButtons();
+    renderDetailRows();
   }
   function hideNotifDetail() {
     const mainView = document.getElementById("notifMainView");
@@ -30814,6 +31262,7 @@ ${this.customData.serverResponse}`;
             notifListHeight: document.getElementById("notificationsList")?.clientHeight,
             notifListScrollHeight: document.getElementById("notificationsList")?.scrollHeight,
             showUnread: document.getElementById("notifShowUnread")?.checked,
+            showMuted: document.getElementById("notifShowMuted")?.checked,
             searchVal: document.getElementById("notifSearch")?.value || "",
             selectedDeviceTab: document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device
           };
@@ -30868,15 +31317,32 @@ ${this.customData.serverResponse}`;
     if (document.getElementById("notifShowUnread")?.checked) {
       groupEntries = groupEntries.filter(([, group]) => group.items.some((n) => !n.read));
     }
+    const showMutedOnly = document.getElementById("notifShowMuted")?.checked;
+    if (showMutedOnly) {
+      groupEntries = groupEntries.filter(([key]) => isNotifGroupSnoozed(key));
+    } else {
+      groupEntries = groupEntries.filter(([key]) => !isNotifGroupSnoozed(key));
+    }
+    groupEntries.sort((a, b) => {
+      const aPinned = isNotifGroupPinned(a[0]) ? 1 : 0;
+      const bPinned = isNotifGroupPinned(b[0]) ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      const aTs = Number(a[1]?.items?.[0]?.receivedAt || a[1]?.items?.[0]?.timestamp || 0);
+      const bTs = Number(b[1]?.items?.[0]?.receivedAt || b[1]?.items?.[0]?.timestamp || 0);
+      return bTs - aTs;
+    });
     if (groupEntries.length === 0) {
+      const hasUnreadFilter = document.getElementById("notifShowUnread")?.checked;
+      const emptyTitle = hasUnreadFilter ? tr("No unread notifications", "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629") : tr("No notifications match current filters", "\u0644\u0627 \u062A\u0648\u062C\u062F \u0625\u0634\u0639\u0627\u0631\u0627\u062A \u0645\u0637\u0627\u0628\u0642\u0629 \u0644\u0644\u0641\u0644\u0627\u062A\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629");
+      const emptySub = hasUnreadFilter ? tr("All notifications have been read", "\u062A\u0645\u062A \u0642\u0631\u0627\u0621\u0629 \u062C\u0645\u064A\u0639 \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062A") : tr("Try changing search or filter options", "\u062C\u0631\u0651\u0628 \u062A\u063A\u064A\u064A\u0631 \u062E\u064A\u0627\u0631\u0627\u062A \u0627\u0644\u0628\u062D\u062B \u0623\u0648 \u0627\u0644\u0641\u0644\u062A\u0631\u0629");
       notificationsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 01-3.46 0"/>
         </svg>
-        <p>No unread notifications</p>
-        <span>All notifications have been read</span>
+        <p>${emptyTitle}</p>
+        <span>${emptySub}</span>
       </div>
     `;
       updateTabBadges();
@@ -30885,6 +31351,8 @@ ${this.customData.serverResponse}`;
     }
     notificationsList.innerHTML = groupEntries.map(([key, group]) => {
       const latest = group.items[0];
+      const isSnoozed = isNotifGroupSnoozed(key);
+      const isPinned = isNotifGroupPinned(key);
       const unreadCount = group.items.filter((n) => !n.read).length;
       const hasUnread = unreadCount > 0;
       const isSelected = notifSelectionMode && selectedNotifApps.has(key);
@@ -30898,7 +31366,7 @@ ${this.customData.serverResponse}`;
       const notifHoverPreview = `${notifLabel}: ${latestTime}${latestCombined ? ` - ${latestCombined}` : ` - ${notifFallback}`}`;
       const groupDeviceName = resolveDeviceName2(latest) || group.items.map(resolveDeviceName2).find(Boolean) || null;
       return `
-      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}"
+      <div class="list-item notification-item ${hasUnread ? "unread" : ""}${isSelected ? " selected" : ""}${isSnoozed ? " snoozed" : ""}"
            data-app-key="${escapeHtml(key)}"
            data-app-name="${escapeHtml(group.appName)}">
         ${notifSelectionMode ? `<div class="conv-checkbox-wrap"><input type="checkbox" class="notif-checkbox" ${isSelected ? "checked" : ""} tabindex="-1" /></div>` : ""}
@@ -30908,23 +31376,66 @@ ${this.customData.serverResponse}`;
         <div class="list-item-content">
           <div class="list-item-title">
             ${escapeHtml(group.appName)}
+            ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "\u0645\u0643\u062A\u0648\u0645")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
           <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
-            ${unreadCount > 0 ? `${unreadCount} unread` : ""}
-            ${groupDeviceName ? `<span class="notification-device">\u{1F4F1} ${escapeHtml(groupDeviceName)}</span>` : ""}
+            ${groupDeviceName ? `<span class="notification-device">${escapeHtml(groupDeviceName)}</span>` : ""}
+            ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0643\u062A\u0645")}</button>` : ""}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <div class="notification-right-meta">
+          <button class="notif-pin-btn${isPinned ? " pinned" : ""}" type="button" title="${isPinned ? tr("Unpin", "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A") : tr("Pin", "\u062A\u062B\u0628\u064A\u062A")}" aria-label="${isPinned ? tr("Unpin", "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062A\u062B\u0628\u064A\u062A") : tr("Pin", "\u062A\u062B\u0628\u064A\u062A")}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"></path>
+              <path d="M12 13v8"></path>
+            </svg>
+          </button>
           <span class="list-item-time">${formatTime(latest.receivedAt || latest.timestamp)}</span>
-          ${unreadCount > 1 ? `<span class="tab-badge" style="position:static;display:inline-block;">${unreadCount}</span>` : ""}
+          <div class="notification-badge-row">
+            ${unreadCount > 1 ? `<span class="tab-badge">${unreadCount}</span>` : ""}
+            ${isSnoozed ? `<span class="notification-muted-icon" aria-label="${tr("Muted", "\u0645\u0643\u062A\u0648\u0645")}" title="${tr("Muted", "\u0645\u0643\u062A\u0648\u0645")}" >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 01-3.46 0"></path>
+                <line x1="4" y1="4" x2="20" y2="20"></line>
+              </svg>
+            </span>` : ""}
+          </div>
         </div>
       </div>
     `;
     }).join("");
     wireHoverPreview(notificationsList);
     const appKeys = groupEntries.map(([key]) => key);
+    notificationsList.querySelectorAll(".notif-unsnooze-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const item = e.target.closest(".notification-item");
+        const key = item?.dataset?.appKey;
+        const appName = item?.dataset?.appName || key || "App";
+        if (!key) return;
+        await unsnoozeNotifGroup(key);
+        showToast(tr(`${appName} notifications unmuted`, `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0643\u062A\u0645 \u0625\u0634\u0639\u0627\u0631\u0627\u062A ${appName}`), "success");
+        reRenderNotifications();
+      });
+    });
+    notificationsList.querySelectorAll(".notif-pin-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const item = e.target.closest(".notification-item");
+        const key = item?.dataset?.appKey;
+        const appName = item?.dataset?.appName || key || "App";
+        if (!key) return;
+        const pinned = await toggleNotifGroupPin(key);
+        showToast(
+          pinned ? tr(`${appName} pinned`, `\u062A\u0645 \u062A\u062B\u0628\u064A\u062A ${appName}`) : tr(`${appName} unpinned`, `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062B\u0628\u064A\u062A ${appName}`),
+          "success"
+        );
+        reRenderNotifications();
+      });
+    });
     notificationsList.querySelectorAll(".notification-item").forEach((item) => {
       item.addEventListener("click", () => {
         const key = item.dataset.appKey;
@@ -31223,6 +31734,8 @@ ${this.customData.serverResponse}`;
   }
   function exportNotificationsToCSV() {
     const activeDevice = document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
+    const isAr = getCurrentLanguage() === "ar";
+    const locale = isAr ? "ar-EG" : "en-GB";
     const knownDeviceIds = /* @__PURE__ */ new Set([
       ...devices.map((d) => d.id),
       ...(sharedWithMeDevices || []).map((s) => s.deviceId)
@@ -31235,11 +31748,11 @@ ${this.customData.serverResponse}`;
       alert("No notifications to export.");
       return;
     }
-    const header = ["Date", "Time", "App", "Title", "Body", "Device"];
+    const header = isAr ? ["\u0627\u0644\u062A\u0627\u0631\u064A\u062E", "\u0627\u0644\u0648\u0642\u062A", "\u0627\u0644\u062A\u0637\u0628\u064A\u0642", "\u0627\u0644\u0639\u0646\u0648\u0627\u0646", "\u0627\u0644\u0645\u062D\u062A\u0648\u0649", "\u0627\u0644\u062C\u0647\u0627\u0632"] : ["Date", "Time", "App", "Title", "Body", "Device"];
     const rows = notifications.map((n) => {
       const d = new Date(n.receivedAt || n.timestamp || 0);
-      const date = d.toLocaleDateString("en-GB");
-      const time = d.toLocaleTimeString();
+      const date = d.toLocaleDateString(locale);
+      const time = d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
       const app2 = prettyAppName(n.appName, n.packageName);
       const title = n.title || "";
       const body = n.text || n.body || "";
@@ -31291,7 +31804,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -31317,6 +31830,12 @@ ${this.customData.serverResponse}`;
       notifScrollHandlerAttached = false;
       notifSelectionMode = false;
       selectedNotifApps = /* @__PURE__ */ new Set();
+      NOTIF_SNOOZE_STORAGE_KEY = "notifSnoozedGroups";
+      notifSnoozedGroups = {};
+      notifSnoozeHydrated = false;
+      NOTIF_PIN_STORAGE_KEY = "notifPinnedGroups";
+      notifPinnedGroups = {};
+      notifPinHydrated = false;
       isAutoFilling = false;
       _searchWired = false;
       _renderTimer = null;
@@ -33486,38 +34005,39 @@ ${this.customData.serverResponse}`;
   }
   function showEditDeviceNameModal(device) {
     const currentName = getFriendlyDeviceName(device);
+    const unknownText = t3("device_unknown");
     const modal = document.createElement("div");
     modal.className = "modal-overlay";
     modal.id = "editDeviceModal";
     modal.innerHTML = `
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Edit Device Name</h3>
+        <h3>${t3("device_edit_modal_title")}</h3>
         <button class="modal-close-btn" id="closeEditModal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="device-info-preview">
           <div class="info-row">
-            <span class="info-label">Device ID:</span>
+            <span class="info-label">${t3("device_id_label")}:</span>
             <span class="info-value">${escapeHtml(device.id)}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Model:</span>
-            <span class="info-value">${escapeHtml(device.model || "Unknown")}</span>
+            <span class="info-label">${t3("device_model_label")}:</span>
+            <span class="info-value">${escapeHtml(device.model || unknownText)}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Platform:</span>
-            <span class="info-value">${escapeHtml(device.platform || "Unknown")}</span>
+            <span class="info-label">${t3("device_platform_label")}:</span>
+            <span class="info-value">${escapeHtml(device.platform || unknownText)}</span>
           </div>
         </div>
         <div class="form-group">
-          <label for="deviceNickname">Nickname</label>
-          <input type="text" id="deviceNickname" value="${escapeHtml(currentName)}" placeholder="Enter device nickname..." />
+          <label for="deviceNickname">${t3("device_nickname_label")}</label>
+          <input type="text" id="deviceNickname" value="${escapeHtml(currentName)}" placeholder="${t3("device_nickname_placeholder")}" />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelEditDevice">Cancel</button>
-        <button class="btn btn-primary" id="saveDeviceName">Save</button>
+        <button class="btn btn-secondary" id="cancelEditDevice">${t3("sms_btn_cancel")}</button>
+        <button class="btn btn-primary" id="saveDeviceName">${t3("settings_save")}</button>
       </div>
     </div>
   `;
@@ -34211,6 +34731,22 @@ ${this.customData.serverResponse}`;
   var hasLoadedCalls = false;
   var hasLoadedNotifications = false;
   var lazyTabLoadsWired = false;
+  async function drainPendingChatPushes() {
+    const key = "pendingChatPushes";
+    try {
+      const result = await chrome.storage.local.get([key]);
+      const pending = Array.isArray(result[key]) ? result[key] : [];
+      if (pending.length === 0) return;
+      const ordered = pending.filter((m) => m?.id).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      for (const msg of ordered) {
+        await injectPushedChatMessage(msg);
+      }
+      await refreshChatNow().catch(() => {
+      });
+      await chrome.storage.local.set({ [key]: [] });
+    } catch (_) {
+    }
+  }
   function loadCallsIfNeeded(force = false) {
     if (!force && hasLoadedCalls) return;
     hasLoadedCalls = true;
@@ -34300,6 +34836,8 @@ ${this.customData.serverResponse}`;
     loadDevicesAndContacts();
     loadUserSettings();
     subscribeToChat();
+    drainPendingChatPushes().catch(() => {
+    });
     const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
     if (activeTab === "calls") loadCallsIfNeeded(true);
     if (activeTab === "notifications") loadNotificationsIfNeeded(true);
@@ -34339,6 +34877,14 @@ ${this.customData.serverResponse}`;
         sendResponse({ received: true });
         return true;
       }
+      if (message.type === "newChat") {
+        injectPushedChatMessage(message.data).catch(() => {
+        });
+        refreshChatNow().catch(() => {
+        });
+        sendResponse({ received: true });
+        return true;
+      }
       return false;
     });
   }
@@ -34358,6 +34904,8 @@ ${this.customData.serverResponse}`;
       setCurrentLanguage(next);
       updateLabel(next);
       applyTranslations();
+      renderDevices();
+      updateDeviceSelects();
     });
   }
   function init() {
