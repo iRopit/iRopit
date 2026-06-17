@@ -95,6 +95,17 @@ function getSmsCount(deviceId) {
 function getCallsCount(deviceId) {
   const calls = state.allCallsData || []
 
+  // Avoid showing a non-zero badge before any calls are available, but do not
+  // block counts when cached/shared calls are already present in memory.
+  // This keeps badge/device counts responsive while sync is still running.
+  if (!state.callsDataConfirmed && calls.length === 0) return 0
+
+  const sharedCallsDeviceIds = new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
+      .map((s) => s.deviceId)
+  )
+
   const normalizePhone = (phone) => {
     if (!phone || !phone.trim()) return ""
     let normalized = phone.replace(/[^\d+]/g, "").trim()
@@ -117,7 +128,12 @@ function getCallsCount(deviceId) {
   // Count from the merged render source so the badge matches what's visible,
   // including shared devices that may not exist in state.devices.
   if (deviceId === "all") {
-    return calls.filter(c => isUnreadMissed(c) && (!c.deviceId || state.getDeviceSyncPref(c.deviceId, "calls"))).length
+    return calls.filter((c) => {
+      if (!isUnreadMissed(c)) return false
+      if (!c.deviceId) return true
+      if (sharedCallsDeviceIds.has(c.deviceId)) return true
+      return state.getDeviceSyncPref(c.deviceId, "calls")
+    }).length
   }
 
   return calls.filter(c => c.deviceId === deviceId && isUnreadMissed(c)).length

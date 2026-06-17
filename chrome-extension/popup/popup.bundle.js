@@ -24999,6 +24999,10 @@ ${this.customData.serverResponse}`;
   }
   function getCallsCount(deviceId) {
     const calls = allCallsData || [];
+    if (!callsDataConfirmed && calls.length === 0) return 0;
+    const sharedCallsDeviceIds = new Set(
+      (sharedWithMeDevices || []).filter((s) => s?.deviceId && s?.permissions?.calls !== false).map((s) => s.deviceId)
+    );
     const normalizePhone = (phone) => {
       if (!phone || !phone.trim()) return "";
       let normalized = phone.replace(/[^\d+]/g, "").trim();
@@ -25016,7 +25020,12 @@ ${this.customData.serverResponse}`;
     };
     const isUnreadMissed = (c) => c.type === "missed" && !c.viewed && isVisibleCall(c);
     if (deviceId === "all") {
-      return calls.filter((c) => isUnreadMissed(c) && (!c.deviceId || getDeviceSyncPref(c.deviceId, "calls"))).length;
+      return calls.filter((c) => {
+        if (!isUnreadMissed(c)) return false;
+        if (!c.deviceId) return true;
+        if (sharedCallsDeviceIds.has(c.deviceId)) return true;
+        return getDeviceSyncPref(c.deviceId, "calls");
+      }).length;
     }
     return calls.filter((c) => c.deviceId === deviceId && isUnreadMissed(c)).length;
   }
@@ -26592,6 +26601,27 @@ ${this.customData.serverResponse}`;
     }
     return normalized;
   }
+  function getBaseCallGroupKey(call) {
+    const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
+    const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+    const normalizedPhone = normalizePhoneNumber(safePhone);
+    return normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+  }
+  function buildScopedCallGroupKey(call, selectedTab) {
+    const baseKey = getBaseCallGroupKey(call);
+    if (selectedTab === "all") {
+      return `${baseKey}||${call.deviceId || "_no_device"}`;
+    }
+    return baseKey;
+  }
+  function parseScopedCallGroupKey(groupKey) {
+    const idx = groupKey.lastIndexOf("||");
+    if (idx <= 0) return { baseKey: groupKey, scopedDeviceId: null };
+    return {
+      baseKey: groupKey.slice(0, idx),
+      scopedDeviceId: groupKey.slice(idx + 2)
+    };
+  }
   function isPhoneNumberLike(value) {
     if (!value || !value.trim) return false;
     const digits = value.replace(/[\s\-().]/g, "");
@@ -26770,172 +26800,177 @@ ${this.customData.serverResponse}`;
     callListenerUnsubs.forEach((unsub) => unsub());
     callListenerUnsubs = [];
     callDecryptionCache.clear();
-    const devicesQuery = query(
-      collection(db, "devices"),
-      where("userId", "==", user.uid)
-    );
-    const devicesSnapshot = await getDocs(devicesQuery);
-    const devicesList2 = [];
-    devicesSnapshot.forEach((doc2) => {
-      const data = doc2.data();
-      if (data.platform === "chrome-extension" || data.platform === "chrome" || data.id && data.id.startsWith("ext_")) {
+    try {
+      const devicesQuery = query(
+        collection(db, "devices"),
+        where("userId", "==", user.uid)
+      );
+      const devicesSnapshot = await getDocs(devicesQuery);
+      const devicesList2 = [];
+      devicesSnapshot.forEach((doc2) => {
+        const data = doc2.data();
+        if (data.platform === "chrome-extension" || data.platform === "chrome" || data.id && data.id.startsWith("ext_")) {
+          return;
+        }
+        devicesList2.push({
+          id: data.id || doc2.id,
+          // Fall back to Firestore document ID if data.id field is absent
+          name: getFriendlyDeviceName(data)
+        });
+      });
+      if (devicesList2.length === 0) {
+        console.warn("[Calls] No mobile devices found - showing empty state");
+        renderCalls([]);
         return;
       }
-      devicesList2.push({
-        id: data.id || doc2.id,
-        // Fall back to Firestore document ID if data.id field is absent
-        name: getFriendlyDeviceName(data)
+      const loadPromises = devicesList2.map(async (device) => {
+        const cachedNewestTs = cachedNewestTimestamps[device.id];
+        const cachedDeviceCount = cachedCallCounts[device.id] || 0;
+        const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
+        let q2;
+        if (isDelta) {
+          q2 = query(
+            collection(db, "users", user.uid, "devices", device.id, "calls"),
+            where("timestamp", ">", cachedNewestTs),
+            orderBy("timestamp", "desc"),
+            limit(CALLS_FETCH_LIMIT)
+          );
+        } else {
+          q2 = query(
+            collection(db, "users", user.uid, "devices", device.id, "calls"),
+            orderBy("timestamp", "desc"),
+            limit(CALLS_FETCH_LIMIT)
+          );
+        }
+        try {
+          let snapshot;
+          if (isDelta) {
+            try {
+              snapshot = await getDocsFromServer(q2);
+            } catch (serverErr) {
+              if (!isUnavailableError(serverErr)) throw serverErr;
+              logCallsUnavailableOnce(
+                `delta:${device.id}`,
+                `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`
+              );
+              snapshot = await getDocs(q2);
+            }
+          } else {
+            try {
+              snapshot = await getDocsFromServer(q2);
+            } catch (serverErr) {
+              if (!isUnavailableError(serverErr)) throw serverErr;
+              logCallsUnavailableOnce(
+                `full:${device.id}`,
+                `[Calls] Server unavailable for full ${device.id}, using local cache fallback`
+              );
+              snapshot = await getDocs(q2);
+            }
+          }
+          console.log(
+            `[Calls] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} calls from device ${device.id}`
+          );
+          const calls = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptCallCached(data, user.uid, docSnap.id);
+              return processCallDoc(data, docSnap.id, device.id, device.name);
+            })
+          );
+          if (isDelta) {
+            const cachedCalls = allCallsByDevice[device.id] || [];
+            const cachedIds = new Set(cachedCalls.map((c) => c.id));
+            const brandNew = calls.filter((c) => !cachedIds.has(c.id));
+            console.log(
+              `[Calls] \u{1F504} Delta: ${brandNew.length} new calls since cache for device ${device.id}`
+            );
+            const merged = [...brandNew, ...cachedCalls];
+            updateCallsList(device.id, merged);
+          } else {
+            updateCallsList(device.id, calls);
+          }
+        } catch (error) {
+          if (error?.code !== "permission-denied") {
+            if (isUnavailableError(error)) {
+              logCallsUnavailableOnce(
+                `after-fallback:${device.id}`,
+                `[Calls] Device ${device.id} server unavailable after fallback`,
+                error?.message || error
+              );
+              return;
+            }
+            console.error(`\u274C Calls load error for device ${device.id}:`, error);
+          }
+        }
       });
-    });
-    if (devicesList2.length === 0) {
-      console.warn("[Calls] No mobile devices found - showing empty state");
+      await Promise.all(loadPromises);
+      console.log(
+        "[Calls] \u2705 Initial load complete, starting realtime listeners..."
+      );
+      for (const device of devicesList2) {
+        const q2 = query(
+          collection(db, "users", user.uid, "devices", device.id, "calls"),
+          orderBy("timestamp", "desc"),
+          limit(5)
+        );
+        let isInitialSnapshot = true;
+        const unsub = onSnapshot(
+          q2,
+          async (snapshot) => {
+            if (isInitialSnapshot) {
+              isInitialSnapshot = false;
+              return;
+            }
+            for (const change of snapshot.docChanges()) {
+              if (change.type === "added" || change.type === "modified") {
+                let data = change.doc.data();
+                data = await decryptCallCached(data, user.uid, change.doc.id);
+                const call = processCallDoc(
+                  data,
+                  change.doc.id,
+                  device.id,
+                  device.name
+                );
+                const currentCalls = allCallsByDevice[device.id] || [];
+                const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
+                if (existingIdx >= 0) {
+                  const existingCall = currentCalls[existingIdx];
+                  const preserved = existingCall.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
+                  currentCalls[existingIdx] = preserved;
+                } else {
+                  currentCalls.unshift(call);
+                }
+                updateCallsList(device.id, currentCalls);
+              }
+            }
+          },
+          (error) => {
+            if (error?.code !== "permission-denied") {
+              console.error(
+                `\u274C Calls realtime error for device ${device.id}:`,
+                error
+              );
+            }
+          }
+        );
+        callListenerUnsubs.push(unsub);
+        addUnsubscriber(unsub);
+      }
+    } catch (error) {
+      if (error?.code !== "permission-denied") {
+        console.error("[Calls] loadCalls top-level error:", error);
+      }
+    } finally {
       isSyncingCalls = false;
+      if (!callsDataConfirmed && (allCallsData || []).length > 0) {
+        setCallsDataConfirmed(true);
+        updateTabBadges();
+      }
       updateCallsCountIndicator();
-      renderCalls([]);
       try {
         window.dispatchEvent(new CustomEvent("iropit:calls-sync-done"));
       } catch (_) {
       }
-      return;
-    }
-    const loadPromises = devicesList2.map(async (device) => {
-      const cachedNewestTs = cachedNewestTimestamps[device.id];
-      const cachedDeviceCount = cachedCallCounts[device.id] || 0;
-      const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
-      let q2;
-      if (isDelta) {
-        q2 = query(
-          collection(db, "users", user.uid, "devices", device.id, "calls"),
-          where("timestamp", ">", cachedNewestTs),
-          orderBy("timestamp", "desc"),
-          limit(CALLS_FETCH_LIMIT)
-        );
-      } else {
-        q2 = query(
-          collection(db, "users", user.uid, "devices", device.id, "calls"),
-          orderBy("timestamp", "desc"),
-          limit(CALLS_FETCH_LIMIT)
-        );
-      }
-      try {
-        let snapshot;
-        if (isDelta) {
-          try {
-            snapshot = await getDocsFromServer(q2);
-          } catch (serverErr) {
-            if (!isUnavailableError(serverErr)) throw serverErr;
-            logCallsUnavailableOnce(
-              `delta:${device.id}`,
-              `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`
-            );
-            snapshot = await getDocs(q2);
-          }
-        } else {
-          try {
-            snapshot = await getDocsFromServer(q2);
-          } catch (serverErr) {
-            if (!isUnavailableError(serverErr)) throw serverErr;
-            logCallsUnavailableOnce(
-              `full:${device.id}`,
-              `[Calls] Server unavailable for full ${device.id}, using local cache fallback`
-            );
-            snapshot = await getDocs(q2);
-          }
-        }
-        console.log(
-          `[Calls] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} calls from device ${device.id}`
-        );
-        const calls = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            let data = docSnap.data();
-            data = await decryptCallCached(data, user.uid, docSnap.id);
-            return processCallDoc(data, docSnap.id, device.id, device.name);
-          })
-        );
-        if (isDelta) {
-          const cachedCalls = allCallsByDevice[device.id] || [];
-          const cachedIds = new Set(cachedCalls.map((c) => c.id));
-          const brandNew = calls.filter((c) => !cachedIds.has(c.id));
-          console.log(
-            `[Calls] \u{1F504} Delta: ${brandNew.length} new calls since cache for device ${device.id}`
-          );
-          const merged = [...brandNew, ...cachedCalls];
-          updateCallsList(device.id, merged);
-        } else {
-          updateCallsList(device.id, calls);
-        }
-      } catch (error) {
-        if (error?.code !== "permission-denied") {
-          if (isUnavailableError(error)) {
-            logCallsUnavailableOnce(
-              `after-fallback:${device.id}`,
-              `[Calls] Device ${device.id} server unavailable after fallback`,
-              error?.message || error
-            );
-            return;
-          }
-          console.error(`\u274C Calls load error for device ${device.id}:`, error);
-        }
-      }
-    });
-    await Promise.all(loadPromises);
-    console.log(
-      "[Calls] \u2705 Initial load complete, starting realtime listeners..."
-    );
-    isSyncingCalls = false;
-    updateCallsCountIndicator();
-    try {
-      window.dispatchEvent(new CustomEvent("iropit:calls-sync-done"));
-    } catch (_) {
-    }
-    for (const device of devicesList2) {
-      const q2 = query(
-        collection(db, "users", user.uid, "devices", device.id, "calls"),
-        orderBy("timestamp", "desc"),
-        limit(5)
-      );
-      let isInitialSnapshot = true;
-      const unsub = onSnapshot(
-        q2,
-        async (snapshot) => {
-          if (isInitialSnapshot) {
-            isInitialSnapshot = false;
-            return;
-          }
-          for (const change of snapshot.docChanges()) {
-            if (change.type === "added" || change.type === "modified") {
-              let data = change.doc.data();
-              data = await decryptCallCached(data, user.uid, change.doc.id);
-              const call = processCallDoc(
-                data,
-                change.doc.id,
-                device.id,
-                device.name
-              );
-              const currentCalls = allCallsByDevice[device.id] || [];
-              const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
-              if (existingIdx >= 0) {
-                const existingCall = currentCalls[existingIdx];
-                const preserved = existingCall.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-                currentCalls[existingIdx] = preserved;
-              } else {
-                currentCalls.unshift(call);
-              }
-              updateCallsList(device.id, currentCalls);
-            }
-          }
-        },
-        (error) => {
-          if (error?.code !== "permission-denied") {
-            console.error(
-              `\u274C Calls realtime error for device ${device.id}:`,
-              error
-            );
-          }
-        }
-      );
-      callListenerUnsubs.push(unsub);
-      addUnsubscriber(unsub);
     }
   }
   function updateCallsList(deviceId, newCalls) {
@@ -27010,8 +27045,11 @@ ${this.customData.serverResponse}`;
         (call) => call.deviceId === selectedTab
       );
     } else {
+      const sharedCallsDeviceIds = new Set(
+        (sharedWithMeDevices || []).filter((s) => s?.deviceId && s?.permissions?.calls !== false).map((s) => s.deviceId)
+      );
       filteredCalls = normalizedCalls.filter(
-        (call) => !call.deviceId || getDeviceSyncPref(call.deviceId, "calls")
+        (call) => !call.deviceId || sharedCallsDeviceIds.has(call.deviceId) || getDeviceSyncPref(call.deviceId, "calls")
       );
     }
     filteredCalls = filteredCalls.filter((call) => {
@@ -27068,7 +27106,7 @@ ${this.customData.serverResponse}`;
       const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
       const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
       const normalizedPhone = normalizePhoneNumber(safePhone);
-      const key = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+      const key = buildScopedCallGroupKey(call, selectedTab);
       if (!grouped[key]) {
         grouped[key] = {
           key,
@@ -27106,6 +27144,18 @@ ${this.customData.serverResponse}`;
       return (b.lastCall.timestamp || 0) - (a.lastCall.timestamp || 0);
     });
     if (callGroups.length === 0) {
+      if (isSyncingCalls && !searchQuery && selectedTab === "all") {
+        const lang = getCurrentLanguage();
+        const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
+        callsList.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+        updateTabBadges();
+        return;
+      }
       callsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -27262,16 +27312,20 @@ ${this.customData.serverResponse}`;
     updateTabBadges();
   }
   async function showCallHistory(groupKey) {
+    const { baseKey, scopedDeviceId } = parseScopedCallGroupKey(groupKey);
     const matchesByGroupKey = (call) => {
+      if (scopedDeviceId && (call.deviceId || "_no_device") !== scopedDeviceId) {
+        return false;
+      }
       const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
       const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
       const normalizedPhone = normalizePhoneNumber(safePhone);
-      if (groupKey === "unknown") {
+      if (baseKey === "unknown") {
         return !normalizedPhone && !safeContact;
-      } else if (groupKey.startsWith("contact_")) {
-        return safeContact === groupKey.slice(8);
+      } else if (baseKey.startsWith("contact_")) {
+        return safeContact === baseKey.slice(8);
       } else {
-        return normalizePhoneNumber(safePhone) === groupKey;
+        return normalizePhoneNumber(safePhone) === baseKey;
       }
     };
     const calls = allCallsData.filter(matchesByGroupKey).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -27437,14 +27491,12 @@ ${this.customData.serverResponse}`;
     )) return;
     const user = currentUser;
     if (!user) return;
+    const selectedTab = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
     try {
       const batch = writeBatch(db);
       let deletedCount = 0;
       allCallsData.forEach((call) => {
-        const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-        const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
-        const normalizedPhone = normalizePhoneNumber(safePhone);
-        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        const callKey = buildScopedCallGroupKey(call, selectedTab);
         if (selectedCallGroups.has(callKey) && call.deviceId && call.id) {
           const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
           batch.delete(callRef);
@@ -27453,18 +27505,12 @@ ${this.customData.serverResponse}`;
       });
       if (deletedCount > 0) await batch.commit();
       const remaining = allCallsData.filter((call) => {
-        const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-        const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
-        const normalizedPhone = normalizePhoneNumber(safePhone);
-        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        const callKey = buildScopedCallGroupKey(call, selectedTab);
         return !selectedCallGroups.has(callKey);
       });
       Object.keys(allCallsByDevice).forEach((deviceId) => {
         const updated = (allCallsByDevice[deviceId] || []).filter((call) => {
-          const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-          const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
-          const normalizedPhone = normalizePhoneNumber(safePhone);
-          const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+          const callKey = buildScopedCallGroupKey(call, selectedTab);
           return !selectedCallGroups.has(callKey);
         });
         setCallsByDevice(deviceId, updated);
@@ -34846,7 +34892,6 @@ ${this.customData.serverResponse}`;
     clearUnsubscribers();
     stopPolling();
     stopSMSListener();
-    clearAllNotifications();
     setDevices([]);
   }
   function setupServiceWorkerListener() {

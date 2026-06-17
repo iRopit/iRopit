@@ -154,6 +154,36 @@ function normalizePhoneNumber(phone) {
   return normalized;
 }
 
+function getBaseCallGroupKey(call) {
+  const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
+  const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
+  const normalizedPhone = normalizePhoneNumber(safePhone);
+  return normalizedPhone
+    ? normalizedPhone
+    : safeContact
+      ? `contact_${safeContact}`
+      : "unknown";
+}
+
+function buildScopedCallGroupKey(call, selectedTab) {
+  const baseKey = getBaseCallGroupKey(call);
+  // In All Devices mode, keep groups device-scoped so unread counts and
+  // device tags always refer to the same device.
+  if (selectedTab === "all") {
+    return `${baseKey}||${call.deviceId || "_no_device"}`;
+  }
+  return baseKey;
+}
+
+function parseScopedCallGroupKey(groupKey) {
+  const idx = groupKey.lastIndexOf("||");
+  if (idx <= 0) return { baseKey: groupKey, scopedDeviceId: null };
+  return {
+    baseKey: groupKey.slice(0, idx),
+    scopedDeviceId: groupKey.slice(idx + 2),
+  };
+}
+
 /**
  * Check if a string looks like a phone number
  * @param {string} value - Value to check
@@ -474,41 +504,39 @@ export async function loadCalls() {
   callListenerUnsubs = [];
   callDecryptionCache.clear();
 
-  const devicesQuery = query(
-    collection(db, "devices"),
-    where("userId", "==", user.uid),
-  );
+  try {
+    const devicesQuery = query(
+      collection(db, "devices"),
+      where("userId", "==", user.uid),
+    );
 
-  const devicesSnapshot = await getDocs(devicesQuery);
-  const devicesList = [];
-  devicesSnapshot.forEach((doc) => {
-    const data = doc.data();
-    // Skip chrome extension device entries
-    if (
-      data.platform === "chrome-extension" ||
-      data.platform === "chrome" ||
-      (data.id && data.id.startsWith("ext_"))
-    ) {
+    const devicesSnapshot = await getDocs(devicesQuery);
+    const devicesList = [];
+    devicesSnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Skip chrome extension device entries
+      if (
+        data.platform === "chrome-extension" ||
+        data.platform === "chrome" ||
+        (data.id && data.id.startsWith("ext_"))
+      ) {
+        return;
+      }
+      devicesList.push({
+        id: data.id || doc.id,  // Fall back to Firestore document ID if data.id field is absent
+        name: getFriendlyDeviceName(data),
+      });
+    });
+
+    // No mobile devices found — show empty state instead of infinite spinner
+    if (devicesList.length === 0) {
+      console.warn("[Calls] No mobile devices found - showing empty state");
+      renderCalls([]);
       return;
     }
-    devicesList.push({
-      id: data.id || doc.id,  // Fall back to Firestore document ID if data.id field is absent
-      name: getFriendlyDeviceName(data),
-    });
-  });
 
-  // No mobile devices found — show empty state instead of infinite spinner
-  if (devicesList.length === 0) {
-    console.warn("[Calls] No mobile devices found - showing empty state");
-    isSyncingCalls = false;
-    updateCallsCountIndicator();
-    renderCalls([]);
-    try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
-    return;
-  }
-
-  // Load all devices in parallel with getDocs (one-time, fast)
-  const loadPromises = devicesList.map(async (device) => {
+    // Load all devices in parallel with getDocs (one-time, fast)
+    const loadPromises = devicesList.map(async (device) => {
     // Delta fetch: if we have cached data, only query calls newer than cache
     const cachedNewestTs = cachedNewestTimestamps[device.id];
     const cachedDeviceCount = cachedCallCounts[device.id] || 0;
@@ -599,75 +627,87 @@ export async function loadCalls() {
         console.error(`❌ Calls load error for device ${device.id}:`, error);
       }
     }
-  });
+    });
 
-  await Promise.all(loadPromises);
-  console.log(
-    "[Calls] ✅ Initial load complete, starting realtime listeners...",
-  );
-
-  isSyncingCalls = false;
-  updateCallsCountIndicator();
-  try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
-
-  // Start lightweight realtime listeners for new calls only
-  for (const device of devicesList) {
-    const q = query(
-      collection(db, "users", user.uid, "devices", device.id, "calls"),
-      orderBy("timestamp", "desc"),
-      limit(5),
+    await Promise.all(loadPromises);
+    console.log(
+      "[Calls] ✅ Initial load complete, starting realtime listeners...",
     );
 
-    let isInitialSnapshot = true;
+    // Start lightweight realtime listeners for new calls only
+    for (const device of devicesList) {
+      const q = query(
+        collection(db, "users", user.uid, "devices", device.id, "calls"),
+        orderBy("timestamp", "desc"),
+        limit(5),
+      );
 
-    const unsub = onSnapshot(
-      q,
-      async (snapshot) => {
-        if (isInitialSnapshot) {
-          isInitialSnapshot = false;
-          return;
-        }
+      let isInitialSnapshot = true;
 
-        for (const change of snapshot.docChanges()) {
-          if (change.type === "added" || change.type === "modified") {
-            let data = change.doc.data();
-            data = await decryptCallCached(data, user.uid, change.doc.id);
-            const call = processCallDoc(
-              data,
-              change.doc.id,
-              device.id,
-              device.name,
-            );
-
-            const currentCalls = state.allCallsByDevice[device.id] || [];
-            const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
-            if (existingIdx >= 0) {
-              // Preserve locally-optimistic viewed:true before the Firestore write
-              // is acknowledged (snapshot can re-fire with stale viewed:false).
-              const existingCall = currentCalls[existingIdx];
-              const preserved = (existingCall.viewed === true && !call.viewed)
-                ? { ...call, viewed: true }
-                : call;
-              currentCalls[existingIdx] = preserved;
-            } else {
-              currentCalls.unshift(call);
-            }
-            updateCallsList(device.id, currentCalls);
+      const unsub = onSnapshot(
+        q,
+        async (snapshot) => {
+          if (isInitialSnapshot) {
+            isInitialSnapshot = false;
+            return;
           }
-        }
-      },
-      (error) => {
-        if (error?.code !== "permission-denied") {
-          console.error(
-            `❌ Calls realtime error for device ${device.id}:`,
-            error,
-          );
-        }
-      },
-    );
 
-    callListenerUnsubs.push(unsub);
-    state.addUnsubscriber(unsub);
+          for (const change of snapshot.docChanges()) {
+            if (change.type === "added" || change.type === "modified") {
+              let data = change.doc.data();
+              data = await decryptCallCached(data, user.uid, change.doc.id);
+              const call = processCallDoc(
+                data,
+                change.doc.id,
+                device.id,
+                device.name,
+              );
+
+              const currentCalls = state.allCallsByDevice[device.id] || [];
+              const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
+              if (existingIdx >= 0) {
+                // Preserve locally-optimistic viewed:true before the Firestore write
+                // is acknowledged (snapshot can re-fire with stale viewed:false).
+                const existingCall = currentCalls[existingIdx];
+                const preserved = (existingCall.viewed === true && !call.viewed)
+                  ? { ...call, viewed: true }
+                  : call;
+                currentCalls[existingIdx] = preserved;
+              } else {
+                currentCalls.unshift(call);
+              }
+              updateCallsList(device.id, currentCalls);
+            }
+          }
+        },
+        (error) => {
+          if (error?.code !== "permission-denied") {
+            console.error(
+              `❌ Calls realtime error for device ${device.id}:`,
+              error,
+            );
+          }
+        },
+      );
+
+      callListenerUnsubs.push(unsub);
+      state.addUnsubscriber(unsub);
+    }
+  } catch (error) {
+    if (error?.code !== "permission-denied") {
+      console.error("[Calls] loadCalls top-level error:", error);
+    }
+  } finally {
+    isSyncingCalls = false;
+    // If sync finished but no fresh snapshot toggled confirmation, fall back
+    // to the currently available calls data so badges/device counts don't stay
+    // permanently at zero for shared/cached calls.
+    if (!state.callsDataConfirmed && (state.allCallsData || []).length > 0) {
+      setCallsDataConfirmed(true);
+      updateTabBadges();
+    }
+    updateCallsCountIndicator();
+    try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
   }
 }
 
@@ -789,9 +829,14 @@ export function renderCalls(calls) {
       (call) => call.deviceId === selectedTab,
     );
   } else {
+    const sharedCallsDeviceIds = new Set(
+      (state.sharedWithMeDevices || [])
+        .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
+        .map((s) => s.deviceId),
+    );
     // Exclude calls from devices where Calls sync is disabled
     filteredCalls = normalizedCalls.filter(
-      (call) => !call.deviceId || state.getDeviceSyncPref(call.deviceId, "calls"),
+      (call) => !call.deviceId || sharedCallsDeviceIds.has(call.deviceId) || state.getDeviceSyncPref(call.deviceId, "calls"),
     );
   }
 
@@ -869,11 +914,7 @@ export function renderCalls(calls) {
     const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
     const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
     const normalizedPhone = normalizePhoneNumber(safePhone);
-    const key = normalizedPhone
-      ? normalizedPhone
-      : safeContact
-        ? `contact_${safeContact}`
-        : "unknown";
+    const key = buildScopedCallGroupKey(call, selectedTab);
     if (!grouped[key]) {
       grouped[key] = {
         key: key,
@@ -916,6 +957,24 @@ export function renderCalls(calls) {
   });
 
   if (callGroups.length === 0) {
+    // If unread filter is enabled while backend sync is still running, avoid
+    // a misleading "No unread calls" state; data may not be fully loaded yet.
+    if (isSyncingCalls && !searchQuery && selectedTab === "all") {
+      const lang = getCurrentLanguage();
+      const syncingMsg =
+        lang === "ar"
+          ? "جارٍ مزامنة المكالمات من هاتفك…"
+          : "Syncing calls from your phone…";
+      callsList.innerHTML = `
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>${syncingMsg}</p>
+        </div>
+      `;
+      updateTabBadges();
+      return;
+    }
+
     callsList.innerHTML = `
       <div class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -1097,17 +1156,23 @@ export function renderCalls(calls) {
  * @param {string} groupKey - Group key (normalised phone, "contact_name", or "unknown")
  */
 async function showCallHistory(groupKey) {
+  const { baseKey, scopedDeviceId } = parseScopedCallGroupKey(groupKey);
+
   // Build the matching filter based on the group key type
   const matchesByGroupKey = (call) => {
+    if (scopedDeviceId && (call.deviceId || "_no_device") !== scopedDeviceId) {
+      return false;
+    }
+
     const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
     const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
     const normalizedPhone = normalizePhoneNumber(safePhone);
-    if (groupKey === "unknown") {
+    if (baseKey === "unknown") {
       return !normalizedPhone && !safeContact;
-    } else if (groupKey.startsWith("contact_")) {
-      return safeContact === groupKey.slice(8);
+    } else if (baseKey.startsWith("contact_")) {
+      return safeContact === baseKey.slice(8);
     } else {
-      return normalizePhoneNumber(safePhone) === groupKey;
+      return normalizePhoneNumber(safePhone) === baseKey;
     }
   };
 
@@ -1312,19 +1377,15 @@ export async function deleteSelectedCallGroups() {
   const user = state.currentUser;
   if (!user) return;
 
+  const selectedTab =
+    document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
+
   try {
     const batch = writeBatch(db);
     let deletedCount = 0;
     // Find all calls matching the selected group keys
     state.allCallsData.forEach((call) => {
-      const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
-      const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
-      const normalizedPhone = normalizePhoneNumber(safePhone);
-      const callKey = normalizedPhone
-        ? normalizedPhone
-        : safeContact
-          ? `contact_${safeContact}`
-          : "unknown";
+      const callKey = buildScopedCallGroupKey(call, selectedTab);
       if (selectedCallGroups.has(callKey) && call.deviceId && call.id) {
         const callRef = doc(db, "users", user.uid, "devices", call.deviceId, "calls", call.id);
         batch.delete(callRef);
@@ -1335,18 +1396,12 @@ export async function deleteSelectedCallGroups() {
 
     // Update local state
     const remaining = state.allCallsData.filter((call) => {
-      const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
-      const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
-      const normalizedPhone = normalizePhoneNumber(safePhone);
-      const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+      const callKey = buildScopedCallGroupKey(call, selectedTab);
       return !selectedCallGroups.has(callKey);
     });
     Object.keys(state.allCallsByDevice).forEach((deviceId) => {
       const updated = (state.allCallsByDevice[deviceId] || []).filter((call) => {
-        const safePhone = (call.phoneNumber && call.phoneNumber.startsWith("ENC:")) ? "" : (call.phoneNumber || "");
-        const safeContact = (call.contactName && call.contactName.startsWith("ENC:")) ? "" : (call.contactName || "");
-        const normalizedPhone = normalizePhoneNumber(safePhone);
-        const callKey = normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
+        const callKey = buildScopedCallGroupKey(call, selectedTab);
         return !selectedCallGroups.has(callKey);
       });
       state.setCallsByDevice(deviceId, updated);

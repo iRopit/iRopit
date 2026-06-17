@@ -238,9 +238,10 @@ function cleanupSubscriptions() {
   state.clearUnsubscribers();
   stopPolling();
   stopSMSListener();
-  // Don't clear SMS/calls data here - loadSMS/loadCalls will show cached data first
+  // Don't clear SMS/calls/notifications data here - their loaders can show
+  // cached data first, which keeps badge counts responsive on popup open.
   // state.clearAllSMS(); // Removed to preserve cache
-  state.clearAllNotifications();
+  // state.clearAllNotifications(); // Removed to preserve cache
   state.setDevices([]);
 }
 
