@@ -25,6 +25,7 @@ import { showToast, showConfirmDialog, showListLoading } from "../ui/toasts.js";
 import {
   formatTime,
   getNotificationIcon,
+  getPlatformIcon,
   escapeHtml,
 } from "../utils/helpers.js";
 import { renderAppIcon } from "../utils/appIcons.js";
@@ -83,6 +84,34 @@ let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
 let suppressNotifSyncIndicator = false;
 let notifHydrated = false;
+let sharedNotifListenerUnsubs = [];
+
+function stopSharedNotificationsListeners() {
+  sharedNotifListenerUnsubs.forEach((unsub) => {
+    try { unsub(); } catch (_) {}
+  });
+  sharedNotifListenerUnsubs = [];
+}
+
+function hasSharedNotificationsPermission(share) {
+  if (!share || !share.deviceId || !share.ownerUid) return false;
+  const perms = share.permissions;
+  if (perms == null) {
+    if (typeof share.shareNotifications === "boolean") return share.shareNotifications;
+    return true;
+  }
+  if (typeof perms === "object" && !Array.isArray(perms)) {
+    return perms.notifications !== false;
+  }
+  if (Array.isArray(perms)) {
+    return perms.includes("notifications") || perms.includes("all");
+  }
+  if (typeof perms === "string") {
+    const p = perms.toLowerCase();
+    return p === "notifications" || p === "all" || p.includes("notification");
+  }
+  return false;
+}
 
 export function isNotificationsSyncing() {
   return isSyncingNotif;
@@ -692,6 +721,16 @@ function resolveDeviceName(notif) {
   return withSharedBadge(notif.deviceName || null);
 }
 
+function renderNotificationDeviceTag(notif) {
+  const name = resolveDeviceName(notif);
+  if (!name) return "";
+  const device = notif?.deviceId
+    ? state.devices.find((d) => d.id === notif.deviceId)
+    : null;
+  const platform = device?.platform || "android";
+  return `<span class="notification-device"><span class="device-tag-icon" aria-hidden="true">${getPlatformIcon(platform)}</span><span>${escapeHtml(name)}</span></span>`;
+}
+
 function getMergedNotifications() {
   // Dedup strategy:
   //   * Real-device entries are keyed by `${deviceId}:${id}` so two devices
@@ -748,10 +787,16 @@ export function reRenderNotifications() {
     document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
   let filtered;
   if (selectedDevice === "all") {
-    // Exclude notifications from devices where Notifications sync is disabled
-    filtered = merged.filter(
-      (n) => !n.deviceId || state.getDeviceSyncPref(n.deviceId, "notifications"),
+    // Exclude own-device notifications where sync is disabled, but never hide
+    // shared-device notifications via local sync preferences.
+    const sharedDeviceIds = new Set(
+      (state.sharedWithMeDevices || []).map((s) => s.deviceId).filter(Boolean),
     );
+    filtered = merged.filter((n) => {
+      if (!n.deviceId) return true;
+      if (sharedDeviceIds.has(n.deviceId)) return true;
+      return state.getDeviceSyncPref(n.deviceId, "notifications");
+    });
   } else {
     filtered = merged.filter((n) => n.deviceId === selectedDevice);
   }
@@ -1062,7 +1107,7 @@ function showNotifDetail(appKey, appName, notifications) {
         <div class="notif-bubble-title">${escapeHtml(notif.title || notif.appName || "Notification")}${notif.read ? "" : ' <span class="unread-dot">●</span>'}</div>
         <div class="notif-bubble-body">${linkifyText(notif.text || notif.body || "")}</div>
         <div class="notif-bubble-footer">
-          ${resolveDeviceName(notif) ? `<span class="notification-device">${escapeHtml(resolveDeviceName(notif))}</span>` : `<span></span>`}
+          ${resolveDeviceName(notif) ? renderNotificationDeviceTag(notif) : `<span></span>`}
           <span class="notif-bubble-time">${formatTime(notif.receivedAt || notif.timestamp)}</span>
         </div>
       </div>
@@ -1374,7 +1419,7 @@ function renderNotifications(notifications) {
           </div>
           <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
-            ${groupDeviceName ? `<span class="notification-device">${escapeHtml(groupDeviceName)}</span>` : ""}
+            ${groupDeviceName ? renderNotificationDeviceTag(latest) : ""}
             ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "إلغاء الكتم")}</button>` : ""}
           </div>
         </div>
@@ -1387,7 +1432,6 @@ function renderNotifications(notifications) {
           </button>
           <span class="list-item-time">${formatTime(latest.receivedAt || latest.timestamp)}</span>
           <div class="notification-badge-row">
-            ${unreadCount > 1 ? `<span class="tab-badge">${unreadCount}</span>` : ""}
             ${isSnoozed ? `<span class="notification-muted-icon" aria-label="${tr("Muted", "مكتوم")}" title="${tr("Muted", "مكتوم")}" >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -1395,6 +1439,7 @@ function renderNotifications(notifications) {
                 <line x1="4" y1="4" x2="20" y2="20"></line>
               </svg>
             </span>` : ""}
+            ${unreadCount > 0 ? `<span class="list-item-badge missed">${unreadCount}</span>` : ""}
           </div>
         </div>
       </div>
@@ -1851,10 +1896,10 @@ export function exportNotificationsToCSV() {
 export async function loadSharedDevicesNotifications(shares) {
   const user = state.currentUser;
   if (!user) return;
-  const notifShares = (shares || []).filter(
-    (s) => s.permissions?.notifications && s.deviceId && s.ownerUid,
-  );
+  const notifShares = (shares || []).filter((s) => hasSharedNotificationsPermission(s));
+  stopSharedNotificationsListeners();
   if (notifShares.length === 0) return;
+
   for (const share of notifShares) {
     try {
       const q = query(
@@ -1862,20 +1907,41 @@ export async function loadSharedDevicesNotifications(shares) {
         orderBy("timestamp", "desc"),
         limit(200),
       );
-      const snapshot = await getDocs(q);
-      const notifs = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          let data = docSnap.data();
-          data = await decryptNotification(data, share.ownerUid);
-          return {
-            ...data,
-            id: docSnap.id,
-            deviceId: share.deviceId,
-            deviceName: share.deviceName || "",
-          };
-        }),
+
+      const unsub = onSnapshot(
+        q,
+        async (snapshot) => {
+          const notifs = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptNotification(data, share.ownerUid);
+              return {
+                ...data,
+                id: docSnap.id,
+                deviceId: share.deviceId,
+                deviceName: share.deviceName || "",
+                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
+              };
+            }),
+          );
+          updateNotificationsList(share.deviceId, notifs);
+        },
+        (err) => {
+          if (err?.code === "permission-denied") return;
+          if (isUnavailableError(err)) {
+            logNotifUnavailableOnce(
+              `shared-listener:${share.deviceId}`,
+              `[Notifs] Shared listener unavailable for ${share.deviceId}`,
+              err?.message || err?.code,
+            );
+            return;
+          }
+          console.warn(`[Notifs] Shared listener failed for ${share.deviceId}:`, err?.code);
+        },
       );
-      updateNotificationsList(share.deviceId, notifs);
+
+      sharedNotifListenerUnsubs.push(unsub);
+      state.addUnsubscriber(unsub);
     } catch (err) {
       console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
     }

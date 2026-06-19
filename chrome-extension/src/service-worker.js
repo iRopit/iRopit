@@ -51,6 +51,8 @@ self.addEventListener("unhandledrejection", (event) => {
 let currentUser = null;
 let currentDeviceId = null;
 const SMS_CACHE_CAP = 10000;
+let isStartingListeners = false;
+let activeListenersUserUid = null;
 // Store last timestamp to avoid duplicate notifications
 let lastNotificationTimestamp = Date.now() - 5 * 60 * 1000; // 5 minutes ago
 let unsubscribeNotifications = [];
@@ -203,37 +205,55 @@ async function loadDeviceId() {
 }
 
 // Start listening for new notifications from ALL user devices
-async function startListening() {
+async function startListening(forceRestart = false) {
   refreshContextMenuDevices();
   if (!currentUser) {
     console.log("ZyncIT: Cannot start listening - no user");
     return;
   }
 
+  // Ignore duplicate start requests while listeners are already healthy.
+  if (
+    !forceRestart &&
+    activeListenersUserUid === currentUser.uid &&
+    unsubscribeNotifications.length > 0
+  ) {
+    console.log("ZyncIT: Listeners already active; skipping duplicate start");
+    return;
+  }
+
+  // Prevent overlapping restarts from auth + popup + alarms racing together.
+  if (isStartingListeners) {
+    console.log("ZyncIT: Listener start already in progress; skipping");
+    return;
+  }
+
+  isStartingListeners = true;
+
   console.log("ZyncIT: Starting real-time listeners...");
 
-  // Stop previous listeners
-  unsubscribeNotifications.forEach((unsub) => unsub());
-  unsubscribeNotifications = [];
-  unreadIdsBySource.clear();
-  // Reset stale badge immediately; snapshot callbacks below will repopulate
-  // with current unread counts from Firestore.
-  setBadgeCount(0);
-
-  // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
-  listenToUserNotifications();
-
-  // 2. Chat realtime bridge for instant popup updates + smart actions.
-  // Poll remains as backup when realtime listeners are throttled/dropped.
-  listenToChatMessages();
-
-  // 2. Get all user devices
-  const devicesQuery = query(
-    collection(db, "devices"),
-    where("userId", "==", currentUser.uid),
-  );
-
   try {
+    // Stop previous listeners
+    unsubscribeNotifications.forEach((unsub) => unsub());
+    unsubscribeNotifications = [];
+    unreadIdsBySource.clear();
+    // Reset stale badge immediately; snapshot callbacks below will repopulate
+    // with current unread counts from Firestore.
+    setBadgeCount(0);
+
+    // 1. Listen to user-level notifications (WhatsApp, Telegram, etc.)
+    listenToUserNotifications();
+
+    // 2. Chat realtime bridge for instant popup updates + smart actions.
+    // Poll remains as backup when realtime listeners are throttled/dropped.
+    listenToChatMessages();
+
+    // 3. Get all user devices
+    const devicesQuery = query(
+      collection(db, "devices"),
+      where("userId", "==", currentUser.uid),
+    );
+
     const devicesSnapshot = await getDocs(devicesQuery);
 
     devicesSnapshot.forEach((doc) => {
@@ -273,8 +293,11 @@ async function startListening() {
       "ZyncIT: Total listeners active:",
       unsubscribeNotifications.length,
     );
+    activeListenersUserUid = currentUser.uid;
   } catch (error) {
     console.error("ZyncIT: Error getting devices:", error);
+  } finally {
+    isStartingListeners = false;
   }
 }
 
@@ -1859,6 +1882,7 @@ async function showNotification(data) {
     notificationOptions.title = `WhatsApp: ${title}`;
     notificationOptions.contextMessage = "WhatsApp message";
   } else if (data.packageName === "com.instagram.android") {
+    activeListenersUserUid = null;
     notificationOptions.title = `Instagram: ${title}`;
   } else if (data.packageName === "com.snapchat.android") {
     notificationOptions.title = `Snapchat: ${title}`;
@@ -3206,7 +3230,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Restart listeners manually
   if (message.type === "restartListening") {
-    startListening();
+    startListening(true);
     sendResponse({ success: true, listening: true });
   }
 

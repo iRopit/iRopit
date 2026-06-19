@@ -28,6 +28,7 @@ import { showToast, showLoadingOverlay, hideLoading } from "../ui/toasts.js";
 import {
   formatTime,
   getDeviceId,
+  getPlatformIcon,
   escapeHtml,
   sanitizeUrl,
 } from "../utils/helpers.js";
@@ -334,17 +335,7 @@ export function renderChatMessages(messages) {
   let filteredMessages = messages;
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => {
-      const fromExtension =
-        msg.senderPlatform === "chrome-extension" ||
-        (msg.senderDeviceId || "").startsWith("ext_");
-      // For extension-originated messages, route visibility by receiver device.
-      // Targeted sends should only appear in that target's tab, while broadcast
-      // sends (receiverDeviceId null/empty) can appear in all device tabs.
-      if (fromExtension) {
-        const target = msg.receiverDeviceId || null;
-        return target === null || target === selectedTab;
-      }
-      // Show only messages sent TO or FROM this specific device
+      // Strict device filter: show only messages sent TO or FROM this device.
       return (
         msg.senderDeviceId === selectedTab ||
         msg.receiverDeviceId === selectedTab
@@ -457,13 +448,21 @@ export function renderChatMessages(messages) {
       const senderDevice = state.devices.find(
         (d) => d.id === msg.senderDeviceId,
       );
-      const deviceName = escapeHtml(
+      const rawDeviceName =
         senderDevice?.nickname ||
           senderDevice?.name ||
           senderDevice?.model ||
           msg.senderPlatform ||
-          "",
-      );
+          "";
+      const deviceName = escapeHtml(rawDeviceName);
+      const devicePlatform =
+        senderDevice?.platform ||
+        msg.senderPlatform ||
+        "android";
+      const deviceTagHtml =
+        showDeviceName && rawDeviceName
+          ? `<span class="chat-message-device message-device"><span class="device-tag-icon" aria-hidden="true">${getPlatformIcon(devicePlatform)}</span><span>${deviceName}</span></span>`
+          : "";
 
       // Determine if message is sent from this extension
       const isSentFromExtension =
@@ -477,11 +476,7 @@ export function renderChatMessages(messages) {
           <div class="chat-message ${direction}" 
                data-msg-id="${escapeHtml(msg.id)}" 
                data-msg-sender="${escapeHtml(msg.senderId)}">
-            ${
-              showDeviceName && deviceName
-                ? `<div class="chat-message-device">${deviceName}</div>`
-                : ""
-            }
+            ${deviceTagHtml}
             ${
               msg.replyTo
                 ? `<div class="chat-reply-preview">↩ ${escapeHtml(
@@ -490,7 +485,9 @@ export function renderChatMessages(messages) {
                 : ""
             }
             ${content}
-            <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
+            <div class="chat-message-meta">
+              <span class="chat-message-time">${formatTime(msg.timestamp)}</span>
+            </div>
           </div>
           <div class="chat-message-actions">
             <button class="chat-action-btn star-msg-btn${isStarred ? " starred" : ""}" data-msg-id="${escapeHtml(msg.id)}" title="${getCurrentLanguage() === 'ar' ? (isStarred ? 'إلغاء تمييز الرسالة' : 'تمييز الرسالة') : (isStarred ? 'Unstar message' : 'Star message')}">
@@ -971,6 +968,100 @@ export function clearReply() {
   if (replyPreview) {
     replyPreview.style.display = "none";
   }
+}
+
+/**
+ * Export chat messages to a CSV file download.
+ * Respects the selected chat device tab.
+ */
+export function exportChatToCSV() {
+  const activeDevice =
+    document.querySelector("#chatDeviceTabs .device-tab.active")?.dataset.device || "all";
+
+  const knownDeviceIds = new Set([
+    ...state.devices.map((d) => d.id),
+    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
+  ]);
+
+  let chats = (state.cachedChatMessages || []).filter((m) => {
+    const senderKnown = !m.senderDeviceId || knownDeviceIds.has(m.senderDeviceId) || (m.senderDeviceId || "").startsWith("ext_");
+    const receiverKnown = !m.receiverDeviceId || knownDeviceIds.has(m.receiverDeviceId) || (m.receiverDeviceId || "").startsWith("ext_");
+    return senderKnown && receiverKnown;
+  });
+
+  if (activeDevice !== "all") {
+    chats = chats.filter(
+      (m) => m.senderDeviceId === activeDevice || m.receiverDeviceId === activeDevice,
+    );
+  }
+
+  if (chats.length === 0) {
+    alert("No chat messages to export.");
+    return;
+  }
+
+  const resolveDeviceNameById = (id) => {
+    if (!id) return "";
+    if (id.startsWith("ext_")) return "chrome-extension";
+    const owned = state.devices.find((d) => d.id === id);
+    if (owned) return owned.nickname || owned.name || owned.model || id;
+    const shared = (state.sharedWithMeDevices || []).find((s) => s.deviceId === id);
+    return shared?.deviceName || id;
+  };
+
+  const header = [
+    "Date",
+    "Time",
+    "Direction",
+    "Message",
+    "Type",
+    "Sender Device",
+    "Receiver Device",
+    "File Name",
+  ];
+
+  const rows = chats
+    .slice()
+    .sort((a, b) => toTimestampMs(a.timestamp) - toTimestampMs(b.timestamp))
+    .map((m) => {
+      const ts = toTimestampMs(m.timestamp);
+      const d = new Date(ts || 0);
+      const date = d.toLocaleDateString("en-GB");
+      const time = d.toLocaleTimeString();
+      const isSentFromExtension =
+        m.senderPlatform === "chrome-extension" ||
+        (m.senderDeviceId || "").startsWith("ext_");
+      const direction = isSentFromExtension ? "Sent" : "Received";
+      const text = m.content || "";
+      const type = m.type || "text";
+      const senderDevice = resolveDeviceNameById(m.senderDeviceId || "") || m.senderPlatform || "";
+      const receiverDevice = resolveDeviceNameById(m.receiverDeviceId || "");
+      const fileName = m.fileName || "";
+      return [date, time, direction, text, type, senderDevice, receiverDevice, fileName]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+  const now = new Date();
+  const localStamp =
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(now.getDate()).padStart(2, "0") +
+    "_" +
+    String(now.getHours()).padStart(2, "0") +
+    "-" +
+    String(now.getMinutes()).padStart(2, "0");
+
+  const csv = "\uFEFF" + [header.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `iRopit-Chat-${localStamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /**

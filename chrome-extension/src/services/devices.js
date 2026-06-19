@@ -88,6 +88,13 @@ let pendingSharedCallsShares = null;
 let sharedCallsDeferredListenerAttached = false;
 let pendingSharedNotifsShares = null;
 let sharedNotifsDeferredListenerAttached = false;
+const processedIncomingShareReqIds = new Set();
+const incomingShareModalByKey = new Map();
+const acceptingShareRequestIds = new Set();
+
+function getIncomingShareReqKey(req) {
+  return `${req?.ownerUid || ""}::${req?.deviceId || ""}::${req?.sharedWithUid || ""}`;
+}
 
 function scheduleSharedSmsLoad(shares) {
   pendingSharedSmsShares = shares || [];
@@ -108,12 +115,24 @@ function scheduleSharedSmsLoad(shares) {
       if (m.isSMSSyncing && m.isSMSSyncing()) {
         if (sharedSmsDeferredListenerAttached) return;
         sharedSmsDeferredListenerAttached = true;
+        let fallbackTimer = null;
         const onDone = () => {
           window.removeEventListener("iropit:sms-sync-done", onDone);
           sharedSmsDeferredListenerAttached = false;
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
           runLatest();
         };
         window.addEventListener("iropit:sms-sync-done", onDone, { once: true });
+        // Safety net: if the sync-done event is missed or a long sync stalls,
+        // still start shared listeners so shared SMS is not permanently stale.
+        fallbackTimer = setTimeout(() => {
+          try { window.removeEventListener("iropit:sms-sync-done", onDone); } catch (_) {}
+          sharedSmsDeferredListenerAttached = false;
+          runLatest();
+        }, 8000);
         return;
       }
 
@@ -439,7 +458,12 @@ export async function loadDevices() {
   const incomingReqUnsub = onSnapshot(incomingReqQ, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type === "added") {
-        _showIncomingShareRequestModal({ requestId: change.doc.id, ...change.doc.data() });
+        const incomingReq = { requestId: change.doc.id, ...change.doc.data() };
+        const incomingKey = getIncomingShareReqKey(incomingReq);
+        if (processedIncomingShareReqIds.has(incomingReq.requestId)) return;
+        const existingReqId = incomingShareModalByKey.get(incomingKey);
+        if (existingReqId && existingReqId !== incomingReq.requestId) return;
+        _showIncomingShareRequestModal(incomingReq);
       }
     });
   }, () => {});
@@ -871,11 +895,28 @@ function mobileDevicesOnly() {
   );
 }
 
+function hasSharedPermission(share, type) {
+  if (!share || !type) return false;
+  const perms = share.permissions;
+  if (perms == null) return true;
+  if (typeof perms === "object" && !Array.isArray(perms)) {
+    return perms[type] !== false;
+  }
+  if (Array.isArray(perms)) {
+    return perms.includes(type) || perms.includes("all");
+  }
+  if (typeof perms === "string") {
+    const p = perms.toLowerCase();
+    return p === type || p === "all" || p.includes(type);
+  }
+  return false;
+}
+
 function getSmsDeviceCount(deviceId) {
   if (deviceId === "all") {
     const ownCount = mobileDevicesOnly().reduce((t, d) => t + getSmsDeviceCount(d.id), 0);
     const sharedCount = (state.sharedWithMeDevices || [])
-      .filter(s => s.permissions?.sms)
+      .filter(s => hasSharedPermission(s, "sms"))
       .reduce((t, s) => t + (state.allSMS[s.deviceId] || []).filter(m => !m.read).length, 0);
     return ownCount + sharedCount;
   }
@@ -886,7 +927,7 @@ function getCallsDeviceCount(deviceId) {
   if (deviceId === "all") {
     const ownCount = mobileDevicesOnly().reduce((t, d) => t + getCallsDeviceCount(d.id), 0);
     const sharedCount = (state.sharedWithMeDevices || [])
-      .filter(s => s.permissions?.calls)
+      .filter(s => hasSharedPermission(s, "calls"))
       .reduce((t, s) => t + (state.allCallsData || []).filter(c => c.deviceId === s.deviceId && c.type === "missed" && !c.viewed).length, 0);
     return ownCount + sharedCount;
   }
@@ -898,7 +939,7 @@ function getNotifsDeviceCount(deviceId) {
   if (deviceId === "all") {
     const ownCount = mobileDevicesOnly().reduce((t, d) => t + getNotifsDeviceCount(d.id), 0);
     const sharedCount = (state.sharedWithMeDevices || [])
-      .filter(s => s.permissions?.notifications)
+      .filter(s => hasSharedPermission(s, "notifications"))
       .reduce((t, s) => t + (state.allNotifications[s.deviceId] || []).filter(n => !n.read).length, 0);
     return ownCount + sharedCount;
   }
@@ -945,7 +986,9 @@ export function updateSmsDeviceTabs() {
     .join("");
 
   // Shared devices with SMS permission
-  const sharedSmsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.sms && s.deviceId);
+  const sharedSmsDevices = (state.sharedWithMeDevices || []).filter(
+    (s) => hasSharedPermission(s, "sms") && s.deviceId,
+  );
   const sharedSmsTabsHTML = sharedSmsDevices.map(s => {
     const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
     const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
@@ -1053,7 +1096,9 @@ export function updateCallsDeviceTabs() {
     .join("");
 
   // Shared devices with Calls permission
-  const sharedCallsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.calls && s.deviceId);
+  const sharedCallsDevices = (state.sharedWithMeDevices || []).filter(
+    (s) => hasSharedPermission(s, "calls") && s.deviceId,
+  );
   const sharedCallsTabsHTML = sharedCallsDevices.map(s => {
     const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
     const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
@@ -1144,7 +1189,9 @@ export function updateNotificationsDeviceTabs() {
     .join("");
 
   // Shared devices with Notifications permission
-  const sharedNotifsDevices = (state.sharedWithMeDevices || []).filter(s => s.permissions?.notifications && s.deviceId);
+  const sharedNotifsDevices = (state.sharedWithMeDevices || []).filter(
+    (s) => hasSharedPermission(s, "notifications") && s.deviceId,
+  );
   const sharedNotifsTabsHTML = sharedNotifsDevices.map(s => {
     const deviceName = s.deviceName || getFriendlyDeviceName(s.device || {});
     const platformIcon = getPlatformIcon((s.device || {}).platform || "android");
@@ -1719,8 +1766,15 @@ async function _showIncomingShareRequestModal(req) {
   const user = state.currentUser;
   if (!user) return;
 
+  const modalKey = getIncomingShareReqKey(req);
+
   // Avoid duplicate modals for the same request
   if (document.getElementById(`shareReqModal_${req.requestId}`)) return;
+  const activeReqIdForKey = incomingShareModalByKey.get(modalKey);
+  if (activeReqIdForKey && activeReqIdForKey !== req.requestId) return;
+
+  processedIncomingShareReqIds.add(req.requestId);
+  incomingShareModalByKey.set(modalKey, req.requestId);
 
   const isAr = getCurrentLanguage() === "ar";
   const perms = req.permissions || {};
@@ -1764,7 +1818,7 @@ async function _showIncomingShareRequestModal(req) {
         <button class="btn btn-secondary" id="shareReqReject_${req.requestId}">
           ${isAr ? "رفض" : "Reject"}
         </button>
-        <button class="btn btn-primary" id="shareReqAccept_${req.requestId}">
+        <button class="btn btn-primary share-req-accept-btn" id="shareReqAccept_${req.requestId}" style="color:#000 !important;">
           ${isAr ? "قبول" : "Accept"}
         </button>
       </div>
@@ -1776,6 +1830,13 @@ async function _showIncomingShareRequestModal(req) {
   const acceptBtn = document.getElementById(`shareReqAccept_${req.requestId}`);
   const rejectBtn = document.getElementById(`shareReqReject_${req.requestId}`);
 
+  const closeModal = () => {
+    try { modal.remove(); } catch (_) {}
+    if (incomingShareModalByKey.get(modalKey) === req.requestId) {
+      incomingShareModalByKey.delete(modalKey);
+    }
+  };
+
   const setStatus = (msg, isError) => {
     const el = document.getElementById(`shareReqStatus_${req.requestId}`);
     if (el) {
@@ -1786,12 +1847,18 @@ async function _showIncomingShareRequestModal(req) {
   };
 
   acceptBtn.addEventListener("click", async () => {
+    if (acceptingShareRequestIds.has(req.requestId)) return;
+    acceptingShareRequestIds.add(req.requestId);
     acceptBtn.disabled = true;
     rejectBtn.disabled = true;
     try {
+      const shareRef = doc(collection(db, "deviceShares"));
+      const shareIndexRef = doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`);
+      const reqRef = doc(db, "deviceShareRequests", req.requestId);
+      const batch = writeBatch(db);
+
       // Create the active deviceShare doc
-      console.log("[ShareReq] step1: creating deviceShares doc, sharedWithUid=", req.sharedWithUid, "user.uid=", user.uid);
-      await addDoc(collection(db, "deviceShares"), {
+      batch.set(shareRef, {
         ownerUid: req.ownerUid,
         ownerEmail: req.ownerEmail,
         deviceId: req.deviceId,
@@ -1802,23 +1869,52 @@ async function _showIncomingShareRequestModal(req) {
         permissions: req.permissions || {},
         createdAt: Date.now(),
       });
+
       // Create deviceShareIndex entry for Firestore security rules
-      console.log("[ShareReq] step2: creating deviceShareIndex");
-      await setDoc(doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`), {
+      batch.set(shareIndexRef, {
         ownerUid: req.ownerUid,
         deviceId: req.deviceId,
         sharedWithUid: user.uid,
-      });
-      // Set status to "accepted" so owner's listener shows a toast
-      console.log("[ShareReq] step3: updating deviceShareRequests status");
-      await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "accepted" });
+      }, { merge: true });
+
+      // Mark the current request accepted immediately for fast UX.
+      batch.set(reqRef, { status: "accepted" }, { merge: true });
+
+      await batch.commit();
+      processedIncomingShareReqIds.add(req.requestId);
       setStatus(isAr ? "تم قبول الطلب" : "Request accepted!", false);
-      setTimeout(() => modal.remove(), 1500);
+      setTimeout(closeModal, 120);
+
+      // Best-effort cleanup of duplicate pending requests, without blocking UI.
+      (async () => {
+        try {
+          const duplicatePendingQ = query(
+            collection(db, "deviceShareRequests"),
+            where("ownerUid", "==", req.ownerUid),
+            where("sharedWithUid", "==", user.uid),
+            where("deviceId", "==", req.deviceId),
+            where("status", "==", "pending"),
+          );
+          const duplicatePendingSnap = await getDocs(duplicatePendingQ);
+          if (duplicatePendingSnap.empty) return;
+
+          const dedupeBatch = writeBatch(db);
+          duplicatePendingSnap.docs.forEach((d) => {
+            dedupeBatch.update(d.ref, { status: "accepted" });
+            processedIncomingShareReqIds.add(d.id);
+          });
+          await dedupeBatch.commit();
+        } catch (dupErr) {
+          console.warn("[ShareReq] duplicate cleanup skipped:", dupErr);
+        }
+      })();
     } catch (err) {
       console.error("[ShareReq] accept error:", err);
       acceptBtn.disabled = false;
       rejectBtn.disabled = false;
       setStatus(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.", true);
+    } finally {
+      acceptingShareRequestIds.delete(req.requestId);
     }
   });
 
@@ -1826,10 +1922,26 @@ async function _showIncomingShareRequestModal(req) {
     acceptBtn.disabled = true;
     rejectBtn.disabled = true;
     try {
-      // Set status to "rejected" so owner's listener shows a toast
-      await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+      const duplicatePendingQ = query(
+        collection(db, "deviceShareRequests"),
+        where("ownerUid", "==", req.ownerUid),
+        where("sharedWithUid", "==", user.uid),
+        where("deviceId", "==", req.deviceId),
+        where("status", "==", "pending"),
+      );
+      const duplicatePendingSnap = await getDocs(duplicatePendingQ);
+      if (duplicatePendingSnap.empty) {
+        await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+      } else {
+        const rejectBatch = writeBatch(db);
+        duplicatePendingSnap.docs.forEach((d) => {
+          rejectBatch.update(d.ref, { status: "rejected" });
+          processedIncomingShareReqIds.add(d.id);
+        });
+        await rejectBatch.commit();
+      }
       setStatus(isAr ? "تم رفض الطلب" : "Request declined.", false);
-      setTimeout(() => modal.remove(), 1200);
+      setTimeout(closeModal, 1000);
     } catch (err) {
       console.error("[ShareReq] reject error:", err);
       acceptBtn.disabled = false;

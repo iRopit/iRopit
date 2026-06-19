@@ -49,7 +49,7 @@ import {
 } from "./services/sms.js";
 import { loadCalls, renderCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
 import { loadNotifications, injectPushedNotification, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
-import { subscribeToChat, initChatListeners, injectPushedChatMessage, refreshChatNow } from "./services/chat.js";
+import { subscribeToChat, initChatListeners, injectPushedChatMessage, refreshChatNow, exportChatToCSV } from "./services/chat.js";
 import {
   loadUserSettings,
   initSettingsListeners,
@@ -389,6 +389,7 @@ function init() {
   document.getElementById("exportSmsBtn")?.addEventListener("click", exportSMSToCSV);
   document.getElementById("exportCallsBtn")?.addEventListener("click", exportCallsToCSV);
   document.getElementById("exportNotifBtn")?.addEventListener("click", exportNotificationsToCSV);
+  document.getElementById("exportChatBtn")?.addEventListener("click", exportChatToCSV);
 
   // Calls selection mode buttons
   document.getElementById("callsSelectBtn")?.addEventListener("click", toggleCallsSelectionMode);

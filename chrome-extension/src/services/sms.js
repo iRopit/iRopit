@@ -37,6 +37,7 @@ import {
   formatTime,
   getInitials,
   getAppIcon,
+  getPlatformIcon,
   getDeviceId,
   getFriendlyDeviceName,
   escapeHtml,
@@ -77,6 +78,66 @@ function logSMSUnavailableOnce(key, message, details) {
 
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
+let sharedSmsUnsubscribeByKey = new Map();
+let sharedSmsSourceDataByKey = new Map();
+let sharedSmsServerProbeTsByKey = new Map();
+
+function stopSharedSMSListeners(keepKeys = null) {
+  for (const [key, unsubs] of sharedSmsUnsubscribeByKey.entries()) {
+    if (keepKeys && keepKeys.has(key)) continue;
+    if (Array.isArray(unsubs)) {
+      unsubs.forEach((unsub) => {
+        try { unsub(); } catch (_) {}
+      });
+    } else {
+      try { unsubs(); } catch (_) {}
+    }
+    sharedSmsUnsubscribeByKey.delete(key);
+    sharedSmsSourceDataByKey.delete(key);
+    sharedSmsServerProbeTsByKey.delete(key);
+  }
+}
+
+function isLikelySMSPayload(data) {
+  if (!data || typeof data !== "object") return false;
+  if (data.type === "sms" || data.smsType) return true;
+  if (data.type && data.type !== "sms") return false;
+  if (data.callType || data.duration != null) return false;
+
+  const appName = String(data.appName || "").toLowerCase();
+  const isSmsApp = appName === "sms" || appName.includes("message");
+  const hasText = !!stripEnc(data.text || data.body || data.content);
+  const hasParty = !!stripEnc(data.phoneNumber || data.sender || data.address || data.number);
+  const direction = String(data.direction || "").toLowerCase();
+
+  if (isSmsApp && (hasText || hasParty)) return true;
+  if ((direction === "incoming" || direction === "outgoing") && hasText && hasParty) {
+    return true;
+  }
+  return false;
+}
+
+function hasSharedSmsPermission(share) {
+  if (!share || !share.deviceId || !share.ownerUid) return false;
+  const perms = share.permissions;
+
+  // Backward-compatible with old share schemas.
+  if (perms == null) {
+    if (typeof share.shareSms === "boolean") return share.shareSms;
+    return true;
+  }
+  if (typeof perms === "object" && !Array.isArray(perms)) {
+    return perms.sms !== false;
+  }
+  if (Array.isArray(perms)) {
+    return perms.includes("sms") || perms.includes("all");
+  }
+  if (typeof perms === "string") {
+    const p = perms.toLowerCase();
+    return p === "sms" || p === "all" || p.includes("sms");
+  }
+  return false;
+}
 
 /**
  * Resolve the best device name for an SMS message at render time.
@@ -98,6 +159,16 @@ function resolveSMSDeviceName(msg) {
     if (device) return withSharedBadge(device.nickname || device.name || msg.deviceName || null);
   }
   return withSharedBadge(msg.deviceName || null);
+}
+
+function renderSMSDeviceTag(msg) {
+  const name = resolveSMSDeviceName(msg);
+  if (!name) return "";
+  const device = msg?.deviceId
+    ? state.devices.find((d) => d.id === msg.deviceId)
+    : null;
+  const platform = device?.platform || "android";
+  return `<span class="device-tag"><span class="device-tag-icon" aria-hidden="true">${getPlatformIcon(platform)}</span><span>${escapeHtml(name)}</span></span>`;
 }
 // Track processed message IDs to avoid duplicates
 let processedMessageIds = new Set();
@@ -248,6 +319,20 @@ function stripBidi(s) {
   return typeof s === "string" ? s.replace(BIDI_MARKS_RE, "") : s;
 }
 
+function toSmsTimestampMs(raw) {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return raw < 1e12 ? raw * 1000 : raw;
+  if (typeof raw?.toMillis === "function") return raw.toMillis();
+  if (typeof raw === "object" && typeof raw.seconds === "number") {
+    return raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1e6);
+  }
+  if (typeof raw === "string") {
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  return 0;
+}
+
 /**
  * Normalize phone number for consistent grouping/matching
  * @param {string} phone - Raw phone number
@@ -366,6 +451,7 @@ function resolveContactName(data, phoneNumber) {
 export function stopSMSListener() {
   smsUnsubscribeFunctions.forEach((unsub) => unsub());
   smsUnsubscribeFunctions = [];
+  stopSharedSMSListeners();
   // Clear processed IDs, cache, and pagination state when stopping listeners
   processedMessageIds.clear();
   decryptionCache.clear();
@@ -1172,6 +1258,7 @@ export function updateSMSList(deviceId, newMessages) {
       contactName: resolvedContact || msg.contactName || "",
       deviceName: resolvedDeviceName,
       deviceId: msg.deviceId || deviceId,
+      timestamp: toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || Date.now(),
     };
   });
 
@@ -1198,13 +1285,22 @@ export function updateSMSList(deviceId, newMessages) {
     merged = merged.concat(msgs);
   });
 
+  // Keep newest copies when dedupe collisions happen (same content, different docs).
+  // Dedup loop below keeps the first seen item, so we sort first.
+  merged.sort(
+    (a, b) =>
+      (toSmsTimestampMs(b.timestamp) || toSmsTimestampMs(b.receivedAt) || 0) -
+      (toSmsTimestampMs(a.timestamp) || toSmsTimestampMs(a.receivedAt) || 0),
+  );
+
   // Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ØªÙƒØ±Ø§Ø± - Ø§Ù„Ø§Ø­ØªÙØ§Ø¸ Ø¨Ù†Ø³Ø®Ø© ÙˆØ§Ø­Ø¯Ø© ÙÙ‚Ø· Ù…Ù† ÙƒÙ„ Ø±Ø³Ø§Ù„Ø©
   // Two-pass dedup: first by document path, then by content (phone+timestamp+body)
   // Content dedup handles the case where NotificationService and BackgroundSmsService
   // created separate Firestore documents for the same SMS
   const uniqueMessages = [];
   const seenIds = new Set();
-  const seenContent = new Set();
+  const seenContentTs = new Map();
+  const DEDUP_WINDOW_MS = 10 * 60 * 1000;
 
   for (const msg of merged) {
     // Pass 1: Deduplicate by document ID (consistent between cache and Firebase)
@@ -1219,34 +1315,22 @@ export function updateSMSList(deviceId, newMessages) {
     if (seenIds.has(uniqueId)) continue;
     seenIds.add(uniqueId);
 
-    // Pass 2: Content-based dedup - catches dual-writer duplicates where
-    // NotificationService and BackgroundSmsService create separate Firestore docs
-    // with different timestamps (PDU vs System.currentTimeMillis()) and different
-    // sender formats (raw PDU address vs notification-extracted phone/name)
+    // Pass 2: Content-based dedup - suppress only near-time duplicates from
+    // dual writers. Keep legitimate later messages even if body text repeats.
     const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
     // Use normalized phone for numeric numbers, raw for text senders (HSBC, Orange, etc.)
     const phone =
       normalizePhoneNumber(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
     const body = stripBidi(msg.body || msg.text || "").trim().substring(0, 100);
 
-    // Use 5-minute window since Android dual-writers can have very different timestamps
-    const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
-    const contentKey = `${phone}_${timeWindow}_${body}`;
-
-    // Also check body-only dedup with a 3-day bucket to handle timezone splits:
-    // e.g. Egypt (UTC+2) 01:04 AM local = 23:04 UTC prior day, so a 24h UTC bucket
-    // would place two documents of the same SMS in different buckets.
-    // 3-day buckets guarantee cross-boundary matches for any UTC offset (max ±14h).
-    const bodyOnlyWindow = Math.floor((msg.timestamp || 0) / (3 * 86400000));
-    const bodyKey = body.length > 20 ? `body_${bodyOnlyWindow}_${body}` : null;
-    // Also check the adjacent bucket in case the messages straddle a 3-day boundary.
-    const bodyKeyAdj = body.length > 20 ? `body_${bodyOnlyWindow + 1}_${body}` : null;
-
-    if (seenContent.has(contentKey)) continue;
-    if (bodyKey && seenContent.has(bodyKey)) continue;
-    if (bodyKeyAdj && seenContent.has(bodyKeyAdj)) continue;
-    seenContent.add(contentKey);
-    if (bodyKey) seenContent.add(bodyKey);
+    // Skip content dedupe for very short/empty bodies to avoid false positives.
+    if (phone && body.length >= 8) {
+      const contentKey = `${phone}_${body}`;
+      const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
+      const seenTs = seenContentTs.get(contentKey);
+      if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
+      seenContentTs.set(contentKey, msgTs);
+    }
 
     uniqueMessages.push(msg);
   }
@@ -1287,10 +1371,16 @@ export function renderSMS(messages) {
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
   } else {
-    // Exclude messages from devices where SMS sync is disabled
-    filteredMessages = messages.filter(
-      (msg) => !msg.deviceId || state.getDeviceSyncPref(msg.deviceId, "sms"),
+    // Exclude own-device messages where SMS sync is disabled, but NEVER hide
+    // shared-device messages via local sync preferences.
+    const sharedDeviceIds = new Set(
+      (state.sharedWithMeDevices || []).map((s) => s.deviceId).filter(Boolean),
     );
+    filteredMessages = messages.filter((msg) => {
+      if (!msg.deviceId) return true;
+      if (sharedDeviceIds.has(msg.deviceId)) return true;
+      return state.getDeviceSyncPref(msg.deviceId, "sms");
+    });
   }
 
   // Filter by search query
@@ -1552,7 +1642,7 @@ export function renderSMS(messages) {
         <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${
           (() => { const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || ""; return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'; })()
         }</div>
-        ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row"><span class="device-tag">${escapeHtml(resolveSMSDeviceName(conv.lastMessage))}</span></div>` : ""}
+        ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row">${renderSMSDeviceTag(conv.lastMessage)}</div>` : ""}
       </div>
       ${showHoverActions ? `<div class="sms-list-hover-actions">
         <button class="call-list-hover-btn sms-hover-call" title="${getCurrentLanguage() === 'ar' ? 'اتصال' : 'Call'}">
@@ -3197,36 +3287,199 @@ export function exportSMSToCSV() {
  */
 export async function loadSharedDevicesSMS(shares) {
   const user = state.currentUser;
-  if (!user) return;
-  const smsShares = (shares || []).filter(
-    (s) => s.permissions?.sms && s.deviceId && s.ownerUid,
-  );
-  if (smsShares.length === 0) return;
+  if (!user) {
+    console.log("[SMS][shared] skip: no current user");
+    return;
+  }
+  console.log("[SMS][shared] loader called, shares:", Array.isArray(shares) ? shares.length : 0);
+  const smsShares = (shares || []).filter((s) => hasSharedSmsPermission(s));
+  if (smsShares.length === 0) {
+    console.log("[SMS][shared] no shares with SMS permission");
+    stopSharedSMSListeners();
+    return;
+  }
+
+  // Always reattach shared listeners from scratch. Reusing old handles can
+  // leave stale/no-op listeners after auth/network churn in MV3 popup sessions.
+  stopSharedSMSListeners();
+
   for (const share of smsShares) {
+    const listenerKey = `${share.ownerUid}::${share.deviceId}`;
+
     try {
-      const q = query(
-        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
-        where("type", "==", "sms"),
-        orderBy("timestamp", "desc"),
-        limit(PAGE_SIZE),
-      );
-      // Must use getDocsFromServer: shared device data lives under the owner's Firestore
-      // path, so the local IndexedDB cache has nothing for it on a fresh install.
-      let snapshot;
-      try {
-        snapshot = await getDocsFromServer(q);
-      } catch (serverErr) {
-        if (!isUnavailableError(serverErr)) throw serverErr;
-        logSMSUnavailableOnce(
-          `shared:${share.deviceId}`,
-          `[SMS] Server unavailable for shared device ${share.deviceId}, using local cache fallback`,
-        );
-        snapshot = await getDocs(q);
+      const sharedSourceData = {
+        strict: [],
+        strictReceivedAt: [],
+        relaxed: [],
+        legacy: [],
+        legacyWide: [],
+        altStrict: [],
+        altStrictReceivedAt: [],
+        strictHeadProbeAt: 0,
+      };
+      sharedSmsSourceDataByKey.set(listenerKey, sharedSourceData);
+
+      // ── One-shot RAW diagnostic ───────────────────────────────────────────
+      // Dump the absolute newest docs in the shared device's notifications
+      // collection straight from the SERVER, with NO type filter and NO stale
+      // gating. This isolates whether the missing latest shared SMS is a
+      // data-location problem (newest simply not in this path / not readable)
+      // versus a type/filter/merge problem in our pipeline.
+      (async () => {
+        try {
+          const rawNewestQ = query(
+            collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+            orderBy("timestamp", "desc"),
+            limit(5),
+          );
+          const rawSnap = await getDocsFromServer(rawNewestQ);
+          console.log(
+            `[SMS][shared-raw:${share.deviceId}] server docs:`,
+            rawSnap.size,
+          );
+          rawSnap.docs.forEach((d) => {
+            const data = d.data() || {};
+            console.log(
+              `[SMS][shared-raw:${share.deviceId}]`,
+              "ts=", new Date(toSmsTimestampMs(data.timestamp) || 0).toISOString(),
+              "type=", String(data.type || ""),
+              "smsType=", String(data.smsType || ""),
+              "app=", String(data.appName || ""),
+              "id=", d.id,
+            );
+          });
+        } catch (rawErr) {
+          if (rawErr?.code !== "permission-denied") {
+            console.warn(
+              `[SMS][shared-raw:${share.deviceId}] probe failed:`,
+              rawErr?.code || rawErr?.message,
+            );
+          }
+        }
+      })();
+
+      const publishSharedMerged = () => {
+        const latest = sharedSmsSourceDataByKey.get(listenerKey);
+        if (!latest) return;
+        updateSMSList(share.deviceId, [
+          ...latest.strict,
+          ...latest.strictReceivedAt,
+          ...latest.altStrict,
+          ...latest.altStrictReceivedAt,
+          ...latest.relaxed,
+          ...latest.legacy,
+          ...latest.legacyWide,
+        ]);
+      };
+
+      const mergeByDocId = (current, incoming) => {
+        const byId = new Map();
+        [...(current || []), ...(incoming || [])].forEach((m) => {
+          const k = m?.docId || m?.id;
+          if (!k) return;
+          const prev = byId.get(k);
+          if (!prev || Number(m.timestamp || 0) >= Number(prev.timestamp || 0)) {
+            byId.set(k, m);
+          }
+        });
+        return Array.from(byId.values());
+      };
+
+      const resolveSharedCandidateDeviceIds = async () => {
+        const ids = new Set([share.deviceId]);
+        try {
+          const idxQ = query(
+            collection(db, "deviceShareIndex"),
+            where("ownerUid", "==", share.ownerUid),
+            where("sharedWithUid", "==", user.uid),
+            limit(50),
+          );
+          const idxSnap = await getDocsFromServer(idxQ);
+          idxSnap.docs.forEach((d) => {
+            const data = d.data() || {};
+            if (data.deviceId) {
+              ids.add(String(data.deviceId));
+              return;
+            }
+            const suffix = `_${user.uid}`;
+            if (d.id && d.id.endsWith(suffix)) {
+              ids.add(d.id.slice(0, -suffix.length));
+            }
+          });
+        } catch (_) {}
+        return Array.from(ids).filter(Boolean);
+      };
+
+      const candidateDeviceIds = await resolveSharedCandidateDeviceIds();
+      const altDeviceIds = candidateDeviceIds.filter((id) => id !== share.deviceId);
+      if (altDeviceIds.length > 0) {
+        console.log(`[SMS][shared:${share.deviceId}] candidate deviceIds:`, candidateDeviceIds.join(", "));
       }
-      const messages = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
+
+      const normalizeNameKey = (v) =>
+        String(v || "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+
+      const belongsToSharedDevice = (msg) => {
+        if (!msg) return false;
+        const rawDeviceId = String(msg._rawDeviceId || "");
+        if (rawDeviceId && rawDeviceId === share.deviceId) return true;
+
+        const targetName = normalizeNameKey(share.deviceName);
+        if (!targetName) return false;
+        const rawDeviceName = normalizeNameKey(msg._rawDeviceName || msg.deviceName);
+        return !!rawDeviceName && rawDeviceName === targetName;
+      };
+
+      const getNewestTs = (list) => {
+        if (!Array.isArray(list) || list.length === 0) return 0;
+        return list.reduce((maxTs, item) => {
+          const ts = Number(item?.timestamp || 0);
+          return ts > maxTs ? ts : maxTs;
+        }, 0);
+      };
+
+      // Shared relaxed source can contain encrypted/untyped payloads. We classify
+      // AFTER mapping/decryption so we do not drop valid SMS too early.
+      const isLikelySMSMapped = (msg) => {
+        if (!msg || typeof msg !== "object") return false;
+        const rawType = String(msg._rawType || "").toLowerCase();
+        const rawSmsType = String(msg._rawSmsType || "").toLowerCase();
+        const appName = String(msg._rawAppName || "").toLowerCase();
+        const direction = String(msg.direction || msg._rawDirection || "").toLowerCase();
+
+        if (rawType === "sms" || rawSmsType) return true;
+        if (msg._rawCallType || msg._rawDuration != null) return false;
+
+        const hasBody = !!String(msg.body || "").trim();
+        const hasParty = !!String(msg.phoneNumber || "").trim();
+        const appLooksSms = appName === "sms" || appName.includes("message") || appName.includes("messaging");
+
+        if (appLooksSms && (hasBody || hasParty)) return true;
+        if ((direction === "incoming" || direction === "outgoing") && (hasBody || hasParty)) return true;
+        return false;
+      };
+
+      // Resilient per-document mapper. A single doc that fails to decrypt must
+      // NEVER reject the whole snapshot — otherwise the newest shared SMS can
+      // permanently block the list from updating (every snapshot that contains
+      // it rejects, freezing the shared view at older data).
+      const mapSharedSmsDoc = async (docSnap) => {
+        const rawTs =
+          toSmsTimestampMs(docSnap.data()?.timestamp) ||
+          toSmsTimestampMs(docSnap.data()?.receivedAt) ||
+          Date.now();
+        try {
           let data = docSnap.data();
-          data = await decryptSMS(data, share.ownerUid);
+          try {
+            data = await decryptSMS(data, share.ownerUid);
+          } catch (decErr) {
+            // Keep the raw (possibly ENC:) data — stripEnc below blanks bad fields
+            // but the row still renders so the newest message is not lost.
+            console.warn(`[SMS] Shared decrypt failed for ${share.deviceId}/${docSnap.id}:`, decErr?.message || decErr);
+          }
           const resolvedPhone = resolvePhoneNumber(data);
           const resolvedContact = resolveContactName(data, resolvedPhone);
           return {
@@ -3234,16 +3487,371 @@ export async function loadSharedDevicesSMS(shares) {
             id: docSnap.id,
             docId: docSnap.id,
             docRef: docSnap.ref,
+            _rawDeviceId: data.deviceId,
+            _rawDeviceName: data.deviceName || data.device || data.model,
+            _rawType: data.type,
+            _rawSmsType: data.smsType,
+            _rawAppName: data.appName,
+            _rawCallType: data.callType,
+            _rawDuration: data.duration,
+            _rawDirection: data.direction,
             deviceId: share.deviceId,
             deviceName: share.deviceName || "",
-            phoneNumber: resolvedPhone || data.phoneNumber || "",
+            phoneNumber: resolvedPhone || stripEnc(data.phoneNumber) || "",
             contactName: resolvedContact || "",
+            title: stripEnc(data.title),
+            body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
+            timestamp: toSmsTimestampMs(data.timestamp) || toSmsTimestampMs(data.receivedAt) || rawTs,
+            read: data.read === true,
+            type: "sms",
           };
-        }),
+        } catch (mapErr) {
+          console.warn(`[SMS] Shared map failed for ${share.deviceId}/${docSnap.id}:`, mapErr?.message || mapErr);
+          // Minimal fallback record so the message still appears in the list.
+          const raw = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            docId: docSnap.id,
+            docRef: docSnap.ref,
+            _rawDeviceId: raw.deviceId,
+            _rawDeviceName: raw.deviceName || raw.device || raw.model,
+            _rawType: raw.type,
+            _rawSmsType: raw.smsType,
+            _rawAppName: raw.appName,
+            _rawCallType: raw.callType,
+            _rawDuration: raw.duration,
+            _rawDirection: raw.direction,
+            deviceId: share.deviceId,
+            deviceName: share.deviceName || "",
+            phoneNumber: stripEnc(raw.phoneNumber) || stripEnc(raw.sender) || "",
+            contactName: "",
+            title: "",
+            body: "",
+            timestamp: rawTs,
+            read: raw.read === true,
+            type: "sms",
+          };
+        }
+      };
+
+      const mapSharedDocsSafe = async (docs) => {
+        const results = await Promise.allSettled(docs.map(mapSharedSmsDoc));
+        return results
+          .filter((r) => r.status === "fulfilled" && r.value)
+          .map((r) => r.value);
+      };
+
+      const logNewestShared = (label, list) => {
+        if (!list || list.length === 0) return;
+        const newest = list.reduce((a, b) => (b.timestamp > a.timestamp ? b : a), list[0]);
+        console.log(
+          `[SMS][shared:${share.deviceId}] ${label} newest:`,
+          new Date(newest.timestamp).toISOString(),
+          (newest.contactName || newest.phoneNumber || "").toString().slice(0, 20),
+          (newest.body || "").toString().slice(0, 30),
+        );
+      };
+
+      const qStrict = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("timestamp", "desc"),
+        limit(PAGE_SIZE),
       );
-      updateSMSList(share.deviceId, messages);
+
+      const qStrictReceivedAt = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("receivedAt", "desc"),
+        limit(1000),
+      );
+
+      const qStrictHead = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("timestamp", "desc"),
+        limit(50),
+      );
+
+      const qStrictHeadReceivedAt = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        where("type", "==", "sms"),
+        orderBy("receivedAt", "desc"),
+        limit(50),
+      );
+
+      const qRelaxed = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        orderBy("timestamp", "desc"),
+        limit(1000),
+      );
+
+      const qLegacy = query(
+        collection(db, "sms"),
+        where("userId", "==", share.ownerUid),
+        where("deviceId", "==", share.deviceId),
+        orderBy("timestamp", "desc"),
+        limit(1000),
+      );
+
+      const qLegacyWide = query(
+        collection(db, "sms"),
+        where("userId", "==", share.ownerUid),
+        orderBy("timestamp", "desc"),
+        limit(2000),
+      );
+
+      const qLegacyWideUpper = query(
+        collection(db, "SMS"),
+        where("userId", "==", share.ownerUid),
+        orderBy("timestamp", "desc"),
+        limit(2000),
+      );
+
+      const listenerUnsubs = [];
+
+      const unsubStrict = onSnapshot(
+        qStrict,
+        async (snapshot) => {
+          const messages = await mapSharedDocsSafe(snapshot.docs);
+          const source = sharedSmsSourceDataByKey.get(listenerKey);
+          if (!source) return;
+          source.strict = messages;
+          logNewestShared("strict", messages);
+
+          // If strict looks stale, probe server head once per minute to bypass
+          // IndexedDB/local snapshot staleness for shared-account reads.
+          const now = Date.now();
+          const newestStrictTs = getNewestTs(messages);
+          const looksStale = newestStrictTs > 0 && now - newestStrictTs > 15 * 60 * 1000;
+          if (looksStale && now - (source.strictHeadProbeAt || 0) > 60 * 1000) {
+            source.strictHeadProbeAt = now;
+            try {
+              const [headSnap, headReceivedAtSnap] = await Promise.allSettled([
+                getDocsFromServer(qStrictHead),
+                getDocsFromServer(qStrictHeadReceivedAt),
+              ]);
+
+              const strictHeadDocs =
+                headSnap.status === "fulfilled" ? headSnap.value.docs : [];
+              const receivedAtHeadDocs =
+                headReceivedAtSnap.status === "fulfilled"
+                  ? headReceivedAtSnap.value.docs
+                  : [];
+
+              const headMessages = await mapSharedDocsSafe([
+                ...strictHeadDocs,
+                ...receivedAtHeadDocs,
+              ]);
+
+              if (headMessages.length > 0) {
+                const byId = new Map();
+                [...source.strict, ...headMessages].forEach((m) => {
+                  const k = m.docId || m.id;
+                  if (!k) return;
+                  const prev = byId.get(k);
+                  if (!prev || Number(m.timestamp || 0) >= Number(prev.timestamp || 0)) {
+                    byId.set(k, m);
+                  }
+                });
+                source.strict = Array.from(byId.values());
+                logNewestShared("strict-server", headMessages);
+              }
+            } catch (probeErr) {
+              if (probeErr?.code !== "permission-denied" && !isUnavailableError(probeErr)) {
+                console.warn(`[SMS] Shared strict server probe failed for ${share.deviceId}:`, probeErr?.code || probeErr?.message);
+              }
+            }
+          }
+
+          publishSharedMerged();
+        },
+        (err) => {
+          if (err?.code === "permission-denied") {
+            // Expected for stale/old shared device IDs; try other fallback sources silently.
+            return;
+          }
+          if (isUnavailableError(err)) {
+            logSMSUnavailableOnce(
+              `shared-listener:${share.deviceId}`,
+              `[SMS] Shared listener unavailable for ${share.deviceId}`,
+              err?.message || err?.code,
+            );
+            return;
+          }
+          console.warn(`[SMS] Shared listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubStrict);
+
+      const unsubStrictReceivedAt = onSnapshot(
+        qStrictReceivedAt,
+        async (snapshot) => {
+          const messages = await mapSharedDocsSafe(snapshot.docs);
+          const source = sharedSmsSourceDataByKey.get(listenerKey);
+          if (!source) return;
+          source.strictReceivedAt = messages;
+          logNewestShared("strict-receivedAt", messages);
+          publishSharedMerged();
+        },
+        (err) => {
+          if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
+            return;
+          }
+          if (isUnavailableError(err)) {
+            return;
+          }
+          console.warn(`[SMS] Shared receivedAt listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubStrictReceivedAt);
+
+      const unsubRelaxed = onSnapshot(
+        qRelaxed,
+        async (snapshot) => {
+          const mapped = await mapSharedDocsSafe(snapshot.docs);
+          const messages = mapped.filter((m) => isLikelySMSMapped(m));
+          const source = sharedSmsSourceDataByKey.get(listenerKey);
+          if (!source) return;
+          source.relaxed = messages;
+          logNewestShared("relaxed", messages);
+          publishSharedMerged();
+        },
+        (err) => {
+          if (err?.code === "permission-denied") return;
+          if (isUnavailableError(err)) return;
+          console.warn(`[SMS] Shared relaxed listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubRelaxed);
+
+      const unsubLegacy = onSnapshot(
+        qLegacy,
+        async (snapshot) => {
+          const messages = await mapSharedDocsSafe(snapshot.docs);
+          const source = sharedSmsSourceDataByKey.get(listenerKey);
+          if (!source) return;
+          source.legacy = messages;
+          logNewestShared("legacy", messages);
+          publishSharedMerged();
+        },
+        (err) => {
+          if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+          if (isUnavailableError(err)) return;
+          console.warn(`[SMS] Shared legacy listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubLegacy);
+
+      const applyLegacyWide = async (snapshot, label) => {
+        const source = sharedSmsSourceDataByKey.get(listenerKey);
+        if (!source) return;
+        const mapped = await mapSharedDocsSafe(snapshot.docs);
+        const filtered = mapped.filter((m) => belongsToSharedDevice(m));
+        // Merge both wide feeds (sms and SMS) by doc id.
+        const byId = new Map();
+        [...source.legacyWide, ...filtered].forEach((m) => {
+          const k = m.docId || m.id;
+          if (!k) return;
+          const prev = byId.get(k);
+          if (!prev || Number(m.timestamp || 0) >= Number(prev.timestamp || 0)) {
+            byId.set(k, m);
+          }
+        });
+        source.legacyWide = Array.from(byId.values());
+        logNewestShared(label, source.legacyWide);
+        publishSharedMerged();
+      };
+
+      const unsubLegacyWide = onSnapshot(
+        qLegacyWide,
+        (snapshot) => {
+          applyLegacyWide(snapshot, "legacy-wide").catch(() => {});
+        },
+        (err) => {
+          if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+          if (isUnavailableError(err)) return;
+          console.warn(`[SMS] Shared legacy-wide listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubLegacyWide);
+
+      const unsubLegacyWideUpper = onSnapshot(
+        qLegacyWideUpper,
+        (snapshot) => {
+          applyLegacyWide(snapshot, "legacy-wide-SMS").catch(() => {});
+        },
+        (err) => {
+          if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+          if (isUnavailableError(err)) return;
+          console.warn(`[SMS] Shared legacy-wide-SMS listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubLegacyWideUpper);
+
+      for (const altDeviceId of altDeviceIds) {
+        const qAltStrict = query(
+          collection(db, "users", share.ownerUid, "devices", altDeviceId, "notifications"),
+          where("type", "==", "sms"),
+          orderBy("timestamp", "desc"),
+          limit(PAGE_SIZE),
+        );
+
+        const qAltStrictReceivedAt = query(
+          collection(db, "users", share.ownerUid, "devices", altDeviceId, "notifications"),
+          where("type", "==", "sms"),
+          orderBy("receivedAt", "desc"),
+          limit(1000),
+        );
+
+        const unsubAltStrict = onSnapshot(
+          qAltStrict,
+          async (snapshot) => {
+            const messages = await mapSharedDocsSafe(snapshot.docs);
+            const source = sharedSmsSourceDataByKey.get(listenerKey);
+            if (!source) return;
+            source.altStrict = mergeByDocId(source.altStrict, messages);
+            logNewestShared(`alt-strict:${altDeviceId}`, messages);
+            publishSharedMerged();
+          },
+          (err) => {
+            if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+            if (isUnavailableError(err)) return;
+            console.warn(`[SMS] Shared alt strict listener failed for ${share.deviceId}/${altDeviceId}:`, err?.code);
+          },
+        );
+
+        listenerUnsubs.push(unsubAltStrict);
+
+        const unsubAltStrictReceivedAt = onSnapshot(
+          qAltStrictReceivedAt,
+          async (snapshot) => {
+            const messages = await mapSharedDocsSafe(snapshot.docs);
+            const source = sharedSmsSourceDataByKey.get(listenerKey);
+            if (!source) return;
+            source.altStrictReceivedAt = mergeByDocId(source.altStrictReceivedAt, messages);
+            logNewestShared(`alt-strict-receivedAt:${altDeviceId}`, messages);
+            publishSharedMerged();
+          },
+          (err) => {
+            if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+            if (isUnavailableError(err)) return;
+            console.warn(`[SMS] Shared alt receivedAt listener failed for ${share.deviceId}/${altDeviceId}:`, err?.code);
+          },
+        );
+
+        listenerUnsubs.push(unsubAltStrictReceivedAt);
+      }
+
+      sharedSmsUnsubscribeByKey.set(listenerKey, listenerUnsubs);
     } catch (err) {
-      if (err?.code === "permission-denied") return;
+      if (err?.code === "permission-denied") continue;
       if (isUnavailableError(err)) {
         logSMSUnavailableOnce(
           `shared-failed:${share.deviceId}`,

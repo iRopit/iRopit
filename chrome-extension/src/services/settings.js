@@ -324,10 +324,12 @@ export function initSettingsListeners() {
 
   // Delete account
   document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
+    const isAr = getCurrentLanguage() === "ar"
+    const confirmMsg = isAr
+      ? "هل أنت متأكد أنك تريد حذف حسابك نهائيًا؟ سيتم حذف جميع الأجهزة وسجل الرسائل وسجل المكالمات والإشعارات. لا يمكن التراجع عن هذا الإجراء."
+      : "Are you sure you want to permanently delete your account? All devices, SMS history, call logs, and notifications will be erased. This cannot be undone."
     if (
-      await showConfirmDialog(
-        "Are you sure you want to permanently delete your account? All devices, SMS history, call logs, and notifications will be erased. This cannot be undone."
-      )
+      await showConfirmDialog(confirmMsg)
     ) {
       await deleteAccount()
     }

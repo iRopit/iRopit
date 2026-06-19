@@ -18863,6 +18863,8 @@ self.addEventListener("unhandledrejection", (event) => {
 var currentUser = null;
 var currentDeviceId = null;
 var SMS_CACHE_CAP = 1e4;
+var isStartingListeners = false;
+var activeListenersUserUid = null;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
 var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
@@ -18993,24 +18995,33 @@ async function loadDeviceId() {
     });
   });
 }
-async function startListening() {
+async function startListening(forceRestart = false) {
   refreshContextMenuDevices();
   if (!currentUser) {
     console.log("ZyncIT: Cannot start listening - no user");
     return;
   }
+  if (!forceRestart && activeListenersUserUid === currentUser.uid && unsubscribeNotifications.length > 0) {
+    console.log("ZyncIT: Listeners already active; skipping duplicate start");
+    return;
+  }
+  if (isStartingListeners) {
+    console.log("ZyncIT: Listener start already in progress; skipping");
+    return;
+  }
+  isStartingListeners = true;
   console.log("ZyncIT: Starting real-time listeners...");
-  unsubscribeNotifications.forEach((unsub) => unsub());
-  unsubscribeNotifications = [];
-  unreadIdsBySource.clear();
-  setBadgeCount(0);
-  listenToUserNotifications();
-  listenToChatMessages();
-  const devicesQuery = query(
-    collection(db, "devices"),
-    where("userId", "==", currentUser.uid)
-  );
   try {
+    unsubscribeNotifications.forEach((unsub) => unsub());
+    unsubscribeNotifications = [];
+    unreadIdsBySource.clear();
+    setBadgeCount(0);
+    listenToUserNotifications();
+    listenToChatMessages();
+    const devicesQuery = query(
+      collection(db, "devices"),
+      where("userId", "==", currentUser.uid)
+    );
     const devicesSnapshot = await getDocs(devicesQuery);
     devicesSnapshot.forEach((doc2) => {
       const device = doc2.data();
@@ -19034,8 +19045,11 @@ async function startListening() {
       "ZyncIT: Total listeners active:",
       unsubscribeNotifications.length
     );
+    activeListenersUserUid = currentUser.uid;
   } catch (error) {
     console.error("ZyncIT: Error getting devices:", error);
+  } finally {
+    isStartingListeners = false;
   }
 }
 var PENDING_CHAT_PUSHES_KEY = "pendingChatPushes";
@@ -20246,6 +20260,7 @@ async function showNotification(data) {
     notificationOptions.title = `WhatsApp: ${title}`;
     notificationOptions.contextMessage = "WhatsApp message";
   } else if (data.packageName === "com.instagram.android") {
+    activeListenersUserUid = null;
     notificationOptions.title = `Instagram: ${title}`;
   } else if (data.packageName === "com.snapchat.android") {
     notificationOptions.title = `Snapchat: ${title}`;
@@ -21325,7 +21340,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
   }
   if (message.type === "restartListening") {
-    startListening();
+    startListening(true);
     sendResponse({ success: true, listening: true });
   }
   if (message.type === "fetchInsightsData") {

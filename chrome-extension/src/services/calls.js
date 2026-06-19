@@ -26,6 +26,8 @@ import {
   formatDuration,
   getInitials,
   getCallIcon,
+  getPlatformIcon,
+  escapeHtml,
   getFriendlyDeviceName,
   getDeviceId,
 } from "../utils/helpers.js";
@@ -261,8 +263,36 @@ export async function markAllCallsAsViewed() {
 // Decryption cache for calls
 const callDecryptionCache = new Map();
 let callListenerUnsubs = [];
+let sharedCallListenerUnsubs = [];
 let isSyncingCalls = false;
 let suppressCallsSyncIndicator = false;
+
+function stopSharedCallsListeners() {
+  sharedCallListenerUnsubs.forEach((unsub) => {
+    try { unsub(); } catch (_) {}
+  });
+  sharedCallListenerUnsubs = [];
+}
+
+function hasSharedCallsPermission(share) {
+  if (!share || !share.deviceId || !share.ownerUid) return false;
+  const perms = share.permissions;
+  if (perms == null) {
+    if (typeof share.shareCalls === "boolean") return share.shareCalls;
+    return true;
+  }
+  if (typeof perms === "object" && !Array.isArray(perms)) {
+    return perms.calls !== false;
+  }
+  if (Array.isArray(perms)) {
+    return perms.includes("calls") || perms.includes("all");
+  }
+  if (typeof perms === "string") {
+    const p = perms.toLowerCase();
+    return p === "calls" || p === "all" || p.includes("calls");
+  }
+  return false;
+}
 
 /** Returns true while loadCalls() is still fetching from Firestore. */
 export function isCallsSyncing() {
@@ -394,6 +424,16 @@ function resolveCallDeviceName(call) {
     if (device) return withSharedBadge(device.nickname || device.name || call.deviceName || null);
   }
   return withSharedBadge(call.deviceName || null);
+}
+
+function renderCallDeviceTag(call) {
+  const name = resolveCallDeviceName(call);
+  if (!name) return "";
+  const device = call?.deviceId
+    ? state.devices.find((d) => d.id === call.deviceId)
+    : null;
+  const platform = device?.platform || "android";
+  return `<span class="device-tag"><span class="device-tag-icon" aria-hidden="true">${getPlatformIcon(platform)}</span><span>${escapeHtml(name)}</span></span>`;
 }
 
 /**
@@ -1034,7 +1074,7 @@ export function renderCalls(calls) {
               ? '<span class="sms-body-loading"></span>'
               : ""
         }</div>
-        ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row"><span class="device-tag">${resolveCallDeviceName(group.lastCall)}</span></div>` : ""}
+        ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row">${renderCallDeviceTag(group.lastCall)}</div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
         <button class="call-list-hover-btn call-list-hover-wa" title="WhatsApp">
@@ -1287,7 +1327,7 @@ async function showCallHistory(groupKey) {
             <div class="call-info">
               <div class="call-type">${getCallTypeLabel(call.type)}</div>
               <div class="call-duration">${formatDuration(call.duration)}</div>
-              ${(resolveCallDeviceName(call) || (call.simSlot != null && call.simSlot >= 0)) ? `<div class="call-detail-meta">${resolveCallDeviceName(call) ? `<span class="device-tag">${resolveCallDeviceName(call)}</span>` : ''}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ''}</div>` : ''}
+              ${(resolveCallDeviceName(call) || (call.simSlot != null && call.simSlot >= 0)) ? `<div class="call-detail-meta">${resolveCallDeviceName(call) ? renderCallDeviceTag(call) : ''}${call.simSlot != null && call.simSlot >= 0 ? `<span class="sim-badge sim-${call.simSlot}">${call.simSlot + 1}</span>` : ''}</div>` : ''}
             </div>
             <div class="call-time">${formatTime(call.timestamp)}</div>
           </div>
@@ -1579,10 +1619,10 @@ export function exportCallsToCSV() {
 export async function loadSharedDevicesCalls(shares) {
   const user = state.currentUser;
   if (!user) return;
-  const callShares = (shares || []).filter(
-    (s) => s.permissions?.calls && s.deviceId && s.ownerUid,
-  );
+  const callShares = (shares || []).filter((s) => hasSharedCallsPermission(s));
+  stopSharedCallsListeners();
   if (callShares.length === 0) return;
+
   for (const share of callShares) {
     try {
       const q = query(
@@ -1590,15 +1630,35 @@ export async function loadSharedDevicesCalls(shares) {
         orderBy("timestamp", "desc"),
         limit(CALLS_FETCH_LIMIT),
       );
-      const snapshot = await getDocs(q);
-      const calls = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          let data = docSnap.data();
-          data = await decryptCall(data, share.ownerUid);
-          return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
-        }),
+
+      const unsub = onSnapshot(
+        q,
+        async (snapshot) => {
+          const calls = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              let data = docSnap.data();
+              data = await decryptCall(data, share.ownerUid);
+              return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+            }),
+          );
+          updateCallsList(share.deviceId, calls);
+        },
+        (err) => {
+          if (err?.code === "permission-denied") return;
+          if (isUnavailableError(err)) {
+            logCallsUnavailableOnce(
+              `shared-listener:${share.deviceId}`,
+              `[Calls] Shared listener unavailable for ${share.deviceId}`,
+              err?.message || err?.code,
+            );
+            return;
+          }
+          console.warn(`[Calls] Shared listener failed for ${share.deviceId}:`, err?.code);
+        },
       );
-      updateCallsList(share.deviceId, calls);
+
+      sharedCallListenerUnsubs.push(unsub);
+      state.addUnsubscriber(unsub);
     } catch (err) {
       if (err?.code !== "permission-denied") {
         console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);
