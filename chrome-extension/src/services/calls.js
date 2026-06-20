@@ -15,6 +15,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   onSnapshot,
   writeBatch,
 } from "../config/firebase.js";
@@ -41,6 +42,7 @@ import { getCachedCalls, cacheCallsData } from "./cache.js";
 import { wireHoverPreview } from "../utils/hoverPreview.js";
 
 const CALLS_FETCH_LIMIT = 2000;
+const CALLS_FULL_FETCH_MAX_PAGES = 25;
 
 function isUnavailableError(error) {
   const code = String(error?.code || "").toLowerCase();
@@ -57,6 +59,48 @@ function logCallsUnavailableOnce(key, message, details) {
   } else {
     console.info(message);
   }
+}
+
+async function getCallsSnapshotWithFallback(q, keyPrefix) {
+  try {
+    return await getDocsFromServer(q);
+  } catch (serverErr) {
+    if (!isUnavailableError(serverErr)) throw serverErr;
+    logCallsUnavailableOnce(
+      `${keyPrefix}:server-fallback`,
+      `[Calls] Server unavailable for ${keyPrefix}, using local cache fallback`,
+    );
+    return await getDocs(q);
+  }
+}
+
+async function fetchAllCallsDocsPaged(uid, deviceId, keyPrefix) {
+  const docs = [];
+  let lastDoc = null;
+
+  for (let page = 0; page < CALLS_FULL_FETCH_MAX_PAGES; page++) {
+    const pageQuery = lastDoc
+      ? query(
+          collection(db, "users", uid, "devices", deviceId, "calls"),
+          orderBy("timestamp", "desc"),
+          startAfter(lastDoc),
+          limit(CALLS_FETCH_LIMIT),
+        )
+      : query(
+          collection(db, "users", uid, "devices", deviceId, "calls"),
+          orderBy("timestamp", "desc"),
+          limit(CALLS_FETCH_LIMIT),
+        );
+
+    const snapshot = await getCallsSnapshotWithFallback(pageQuery, `${keyPrefix}:page:${page + 1}`);
+    if (snapshot.empty) break;
+
+    docs.push(...snapshot.docs);
+    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (snapshot.size < CALLS_FETCH_LIMIT) break;
+  }
+
+  return docs;
 }
 
 // ── Call type label (i18n) ──────────────────────────────────────────────────
@@ -465,10 +509,6 @@ export async function loadCalls() {
   }
 
   // === STEP 1: Show cached calls instantly ===
-  let hasCachedData = false;
-  // Track newest cached timestamp per device for delta loading
-  const cachedNewestTimestamps = {};
-  const cachedCallCounts = {};
   try {
     const cached = await getCachedCalls();
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
@@ -494,17 +534,9 @@ export async function loadCalls() {
         console.log(
           `[Calls] 📦 Showing ${cached.allCalls.length} cached calls instantly`,
         );
-        hasCachedData = true;
         if (cached.byDevice) {
           for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
             state.setCallsByDevice(deviceId, calls);
-            cachedCallCounts[deviceId] = calls?.length || 0;
-            // Record newest timestamp per device for delta fetch
-            if (calls && calls.length > 0) {
-              cachedNewestTimestamps[deviceId] = Math.max(
-                ...calls.map((c) => c.timestamp || 0),
-              );
-            }
           }
         }
         // Sanitize any lingering ENC: values that slipped through decryption on the cached items
@@ -528,7 +560,7 @@ export async function loadCalls() {
         suppressCallsSyncIndicator = true;
         // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
         setCallsDataConfirmed(false);
-        renderCalls(sanitizedCachedCalls.slice(0, 100));
+        renderCalls(sanitizedCachedCalls);
         // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
       } // end hasEncryptedCache else
     }
@@ -575,85 +607,27 @@ export async function loadCalls() {
       return;
     }
 
-    // Load all devices in parallel with getDocs (one-time, fast)
+    // Load all devices in parallel with paged full fetch
     const loadPromises = devicesList.map(async (device) => {
-    // Delta fetch: if we have cached data, only query calls newer than cache
-    const cachedNewestTs = cachedNewestTimestamps[device.id];
-    const cachedDeviceCount = cachedCallCounts[device.id] || 0;
-    // If cached history is still below target, force full fetch to backfill older calls.
-    const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
-
-    let q;
-    if (isDelta) {
-      // Only fetch calls newer than the newest cached call
-      q = query(
-        collection(db, "users", user.uid, "devices", device.id, "calls"),
-        where("timestamp", ">", cachedNewestTs),
-        orderBy("timestamp", "desc"),
-        limit(CALLS_FETCH_LIMIT),
-      );
-    } else {
-      // No cache - full fetch
-      q = query(
-        collection(db, "users", user.uid, "devices", device.id, "calls"),
-        orderBy("timestamp", "desc"),
-        limit(CALLS_FETCH_LIMIT),
-      );
-    }
-
     try {
-      // Delta queries must hit the server — new calls won't be in Firestore's
-      // local IndexedDB cache yet, causing a multi-second delay before the
-      // realtime listener eventually delivers them.
-      let snapshot;
-      if (isDelta) {
-        try {
-          snapshot = await getDocsFromServer(q);
-        } catch (serverErr) {
-          if (!isUnavailableError(serverErr)) throw serverErr;
-          logCallsUnavailableOnce(
-            `delta:${device.id}`,
-            `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`,
-          );
-          snapshot = await getDocs(q);
-        }
-      } else {
-        try {
-          snapshot = await getDocsFromServer(q);
-        } catch (serverErr) {
-          if (!isUnavailableError(serverErr)) throw serverErr;
-          logCallsUnavailableOnce(
-            `full:${device.id}`,
-            `[Calls] Server unavailable for full ${device.id}, using local cache fallback`,
-          );
-          snapshot = await getDocs(q);
-        }
-      }
+      const docsToProcess = await fetchAllCallsDocsPaged(
+        user.uid,
+        device.id,
+        `full:${device.id}`,
+      );
       console.log(
-        `[Calls] ${isDelta ? "🔄 Delta" : "📥 Full"}: ${snapshot.size} calls from device ${device.id}`,
+        `[Calls] 📥 Full: ${docsToProcess.length} calls from device ${device.id}`,
       );
 
       const calls = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
+        docsToProcess.map(async (docSnap) => {
           let data = docSnap.data();
           data = await decryptCallCached(data, user.uid, docSnap.id);
           return processCallDoc(data, docSnap.id, device.id, device.name);
         }),
       );
 
-      if (isDelta) {
-        // Delta merge: combine new calls with cached ones
-        const cachedCalls = state.allCallsByDevice[device.id] || [];
-        const cachedIds = new Set(cachedCalls.map((c) => c.id));
-        const brandNew = calls.filter((c) => !cachedIds.has(c.id));
-        console.log(
-          `[Calls] 🔄 Delta: ${brandNew.length} new calls since cache for device ${device.id}`,
-        );
-        const merged = [...brandNew, ...cachedCalls];
-        updateCallsList(device.id, merged);
-      } else {
-        updateCallsList(device.id, calls);
-      }
+      updateCallsList(device.id, calls);
     } catch (error) {
       if (error?.code !== "permission-denied") {
         if (isUnavailableError(error)) {
@@ -795,7 +769,7 @@ function updateCallsList(deviceId, newCalls) {
   // Mark data as confirmed by Firestore so badge now reflects real viewed state
   setCallsDataConfirmed(true);
   updateTabBadges(); // update badge immediately, before renderCalls (which may exit early)
-  renderCalls(merged.slice(0, 100));
+  renderCalls(merged);
 
   // Notify the Insights dashboard so it re-renders with fresh call counts
   // (calls use getDocs which is slower than SMS real-time snapshots; without
@@ -1570,11 +1544,7 @@ export async function initiateDialRequest(phoneNumber, preferredDeviceId = null)
 export function exportCallsToCSV() {
   const activeDevice =
     document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
-  const knownDeviceIds = new Set([
-    ...state.devices.map((d) => d.id),
-    ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
-  ]);
-  let calls = (state.allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+  let calls = state.allCallsData || [];
   if (activeDevice !== "all") {
     calls = calls.filter((c) => c.deviceId === activeDevice);
   }
@@ -1625,23 +1595,67 @@ export async function loadSharedDevicesCalls(shares) {
 
   for (const share of callShares) {
     try {
+      // Initial full backfill for shared devices (paged), then keep realtime light.
+      const sharedDocs = await fetchAllCallsDocsPaged(
+        share.ownerUid,
+        share.deviceId,
+        `shared-full:${share.deviceId}`,
+      );
+
+      const initialCalls = await Promise.all(
+        sharedDocs.map(async (docSnap) => {
+          let data = docSnap.data();
+          data = await decryptCall(data, share.ownerUid);
+          return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+        }),
+      );
+      updateCallsList(share.deviceId, initialCalls);
+
       const q = query(
         collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
         orderBy("timestamp", "desc"),
-        limit(CALLS_FETCH_LIMIT),
+        limit(5),
       );
 
       const unsub = onSnapshot(
         q,
         async (snapshot) => {
-          const calls = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
+          if (snapshot.metadata.fromCache && snapshot.empty) return;
+
+          const currentCalls = state.allCallsByDevice[share.deviceId] || [];
+          const callsMap = new Map(currentCalls.map((c) => [c.id, c]));
+
+          for (const change of snapshot.docChanges()) {
+            if (change.type !== "added" && change.type !== "modified") continue;
+            const docSnap = change.doc;
+            let data = docSnap.data();
+            data = await decryptCall(data, share.ownerUid);
+            const call = processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+            const existing = callsMap.get(call.id);
+            const preserved = existing && existing.viewed === true && !call.viewed
+              ? { ...call, viewed: true }
+              : call;
+            callsMap.set(call.id, preserved);
+          }
+
+          const mergedCalls = Array.from(callsMap.values()).sort(
+            (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+          );
+
+          // Fallback for environments where docChanges is empty on initial snap.
+          if (mergedCalls.length === 0 && snapshot.docs.length > 0) {
+            const calls = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
               let data = docSnap.data();
               data = await decryptCall(data, share.ownerUid);
               return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
             }),
-          );
-          updateCallsList(share.deviceId, calls);
+            );
+            updateCallsList(share.deviceId, calls);
+            return;
+          }
+
+          updateCallsList(share.deviceId, mergedCalls);
         },
         (err) => {
           if (err?.code === "permission-denied") return;

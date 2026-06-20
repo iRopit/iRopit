@@ -1403,6 +1403,10 @@ body[dir="rtl"] .device-tag {
   opacity: 1;
 }
 
+.chat-message-wrapper.has-starred .chat-message-actions {
+  opacity: 1;
+}
+
 .chat-action-btn {
   width: 28px;
   height: 28px;
@@ -3337,9 +3341,9 @@ html.dark #dashInsightsDeviceTabs {
 .device-owned-shared-badge {
   font-size: 10px;
   font-weight: 600;
-  background: rgba(72, 187, 120, 0.15);
+  background: var(--primary);
   color: #000;
-  border: 1px solid rgba(72, 187, 120, 0.4);
+  border: 1px solid var(--primary-dark);
   border-radius: 4px;
   padding: 1px 6px;
   margin-left: 6px;
@@ -3347,9 +3351,9 @@ html.dark #dashInsightsDeviceTabs {
   text-transform: uppercase;
 }
 html.dark .device-owned-shared-badge {
-  background: rgba(72, 187, 120, 0.2);
+  background: var(--primary);
   color: #000;
-  border-color: rgba(72, 187, 120, 0.35);
+  border-color: var(--primary-dark);
 }
 
 /* "(Pending)" badge on own devices awaiting share acceptance */

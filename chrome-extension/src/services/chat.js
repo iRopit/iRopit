@@ -472,7 +472,7 @@ export function renderChatMessages(messages) {
       const direction = isSentFromExtension ? "sent" : "received";
       const isStarred = getStarredMessages().has(msg.id);
       return `
-        <div class="chat-message-wrapper ${direction}">
+        <div class="chat-message-wrapper ${direction}${isStarred ? " has-starred" : ""}">
           <div class="chat-message ${direction}" 
                data-msg-id="${escapeHtml(msg.id)}" 
                data-msg-sender="${escapeHtml(msg.senderId)}">
@@ -553,6 +553,7 @@ export function renderChatMessages(messages) {
       toggleStarMessage(msgId);
       const nowStarred = getStarredMessages().has(msgId);
       btn.classList.toggle("starred", nowStarred);
+      btn.closest(".chat-message-wrapper")?.classList.toggle("has-starred", nowStarred);
       btn.title = nowStarred ? "Unstar message" : "Star message";
       btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
       // If starred-only filter is active, re-render to hide newly unstarred

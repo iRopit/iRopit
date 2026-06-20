@@ -2026,31 +2026,37 @@ export function showConversation(phoneNumber) {
       uniqueConversation.push(msg);
     }
   }
+  const fullConversation = uniqueConversation;
   conversation = uniqueConversation;
 
   // Apply starred filter if the checkbox is checked while inside the conversation detail
-  if (document.getElementById("smsShowStarred")?.checked) {
+  const isStarredDetailFilter = !!document.getElementById("smsShowStarred")?.checked;
+  if (isStarredDetailFilter) {
     const _starred = getSmsStarredMessages();
     conversation = conversation.filter(msg => _starred.has(msg.id));
   }
 
   if (conversation.length === 0) {
-    return;
+    if (fullConversation.length === 0) return;
   }
 
-  markConversationAsRead(conversation);
+  if (conversation.length > 0) {
+    markConversationAsRead(conversation);
+  }
+
+  const headerConversation = conversation.length > 0 ? conversation : fullConversation;
 
   const contactName =
-    conversation.find(m => m.contactName && m.contactName.trim() && !isPhoneNumberLike(m.contactName))?.contactName ||
-    conversation.find(m => m.title && m.title.trim() && !isPhoneNumberLike(m.title))?.title ||
-    getContactName(conversation.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber))?.phoneNumber || phoneNumber) ||
+    headerConversation.find(m => m.contactName && m.contactName.trim() && !isPhoneNumberLike(m.contactName))?.contactName ||
+    headerConversation.find(m => m.title && m.title.trim() && !isPhoneNumberLike(m.title))?.title ||
+    getContactName(headerConversation.find(m => m.phoneNumber && isPhoneNumberLike(m.phoneNumber))?.phoneNumber || phoneNumber) ||
     (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) ||
-    conversation[0].phoneNumber ||
+    headerConversation[0].phoneNumber ||
     phoneNumber;
   // Extract the real phone number from messages (the key might be contact_Name or sender_Name)
   // Use the most recent message's phone so we reflect the actual last sender (a contact
   // may have multiple numbers; conversation is sorted ascending so the newest is last)
-  const realPhoneNumber = [...conversation]
+  const realPhoneNumber = [...headerConversation]
     .reverse()
     .find(m => {
       const p = m.phoneNumber || m.sender || "";
@@ -2111,7 +2117,9 @@ export function showConversation(phoneNumber) {
         })()}
       </div>
       <div class="conversation-messages">
-        ${conversation
+        ${conversation.length === 0
+          ? `<div class="empty-state"><p>${getCurrentLanguage() === "ar" ? "لا توجد رسائل مميزة" : "No starred messages"}</p><span>${getCurrentLanguage() === "ar" ? "قم بتمييز رسائل من داخل المحادثة" : "Star messages inside this conversation"}</span></div>`
+          : conversation
           .map(
             (msg) => {
           const isStarred = getSmsStarredMessages().has(msg.id);
@@ -2120,7 +2128,7 @@ export function showConversation(phoneNumber) {
             msg.direction === "outgoing" || msg.type === "sent"
               ? "sent"
               : "received"
-          }">
+          }${isStarred ? " has-starred" : ""}">
             <div class="message-bubble ${
               msg.direction === "outgoing" || msg.type === "sent"
                 ? "sent"
@@ -2174,7 +2182,7 @@ export function showConversation(phoneNumber) {
       return `
           <div class="chat-message-wrapper ${
             msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"
-          }">
+          }${isStarred ? " has-starred" : ""}">
             <div class="message-bubble ${
               msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"
             }" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
@@ -2284,11 +2292,17 @@ export function showConversation(phoneNumber) {
           toggleStarSmsMessage(msgId);
           const nowStarred = getSmsStarredMessages().has(msgId);
           btn.classList.toggle("starred", nowStarred);
+          wrapper.classList.toggle("has-starred", nowStarred);
           const lang = getCurrentLanguage();
           btn.title = lang === "ar"
             ? (nowStarred ? "إلغاء تمييز الرسالة" : "تمييز الرسالة")
             : (nowStarred ? "Unstar message" : "Star message");
           btn.querySelector("svg")?.setAttribute("fill", nowStarred ? "currentColor" : "none");
+
+          // Keep starred-only conversation filter strict: once unstarred, hide immediately.
+          if (document.getElementById("smsShowStarred")?.checked) {
+            showConversation(phoneNumber);
+          }
         });
       });
 
@@ -2439,11 +2453,17 @@ export function showConversation(phoneNumber) {
       toggleStarSmsMessage(msgId);
       const nowStarred = getSmsStarredMessages().has(msgId);
       btn.classList.toggle("starred", nowStarred);
+      btn.closest(".chat-message-wrapper")?.classList.toggle("has-starred", nowStarred);
       const lang = getCurrentLanguage();
       btn.title = lang === "ar"
         ? (nowStarred ? "\u0625\u0644\u063a\u0627\u0621 \u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062a\u0645\u064a\u064a\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629")
         : (nowStarred ? "Unstar message" : "Star message");
       btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
+
+      // Keep starred-only conversation filter strict: once unstarred, hide immediately.
+      if (document.getElementById("smsShowStarred")?.checked) {
+        showConversation(phoneNumber);
+      }
     });
   });
 }

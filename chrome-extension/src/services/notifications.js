@@ -1560,13 +1560,52 @@ async function markNotificationAsRead(deviceId, notifId) {
   // Flush immediately so the read state survives popup close/SW cache refresh.
   flushNotificationsCache(state.allNotifications).catch(() => {});
 
-  if (!notifId || /^-?\d+$/.test(notifId)) {
+  if (!notifId) {
     return;
   }
 
+  const isNotFoundError = (err) =>
+    String(err?.code || "").toLowerCase() === "not-found";
+
+  const tryMarkRead = async (ref) => {
+    try {
+      await updateDoc(ref, { read: true });
+      return true;
+    } catch (err) {
+      if (isNotFoundError(err)) return false;
+      throw err;
+    }
+  };
+
   try {
-    if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-      const notifRef = doc(
+    const hasDevicePath =
+      !!deviceId && deviceId !== "user" && deviceId !== "_user_notifications";
+
+    const deviceNotifRef = hasDevicePath
+      ? doc(
+        db,
+        "users",
+        user.uid,
+        "devices",
+        deviceId,
+        "notifications",
+        notifId,
+      )
+      : null;
+
+    const userNotifRef = doc(db, "users", user.uid, "notifications", notifId);
+
+    // Notifications can exist in either collection path depending on source.
+    // Try primary path first, then fallback path. Missing docs are expected races.
+    if (deviceNotifRef) {
+      if (await tryMarkRead(deviceNotifRef)) return;
+      await tryMarkRead(userNotifRef);
+      return;
+    }
+
+    if (await tryMarkRead(userNotifRef)) return;
+    if (deviceId) {
+      const fallbackDeviceRef = doc(
         db,
         "users",
         user.uid,
@@ -1575,15 +1614,12 @@ async function markNotificationAsRead(deviceId, notifId) {
         "notifications",
         notifId,
       );
-      await updateDoc(notifRef, { read: true });
-    } else {
-      const notifRef = doc(db, "users", user.uid, "notifications", notifId);
-      await updateDoc(notifRef, { read: true });
+      await tryMarkRead(fallbackDeviceRef);
     }
   } catch (error) {
     // State already updated optimistically above; Firestore write failed but
     // the UI is already correct. Log and continue.
-    console.error("markNotificationAsRead error:", error);
+    console.error("markNotificationAsRead unexpected error:", error);
   }
 }
 
@@ -1644,7 +1680,7 @@ export async function markAllNotificationsAsRead() {
  */
 async function updateFirestoreNotifications(userId, unreadNotifs) {
   // Filter out invalid IDs
-  const validNotifs = unreadNotifs.filter(n => n.id && !/^-?\d+$/.test(n.id));
+  const validNotifs = unreadNotifs.filter(n => n.id);
   if (validNotifs.length === 0) return;
 
   let successCount = 0;

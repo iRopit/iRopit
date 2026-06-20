@@ -51,6 +51,7 @@ self.addEventListener("unhandledrejection", (event) => {
 let currentUser = null;
 let currentDeviceId = null;
 const SMS_CACHE_CAP = 10000;
+const CALLS_CACHE_CAP = 2000;
 let isStartingListeners = false;
 let activeListenersUserUid = null;
 // Store last timestamp to avoid duplicate notifications
@@ -1830,10 +1831,10 @@ async function updateCallsCache(deviceId, deviceName, newCall) {
     // so the just-ended call never shows correctly until a full cache-clear refresh.
     let decrypted = newCall;
     try { decrypted = await decryptCall(newCall, currentUser?.uid); } catch (_) {}
-    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, 200);
+    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, CALLS_CACHE_CAP);
     const allCalls = Object.values(callsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 200);
+      .slice(0, CALLS_CACHE_CAP);
     await chrome.storage.local.set({
       cached_calls_data: { byDevice: callsByDevice, allCalls },
     });
@@ -2243,7 +2244,7 @@ async function refreshPopupCache() {
         ? query(collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
             where("timestamp", ">", callsNewest), orderBy("timestamp", "desc"), limit(100))
         : query(collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
-            orderBy("timestamp", "desc"), limit(200));
+          orderBy("timestamp", "desc"), limit(CALLS_CACHE_CAP));
 
       // ── Notifications ─────────────────────────────────────────────────────
       const notifNewest = newestTs(notifsByDevice, device.id, "timestamp");
@@ -2269,13 +2270,13 @@ async function refreshPopupCache() {
           newSmsByDevice[device.id] = [...brandNew, ...existing].slice(0, SMS_CACHE_CAP);
         }
 
-        // Merge Calls — always cap to 200
+        // Merge Calls — cap to calls cache size
         {
           const newCalls = callsSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = callsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((c) => c.id));
           const brandNew = newCalls.filter((c) => !existingIds.has(c.id));
-          newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
+          newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, CALLS_CACHE_CAP);
         }
 
         // Merge Notifications (non-SMS) — always cap to 200
@@ -2352,7 +2353,7 @@ async function refreshPopupCache() {
       .slice(0, SMS_CACHE_CAP);
     const allCalls = Object.values(newCallsByDevice).flat()
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .slice(0, 200);
+      .slice(0, CALLS_CACHE_CAP);
 
     // Persist all caches atomically
     await chrome.storage.local.set({

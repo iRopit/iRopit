@@ -25545,7 +25545,7 @@ ${this.customData.serverResponse}`;
       const direction = isSentFromExtension ? "sent" : "received";
       const isStarred = getStarredMessages().has(msg.id);
       return `
-        <div class="chat-message-wrapper ${direction}">
+        <div class="chat-message-wrapper ${direction}${isStarred ? " has-starred" : ""}">
           <div class="chat-message ${direction}" 
                data-msg-id="${escapeHtml(msg.id)}" 
                data-msg-sender="${escapeHtml(msg.senderId)}">
@@ -25613,6 +25613,7 @@ ${this.customData.serverResponse}`;
         toggleStarMessage(msgId);
         const nowStarred = getStarredMessages().has(msgId);
         btn.classList.toggle("starred", nowStarred);
+        btn.closest(".chat-message-wrapper")?.classList.toggle("has-starred", nowStarred);
         btn.title = nowStarred ? "Unstar message" : "Star message";
         btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
         if (document.getElementById("chatShowStarred")?.checked) {
@@ -26588,6 +26589,40 @@ ${this.customData.serverResponse}`;
       console.info(message);
     }
   }
+  async function getCallsSnapshotWithFallback(q2, keyPrefix) {
+    try {
+      return await getDocsFromServer(q2);
+    } catch (serverErr) {
+      if (!isUnavailableError(serverErr)) throw serverErr;
+      logCallsUnavailableOnce(
+        `${keyPrefix}:server-fallback`,
+        `[Calls] Server unavailable for ${keyPrefix}, using local cache fallback`
+      );
+      return await getDocs(q2);
+    }
+  }
+  async function fetchAllCallsDocsPaged(uid, deviceId, keyPrefix) {
+    const docs = [];
+    let lastDoc = null;
+    for (let page = 0; page < CALLS_FULL_FETCH_MAX_PAGES; page++) {
+      const pageQuery = lastDoc ? query(
+        collection(db, "users", uid, "devices", deviceId, "calls"),
+        orderBy("timestamp", "desc"),
+        startAfter(lastDoc),
+        limit(CALLS_FETCH_LIMIT)
+      ) : query(
+        collection(db, "users", uid, "devices", deviceId, "calls"),
+        orderBy("timestamp", "desc"),
+        limit(CALLS_FETCH_LIMIT)
+      );
+      const snapshot = await getCallsSnapshotWithFallback(pageQuery, `${keyPrefix}:page:${page + 1}`);
+      if (snapshot.empty) break;
+      docs.push(...snapshot.docs);
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < CALLS_FETCH_LIMIT) break;
+    }
+    return docs;
+  }
   function getCallTypeLabel(type) {
     const ar = getCurrentLanguage() === "ar";
     switch (type) {
@@ -26842,9 +26877,6 @@ ${this.customData.serverResponse}`;
       const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
       showListLoading(callsList, syncingMsg);
     }
-    let hasCachedData = false;
-    const cachedNewestTimestamps = {};
-    const cachedCallCounts = {};
     try {
       const cached = await getCachedCalls();
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
@@ -26861,16 +26893,9 @@ ${this.customData.serverResponse}`;
           console.log(
             `[Calls] \u{1F4E6} Showing ${cached.allCalls.length} cached calls instantly`
           );
-          hasCachedData = true;
           if (cached.byDevice) {
             for (const [deviceId, calls] of Object.entries(cached.byDevice)) {
               setCallsByDevice(deviceId, calls);
-              cachedCallCounts[deviceId] = calls?.length || 0;
-              if (calls && calls.length > 0) {
-                cachedNewestTimestamps[deviceId] = Math.max(
-                  ...calls.map((c) => c.timestamp || 0)
-                );
-              }
             }
           }
           const sanitizeCall = (c) => {
@@ -26888,7 +26913,7 @@ ${this.customData.serverResponse}`;
           setAllCallsData(sanitizedCachedCalls);
           suppressCallsSyncIndicator = true;
           setCallsDataConfirmed(false);
-          renderCalls(sanitizedCachedCalls.slice(0, 100));
+          renderCalls(sanitizedCachedCalls);
         }
       }
     } catch (e) {
@@ -26923,71 +26948,23 @@ ${this.customData.serverResponse}`;
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
-        const cachedNewestTs = cachedNewestTimestamps[device.id];
-        const cachedDeviceCount = cachedCallCounts[device.id] || 0;
-        const isDelta = !!cachedNewestTs && cachedDeviceCount >= CALLS_FETCH_LIMIT;
-        let q2;
-        if (isDelta) {
-          q2 = query(
-            collection(db, "users", user.uid, "devices", device.id, "calls"),
-            where("timestamp", ">", cachedNewestTs),
-            orderBy("timestamp", "desc"),
-            limit(CALLS_FETCH_LIMIT)
-          );
-        } else {
-          q2 = query(
-            collection(db, "users", user.uid, "devices", device.id, "calls"),
-            orderBy("timestamp", "desc"),
-            limit(CALLS_FETCH_LIMIT)
-          );
-        }
         try {
-          let snapshot;
-          if (isDelta) {
-            try {
-              snapshot = await getDocsFromServer(q2);
-            } catch (serverErr) {
-              if (!isUnavailableError(serverErr)) throw serverErr;
-              logCallsUnavailableOnce(
-                `delta:${device.id}`,
-                `[Calls] Server unavailable for delta ${device.id}, using local cache fallback`
-              );
-              snapshot = await getDocs(q2);
-            }
-          } else {
-            try {
-              snapshot = await getDocsFromServer(q2);
-            } catch (serverErr) {
-              if (!isUnavailableError(serverErr)) throw serverErr;
-              logCallsUnavailableOnce(
-                `full:${device.id}`,
-                `[Calls] Server unavailable for full ${device.id}, using local cache fallback`
-              );
-              snapshot = await getDocs(q2);
-            }
-          }
+          const docsToProcess = await fetchAllCallsDocsPaged(
+            user.uid,
+            device.id,
+            `full:${device.id}`
+          );
           console.log(
-            `[Calls] ${isDelta ? "\u{1F504} Delta" : "\u{1F4E5} Full"}: ${snapshot.size} calls from device ${device.id}`
+            `[Calls] \u{1F4E5} Full: ${docsToProcess.length} calls from device ${device.id}`
           );
           const calls = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
+            docsToProcess.map(async (docSnap) => {
               let data = docSnap.data();
               data = await decryptCallCached(data, user.uid, docSnap.id);
               return processCallDoc(data, docSnap.id, device.id, device.name);
             })
           );
-          if (isDelta) {
-            const cachedCalls = allCallsByDevice[device.id] || [];
-            const cachedIds = new Set(cachedCalls.map((c) => c.id));
-            const brandNew = calls.filter((c) => !cachedIds.has(c.id));
-            console.log(
-              `[Calls] \u{1F504} Delta: ${brandNew.length} new calls since cache for device ${device.id}`
-            );
-            const merged = [...brandNew, ...cachedCalls];
-            updateCallsList(device.id, merged);
-          } else {
-            updateCallsList(device.id, calls);
-          }
+          updateCallsList(device.id, calls);
         } catch (error) {
           if (error?.code !== "permission-denied") {
             if (isUnavailableError(error)) {
@@ -27098,7 +27075,7 @@ ${this.customData.serverResponse}`;
     setAllCallsData(merged);
     setCallsDataConfirmed(true);
     updateTabBadges();
-    renderCalls(merged.slice(0, 100));
+    renderCalls(merged);
     document.dispatchEvent(new CustomEvent("callsDataUpdated"));
     cacheCallsData(allCallsByDevice, merged).catch(() => {
     });
@@ -27712,11 +27689,7 @@ ${this.customData.serverResponse}`;
   }
   function exportCallsToCSV() {
     const activeDevice = document.querySelector("#callsDeviceTabs .device-tab.active")?.dataset.device || "all";
-    const knownDeviceIds = /* @__PURE__ */ new Set([
-      ...devices.map((d) => d.id),
-      ...(sharedWithMeDevices || []).map((s) => s.deviceId)
-    ]);
-    let calls = (allCallsData || []).filter((c) => !c.deviceId || knownDeviceIds.has(c.deviceId));
+    let calls = allCallsData || [];
     if (activeDevice !== "all") {
       calls = calls.filter((c) => c.deviceId === activeDevice);
     }
@@ -27755,22 +27728,55 @@ ${this.customData.serverResponse}`;
     if (callShares.length === 0) return;
     for (const share of callShares) {
       try {
+        const sharedDocs = await fetchAllCallsDocsPaged(
+          share.ownerUid,
+          share.deviceId,
+          `shared-full:${share.deviceId}`
+        );
+        const initialCalls = await Promise.all(
+          sharedDocs.map(async (docSnap) => {
+            let data = docSnap.data();
+            data = await decryptCall(data, share.ownerUid);
+            return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+          })
+        );
+        updateCallsList(share.deviceId, initialCalls);
         const q2 = query(
           collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
           orderBy("timestamp", "desc"),
-          limit(CALLS_FETCH_LIMIT)
+          limit(5)
         );
         const unsub = onSnapshot(
           q2,
           async (snapshot) => {
-            const calls = await Promise.all(
-              snapshot.docs.map(async (docSnap) => {
-                let data = docSnap.data();
-                data = await decryptCall(data, share.ownerUid);
-                return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
-              })
+            if (snapshot.metadata.fromCache && snapshot.empty) return;
+            const currentCalls = allCallsByDevice[share.deviceId] || [];
+            const callsMap = new Map(currentCalls.map((c) => [c.id, c]));
+            for (const change of snapshot.docChanges()) {
+              if (change.type !== "added" && change.type !== "modified") continue;
+              const docSnap = change.doc;
+              let data = docSnap.data();
+              data = await decryptCall(data, share.ownerUid);
+              const call = processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+              const existing = callsMap.get(call.id);
+              const preserved = existing && existing.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
+              callsMap.set(call.id, preserved);
+            }
+            const mergedCalls = Array.from(callsMap.values()).sort(
+              (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
             );
-            updateCallsList(share.deviceId, calls);
+            if (mergedCalls.length === 0 && snapshot.docs.length > 0) {
+              const calls = await Promise.all(
+                snapshot.docs.map(async (docSnap) => {
+                  let data = docSnap.data();
+                  data = await decryptCall(data, share.ownerUid);
+                  return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+                })
+              );
+              updateCallsList(share.deviceId, calls);
+              return;
+            }
+            updateCallsList(share.deviceId, mergedCalls);
           },
           (err) => {
             if (err?.code === "permission-denied") return;
@@ -27794,7 +27800,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var CALLS_FETCH_LIMIT, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
+  var CALLS_FETCH_LIMIT, CALLS_FULL_FETCH_MAX_PAGES, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -27810,6 +27816,7 @@ ${this.customData.serverResponse}`;
       init_cache();
       init_hoverPreview();
       CALLS_FETCH_LIMIT = 2e3;
+      CALLS_FULL_FETCH_MAX_PAGES = 25;
       callsUnavailableLogKeys = /* @__PURE__ */ new Set();
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
@@ -29414,17 +29421,22 @@ ${this.customData.serverResponse}`;
         uniqueConversation.push(msg);
       }
     }
+    const fullConversation = uniqueConversation;
     conversation = uniqueConversation;
-    if (document.getElementById("smsShowStarred")?.checked) {
+    const isStarredDetailFilter = !!document.getElementById("smsShowStarred")?.checked;
+    if (isStarredDetailFilter) {
       const _starred = getSmsStarredMessages();
       conversation = conversation.filter((msg) => _starred.has(msg.id));
     }
     if (conversation.length === 0) {
-      return;
+      if (fullConversation.length === 0) return;
     }
-    markConversationAsRead(conversation);
-    const contactName = conversation.find((m) => m.contactName && m.contactName.trim() && !isPhoneNumberLike2(m.contactName))?.contactName || conversation.find((m) => m.title && m.title.trim() && !isPhoneNumberLike2(m.title))?.title || getContactName(conversation.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber))?.phoneNumber || phoneNumber) || (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) || conversation[0].phoneNumber || phoneNumber;
-    const realPhoneNumber = [...conversation].reverse().find((m) => {
+    if (conversation.length > 0) {
+      markConversationAsRead(conversation);
+    }
+    const headerConversation = conversation.length > 0 ? conversation : fullConversation;
+    const contactName = headerConversation.find((m) => m.contactName && m.contactName.trim() && !isPhoneNumberLike2(m.contactName))?.contactName || headerConversation.find((m) => m.title && m.title.trim() && !isPhoneNumberLike2(m.title))?.title || getContactName(headerConversation.find((m) => m.phoneNumber && isPhoneNumberLike2(m.phoneNumber))?.phoneNumber || phoneNumber) || (phoneNumber.startsWith("contact_") ? phoneNumber.replace("contact_", "") : null) || headerConversation[0].phoneNumber || phoneNumber;
+    const realPhoneNumber = [...headerConversation].reverse().find((m) => {
       const p = m.phoneNumber || m.sender || "";
       return p && !p.startsWith("contact_") && !p.startsWith("sender_") && /\d/.test(p);
     });
@@ -29471,11 +29483,11 @@ ${this.customData.serverResponse}`;
     })()}
       </div>
       <div class="conversation-messages">
-        ${conversation.map(
+        ${conversation.length === 0 ? `<div class="empty-state"><p>${getCurrentLanguage() === "ar" ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0645\u0645\u064A\u0632\u0629" : "No starred messages"}</p><span>${getCurrentLanguage() === "ar" ? "\u0642\u0645 \u0628\u062A\u0645\u064A\u064A\u0632 \u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629" : "Star messages inside this conversation"}</span></div>` : conversation.map(
       (msg) => {
         const isStarred = getSmsStarredMessages().has(msg.id);
         return `
-          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
+          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}${isStarred ? " has-starred" : ""}">
             <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
               <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
               <div class="message-footer">
@@ -29515,7 +29527,7 @@ ${this.customData.serverResponse}`;
       const buildMessageHtml = (msg) => {
         const isStarred = getSmsStarredMessages().has(msg.id);
         return `
-          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}">
+          <div class="chat-message-wrapper ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}${isStarred ? " has-starred" : ""}">
             <div class="message-bubble ${msg.direction === "outgoing" || msg.type === "sent" ? "sent" : "received"}" data-msg-id="${escapeHtml(msg.id)}" data-msg-content="${escapeHtml(msg.body || msg.text || msg.content || "")}">
               <div class="message-text">${msg.body || msg.text || msg.content ? linkifyText2(msg.body || msg.text || msg.content) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>'}</div>
               <div class="message-footer">
@@ -29602,9 +29614,13 @@ ${this.customData.serverResponse}`;
             toggleStarSmsMessage(msgId);
             const nowStarred = getSmsStarredMessages().has(msgId);
             btn.classList.toggle("starred", nowStarred);
+            wrapper.classList.toggle("has-starred", nowStarred);
             const lang = getCurrentLanguage();
             btn.title = lang === "ar" ? nowStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : nowStarred ? "Unstar message" : "Star message";
             btn.querySelector("svg")?.setAttribute("fill", nowStarred ? "currentColor" : "none");
+            if (document.getElementById("smsShowStarred")?.checked) {
+              showConversation(phoneNumber);
+            }
           });
         });
         const heightDelta = messagesContainer.scrollHeight - prevScrollHeight;
@@ -29728,9 +29744,13 @@ ${this.customData.serverResponse}`;
         toggleStarSmsMessage(msgId);
         const nowStarred = getSmsStarredMessages().has(msgId);
         btn.classList.toggle("starred", nowStarred);
+        btn.closest(".chat-message-wrapper")?.classList.toggle("has-starred", nowStarred);
         const lang = getCurrentLanguage();
         btn.title = lang === "ar" ? nowStarred ? "\u0625\u0644\u063A\u0627\u0621 \u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : "\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0631\u0633\u0627\u0644\u0629" : nowStarred ? "Unstar message" : "Star message";
         btn.querySelector("svg").setAttribute("fill", nowStarred ? "currentColor" : "none");
+        if (document.getElementById("smsShowStarred")?.checked) {
+          showConversation(phoneNumber);
+        }
       });
     });
   }
@@ -32233,12 +32253,39 @@ ${this.customData.serverResponse}`;
     updateTabBadges();
     flushNotificationsCache(allNotifications).catch(() => {
     });
-    if (!notifId || /^-?\d+$/.test(notifId)) {
+    if (!notifId) {
       return;
     }
+    const isNotFoundError = (err) => String(err?.code || "").toLowerCase() === "not-found";
+    const tryMarkRead = async (ref2) => {
+      try {
+        await updateDoc(ref2, { read: true });
+        return true;
+      } catch (err) {
+        if (isNotFoundError(err)) return false;
+        throw err;
+      }
+    };
     try {
-      if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-        const notifRef = doc(
+      const hasDevicePath = !!deviceId && deviceId !== "user" && deviceId !== "_user_notifications";
+      const deviceNotifRef = hasDevicePath ? doc(
+        db,
+        "users",
+        user.uid,
+        "devices",
+        deviceId,
+        "notifications",
+        notifId
+      ) : null;
+      const userNotifRef = doc(db, "users", user.uid, "notifications", notifId);
+      if (deviceNotifRef) {
+        if (await tryMarkRead(deviceNotifRef)) return;
+        await tryMarkRead(userNotifRef);
+        return;
+      }
+      if (await tryMarkRead(userNotifRef)) return;
+      if (deviceId) {
+        const fallbackDeviceRef = doc(
           db,
           "users",
           user.uid,
@@ -32247,13 +32294,10 @@ ${this.customData.serverResponse}`;
           "notifications",
           notifId
         );
-        await updateDoc(notifRef, { read: true });
-      } else {
-        const notifRef = doc(db, "users", user.uid, "notifications", notifId);
-        await updateDoc(notifRef, { read: true });
+        await tryMarkRead(fallbackDeviceRef);
       }
     } catch (error) {
-      console.error("markNotificationAsRead error:", error);
+      console.error("markNotificationAsRead unexpected error:", error);
     }
   }
   async function markAllNotificationsAsRead() {
@@ -32289,7 +32333,7 @@ ${this.customData.serverResponse}`;
     await updateFirestoreNotifications(user.uid, unreadNotifs);
   }
   async function updateFirestoreNotifications(userId, unreadNotifs) {
-    const validNotifs = unreadNotifs.filter((n) => n.id && !/^-?\d+$/.test(n.id));
+    const validNotifs = unreadNotifs.filter((n) => n.id);
     if (validNotifs.length === 0) return;
     let successCount = 0;
     let failCount = 0;

@@ -18863,6 +18863,7 @@ self.addEventListener("unhandledrejection", (event) => {
 var currentUser = null;
 var currentDeviceId = null;
 var SMS_CACHE_CAP = 1e4;
+var CALLS_CACHE_CAP = 2e3;
 var isStartingListeners = false;
 var activeListenersUserUid = null;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
@@ -20225,8 +20226,8 @@ async function updateCallsCache(deviceId, deviceName, newCall) {
       decrypted = await decryptCall(newCall, currentUser?.uid);
     } catch (_) {
     }
-    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, 200);
-    const allCalls = Object.values(callsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
+    callsByDevice[deviceId] = [{ ...decrypted, id: newCall.id, deviceId, deviceName }, ...existing].slice(0, CALLS_CACHE_CAP);
+    const allCalls = Object.values(callsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, CALLS_CACHE_CAP);
     await chrome.storage.local.set({
       cached_calls_data: { byDevice: callsByDevice, allCalls }
     });
@@ -20529,7 +20530,7 @@ async function refreshPopupCache() {
       ) : query(
         collection(db, "users", currentUser.uid, "devices", device.id, "calls"),
         orderBy("timestamp", "desc"),
-        limit(200)
+        limit(CALLS_CACHE_CAP)
       );
       const notifNewest = newestTs(notifsByDevice, device.id, "timestamp");
       const notifQ = notifNewest ? query(
@@ -20560,7 +20561,7 @@ async function refreshPopupCache() {
           const existing = callsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((c) => c.id));
           const brandNew = newCalls.filter((c) => !existingIds.has(c.id));
-          newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
+          newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, CALLS_CACHE_CAP);
         }
         {
           const newNotifs = notifSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
@@ -20616,7 +20617,7 @@ async function refreshPopupCache() {
     });
     locallyReadNotificationIds = readIds;
     const allMessages = Object.values(newSmsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, SMS_CACHE_CAP);
-    const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 200);
+    const allCalls = Object.values(newCallsByDevice).flat().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, CALLS_CACHE_CAP);
     await chrome.storage.local.set({
       cached_sms_data: { byDevice: newSmsByDevice, allMessages },
       cache_timestamp: Date.now(),
