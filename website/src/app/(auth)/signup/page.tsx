@@ -8,6 +8,21 @@ import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+function trackSignupConversion() {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+    return;
+  }
+  window.gtag("event", "conversion", {
+    send_to: "AW-18202812826/vtTYCKa8-bccEJrD4-dD",
+  });
+}
+
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,6 +45,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signup(name, email, password);
+      trackSignupConversion();
       router.push("/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code || "";
@@ -50,6 +66,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await loginWithGoogle();
+      trackSignupConversion();
       router.push("/dashboard");
     } catch {
       setError(t("errors.googleFailed"));

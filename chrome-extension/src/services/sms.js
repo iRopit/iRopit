@@ -2029,6 +2029,12 @@ export function showConversation(phoneNumber) {
   const fullConversation = uniqueConversation;
   conversation = uniqueConversation;
 
+  // Apply unread filter if enabled while inside the conversation detail
+  const isUnreadDetailFilter = !!document.getElementById("smsShowUnread")?.checked;
+  if (isUnreadDetailFilter) {
+    conversation = conversation.filter((msg) => !msg.read);
+  }
+
   // Apply starred filter if the checkbox is checked while inside the conversation detail
   const isStarredDetailFilter = !!document.getElementById("smsShowStarred")?.checked;
   if (isStarredDetailFilter) {
@@ -2118,7 +2124,15 @@ export function showConversation(phoneNumber) {
       </div>
       <div class="conversation-messages">
         ${conversation.length === 0
-          ? `<div class="empty-state"><p>${getCurrentLanguage() === "ar" ? "لا توجد رسائل مميزة" : "No starred messages"}</p><span>${getCurrentLanguage() === "ar" ? "قم بتمييز رسائل من داخل المحادثة" : "Star messages inside this conversation"}</span></div>`
+          ? `<div class="empty-state"><p>${
+              isUnreadDetailFilter
+                ? (getCurrentLanguage() === "ar" ? "لا توجد رسائل غير مقروءة" : "No unread messages")
+                : (getCurrentLanguage() === "ar" ? "لا توجد رسائل مميزة" : "No starred messages")
+            }</p><span>${
+              isUnreadDetailFilter
+                ? (getCurrentLanguage() === "ar" ? "تمت قراءة كل الرسائل في هذه المحادثة" : "All messages in this conversation are read")
+                : (getCurrentLanguage() === "ar" ? "قم بتمييز رسائل من داخل المحادثة" : "Star messages inside this conversation")
+            }</span></div>`
           : conversation
           .map(
             (msg) => {
@@ -2400,6 +2414,20 @@ export function showConversation(phoneNumber) {
       if (!state.currentConversation) {
         convStarredCb.removeEventListener("change", _convStarred);
         delete convStarredCb.dataset.convWired;
+        return;
+      }
+      showConversation(phoneNumber);
+    });
+  }
+
+  // Wire smsShowUnread checkbox to re-render this conversation when toggled
+  const convUnreadCb = document.getElementById("smsShowUnread");
+  if (convUnreadCb && !convUnreadCb.dataset.convWired) {
+    convUnreadCb.dataset.convWired = "1";
+    convUnreadCb.addEventListener("change", function _convUnread() {
+      if (!state.currentConversation) {
+        convUnreadCb.removeEventListener("change", _convUnread);
+        delete convUnreadCb.dataset.convWired;
         return;
       }
       showConversation(phoneNumber);

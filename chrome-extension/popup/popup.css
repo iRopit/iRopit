@@ -1729,6 +1729,7 @@ html.dark #chatTab #sendChatBtn:active {
 .profile-footer-global.collapsed .profile-avatar-footer,
 .profile-footer-global.collapsed .profile-info-footer,
 .profile-footer-global.collapsed .profile-version-footer,
+.profile-footer-global.collapsed .profile-playstore-link-footer,
 .profile-footer-global.collapsed .profile-logout-btn-footer {
   display: none;
 }
@@ -1781,7 +1782,7 @@ html.dark #chatTab #sendChatBtn:active {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .profile-name-footer {
@@ -1795,10 +1796,30 @@ html.dark #chatTab #sendChatBtn:active {
 
 .profile-email-footer {
   font-size: 11px;
+  line-height: 1.2;
   color: rgba(0, 0, 0, 0.8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.profile-playstore-link-footer {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-inline: 12px 6px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.profile-playstore-link-footer:hover {
+  filter: brightness(1.06);
+  transform: scale(1.05);
 }
 
 .profile-version-footer {
@@ -3818,6 +3839,14 @@ html.dark .profile-name-footer {
 
 html.dark .profile-email-footer {
   color: rgba(255, 255, 255, 0.85);
+}
+
+html.dark .profile-playstore-link-footer {
+  background: transparent;
+}
+
+html.dark .profile-playstore-link-footer:hover {
+  filter: brightness(1.08);
 }
 
 html.dark .profile-version-footer {

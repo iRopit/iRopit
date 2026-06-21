@@ -56,30 +56,33 @@ const PERMISSIONS_LIST: PermissionItem[] = [
     icon: 'notifications-outline',
     titleEn: 'Push Notifications',
     titleAr: 'الإشعارات الفورية',
-    descEn: 'Show push notifications',
+    descEn:
+      'iRopit collects and transmits Android notification content, notification titles, application names, and notification timestamps from your device to your authenticated Chrome Extension.',
     descAr: 'عرض الإشعارات الفورية',
     purposeEn:
-      'Alert you about new messages, missed calls, and important updates',
+      'This permission is required to:\n\n• Display mobile notifications on your desktop browser.\n• Show real-time alerts from installed applications.\n• Keep notifications synchronized across your connected devices.\n• Allow you to view important mobile activity without checking your phone.\n\nNotification data is securely transmitted only to your authenticated iRopit account and connected devices and is not used for advertising purposes.',
     purposeAr: 'تنبيهك بالرسائل الجديدة والمكالمات الفائتة والتحديثات المهمة',
   },
   {
     icon: 'mail-open-outline',
     titleEn: 'Read SMS',
     titleAr: 'قراءة الرسائل القصيرة',
-    descEn: 'Read sent and received messages',
+    descEn:
+      "iRopit collects and uploads SMS messages, SMS content, sender information, message timestamps, and SMS log data from your device to iRopit's secure servers, even when the app is closed, minimized, or not actively in use.",
     descAr: 'قراءة الرسائل المرسلة والمستلمة',
     purposeEn:
-      'Sync your full SMS conversation history with Chrome Extension for seamless access',
+      'This data is required to provide core iRopit features, including:\n\n• Real-time SMS synchronization with your connected Chrome Extension.\n• Desktop pop-up notifications for incoming messages.\n• OTP code retrieval and display on your desktop.\n• Cross-device access to SMS conversations.\n\nSMS data is transmitted only to your authenticated iRopit account and connected devices. It is not sold to third parties or used for advertising purposes.',
     purposeAr: 'مزامنة سجل محادثات SMS الكامل مع إضافة Chrome للوصول السلس',
   },
   {
     icon: 'call-outline',
     titleEn: 'Phone & Call Log',
     titleAr: 'سجل الهاتف والمكالمات',
-    descEn: 'Access call history and phone state',
+    descEn:
+      'iRopit collects and transmits call log information, including incoming calls, outgoing calls, missed calls, phone numbers, call duration, call timestamps, and call status from your device to your authenticated Chrome Extension.',
     descAr: 'الوصول إلى سجل المكالمات وحالة الهاتف',
     purposeEn:
-      'Track incoming, outgoing, and missed calls with duration and time to display on Chrome Extension',
+      'This permission is required to:\n\n• Display call activity on your desktop browser.\n• Show incoming and missed call notifications in real-time.\n• Synchronize call history across your connected devices.\n• Help you identify and manage calls without accessing your phone.\n\nCall log data is securely transmitted only to your authenticated iRopit account and connected devices. It is not sold to third parties or used for advertising purposes.',
     purposeAr:
       'تتبع المكالمات الواردة والصادرة والفائتة مع المدة والوقت لعرضها على إضافة Chrome',
   },

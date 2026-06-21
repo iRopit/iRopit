@@ -2411,6 +2411,8 @@ chrome.runtime.onInstalled.addListener((details) => {
     // Fresh install: explicitly set call popups OFF (new default)
     const defaults = {};
     callPopupKeys.forEach((k) => (defaults[k] = false));
+    defaults.installAndroidPromptPending = true;
+    defaults.installAndroidPromptShown_v1 = false;
     chrome.storage.local.set(defaults);
   } else if (details.reason === "update") {
     // Extension update: if user never explicitly set these keys (old default was ON),

@@ -86,8 +86,8 @@ const PermissionsStep: React.FC<PermissionsStepProps> = ({
           />
           <Text style={[localStyles.grantAllText, { color: isDark ? colors.black : '#FFF' }]}>
             {grantingAll
-              ? (isRTL ? 'جاري المنح...' : 'Granting...')
-              : (isRTL ? 'منح جميع الأذونات' : 'Grant All Permissions')}
+              ? (isRTL ? 'جاري السماح...' : 'Allowing...')
+              : (isRTL ? 'السماح بجميع الأذونات' : 'Allow All Permissions')}
           </Text>
         </TouchableOpacity>
       )}

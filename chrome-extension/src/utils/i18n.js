@@ -90,7 +90,7 @@ export const translations = {
     tooltip_export_insights_summary: "Export SMS & Calls to Excel",
     tooltip_export_insights_spending: "Export spending data to CSV",
     tooltip_delete_device: "Delete device",
-    filter_show_starred: "Show Starred Messages",
+    filter_show_starred: "Show Starred",
     filter_show_unread: "Show Unread",
     filter_show_muted: "Show Muted",
     sms_filter_show_starred: "Show Starred",

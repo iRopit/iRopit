@@ -57,6 +57,7 @@ import {
 import { loadAllContacts } from "./services/contacts.js";
 import { initTheme } from "./services/theme.js";
 import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flushSMSCache, flushNotificationsCache } from "./services/cache.js";
+import QRCode from "qrcode";
 
 // Import utilities
 import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./utils/i18n.js";
@@ -64,6 +65,9 @@ import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./uti
 let hasLoadedCalls = false;
 let hasLoadedNotifications = false;
 let lazyTabLoadsWired = false;
+const INSTALL_ANDROID_PROMPT_KEY = "installAndroidPromptPending";
+const INSTALL_ANDROID_PROMPT_SHOWN_KEY = "installAndroidPromptShown_v1";
+const ANDROID_APP_URL = "https://play.google.com/store/apps/details?id=com.IRopit";
 
 async function drainPendingChatPushes() {
   const key = "pendingChatPushes";
@@ -108,6 +112,124 @@ function wireLazyTabLoads() {
     loadNotificationsIfNeeded(false),
   );
   lazyTabLoadsWired = true;
+}
+
+async function showAndroidAppInstallPromptIfNeeded() {
+  try {
+    const result = await chrome.storage.local.get([
+      INSTALL_ANDROID_PROMPT_KEY,
+      INSTALL_ANDROID_PROMPT_SHOWN_KEY,
+    ]);
+    if (!result?.[INSTALL_ANDROID_PROMPT_KEY] || result?.[INSTALL_ANDROID_PROMPT_SHOWN_KEY]) {
+      return false;
+    }
+
+    document.getElementById("androidInstallPromptOverlay")?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "androidInstallPromptOverlay";
+    overlay.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "background:rgba(8,12,26,0.72)",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "z-index:10000",
+      "padding:16px",
+    ].join(";");
+
+    const card = document.createElement("div");
+    card.style.cssText = [
+      "width:min(520px,100%)",
+      "background:var(--surface,#182341)",
+      "border:1px solid var(--border,#2a3558)",
+      "border-radius:14px",
+      "box-shadow:0 18px 48px rgba(0,0,0,0.38)",
+      "padding:18px",
+      "color:var(--text,#f4f6ff)",
+    ].join(";");
+
+    const title = document.createElement("h3");
+    title.textContent = "Complete installation";
+    title.style.cssText = "margin:0 0 10px 0;font-size:18px;font-weight:700;";
+
+    const body = document.createElement("p");
+    body.textContent =
+      "One more step! Install the iRopit Android app using the link below to connect your phone with the browser extension and enable synchronization.";
+    body.style.cssText = "margin:0 0 14px 0;line-height:1.5;font-size:13px;color:var(--text-secondary,#c7d0e8);";
+
+    const qrWrap = document.createElement("div");
+    qrWrap.style.cssText = "display:flex;justify-content:center;margin-bottom:12px;";
+
+    const qrImg = document.createElement("img");
+    qrImg.alt = "Android app QR code";
+    qrImg.style.cssText = "width:170px;height:170px;border-radius:10px;background:#fff;padding:8px;";
+    try {
+      qrImg.src = await QRCode.toDataURL(ANDROID_APP_URL, {
+        width: 170,
+        margin: 1,
+      });
+    } catch (_) {
+      qrImg.style.display = "none";
+    }
+    qrWrap.appendChild(qrImg);
+
+    const link = document.createElement("a");
+    link.href = ANDROID_APP_URL;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = ANDROID_APP_URL;
+    link.style.cssText = "display:block;margin-bottom:14px;font-size:12px;word-break:break-all;color:#8ec5ff;";
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end;";
+
+    const laterBtn = document.createElement("button");
+    laterBtn.textContent = "Close";
+    laterBtn.style.cssText =
+      "border:1px solid var(--border,#2a3558);background:var(--surface-secondary,#111a34);color:var(--text,#f4f6ff);padding:8px 12px;border-radius:8px;cursor:pointer;";
+
+    const installBtn = document.createElement("button");
+    installBtn.textContent = "Install Android App";
+    installBtn.style.cssText =
+      "border:0;background:var(--primary,#d3bd92);color:#000;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer;";
+
+    const markShownAndClose = async () => {
+      await chrome.storage.local.set({
+        [INSTALL_ANDROID_PROMPT_KEY]: false,
+        [INSTALL_ANDROID_PROMPT_SHOWN_KEY]: true,
+      });
+      overlay.remove();
+    };
+
+    laterBtn.addEventListener("click", () => {
+      markShownAndClose().catch(() => overlay.remove());
+    });
+
+    installBtn.addEventListener("click", async () => {
+      try {
+        await chrome.tabs.create({ url: ANDROID_APP_URL });
+      } catch (_) {
+        window.open(ANDROID_APP_URL, "_blank");
+      }
+      await markShownAndClose();
+    });
+
+    actions.appendChild(laterBtn);
+    actions.appendChild(installBtn);
+
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(qrWrap);
+    card.appendChild(link);
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -367,8 +489,10 @@ function init() {
       );
       loadData();
       wireLazyTabLoads();
-      // Show first-time tour after login (only on fresh install)
-      initTour();
+      // Show first-install Android app prompt once after first login.
+      const promptShown = await showAndroidAppInstallPromptIfNeeded();
+      // Show first-time tour after login (only on fresh install).
+      if (!promptShown) initTour();
     },
     // On logout
     () => {

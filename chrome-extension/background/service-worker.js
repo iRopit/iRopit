@@ -20658,6 +20658,8 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     const defaults = {};
     callPopupKeys.forEach((k2) => defaults[k2] = false);
+    defaults.installAndroidPromptPending = true;
+    defaults.installAndroidPromptShown_v1 = false;
     chrome.storage.local.set(defaults);
   } else if (details.reason === "update") {
     chrome.storage.local.get(callPopupKeys, (result) => {

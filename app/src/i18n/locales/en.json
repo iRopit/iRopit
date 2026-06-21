@@ -68,7 +68,7 @@
     "permissions": {
       "title": "Required Permissions",
       "subtitle": "For the best experience, please grant the following permissions",
-      "grant": "Grant",
+      "grant": "Allow",
       "granted": "Granted",
       "notifications": "Notifications",
       "notificationsDesc": "Receive notifications about new messages and calls",

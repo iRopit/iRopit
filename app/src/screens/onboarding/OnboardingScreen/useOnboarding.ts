@@ -32,10 +32,34 @@ export const useOnboarding = () => {
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([
     {
+      id: 'readSms',
+      name: 'Read SMS & Log',
+      nameAr: 'قراءة الرسائل',
+      description:
+        "iRopit collects and uploads your device's SMS data (including incoming text messages and full SMS logs) to our secure servers even when the app is closed, minimized, or not in use, to provide instant cross-device desktop pop-up alerts.",
+      descriptionAr:
+        'يصل iRopit إلى سجل المكالمات الخاص بك *حتى عندما يكون التطبيق مغلقا أو مصغرا أو غير مستخدم* لتقديم تنبيهات فورية منبثقة على سطح المكتب للمكالمات الواردة أثناء عملك على الكمبيوتر.',
+      icon: 'mail-open-outline',
+      required: true,
+      granted: false,
+    },
+    {
+      id: 'phone',
+      name: 'Phone & Call Log',
+      nameAr: 'سجل المكالمات',
+      description:
+        "iRopit collects and uploads your device's Call Log data (including incoming call notifications and historical call records) to our secure servers even when the app is closed, minimized, or not in use, to provide instant cross-device desktop alerts.",
+      descriptionAr: 'رصد المكالمات الواردة والصادرة والفائتة مع المدة والوقت',
+      icon: 'call-outline',
+      required: true,
+      granted: false,
+    },
+    {
       id: 'notificationListener',
       name: 'Notification Access',
       nameAr: 'إذن قراءة الإشعارات',
-      description: 'Read SMS and app notifications to sync with other devices',
+      description:
+        'iRopit collects and transmits Android notification content to your authenticated Chrome Extension for real-time desktop alerts and cross-device synchronization',
       descriptionAr: 'قراءة الرسائل والإشعارات لمزامنتها مع الأجهزة الأخرى',
       icon: 'notifications',
       required: true,
@@ -48,29 +72,6 @@ export const useOnboarding = () => {
       description: 'Receive notifications about new messages and calls',
       descriptionAr: 'تلقي إشعارات حول الرسائل والمكالمات الجديدة',
       icon: 'notifications-outline',
-      required: true,
-      granted: false,
-    },
-    {
-      id: 'readSms',
-      name: 'Read SMS',
-      nameAr: 'قراءة الرسائل',
-      description:
-        'iRopit requires permission to read SMS messages to sync them to your Chrome extension client seamlessly even when the app is closed, minimized, or not in use.',
-      descriptionAr:
-        'يصل iRopit إلى سجل المكالمات الخاص بك *حتى عندما يكون التطبيق مغلقا أو مصغرا أو غير مستخدم* لتقديم تنبيهات فورية منبثقة على سطح المكتب للمكالمات الواردة أثناء عملك على الكمبيوتر.',
-      icon: 'mail-open-outline',
-      required: true,
-      granted: false,
-    },
-    {
-      id: 'phone',
-      name: 'Phone & Call Log',
-      nameAr: 'سجل المكالمات',
-      description:
-        'Track incoming, outgoing, and missed calls with duration and time',
-      descriptionAr: 'رصد المكالمات الواردة والصادرة والفائتة مع المدة والوقت',
-      icon: 'call-outline',
       required: true,
       granted: false,
     },
@@ -180,13 +181,24 @@ export const useOnboarding = () => {
         PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CONTACTS),
       ]);
 
+      const checksById: Record<string, boolean> = {
+        notificationListener: checks[0],
+        notifications: checks[1],
+        readSms: checks[2],
+        phone: checks[3],
+        contacts: checks[4],
+      };
+
       setPermissions(prev =>
-        prev.map((p, i) => ({ ...p, granted: checks[i] })),
+        prev.map(p => ({ ...p, granted: checksById[p.id] ?? p.granted })),
       );
 
       // Check if required permissions are granted
       const requiredGranted =
-        checks[0] && checks[1] && checks[2] && checks[3]; // notificationListener, notifications, readSms, phone are required
+        checksById.notificationListener &&
+        checksById.notifications &&
+        checksById.readSms &&
+        checksById.phone;
       const allGranted = checks.every(c => c);
 
       setAllPermissionsGranted(allGranted);

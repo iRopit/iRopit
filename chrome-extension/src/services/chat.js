@@ -936,27 +936,46 @@ export function setReplyTo(element) {
     senderId: msgSender,
   });
 
-  // Show reply preview above input
-  let replyPreview = document.getElementById("chatReplyPreview");
+  // Show reply preview in the dedicated static container above the input row.
+  // Rendering it inside the input flex row can collapse the textarea width.
+  let replyPreview = document.getElementById("replyPreview");
+  const legacyReplyPreview = document.getElementById("chatReplyPreview");
+  legacyReplyPreview?.remove();
+
   if (!replyPreview) {
-    replyPreview = document.createElement("div");
-    replyPreview.id = "chatReplyPreview";
-    replyPreview.className = "chat-reply-input-preview";
-    const chatInputContainer = chatInput.parentElement;
-    chatInputContainer.insertBefore(
-      replyPreview,
-      chatInputContainer.firstChild,
-    );
+    const chatBottomSection = document.querySelector(".chat-bottom-section");
+    const chatInputContainer = document.querySelector(".chat-input-container");
+    if (chatBottomSection) {
+      replyPreview = document.createElement("div");
+      replyPreview.id = "replyPreview";
+      replyPreview.className = "reply-preview";
+      replyPreview.innerHTML = `
+        <div class="reply-content">
+          <div class="reply-label">Replying to:</div>
+          <div id="replyText" class="reply-text"></div>
+        </div>
+        <button id="cancelReply" class="cancel-reply-btn" type="button" aria-label="Cancel reply">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      `;
+      if (chatInputContainer) {
+        chatBottomSection.insertBefore(replyPreview, chatInputContainer);
+      } else {
+        chatBottomSection.appendChild(replyPreview);
+      }
+    }
   }
 
-  replyPreview.innerHTML = `
-    <span class="reply-text">↩ ${escapeHtml(msgContent.substring(0, 40))}${
-      msgContent.length > 40 ? "..." : ""
-    }</span>
-    <button class="reply-close" type="button">×</button>
-  `;
-  replyPreview.querySelector(".reply-close")?.addEventListener("click", clearReply);
-  replyPreview.style.display = "flex";
+  const replyText = document.getElementById("replyText");
+  if (replyText) {
+    replyText.textContent = `↩ ${msgContent.substring(0, 40)}${msgContent.length > 40 ? "..." : ""}`;
+  }
+  const cancelBtn = document.getElementById("cancelReply");
+  if (cancelBtn) cancelBtn.onclick = clearReply;
+  replyPreview?.classList.remove("hidden");
   chatInput.focus();
 }
 
@@ -965,10 +984,10 @@ export function setReplyTo(element) {
  */
 export function clearReply() {
   state.setCurrentReplyTo(null);
-  const replyPreview = document.getElementById("chatReplyPreview");
-  if (replyPreview) {
-    replyPreview.style.display = "none";
-  }
+  const replyPreview = document.getElementById("replyPreview");
+  if (replyPreview) replyPreview.classList.add("hidden");
+  const replyText = document.getElementById("replyText");
+  if (replyText) replyText.textContent = "";
 }
 
 /**
