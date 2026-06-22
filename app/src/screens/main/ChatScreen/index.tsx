@@ -18,7 +18,7 @@ import {
 import RNBlobUtil from 'react-native-blob-util';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { EmptyState, ScreenTitle } from '../../../components/shared';
+import { EmptyState, ScreenTitle, SearchBar } from '../../../components/shared';
 import { Container, AnimatedListItem } from '../../../components';
 import { Message } from './types';
 import { styles } from './styles';
@@ -98,6 +98,8 @@ const ChatScreen = () => {
 
   const {
     messages,
+    filteredMessages,
+    searchQuery,
     inputText,
     replyTo,
     isTyping,
@@ -119,6 +121,7 @@ const ChatScreen = () => {
     secondaryTextColor,
     surfaceColor,
     flatListRef,
+    setSearchQuery,
     handleInputChange,
     clearReply,
     setReplyMessage,
@@ -357,12 +360,19 @@ const ChatScreen = () => {
         isRTL={isRTL}
       />
 
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        isRTL={isRTL}
+        isDarkMode={isDarkMode}
+      />
+
       <View style={{ flex: 1 }}>
 
       {/* Device selector dropdown */}
       {(() => {
-        const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
-        const selectedDevice = otherDevices.find(d => d.id === selectedDeviceId);
+        const availableDevices = devices;
+        const selectedDevice = availableDevices.find(d => d.id === selectedDeviceId);
         const selPlatform = (selectedDevice as any)?.platform || selectedDevice?.type || '';
         const selIcon = selectedDevice
           ? selPlatform.includes('chrome') ? 'laptop-outline' : 'phone-portrait-outline'
@@ -449,10 +459,14 @@ const ChatScreen = () => {
                   {/* All option */}
                   {[{ id: null, icon: 'layers-outline', label: isRTL ? 'كل الأجهزة' : 'All Devices', isOnline: true }]
                     .concat(
-                      otherDevices.map(d => ({
+                      availableDevices.map(d => ({
                         id: d.id,
                         icon: ((d as any).platform || d.type || '').includes('chrome') ? 'laptop-outline' : 'phone-portrait-outline',
-                        label: (d as any).nickname || d.name || (d as any).model || 'Device',
+                        label:
+                          ((d as any).nickname || d.name || (d as any).model || 'Device') +
+                          (d.id === currentDevice?.id
+                            ? (isRTL ? ' (الحالي)' : ' (Current)')
+                            : ''),
                         isOnline: (d as any).isOnline,
                       })) as any[],
                     )
@@ -528,13 +542,13 @@ const ChatScreen = () => {
         <FlatList
           ref={flatListRef}
           style={{ flex: 1 }}
-          data={[...messages].reverse()}
+          data={[...filteredMessages].reverse()}
           inverted={true}
           keyExtractor={item => item.id}
           renderItem={renderMessageItem}
           contentContainerStyle={[
             styles.messagesList,
-            messages.length === 0 && styles.emptyListContent,
+            filteredMessages.length === 0 && styles.emptyListContent,
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"

@@ -6,7 +6,10 @@ import { useSettingsStore } from '../../../store/settingsStore';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MenuSection } from './types';
 
-export const useMenuScreen = (navigation: any) => {
+export const useMenuScreen = (
+  navigation: any,
+  onOpenShareDeviceModal?: () => void,
+) => {
   const { user, signOut } = useAuthStore();
   const { currentDevice, deleteDevice } = useDeviceStore();
   const settings = useSettingsStore();
@@ -65,17 +68,15 @@ export const useMenuScreen = (navigation: any) => {
               signOut();
               return;
             }
-            try {
-              await deleteDevice(currentDevice.id);
-            } catch (e) {
+            deleteDevice(currentDevice.id).catch(() => {
               // still sign out even if delete fails
-            }
+            });
             signOut();
           },
         },
       ],
     );
-  }, [isRTL, currentDevice, signOut]);
+  }, [isRTL, currentDevice, deleteDevice, signOut]);
 
   const navigateToUserSettings = useCallback(() => {
     navigation.navigate('UserSettings');
@@ -131,6 +132,20 @@ export const useMenuScreen = (navigation: any) => {
       ],
     },
     {
+      title: isRTL ? 'الجهاز' : 'Device',
+      items: [
+        {
+          icon: 'share-social-outline',
+          title: isRTL ? 'مشاركة هذا الجهاز' : 'Share This Device',
+          subtitle: isRTL
+            ? 'مشاركة الرسائل والمكالمات والإشعارات مع حساب iRopit آخر'
+            : 'Share SMS, calls, and notifications with another iRopit account',
+          danger: false,
+          onPress: onOpenShareDeviceModal,
+        },
+      ],
+    },
+    {
       title: t('account'),
       items: [
         {
@@ -155,6 +170,7 @@ export const useMenuScreen = (navigation: any) => {
   return {
     // Data
     user,
+    currentDevice,
     settings,
     menuSections,
 

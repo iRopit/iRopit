@@ -5,15 +5,180 @@
 
 const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const functionsV1 = require("firebase-functions/v1");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const nodemailer = require("nodemailer");
 
 // Initialize Firebase Admin SDK
 initializeApp();
 
 const db = getFirestore();
 const messaging = getMessaging();
+
+const FIRST_LOGIN_EMAIL_SUBJECT =
+  "Complete Your iRopit Setup in Less Than 1 Minute";
+const FIRST_LOGIN_EMAIL_FROM = "info@iRopit.com";
+
+let cachedMailer = null;
+
+function getMailer() {
+  if (cachedMailer) return cachedMailer;
+
+  const runtimeCfg =
+    typeof functionsV1.config === "function" ? functionsV1.config() : {};
+  const smtpCfg = runtimeCfg?.smtp || {};
+
+  const host = process.env.SMTP_HOST || smtpCfg.host;
+  const port = Number(process.env.SMTP_PORT || smtpCfg.port || 465);
+  const user = process.env.SMTP_USER || smtpCfg.user;
+  const pass = process.env.SMTP_PASS || smtpCfg.pass;
+  const secureEnv = process.env.SMTP_SECURE || smtpCfg.secure;
+  const secure =
+    String(secureEnv || "").toLowerCase() === "true" || port === 465;
+
+  if (!host || !user || !pass) {
+    throw new Error(
+      "Missing SMTP config. Required env vars: SMTP_HOST, SMTP_USER, SMTP_PASS, optional SMTP_PORT, SMTP_SECURE",
+    );
+  }
+
+  cachedMailer = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  return cachedMailer;
+}
+
+function buildFirstLoginEmailPayload(user) {
+  const name = (user.displayName || "").trim() || "there";
+  const text = [
+    `Dear ${name},`,
+    "",
+    "Thank you for installing iRopit!",
+    "We're excited to have you as part of the iRopit community.",
+    "",
+    "To get the full benefit of iRopit and unlock all its features, please complete your setup by installing the iRopit Chrome Extension and Android Mobile App.",
+    "",
+    "Install the Chrome Extension here:",
+    "https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar",
+    "",
+    "Install the Android Mobile App:",
+    "https://play.google.com/store/apps/details?id=com.IRopit",
+    "",
+    "Once connected, iRopit helps you stay productive by keeping your mobile and browser connected seamlessly.",
+    "",
+    "Key Features:",
+    "- Mobile notifications directly in your browser",
+    "- SMS visibility on your desktop",
+    "- Incoming and missed call notifications",
+    "- One-click OTP copy from SMS",
+    "- Automatic opening of received messages",
+    "- Share notifications, SMS, and calls to another iRopit user",
+    "- Automatic opening of received URLs",
+    "- Universal Copy: copy on one device, paste on another",
+    "- Faster access to important information without constantly checking your phone",
+    "",
+    "Complete your installation today and experience a more connected and productive workflow.",
+    "",
+    "Thank you for choosing iRopit!",
+    "Best Regards,",
+    "The iRopit Team",
+    "www.iRopit.com",
+  ].join("\n");
+
+  const html = `
+    <p>Dear ${name},</p>
+    <p>Thank you for installing iRopit!<br/>We're excited to have you as part of the iRopit community.</p>
+    <p>
+      To get the full benefit of iRopit and unlock all its features, please complete your setup by installing the iRopit Chrome Extension and Android Mobile App.
+    </p>
+    <p>
+      <strong>Install the Chrome Extension here:</strong><br/>
+      <a href="https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar">https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar</a>
+    </p>
+    <p>
+      <strong>Install the Android Mobile App:</strong><br/>
+      <a href="https://play.google.com/store/apps/details?id=com.IRopit">https://play.google.com/store/apps/details?id=com.IRopit</a>
+    </p>
+    <p>Once connected, iRopit helps you stay productive by keeping your mobile and browser connected seamlessly.</p>
+    <p><strong>Key Features:</strong></p>
+    <ul>
+      <li>Mobile notifications directly in your browser</li>
+      <li>SMS visibility on your desktop</li>
+      <li>Incoming and missed call notifications</li>
+      <li>One-click OTP copy from SMS</li>
+      <li>Automatic opening of received messages</li>
+      <li>Share notifications, SMS, and calls to another iRopit user</li>
+      <li>Automatic opening of received URLs</li>
+      <li>Universal Copy: copy on one device, paste on another</li>
+      <li>Faster access to important information without constantly checking your phone</li>
+    </ul>
+    <p>Complete your installation today and experience a more connected and productive workflow.</p>
+    <p>
+      Thank you for choosing iRopit!<br/>
+      Best Regards,<br/>
+      The iRopit Team<br/>
+      <a href="https://www.iRopit.com">www.iRopit.com</a>
+    </p>
+  `;
+
+  return { text, html };
+}
+
+/**
+ * Send one-time setup email when a Firebase Auth user is created
+ * (first-ever login/signup across website, extension, and app).
+ */
+exports.sendFirstLoginSetupEmail = functionsV1.auth.user().onCreate(async (user) => {
+  if (!user?.uid || !user?.email) {
+    return null;
+  }
+
+  const userRef = db.collection("users").doc(user.uid);
+
+  try {
+    const existing = await userRef.get();
+    if (existing.exists && existing.get("firstLoginSetupEmailSentAt")) {
+      return null;
+    }
+
+    const { text, html } = buildFirstLoginEmailPayload(user);
+
+    await getMailer().sendMail({
+      from: `iRopit Team <${FIRST_LOGIN_EMAIL_FROM}>`,
+      to: user.email,
+      subject: FIRST_LOGIN_EMAIL_SUBJECT,
+      text,
+      html,
+    });
+
+    await userRef.set(
+      {
+        firstLoginSetupEmailSentAt: FieldValue.serverTimestamp(),
+        firstLoginSetupEmailTo: user.email,
+        firstLoginSetupEmailSubject: FIRST_LOGIN_EMAIL_SUBJECT,
+      },
+      { merge: true },
+    );
+
+    return null;
+  } catch (error) {
+    console.error("sendFirstLoginSetupEmail error:", error?.message || error);
+    await userRef.set(
+      {
+        firstLoginSetupEmailError: error?.message || String(error),
+        firstLoginSetupEmailLastAttemptAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return null;
+  }
+});
 
 // Encryption helpers (must match client cryptoService)
 const ENCRYPTION_PREFIX = "ENC:";

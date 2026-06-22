@@ -139,6 +139,67 @@ function hasSharedSmsPermission(share) {
   return false;
 }
 
+function resolveSMSOwnerUid(deviceId, ownerUidHint = null) {
+  if (ownerUidHint) return ownerUidHint;
+  if (!deviceId) return state.currentUser?.uid || null;
+  const shared = (state.sharedWithMeDevices || []).find(
+    (s) => s?.deviceId === deviceId && s?.ownerUid,
+  );
+  return shared?.ownerUid || state.currentUser?.uid || null;
+}
+
+function getOwnSmsDeviceIds() {
+  return new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "sms"),
+      )
+      .map((d) => d.id),
+  );
+}
+
+function getSharedSmsDeviceIds() {
+  return new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => hasSharedSmsPermission(s))
+      .map((s) => s.deviceId)
+      .filter(Boolean),
+  );
+}
+
+function rebuildMergedSMSFromState() {
+  let merged = [];
+  Object.values(state.allSMS || {}).forEach((msgs) => {
+    if (Array.isArray(msgs) && msgs.length > 0) merged = merged.concat(msgs);
+  });
+  merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  state.setAllSMSMessages(merged);
+  return merged;
+}
+
+function pruneSMSForAllowedDevices(allowedDeviceIds) {
+  const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  let changed = false;
+
+  Object.keys(state.allSMS || {}).forEach((deviceId) => {
+    if (!allowed.has(deviceId)) {
+      delete state.allSMS[deviceId];
+      changed = true;
+    }
+  });
+
+  if (!changed) return false;
+  rebuildMergedSMSFromState();
+  return true;
+}
+
 /**
  * Resolve the best device name for an SMS message at render time.
  * Looks up state.devices so user-set nicknames and raw model names are used
@@ -689,9 +750,19 @@ export async function loadSMS() {
       }
     });
 
+    const sharedSmsDeviceIds = getSharedSmsDeviceIds();
+    const allowedSmsDeviceIds = new Set([
+      ...devicesList.map((d) => d.id).filter(Boolean),
+      ...sharedSmsDeviceIds,
+    ]);
+    if (pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+      updateTabBadges();
+      renderSMS(state.allSMSMessages || []);
+    }
+
     if (devicesList.length === 0) {
-      console.warn(
-        "âš ï¸ No mobile devices found for SMS loading - showing empty state",
+      console.info(
+        "[SMS] No mobile devices found for SMS loading; showing empty state",
       );
       isSyncing = false;
       updateSMSCountIndicator();
@@ -1371,16 +1442,37 @@ export function renderSMS(messages) {
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
   } else {
-    // Exclude own-device messages where SMS sync is disabled, but NEVER hide
-    // shared-device messages via local sync preferences.
-    const sharedDeviceIds = new Set(
-      (state.sharedWithMeDevices || []).map((s) => s.deviceId).filter(Boolean),
+    // Exclude stale messages from unknown/removed devices. Keep user-level
+    // messages (no deviceId), own devices with SMS enabled, and active shared devices.
+    const ownSmsDeviceIds = getOwnSmsDeviceIds();
+    const sharedDeviceIds = getSharedSmsDeviceIds();
+    const allOwnMobileDeviceIds = new Set(
+      (state.devices || [])
+        .filter(
+          (d) =>
+            (d.type === "mobile" ||
+              d.type === "phone" ||
+              d.platform === "android" ||
+              d.platform === "Android" ||
+              d.platform === "ios") &&
+            d.id,
+        )
+        .map((d) => d.id),
     );
+    const hasAnyLinkedSmsDevice =
+      allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
     filteredMessages = messages.filter((msg) => {
       if (!msg.deviceId) return true;
+      if (ownSmsDeviceIds.has(msg.deviceId)) return true;
       if (sharedDeviceIds.has(msg.deviceId)) return true;
-      return state.getDeviceSyncPref(msg.deviceId, "sms");
+      return false;
     });
+
+    // First login/new install safety: if there are linked devices but strict
+    // ID matching yields nothing while data exists, fall back to visible data.
+    if (hasAnyLinkedSmsDevice && filteredMessages.length === 0 && messages.length > 0) {
+      filteredMessages = messages;
+    }
   }
 
   // Filter by search query
@@ -2676,10 +2768,12 @@ export async function markAllSmsAsRead() {
 
     for (const msg of state.allSMSMessages) {
       if (!msg.read && msg.id && msg.deviceId && (activeDevice === "all" || msg.deviceId === activeDevice)) {
+        const ownerUid = resolveSMSOwnerUid(msg.deviceId, msg.ownerUid);
+        if (!ownerUid) continue;
         const notifRef = doc(
           db,
           "users",
-          user.uid,
+          ownerUid,
           "devices",
           msg.deviceId,
           "notifications",
@@ -2743,18 +2837,18 @@ async function markConversationAsRead(conversation) {
   const unreadMsgs = conversation.filter((msg) => !msg.read && msg.id && msg.deviceId);
   if (unreadMsgs.length === 0) return;
 
-  const msgIds = unreadMsgs.map((m) => m.id);
+  const msgIds = new Set(unreadMsgs.map((m) => m.id));
 
   // Optimistic update: update state IMMEDIATELY (synchronous) so the badge
   // reflects the change right away, regardless of any async work below.
   const updatedMessages = state.allSMSMessages.map((msg) =>
-    msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
+    msgIds.has(msg.id) ? { ...msg, read: true } : msg,
   );
   state.setAllSMSMessages(updatedMessages);
 
   Object.keys(state.allSMS).forEach((deviceId) => {
     const updated = state.allSMS[deviceId].map((msg) =>
-      msgIds.includes(msg.id) ? { ...msg, read: true } : msg,
+      msgIds.has(msg.id) ? { ...msg, read: true } : msg,
     );
     state.setSMSData(deviceId, updated);
   });
@@ -2773,10 +2867,12 @@ async function markConversationAsRead(conversation) {
   try {
     const batch = writeBatch(db);
     for (const msg of unreadMsgs) {
+      const ownerUid = resolveSMSOwnerUid(msg.deviceId, msg.ownerUid);
+      if (!ownerUid) continue;
       const notifRef = doc(
         db,
         "users",
-        user.uid,
+        ownerUid,
         "devices",
         msg.deviceId,
         "notifications",
@@ -3341,6 +3437,16 @@ export async function loadSharedDevicesSMS(shares) {
   }
   console.log("[SMS][shared] loader called, shares:", Array.isArray(shares) ? shares.length : 0);
   const smsShares = (shares || []).filter((s) => hasSharedSmsPermission(s));
+
+  const allowedSmsDeviceIds = new Set([
+    ...(state.devices || []).map((d) => d?.id).filter(Boolean),
+    ...smsShares.map((s) => s?.deviceId).filter(Boolean),
+  ]);
+  if (pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+    updateTabBadges();
+    renderSMS(state.allSMSMessages || []);
+  }
+
   if (smsShares.length === 0) {
     console.log("[SMS][shared] no shares with SMS permission");
     stopSharedSMSListeners();
@@ -3535,6 +3641,7 @@ export async function loadSharedDevicesSMS(shares) {
             id: docSnap.id,
             docId: docSnap.id,
             docRef: docSnap.ref,
+            ownerUid: share.ownerUid,
             _rawDeviceId: data.deviceId,
             _rawDeviceName: data.deviceName || data.device || data.model,
             _rawType: data.type,
@@ -3561,6 +3668,7 @@ export async function loadSharedDevicesSMS(shares) {
             id: docSnap.id,
             docId: docSnap.id,
             docRef: docSnap.ref,
+            ownerUid: share.ownerUid,
             _rawDeviceId: raw.deviceId,
             _rawDeviceName: raw.deviceName || raw.device || raw.model,
             _rawType: raw.type,

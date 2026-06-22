@@ -106,6 +106,98 @@ function dayEnd(dateStr) {
   return new Date(dateStr + "T23:59:59.999").getTime();
 }
 
+function getOwnSmsDeviceIds() {
+  return new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "sms"),
+      )
+      .map((d) => d.id),
+  );
+}
+
+function getSharedSmsDeviceIds() {
+  return new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => s?.deviceId && s?.permissions?.sms !== false)
+      .map((s) => s.deviceId),
+  );
+}
+
+function getOwnCallsDeviceIds() {
+  return new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "calls"),
+      )
+      .map((d) => d.id),
+  );
+}
+
+function getSharedCallsDeviceIds() {
+  return new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
+      .map((s) => s.deviceId),
+  );
+}
+
+function filterInsightsByAllowedDevices(allSms, allCalls) {
+  const ownSmsDeviceIds = getOwnSmsDeviceIds();
+  const sharedSmsDeviceIds = getSharedSmsDeviceIds();
+  const ownCallsDeviceIds = getOwnCallsDeviceIds();
+  const sharedCallsDeviceIds = getSharedCallsDeviceIds();
+
+  const allOwnMobileDeviceIds = new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id,
+      )
+      .map((d) => d.id),
+  );
+
+  const hasAnyLinkedSmsDevice =
+    allOwnMobileDeviceIds.size > 0 || sharedSmsDeviceIds.size > 0;
+  const hasAnyLinkedCallsDevice =
+    allOwnMobileDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
+
+  const sms = (allSms || []).filter((m) => {
+    if (!m?.deviceId) return hasAnyLinkedSmsDevice;
+    if (ownSmsDeviceIds.has(m.deviceId)) return true;
+    if (sharedSmsDeviceIds.has(m.deviceId)) return true;
+    return false;
+  });
+
+  const calls = (allCalls || []).filter((c) => {
+    if (!c?.deviceId) return hasAnyLinkedCallsDevice;
+    if (ownCallsDeviceIds.has(c.deviceId)) return true;
+    if (sharedCallsDeviceIds.has(c.deviceId)) return true;
+    return false;
+  });
+
+  return { sms, calls };
+}
+
 /** Render the dashboard with current filter values */
 async function renderDashboard() {
   const fromInput = document.getElementById("dashFromDate");
@@ -160,6 +252,7 @@ async function renderDashboard() {
 
   // Read from in-memory state — already populated by real-time listeners
   const { allSms, allCalls } = await loadInsightsData(fromTs, toTs);
+  const visibleData = filterInsightsByAllowedDevices(allSms, allCalls);
 
   // Determine selected device from the active sidebar tab
   const insightsDeviceTabs = document.getElementById("dashInsightsDeviceTabs");
@@ -168,11 +261,11 @@ async function renderDashboard() {
 
   // Apply device filter
   const filteredSms = selectedDevice === "all"
-    ? allSms
-    : allSms.filter((m) => m.deviceId === selectedDevice);
+    ? visibleData.sms
+    : visibleData.sms.filter((m) => m.deviceId === selectedDevice);
   const filteredCalls = selectedDevice === "all"
-    ? allCalls
-    : allCalls.filter((c) => c.deviceId === selectedDevice);
+    ? visibleData.calls
+    : visibleData.calls.filter((c) => c.deviceId === selectedDevice);
 
   // Update stat counters
   if (smsCountEl) smsCountEl.textContent = filteredSms.length;
@@ -735,8 +828,13 @@ async function getCurrentFilteredData() {
   const selectedDevice =
     insightsDeviceTabs?.querySelector(".device-tab.active")?.dataset.device || "all";
 
-  const filteredSms   = selectedDevice === "all" ? allSms   : allSms.filter((m) => m.deviceId === selectedDevice);
-  const filteredCalls = selectedDevice === "all" ? allCalls : allCalls.filter((c) => c.deviceId === selectedDevice);
+  const visibleData = filterInsightsByAllowedDevices(allSms, allCalls);
+  const filteredSms = selectedDevice === "all"
+    ? visibleData.sms
+    : visibleData.sms.filter((m) => m.deviceId === selectedDevice);
+  const filteredCalls = selectedDevice === "all"
+    ? visibleData.calls
+    : visibleData.calls.filter((c) => c.deviceId === selectedDevice);
 
   return { filteredSms, filteredCalls, fromVal, toVal };
 }

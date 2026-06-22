@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Alert, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -32,6 +32,7 @@ export const useChatScreen = () => {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -351,12 +352,49 @@ export const useChatScreen = () => {
             rawMsgs.push({ id: doc.id, ...data } as Message);
           });
           rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+          const selectedDevice = selectedDeviceId
+            ? devices.find(d => d.id === selectedDeviceId)
+            : null;
+          const selectedPlatform = String(
+            (selectedDevice as any)?.platform || selectedDevice?.type || '',
+          ).toLowerCase();
+          const isChromeDeviceSelected = selectedPlatform.includes('chrome');
+
           // Filter by selected device tab; no specific selection = show all
           const filteredMsgs = selectedDeviceId
-            ? rawMsgs.filter(msg =>
-                msg.senderDeviceId === selectedDeviceId ||
-                msg.receiverDeviceId === selectedDeviceId,
-              )
+            ? rawMsgs.filter(msg => {
+                const senderDeviceId = String((msg as any).senderDeviceId || '');
+                const receiverDeviceId = String((msg as any).receiverDeviceId || '');
+
+                if (
+                  senderDeviceId === selectedDeviceId ||
+                  receiverDeviceId === selectedDeviceId
+                ) {
+                  return true;
+                }
+
+                if (isChromeDeviceSelected) {
+                  const senderPlatform = String(
+                    (msg as any).senderPlatform || '',
+                  ).toLowerCase();
+                  const senderName = String((msg as any).senderName || '').toLowerCase();
+
+                  // Accept legacy/fallback extension markers so Chrome tab
+                  // still shows extension-sent messages even if IDs differ.
+                  if (
+                    senderPlatform === 'chrome-extension' ||
+                    senderPlatform === 'chrome' ||
+                    senderDeviceId === 'ext_sw' ||
+                    senderDeviceId.startsWith('ext_') ||
+                    senderName.includes('chrome extension')
+                  ) {
+                    return true;
+                  }
+                }
+
+                return false;
+              })
             : rawMsgs;
           // Decrypt messages
           const decryptedMsgs = await Promise.all(
@@ -430,7 +468,7 @@ export const useChatScreen = () => {
       );
 
     return () => unsubscribe();
-  }, [user?.uid, currentDevice, selectedDeviceId]);
+  }, [user?.uid, currentDevice, selectedDeviceId, devices]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {
@@ -576,6 +614,25 @@ export const useChatScreen = () => {
     setReplyTo(null);
   }, []);
 
+  const filteredMessages = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return messages;
+
+    return messages.filter(msg => {
+      const content = String((msg as any).content || '').toLowerCase();
+      const senderName = String((msg as any).senderName || '').toLowerCase();
+      const senderPlatform = String((msg as any).senderPlatform || '').toLowerCase();
+      const fileName = String((msg as any).fileName || '').toLowerCase();
+
+      return (
+        content.includes(query) ||
+        senderName.includes(query) ||
+        senderPlatform.includes(query) ||
+        fileName.includes(query)
+      );
+    });
+  }, [messages, searchQuery]);
+
   // With inverted FlatList, offset 0 is always the newest message (visual bottom).
   // No scroll effects needed — the list stays anchored to the bottom automatically.
   const scrollToEnd = useCallback((animated = true) => {
@@ -585,6 +642,8 @@ export const useChatScreen = () => {
   return {
     // State
     messages,
+    filteredMessages,
+    searchQuery,
     inputText,
     replyTo,
     isTyping,
@@ -612,6 +671,7 @@ export const useChatScreen = () => {
     flatListRef,
 
     // Actions
+    setSearchQuery,
     setInputText,
     handleInputChange,
     setReplyMessage,

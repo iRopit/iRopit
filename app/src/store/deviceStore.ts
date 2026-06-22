@@ -295,45 +295,58 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     const { user } = useAuthStore.getState();
     if (!user) return;
 
-    set({ isLoading: true });
+    // Optimistic UI: remove locally first so the app responds instantly.
+    set(state => ({
+      devices: state.devices.filter(d => d.id !== deviceId),
+      currentDevice:
+        state.currentDevice?.id === deviceId ? null : state.currentDevice,
+      isLoading: false,
+    }));
 
-    try {
-      // ??? ???? ????????? ?????? ???????
-      const notificationsRef = firestore()
-        .collection(COLLECTIONS.USERS)
-        .doc(user.uid)
-        .collection(COLLECTIONS.DEVICES)
-        .doc(deviceId)
-        .collection(COLLECTIONS.NOTIFICATIONS);
+    // Backend cleanup is best-effort and intentionally non-blocking.
+    (async () => {
+      try {
+        await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .doc(deviceId)
+          .delete();
 
-      const notificationsSnapshot = await notificationsRef.get();
-      const batch = firestore().batch();
+        // Legacy safety: some older data may have duplicated docs with an `id` field.
+        const legacyDevicesQuery = await firestore()
+          .collection(COLLECTIONS.DEVICES)
+          .where('id', '==', deviceId)
+          .where('userId', '==', user.uid)
+          .get();
 
-      notificationsSnapshot.forEach(doc => {
-        batch.delete(doc.ref);
-      });
+        if (!legacyDevicesQuery.empty) {
+          const batch = firestore().batch();
+          legacyDevicesQuery.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+        }
 
-      // ??? ?????? ?? ?????? devices ????????
-      const devicesQuery = await firestore()
-        .collection(COLLECTIONS.DEVICES)
-        .where('id', '==', deviceId)
-        .where('userId', '==', user.uid)
-        .get();
+        const notificationsRef = firestore()
+          .collection(COLLECTIONS.USERS)
+          .doc(user.uid)
+          .collection(COLLECTIONS.DEVICES)
+          .doc(deviceId)
+          .collection(COLLECTIONS.NOTIFICATIONS);
 
-      devicesQuery.forEach(doc => {
-        batch.delete(doc.ref);
-      });
+        while (true) {
+          const chunk = await notificationsRef.limit(400).get();
+          if (chunk.empty) break;
 
-      await batch.commit();
+          const chunkBatch = firestore().batch();
+          chunk.forEach(doc => chunkBatch.delete(doc.ref));
+          await chunkBatch.commit();
 
-      // ????? ??????? ??????
-      set(state => ({
-        devices: state.devices.filter(d => d.id !== deviceId),
-        isLoading: false,
-      }));
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-    }
+          if (chunk.size < 400) break;
+        }
+      } catch (error: any) {
+        set({ error: error?.message || 'Failed to delete device.' });
+      }
+    })();
   },
 
   cleanup: () => {

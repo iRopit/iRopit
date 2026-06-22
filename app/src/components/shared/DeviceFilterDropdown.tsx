@@ -36,14 +36,31 @@ const DeviceFilterDropdown: React.FC<DeviceFilterDropdownProps> = ({
   const textColor = colors.text;
   const secondaryTextColor = colors.textSecondary;
 
+  const isBrowserOrExtensionDevice = (device: Device) => {
+    const id = String(device.id || '').toLowerCase();
+    const platform = String(device.platform || '').toLowerCase();
+    const type = String(device.type || '').toLowerCase();
+    const name = String(device.nickname || device.name || device.model || '').toLowerCase();
+
+    return (
+      id.startsWith('ext_') ||
+      id.includes('chrome') ||
+      platform.includes('chrome') ||
+      platform.includes('web') ||
+      platform.includes('browser') ||
+      platform.includes('extension') ||
+      type.includes('extension') ||
+      type.includes('browser') ||
+      name.includes('web browser') ||
+      name.includes('chrome extension') ||
+      name.includes('browser')
+    );
+  };
+
   // Filter to mobile/tablet only (exclude chrome extensions)
   const mobileDevices = useMemo(
     () =>
-      devices.filter(d => {
-        const platform = (d.platform || '').toLowerCase();
-        const type = (d.type || '').toLowerCase();
-        return !platform.includes('chrome') && type !== 'extension';
-      }),
+      devices.filter(d => !isBrowserOrExtensionDevice(d)),
     [devices],
   );
 

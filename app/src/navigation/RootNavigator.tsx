@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BackHandler } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -17,18 +18,22 @@ import { navigateToChat } from './navigationRef';
 import { ShareModal } from '../components/ShareModal';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const CHROME_EXTENSION_PROMPT_KEY = '@iropit_chrome_extension_prompt_shown';
+const CHROME_EXTENSION_URL =
+  'https://chromewebstore.google.com/detail/iropit/apjplefehkfmcjmkpapnjpainefomkgh?hl=en-US&utm_source=ext_sidebar';
 
 const isFileShare = (data: SharedData) =>
   !!(data.uri || (data.uris && data.uris.length > 0));
 
 const RootNavigator = () => {
   const { isAuthenticated, isLoading } = useAuthStore();
-  const { colors } = useTheme();
+  const { isRTL } = useTheme();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<
     boolean | null
   >(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [shareData, setShareData] = useState<SharedData | null>(null);
+  const [extensionPromptChecked, setExtensionPromptChecked] = useState(false);
 
   // Subscribe to pendingShare so the effect below re-runs when it changes.
   // Without this subscription, the effect only ran when auth/onboarding state
@@ -92,6 +97,73 @@ const RootNavigator = () => {
     };
     checkOnboarding();
   }, []);
+
+  // Fresh install helper: show once to guide user to install Chrome extension.
+  useEffect(() => {
+    const maybeShowChromeExtensionPrompt = async () => {
+      if (
+        isLoading ||
+        checkingOnboarding ||
+        !isAuthenticated ||
+        !hasCompletedOnboarding ||
+        extensionPromptChecked
+      ) {
+        return;
+      }
+
+      try {
+        const alreadyShown = await AsyncStorage.getItem(CHROME_EXTENSION_PROMPT_KEY);
+        if (alreadyShown === '1') {
+          setExtensionPromptChecked(true);
+          return;
+        }
+
+        setExtensionPromptChecked(true);
+
+        Alert.alert(
+          isRTL ? 'أكمل إعداد iRopit' : 'Complete iRopit Setup',
+          isRTL
+            ? `لإكمال التثبيت والاستفادة من كل الميزات، ثبّت إضافة Chrome على اللابتوب من الرابط التالي:\n\n${CHROME_EXTENSION_URL}`
+            : `To complete installation and unlock all features, install the Chrome Extension on your laptop using this URL:\n\n${CHROME_EXTENSION_URL}`,
+          [
+            {
+              text: isRTL ? 'لاحقاً' : 'Later',
+              onPress: () => {
+                AsyncStorage.setItem(CHROME_EXTENSION_PROMPT_KEY, '1').catch(
+                  () => {},
+                );
+              },
+            },
+            {
+              text: isRTL ? 'فتح الرابط' : 'Open Link',
+              onPress: async () => {
+                try {
+                  await Linking.openURL(CHROME_EXTENSION_URL);
+                } catch (_) {
+                  // Ignore openURL failures and still mark as shown once.
+                }
+                AsyncStorage.setItem(CHROME_EXTENSION_PROMPT_KEY, '1').catch(
+                  () => {},
+                );
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } catch (_) {
+        setExtensionPromptChecked(true);
+      }
+    };
+
+    maybeShowChromeExtensionPrompt();
+  }, [
+    isLoading,
+    checkingOnboarding,
+    isAuthenticated,
+    hasCompletedOnboarding,
+    extensionPromptChecked,
+    isRTL,
+  ]);
 
   // Handle onboarding completion
   const handleOnboardingComplete = () => {

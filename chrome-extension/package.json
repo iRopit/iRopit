@@ -1,6 +1,6 @@
 {
   "name": "chrome-extension",
-  "version": "1.2.51",
+  "version": "1.2.52",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "firebase": "^12.7.0",
+    "nodemailer": "^9.0.1",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

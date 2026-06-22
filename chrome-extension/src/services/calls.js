@@ -338,6 +338,52 @@ function hasSharedCallsPermission(share) {
   return false;
 }
 
+function resolveCallOwnerUid(deviceId, ownerUidHint = null) {
+  if (ownerUidHint) return ownerUidHint;
+  if (!deviceId) return state.currentUser?.uid || null;
+  const shared = (state.sharedWithMeDevices || []).find(
+    (s) => s?.deviceId === deviceId && s?.ownerUid,
+  );
+  return shared?.ownerUid || state.currentUser?.uid || null;
+}
+
+function rebuildMergedCallsFromState() {
+  let merged = [];
+  Object.values(state.allCallsByDevice || {}).forEach((calls) => {
+    if (Array.isArray(calls) && calls.length > 0) {
+      merged = merged.concat(calls);
+    }
+  });
+
+  const seen = new Set();
+  merged = merged.filter((c) => {
+    if (!c?.id) return false;
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+
+  merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  state.setAllCallsData(merged);
+  return merged;
+}
+
+function pruneCallsForAllowedDevices(allowedDeviceIds) {
+  const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  let changed = false;
+
+  Object.keys(state.allCallsByDevice || {}).forEach((deviceId) => {
+    if (!allowed.has(deviceId)) {
+      delete state.allCallsByDevice[deviceId];
+      changed = true;
+    }
+  });
+
+  if (!changed) return false;
+  rebuildMergedCallsFromState();
+  return true;
+}
+
 /** Returns true while loadCalls() is still fetching from Firestore. */
 export function isCallsSyncing() {
   return isSyncingCalls;
@@ -436,6 +482,7 @@ function processCallDoc(data, firestoreId, deviceId, deviceName) {
     deviceName: deviceName,
     phoneNumber: resolvedPhone || cleanPhone(rawPhoneNumber) || "",
     contactName: resolvedContact,
+    ownerUid: data.ownerUid || null,
     type: data.type || data.callType || "incoming",
     simSlot: data.simSlot != null ? data.simSlot : -1,
     // App name for VoIP / 3rd-party app calls (Messenger, Teams, Meet, etc.)
@@ -600,10 +647,28 @@ export async function loadCalls() {
       });
     });
 
-    // No mobile devices found — show empty state instead of infinite spinner
+    const sharedCallsDeviceIds = new Set(
+      (state.sharedWithMeDevices || [])
+        .filter((s) => hasSharedCallsPermission(s))
+        .map((s) => s.deviceId)
+        .filter(Boolean),
+    );
+    const allowedCallsDeviceIds = new Set([
+      ...devicesList.map((d) => d.id).filter(Boolean),
+      ...sharedCallsDeviceIds,
+    ]);
+    if (pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+      updateTabBadges();
+      renderCalls(state.allCallsData);
+    }
+
+    // No mobile devices found — stop syncing state first, then render empty state.
     if (devicesList.length === 0) {
-      console.warn("[Calls] No mobile devices found - showing empty state");
+      console.info("[Calls] No mobile devices found; showing empty state");
+      isSyncingCalls = false;
+      updateCallsCountIndicator();
       renderCalls([]);
+      try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
       return;
     }
 
@@ -843,15 +908,53 @@ export function renderCalls(calls) {
       (call) => call.deviceId === selectedTab,
     );
   } else {
+    const ownCallsDeviceIds = new Set(
+      (state.devices || [])
+        .filter(
+          (d) =>
+            (d.type === "mobile" ||
+              d.type === "phone" ||
+              d.platform === "android" ||
+              d.platform === "Android" ||
+              d.platform === "ios") &&
+            d.id &&
+            state.getDeviceSyncPref(d.id, "calls"),
+        )
+        .map((d) => d.id),
+    );
     const sharedCallsDeviceIds = new Set(
       (state.sharedWithMeDevices || [])
         .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
         .map((s) => s.deviceId),
     );
+    const allOwnMobileDeviceIds = new Set(
+      (state.devices || [])
+        .filter(
+          (d) =>
+            (d.type === "mobile" ||
+              d.type === "phone" ||
+              d.platform === "android" ||
+              d.platform === "Android" ||
+              d.platform === "ios") &&
+            d.id,
+        )
+        .map((d) => d.id),
+    );
+    const hasAnyLinkedCallsDevice =
+      allOwnMobileDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
     // Exclude calls from devices where Calls sync is disabled
     filteredCalls = normalizedCalls.filter(
-      (call) => !call.deviceId || sharedCallsDeviceIds.has(call.deviceId) || state.getDeviceSyncPref(call.deviceId, "calls"),
+      (call) =>
+        !call.deviceId ||
+        ownCallsDeviceIds.has(call.deviceId) ||
+        sharedCallsDeviceIds.has(call.deviceId),
     );
+
+    // First login/new install safety: if there are linked devices but strict
+    // ID matching yields nothing while data exists, fall back to visible data.
+    if (hasAnyLinkedCallsDevice && filteredCalls.length === 0 && normalizedCalls.length > 0) {
+      filteredCalls = normalizedCalls;
+    }
   }
 
   // Drop phantom VoIP entries that carry no phone number and no app name.
@@ -1006,7 +1109,12 @@ export function renderCalls(calls) {
     .map(
       (group) => {
         const phoneStr = (group.phoneNumber || "").toString().trim();
-        const isVoIP = !phoneStr || phoneStr.toLowerCase() === "unknown" || !normalizePhoneNumber(phoneStr);
+        const normalizedPhone = normalizePhoneNumber(phoneStr);
+        const lastSim = group.lastCall.simSlot;
+        const hasSimRoute = lastSim != null && lastSim >= 0;
+        // Some new call docs arrive before phone fields are fully hydrated.
+        // If SIM is already known, classify as regular phone call immediately.
+        const isVoIP = (!phoneStr || phoneStr.toLowerCase() === "unknown" || !normalizedPhone) && !hasSimRoute;
         const unknownLabel = getCurrentLanguage() === "ar" ? "مجهول" : "Unknown";
         const displayName = group.contactName
           || (isVoIP ? (group.appName || unknownLabel) : phoneStr)
@@ -1014,7 +1122,6 @@ export function renderCalls(calls) {
         // Calling method — shown on the subtitle so the user can tell at a
         // glance whether the call went through the regular phone line (and
         // which SIM) or via a VoIP app (WhatsApp / Messenger / Teams / …).
-        const lastSim = group.lastCall.simSlot;
         const isAr = getCurrentLanguage() === "ar";
         const phoneLabel = isAr ? "هاتف" : "Phone";
         const simLabel = (lastSim != null && lastSim >= 0)
@@ -1237,10 +1344,12 @@ async function showCallHistory(groupKey) {
         missedToMark.forEach((call) => {
           // Use the correct path: users/{userId}/devices/{deviceId}/calls/{callId}
           if (call.deviceId) {
+            const ownerUid = resolveCallOwnerUid(call.deviceId, call.ownerUid);
+            if (!ownerUid) return;
             const callRef = doc(
               db,
               "users",
-              user.uid,
+              ownerUid,
               "devices",
               call.deviceId,
               "calls",
@@ -1590,6 +1699,16 @@ export async function loadSharedDevicesCalls(shares) {
   const user = state.currentUser;
   if (!user) return;
   const callShares = (shares || []).filter((s) => hasSharedCallsPermission(s));
+
+  const allowedCallsDeviceIds = new Set([
+    ...(state.devices || []).map((d) => d?.id).filter(Boolean),
+    ...callShares.map((s) => s?.deviceId).filter(Boolean),
+  ]);
+  if (pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+    updateTabBadges();
+    renderCalls(state.allCallsData);
+  }
+
   stopSharedCallsListeners();
   if (callShares.length === 0) return;
 
@@ -1631,6 +1750,7 @@ export async function loadSharedDevicesCalls(shares) {
             let data = docSnap.data();
             data = await decryptCall(data, share.ownerUid);
             const call = processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
+            call.ownerUid = share.ownerUid;
             const existing = callsMap.get(call.id);
             const preserved = existing && existing.viewed === true && !call.viewed
               ? { ...call, viewed: true }

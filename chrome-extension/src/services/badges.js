@@ -18,26 +18,15 @@ export function updateTabBadges() {
   ).length
   updateBadge("chatBadge", chatUnread)
 
-  // Count unread from the deduplicated merged list so the badge matches what
-  // the "Show Unread" filter actually finds (avoids phantom counts from duplicates
-  // in the per-device allSMS maps that were deduped out of allSMSMessages).
-  const smsUnread = state.allSMSMessages.filter(m => !m.read).length;
+  // Keep top badges aligned with tab filtering rules (known linked devices,
+  // sync preferences, and stale-cache pruning behavior).
+  const smsUnread = getSmsCount("all")
   updateBadge("smsBadge", smsUnread)
 
   const missedCalls = getCallsCount("all")
   updateBadge("callsBadge", missedCalls)
 
-  // Deduplicate by ID before counting — same notification can appear in both
-  // "_user_notifications" and a device-specific collection, matching what
-  // getMergedNotifications() shows in the UI.
-  const seenIds = new Set();
-  const notifUnread = Object.values(state.allNotifications)
-    .flat()
-    .filter(n => {
-      if (seenIds.has(n.id)) return false;
-      seenIds.add(n.id);
-      return !n.read;
-    }).length;
+  const notifUnread = getNotifsCount("all")
   updateBadge("notificationsBadge", notifUnread)
 
   // Update the extension icon badge directly from the popup context — this is
@@ -88,7 +77,38 @@ function refreshDeviceTabCounts() {
 }
 
 function getSmsCount(deviceId) {
-  if (deviceId === "all") return state.allSMSMessages.filter(m => !m.read).length
+  const ownSmsDeviceIds = new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "sms")
+      )
+      .map((d) => d.id)
+  )
+  const sharedSmsDeviceIds = new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => s?.deviceId && s?.permissions?.sms !== false)
+      .map((s) => s.deviceId)
+  )
+  const hasAnyLinkedSmsDevice =
+    ownSmsDeviceIds.size > 0 || sharedSmsDeviceIds.size > 0
+
+  if (deviceId === "all") {
+    if (!hasAnyLinkedSmsDevice) return 0
+    return (state.allSMSMessages || []).filter((m) => {
+      if (m.read) return false
+      if (!m.deviceId) return false
+      if (ownSmsDeviceIds.has(m.deviceId)) return true
+      if (sharedSmsDeviceIds.has(m.deviceId)) return true
+      return false
+    }).length
+  }
   return state.allSMSMessages.filter(m => m.deviceId === deviceId && !m.read).length
 }
 
@@ -105,6 +125,23 @@ function getCallsCount(deviceId) {
       .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
       .map((s) => s.deviceId)
   )
+
+  const ownCallsDeviceIds = new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "calls")
+      )
+      .map((d) => d.id)
+  )
+  const hasAnyLinkedCallsDevice =
+    ownCallsDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0
 
   const normalizePhone = (phone) => {
     if (!phone || !phone.trim()) return ""
@@ -128,11 +165,12 @@ function getCallsCount(deviceId) {
   // Count from the merged render source so the badge matches what's visible,
   // including shared devices that may not exist in state.devices.
   if (deviceId === "all") {
+    if (!hasAnyLinkedCallsDevice) return 0
     return calls.filter((c) => {
       if (!isUnreadMissed(c)) return false
-      if (!c.deviceId) return true
+      if (!c.deviceId) return false
       if (sharedCallsDeviceIds.has(c.deviceId)) return true
-      return state.getDeviceSyncPref(c.deviceId, "calls")
+      return ownCallsDeviceIds.has(c.deviceId)
     }).length
   }
 
@@ -140,7 +178,47 @@ function getCallsCount(deviceId) {
 }
 
 function getNotifsCount(deviceId) {
-  if (deviceId === "all") return Object.values(state.allNotifications).flat().filter(n => !n.read).length
+  const ownNotifDeviceIds = new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "notifications")
+      )
+      .map((d) => d.id)
+  )
+  const sharedNotifDeviceIds = new Set(
+    (state.sharedWithMeDevices || [])
+      .filter((s) => s?.deviceId && s?.permissions?.notifications !== false)
+      .map((s) => s.deviceId)
+  )
+  const hasAnyLinkedNotifDevice =
+    ownNotifDeviceIds.size > 0 || sharedNotifDeviceIds.size > 0
+
+  if (deviceId === "all") {
+    if (!hasAnyLinkedNotifDevice) return 0
+    return Object.values(state.allNotifications)
+      .flat()
+      .filter((n) => {
+        if (!n || !n.id || n.read) return false
+        if (ownNotifDeviceIds.has(n.deviceId)) return true
+        if (sharedNotifDeviceIds.has(n.deviceId)) return true
+        return false
+      })
+      // Same notification can exist in multiple state slots. Deduplicate by id
+      // so badge count matches grouped list behavior.
+      .reduce((acc, n) => {
+        if (acc.seen.has(n.id)) return acc
+        acc.seen.add(n.id)
+        acc.count += 1
+        return acc
+      }, { seen: new Set(), count: 0 }).count
+  }
   return (state.allNotifications[deviceId] || []).filter(n => !n.read).length
 }
 

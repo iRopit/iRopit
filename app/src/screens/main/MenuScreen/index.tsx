@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -6,18 +6,122 @@ import {
   ScrollView,
   Image,
   Switch,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import firestore from '@react-native-firebase/firestore';
 import { Container } from '../../../components';
+import { useAuthStore } from '../../../store/authStore';
+import { useDeviceStore } from '../../../store/deviceStore';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { styles } from './styles';
 import { getInitials } from './helper';
 import { MenuScreenProps } from './types';
 import { useMenuScreen } from './useMenuScreen';
 import { APP_VERSION } from '../../../constants';
 
+type SharePermissions = {
+  sms?: boolean;
+  calls?: boolean;
+  notifications?: boolean;
+};
+
+type ExistingShare = {
+  shareId: string;
+  sharedWithEmail: string;
+  sharedWithUid?: string;
+  permissions?: SharePermissions;
+};
+
+type PendingRequest = {
+  requestId: string;
+  sharedWithEmail: string;
+  permissions?: SharePermissions;
+};
+
 const MenuScreen = ({ navigation }: MenuScreenProps) => {
+  const authUser = useAuthStore(state => state.user);
+  const activeDevice = useDeviceStore(state => state.currentDevice);
+  const { isRTL: isRtlNow } = useTheme();
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareSms, setShareSms] = useState(true);
+  const [shareCalls, setShareCalls] = useState(true);
+  const [shareNotifications, setShareNotifications] = useState(true);
+  const [shareError, setShareError] = useState('');
+  const [isLoadingShares, setIsLoadingShares] = useState(false);
+  const [isSubmittingShare, setIsSubmittingShare] = useState(false);
+  const [existingShares, setExistingShares] = useState<ExistingShare[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+
+  const openShareDeviceModal = useCallback(async () => {
+    setShareModalVisible(true);
+    setShareError('');
+    setShareEmail('');
+    setShareSms(true);
+    setShareCalls(true);
+    setShareNotifications(true);
+    setIsLoadingShares(true);
+
+    try {
+      const user = authUser;
+      const currentDevice = activeDevice;
+      if (!user?.uid || !currentDevice?.id) {
+        setShareError(
+          isRtlNow
+            ? 'لا يمكن تحديد الجهاز الحالي حالياً.'
+            : 'Current device is not ready yet.',
+        );
+        setExistingShares([]);
+        setPendingRequests([]);
+        return;
+      }
+
+      const [sharesSnap, pendingSnap] = await Promise.all([
+        firestore()
+          .collection('deviceShares')
+          .where('ownerUid', '==', user.uid)
+          .where('deviceId', '==', currentDevice.id)
+          .get(),
+        firestore()
+          .collection('deviceShareRequests')
+          .where('ownerUid', '==', user.uid)
+          .where('deviceId', '==', currentDevice.id)
+          .where('status', '==', 'pending')
+          .get(),
+      ]);
+
+      const loadedShares: ExistingShare[] = sharesSnap.docs.map(doc => ({
+        shareId: doc.id,
+        ...(doc.data() as any),
+      }));
+      const loadedPending: PendingRequest[] = pendingSnap.docs.map(doc => ({
+        requestId: doc.id,
+        ...(doc.data() as any),
+      }));
+
+      setExistingShares(loadedShares);
+      setPendingRequests(loadedPending);
+    } catch {
+      setShareError(
+        isRtlNow
+          ? 'فشل تحميل المشاركات الحالية.'
+          : 'Failed to load current shares.',
+      );
+      setExistingShares([]);
+      setPendingRequests([]);
+    } finally {
+      setIsLoadingShares(false);
+    }
+  }, [activeDevice, authUser, isRtlNow]);
+
   const {
     user,
+    currentDevice,
     settings,
     menuSections,
     colors,
@@ -28,7 +132,216 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
     textColor,
     saveAndSync,
     navigateToUserSettings,
-  } = useMenuScreen(navigation);
+  } = useMenuScreen(navigation, openShareDeviceModal);
+
+  const getCurrentDeviceName = () =>
+    (currentDevice as any)?.nickname ||
+    currentDevice?.name ||
+    (currentDevice as any)?.model ||
+    (isRTL ? 'هذا الجهاز' : 'This device');
+
+  const getPermissionsText = (permissions?: SharePermissions) => {
+    const list = [
+      permissions?.sms && (isRTL ? 'الرسائل' : 'SMS'),
+      permissions?.calls && (isRTL ? 'المكالمات' : 'Calls'),
+      permissions?.notifications && (isRTL ? 'الإشعارات' : 'Notifications'),
+    ].filter(Boolean);
+    if (list.length === 0) return isRTL ? 'لا شيء' : 'None';
+    return list.join(', ');
+  };
+
+  const closeShareModal = () => {
+    setShareModalVisible(false);
+    setShareError('');
+  };
+
+  const handleSubmitShare = async () => {
+    const email = shareEmail.trim().toLowerCase();
+
+    if (!email) {
+      setShareError(
+        isRTL
+          ? 'يرجى إدخال البريد الإلكتروني للمستلم.'
+          : 'Please enter a recipient email.',
+      );
+      return;
+    }
+    if (email === user?.email?.toLowerCase()) {
+      setShareError(
+        isRTL
+          ? 'لا يمكنك مشاركة الجهاز مع نفسك.'
+          : 'You cannot share a device with yourself.',
+      );
+      return;
+    }
+    if (!shareSms && !shareCalls && !shareNotifications) {
+      setShareError(
+        isRTL
+          ? 'يرجى تحديد نوع واحد على الأقل للمشاركة.'
+          : 'Select at least one item to share.',
+      );
+      return;
+    }
+    if (!user?.uid || !currentDevice?.id) {
+      setShareError(
+        isRTL
+          ? 'الجهاز الحالي غير متاح حالياً.'
+          : 'Current device is not available yet.',
+      );
+      return;
+    }
+
+    const exists = existingShares.some(
+      s => (s.sharedWithEmail || '').toLowerCase() === email,
+    );
+    const pending = pendingRequests.some(
+      p => (p.sharedWithEmail || '').toLowerCase() === email,
+    );
+    if (exists) {
+      setShareError(
+        isRTL
+          ? 'الجهاز مشارك بالفعل مع هذا المستخدم.'
+          : 'Device is already shared with this user.',
+      );
+      return;
+    }
+    if (pending) {
+      setShareError(
+        isRTL
+          ? 'تم إرسال طلب مشاركة بالفعل لهذا المستخدم.'
+          : 'A share request is already pending for this user.',
+      );
+      return;
+    }
+
+    setShareError('');
+    setIsSubmittingShare(true);
+
+    try {
+      const recipientSnap = await firestore()
+        .collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (recipientSnap.empty) {
+        setShareError(
+          isRTL
+            ? 'لم يتم العثور على مستخدم iRopit بهذا البريد الإلكتروني.'
+            : 'No iRopit user found with this email.',
+        );
+        return;
+      }
+
+      const recipientDoc = recipientSnap.docs[0];
+      const recipientData = recipientDoc.data() as any;
+      const recipientUid = recipientData.uid || recipientDoc.id;
+
+      const payload = {
+        ownerUid: user.uid,
+        ownerEmail: user.email || '',
+        ownerDisplayName: user.displayName || user.email || '',
+        deviceId: currentDevice.id,
+        deviceDocId: currentDevice.id,
+        deviceName: getCurrentDeviceName(),
+        sharedWithEmail: email,
+        sharedWithUid: recipientUid,
+        permissions: {
+          sms: shareSms,
+          calls: shareCalls,
+          notifications: shareNotifications,
+        },
+        status: 'pending',
+        createdAt: Date.now(),
+      };
+
+      const reqRef = await firestore().collection('deviceShareRequests').add(payload);
+      setPendingRequests(prev => [{ requestId: reqRef.id, ...payload }, ...prev]);
+      setShareEmail('');
+
+      Alert.alert(
+        isRTL ? 'تم إرسال الطلب' : 'Request Sent',
+        isRTL
+          ? `تم إرسال طلب مشاركة الجهاز إلى ${email}`
+          : `Share request sent to ${email}`,
+      );
+    } catch {
+      setShareError(
+        isRTL ? 'حدث خطأ. حاول مرة أخرى.' : 'An error occurred. Please try again.',
+      );
+    } finally {
+      setIsSubmittingShare(false);
+    }
+  };
+
+  const handleCancelPending = (request: PendingRequest) => {
+    Alert.alert(
+      isRTL ? 'إلغاء الطلب' : 'Cancel Request',
+      isRTL
+        ? `إلغاء طلب المشاركة المرسل إلى ${request.sharedWithEmail}؟`
+        : `Cancel pending request to ${request.sharedWithEmail}?`,
+      [
+        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
+        {
+          text: isRTL ? 'تأكيد' : 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await firestore()
+                .collection('deviceShareRequests')
+                .doc(request.requestId)
+                .delete();
+              setPendingRequests(prev =>
+                prev.filter(item => item.requestId !== request.requestId),
+              );
+            } catch {
+              setShareError(
+                isRTL ? 'فشل إلغاء الطلب.' : 'Failed to cancel request.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleStopSharing = (share: ExistingShare) => {
+    Alert.alert(
+      isRTL ? 'إيقاف المشاركة' : 'Stop Sharing',
+      isRTL
+        ? `إيقاف مشاركة الجهاز مع ${share.sharedWithEmail}؟`
+        : `Stop sharing with ${share.sharedWithEmail}?`,
+      [
+        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
+        {
+          text: isRTL ? 'إيقاف' : 'Stop',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await firestore().collection('deviceShares').doc(share.shareId).delete();
+
+              if (currentDevice?.id && share.sharedWithUid) {
+                const indexId = `${currentDevice.id}_${share.sharedWithUid}`;
+                firestore()
+                  .collection('deviceShareIndex')
+                  .doc(indexId)
+                  .delete()
+                  .catch(() => {});
+              }
+
+              setExistingShares(prev =>
+                prev.filter(item => item.shareId !== share.shareId),
+              );
+            } catch {
+              setShareError(
+                isRTL ? 'فشل إيقاف المشاركة.' : 'Failed to stop sharing.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <Container
@@ -162,6 +475,194 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         ))}
 
       </ScrollView>
+
+      <Modal
+        visible={shareModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeShareModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.text }]}>
+                {isRTL ? 'مشاركة الجهاز' : 'Share Device'}: {getCurrentDeviceName()}
+              </Text>
+              <TouchableOpacity onPress={closeShareModal}>
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.shareModalBody} keyboardShouldPersistTaps="handled">
+              <Text style={[styles.shareHint, { color: colors.textSecondary }]}> 
+                {isLoadingShares
+                  ? isRTL
+                    ? 'جارٍ تحميل المشاركات الحالية...'
+                    : 'Loading current shares...'
+                  : isRTL
+                  ? 'المشاركات الحالية'
+                  : 'Current shares'}
+              </Text>
+
+              {isLoadingShares && (
+                <ActivityIndicator style={{ marginBottom: 12 }} color={colors.primary} />
+              )}
+
+              {!isLoadingShares && existingShares.map((share) => (
+                <View
+                  key={share.shareId}
+                  style={[styles.shareRow, { borderColor: colors.border }]}
+                >
+                  <View style={styles.shareRowInfo}>
+                    <Text style={[styles.shareEmail, { color: colors.text }]} numberOfLines={1}>
+                      {share.sharedWithEmail}
+                    </Text>
+                    <Text style={[styles.sharePerms, { color: colors.textSecondary }]}>
+                      {getPermissionsText(share.permissions)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleStopSharing(share)}
+                    style={[styles.shareActionBtn, { backgroundColor: colors.error + '22' }]}
+                  >
+                    <Text style={[styles.shareActionText, { color: colors.error }]}> 
+                      {isRTL ? 'إيقاف' : 'Stop'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {!isLoadingShares && pendingRequests.map((request) => (
+                <View
+                  key={request.requestId}
+                  style={[styles.shareRow, { borderColor: colors.border }]}
+                >
+                  <View style={styles.shareRowInfo}>
+                    <Text style={[styles.shareEmail, { color: colors.text }]} numberOfLines={1}>
+                      {request.sharedWithEmail}
+                    </Text>
+                    <Text style={[styles.sharePerms, { color: colors.textSecondary }]}>
+                      {getPermissionsText(request.permissions)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleCancelPending(request)}
+                    style={[styles.shareActionBtn, { backgroundColor: colors.warning + '22' }]}
+                  >
+                    <Text style={[styles.shareActionText, { color: colors.warning }]}> 
+                      {isRTL ? 'إلغاء الطلب' : 'Cancel'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {!isLoadingShares && existingShares.length === 0 && pendingRequests.length === 0 && (
+                <Text style={[styles.shareEmpty, { color: colors.textSecondary }]}> 
+                  {isRTL ? 'لا توجد مشاركات حالية.' : 'No current shares.'}
+                </Text>
+              )}
+
+              <Text style={[styles.shareLabel, { color: colors.textSecondary }]}> 
+                {isRTL
+                  ? 'حساب iRopit المستلم (البريد الإلكتروني)'
+                  : 'Recipient iRopit account (email)'}
+              </Text>
+              <TextInput
+                value={shareEmail}
+                onChangeText={(v) => {
+                  setShareEmail(v);
+                  if (shareError) setShareError('');
+                }}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="example@email.com"
+                placeholderTextColor={colors.textSecondary}
+                style={[
+                  styles.shareInput,
+                  {
+                    color: colors.text,
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              />
+
+              <Text style={[styles.shareLabel, { color: colors.textSecondary }]}> 
+                {isRTL ? 'ما الذي تريد مشاركته؟' : 'What to share?'}
+              </Text>
+              <View style={styles.permsRow}>
+                <TouchableOpacity
+                  style={styles.permItem}
+                  onPress={() => setShareSms(v => !v)}
+                >
+                  <Icon
+                    name={shareSms ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={shareSms ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.permText, { color: colors.text }]}>SMS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.permItem}
+                  onPress={() => setShareCalls(v => !v)}
+                >
+                  <Icon
+                    name={shareCalls ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={shareCalls ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.permText, { color: colors.text }]}>Calls</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.permItem}
+                  onPress={() => setShareNotifications(v => !v)}
+                >
+                  <Icon
+                    name={shareNotifications ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={shareNotifications ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.permText, { color: colors.text }]}>Notifications</Text>
+                </TouchableOpacity>
+              </View>
+
+              {!!shareError && (
+                <Text style={[styles.shareError, { color: colors.error }]}>
+                  {shareError}
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeShareModal}
+                disabled={isSubmittingShare}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSubmitShare}
+                disabled={isSubmittingShare}
+              >
+                {isSubmittingShare ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
+                    {isRTL ? 'مشاركة' : 'Share'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Text style={[styles.version, { color: colors.textSecondary, paddingBottom: 12 }]}>
         {`iRopit v${APP_VERSION}`}

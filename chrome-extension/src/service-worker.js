@@ -2408,22 +2408,15 @@ chrome.runtime.onInstalled.addListener((details) => {
   const callPopupKeys = ["smartAction_incomingCallPopup", "smartAction_outgoingCallPopup"];
 
   if (details.reason === "install") {
-    // Fresh install: explicitly set call popups OFF (new default)
+    // Fresh install: explicitly set call popups ON.
     const defaults = {};
-    callPopupKeys.forEach((k) => (defaults[k] = false));
+    callPopupKeys.forEach((k) => (defaults[k] = true));
     defaults.installAndroidPromptPending = true;
     defaults.installAndroidPromptShown_v1 = false;
     chrome.storage.local.set(defaults);
   } else if (details.reason === "update") {
-    // Extension update: if user never explicitly set these keys (old default was ON),
-    // write true so they remain enabled after the update.
-    chrome.storage.local.get(callPopupKeys, (result) => {
-      const migration = {};
-      callPopupKeys.forEach((k) => {
-        if (!(k in result)) migration[k] = true;
-      });
-      if (Object.keys(migration).length > 0) chrome.storage.local.set(migration);
-    });
+    // Extension update: do not override existing or missing call popup keys.
+    // This keeps update behavior unchanged and only applies the ON default to fresh installs.
     // NOTE: one-time cache bloat migration was done in v1.2.19 (removed here
     // to avoid wiping the cache — and delta eligibility — on every future update).
   }

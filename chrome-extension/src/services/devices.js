@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   deleteDoc,
   updateDoc,
@@ -303,13 +304,69 @@ export async function loadDevices() {
   const user = state.currentUser;
   if (!user) return;
 
+  const mapOwnDeviceDoc = (docSnap) => {
+    const data = docSnap.data() || {};
+    if (data?.userId && data.userId !== user.uid) return null;
+    // Be defensive against soft-delete schemas used by other clients.
+    if (data?.isDeleted === true || data?.deletedAt) return null;
+    // Normalize to a single canonical device id used across UI/state.
+    const normalizedId = data.id || docSnap.id;
+    if (!normalizedId) return null;
+    // Ignore malformed legacy duplicates that point to a different canonical id.
+    if (data.id && data.id !== docSnap.id) return null;
+    return { ...data, id: normalizedId, docId: docSnap.id };
+  };
+
+  const dedupeOwnDevices = (devices) => {
+    const byId = new Map();
+    (devices || []).forEach((device) => {
+      if (!device?.id) return;
+      const prev = byId.get(device.id);
+      if (!prev) {
+        byId.set(device.id, device);
+        return;
+      }
+      const prevSeen = Number(prev.lastSeen || prev.lastActiveAt || 0);
+      const curSeen = Number(device.lastSeen || device.lastActiveAt || 0);
+      if (curSeen >= prevSeen) {
+        byId.set(device.id, device);
+      }
+    });
+    return Array.from(byId.values());
+  };
+
+  const applyOwnDevices = (devices) => {
+    state.setDevices(devices);
+    renderDevices();
+    updateDeviceSelects();
+    cacheOwnDevices(devices).catch(() => {});
+  };
+
+  let serverReconcileInFlight = false;
+  let lastServerReconcileAt = 0;
+  const SERVER_RECONCILE_MIN_INTERVAL_MS = 5000;
+
   // Restore cached own devices instantly so tabs/list are visible on reopen
   // before Firestore snapshot network round-trip finishes.
   getCachedOwnDevices().then((cached) => {
     if (cached && cached.length > 0) {
-      state.setDevices(cached);
-      renderDevices();
-      updateDeviceSelects();
+      const normalizedCached = dedupeOwnDevices(
+        cached
+          .map((d) => {
+            if (!d || typeof d !== "object") return null;
+            if (d?.userId && d.userId !== user.uid) return null;
+            if (d?.isDeleted === true || d?.deletedAt) return null;
+            const normalizedId = d.id || d.docId;
+            if (!normalizedId) return null;
+            return { ...d, id: normalizedId };
+          })
+          .filter(Boolean),
+      );
+      if (normalizedCached.length > 0) {
+        state.setDevices(normalizedCached);
+        renderDevices();
+        updateDeviceSelects();
+      }
     }
   }).catch(() => {});
 
@@ -325,14 +382,46 @@ export async function loadDevices() {
 
   const q = query(collection(db, "devices"), where("userId", "==", user.uid));
 
+  const reconcileOwnDevicesFromServer = async (reason, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastServerReconcileAt < SERVER_RECONCILE_MIN_INTERVAL_MS) {
+      return;
+    }
+    if (serverReconcileInFlight) return;
+    serverReconcileInFlight = true;
+    try {
+      const serverSnap = await getDocsFromServer(q);
+      const serverDevices = [];
+      let cacheUpdated = false;
+      serverSnap.forEach((doc) => {
+        const mapped = mapOwnDeviceDoc(doc);
+        if (!mapped) return;
+        serverDevices.push(mapped);
+        if (mapped.appVersion && mapped.id && _deviceVersionCache[mapped.id] !== mapped.appVersion) {
+          _deviceVersionCache[mapped.id] = mapped.appVersion;
+          cacheUpdated = true;
+        }
+      });
+      if (cacheUpdated) _saveVersionCache();
+      applyOwnDevices(dedupeOwnDevices(serverDevices));
+    } catch (err) {
+      console.warn(`[Device] server reconcile failed (${reason}):`, err?.code || err?.message || err);
+    } finally {
+      lastServerReconcileAt = Date.now();
+      serverReconcileInFlight = false;
+    }
+  };
+
   const unsub = onSnapshot(
     q,
     (snapshot) => {
       const newDevices = [];
       let cacheUpdated = false;
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        newDevices.push({ ...data, docId: doc.id });
+        const mapped = mapOwnDeviceDoc(doc);
+        if (!mapped) return;
+        const data = mapped;
+        newDevices.push(mapped);
         // Cache appVersion whenever it is present so offline devices still show it
         if (data.appVersion && data.id && _deviceVersionCache[data.id] !== data.appVersion) {
           _deviceVersionCache[data.id] = data.appVersion;
@@ -341,10 +430,13 @@ export async function loadDevices() {
       });
       if (cacheUpdated) _saveVersionCache();
 
-      state.setDevices(newDevices);
-      renderDevices();
-      updateDeviceSelects();
-      cacheOwnDevices(newDevices).catch(() => {});
+      applyOwnDevices(dedupeOwnDevices(newDevices));
+
+      // When snapshot is cache-sourced, force a near-term server reconcile to
+      // drop stale devices deleted on another client.
+      if (snapshot?.metadata?.fromCache) {
+        reconcileOwnDevicesFromServer("cache-snapshot").catch(() => {});
+      }
     },
     (error) => {
       console.error("[Device] loadDevices onSnapshot error:", error?.code, error?.message);
@@ -352,6 +444,9 @@ export async function loadDevices() {
   );
 
   state.addUnsubscriber(unsub);
+
+  // One immediate authoritative server pass at startup.
+  reconcileOwnDevicesFromServer("initial-load", true).catch(() => {});
 
   // ── Subscribe to devices shared WITH the current user ──────────────────────
   // Restore cached shared devices instantly so the tab appears before the snapshot fires.

@@ -113,6 +113,167 @@ function hasSharedNotificationsPermission(share) {
   return false;
 }
 
+function resolveNotificationOwnerUid(deviceId, ownerUidHint = null) {
+  if (ownerUidHint) return ownerUidHint;
+  if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
+    const shared = (state.sharedWithMeDevices || []).find(
+      (s) => s?.deviceId === deviceId && s?.ownerUid,
+    );
+    if (shared?.ownerUid) return shared.ownerUid;
+  }
+  return state.currentUser?.uid || null;
+}
+
+function applyOptimisticNotificationsRead(targets) {
+  if (!Array.isArray(targets) || targets.length === 0) return;
+
+  const keys = new Set();
+  targets.forEach((t) => {
+    if (!t?.id) return;
+    const d = t.deviceId || "";
+    keys.add(`${d}:${t.id}`);
+  });
+  if (keys.size === 0) return;
+
+  Object.keys(state.allNotifications).forEach((slotKey) => {
+    const updated = (state.allNotifications[slotKey] || []).map((n) => {
+      const d = n.deviceId || slotKey || "";
+      return keys.has(`${d}:${n.id}`) ? { ...n, read: true } : n;
+    });
+    state.setNotificationsData(slotKey, updated);
+  });
+}
+
+async function writeNotificationReadFlag({ ownerUid, deviceId, notifId }) {
+  if (!ownerUid || !notifId) return false;
+
+  const isNotFoundError = (err) =>
+    String(err?.code || "").toLowerCase() === "not-found";
+
+  const tryMarkRead = async (ref) => {
+    try {
+      await updateDoc(ref, { read: true });
+      return true;
+    } catch (err) {
+      if (isNotFoundError(err)) return false;
+      throw err;
+    }
+  };
+
+  const hasDevicePath =
+    !!deviceId && deviceId !== "user" && deviceId !== "_user_notifications";
+
+  const deviceNotifRef = hasDevicePath
+    ? doc(
+        db,
+        "users",
+        ownerUid,
+        "devices",
+        deviceId,
+        "notifications",
+        notifId,
+      )
+    : null;
+
+  const userNotifRef = doc(db, "users", ownerUid, "notifications", notifId);
+
+  if (deviceNotifRef) {
+    if (await tryMarkRead(deviceNotifRef)) return true;
+    return await tryMarkRead(userNotifRef);
+  }
+
+  if (await tryMarkRead(userNotifRef)) return true;
+  if (deviceId) {
+    const fallbackDeviceRef = doc(
+      db,
+      "users",
+      ownerUid,
+      "devices",
+      deviceId,
+      "notifications",
+      notifId,
+    );
+    return await tryMarkRead(fallbackDeviceRef);
+  }
+  return false;
+}
+
+function markNotificationsAsReadBulk(notifications) {
+  if (!Array.isArray(notifications) || notifications.length === 0) return;
+
+  const deduped = [];
+  const seen = new Set();
+  notifications.forEach((n) => {
+    if (!n?.id) return;
+    const key = `${n.deviceId || ""}:${n.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    deduped.push(n);
+  });
+  if (deduped.length === 0) return;
+
+  applyOptimisticNotificationsRead(deduped);
+  updateTabBadges();
+  flushNotificationsCache(state.allNotifications).catch(() => {});
+
+  // Fire-and-forget backend writes; UI is already updated optimistically.
+  Promise.allSettled(
+    deduped.map((n) =>
+      writeNotificationReadFlag({
+        ownerUid: resolveNotificationOwnerUid(n.deviceId, n.ownerUid),
+        deviceId: n.deviceId,
+        notifId: n.id,
+      }),
+    ),
+  ).catch(() => {});
+}
+
+function isUserLevelNotification(notif) {
+  return !notif?.deviceId || notif.deviceId === "user" || notif.deviceId === "_user_notifications";
+}
+
+function getOwnNotificationsDeviceIds() {
+  return new Set(
+    (state.devices || [])
+      .filter(
+        (d) =>
+          (d.type === "mobile" ||
+            d.type === "phone" ||
+            d.platform === "android" ||
+            d.platform === "Android" ||
+            d.platform === "ios") &&
+          d.id &&
+          state.getDeviceSyncPref(d.id, "notifications"),
+      )
+      .map((d) => d.id),
+  );
+}
+
+function getSharedNotificationsDeviceIds(shares = null) {
+  const source = shares || state.sharedWithMeDevices || [];
+  return new Set(
+    source
+      .filter((s) => hasSharedNotificationsPermission(s))
+      .map((s) => s.deviceId)
+      .filter(Boolean),
+  );
+}
+
+function pruneNotificationsForAllowedDevices(allowedDeviceIds) {
+  const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  let changed = false;
+
+  Object.keys(state.allNotifications || {}).forEach((deviceId) => {
+    if (deviceId === "_user_notifications") return;
+    if (!allowed.has(deviceId)) {
+      delete state.allNotifications[deviceId];
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 export function isNotificationsSyncing() {
   return isSyncingNotif;
 }
@@ -464,6 +625,17 @@ export async function loadNotifications() {
     });
   });
 
+  const sharedNotifDeviceIds = getSharedNotificationsDeviceIds();
+  const allowedNotifDeviceIds = new Set([
+    ...devicesList.map((d) => d.id).filter(Boolean),
+    ...sharedNotifDeviceIds,
+  ]);
+  if (pruneNotificationsForAllowedDevices(allowedNotifDeviceIds)) {
+    state.setAllNotificationsMessages(getMergedNotifications());
+    reRenderNotifications();
+    updateTabBadges();
+  }
+
   // === STEP 3: getDocs fast-path for device notifications (like SMS/Calls) ===
   // Fetch fresh data with one-time queries before starting realtime listeners.
   // Delta fetch: only load notifications newer than cached data.
@@ -765,7 +937,7 @@ function getMergedNotifications() {
   // Pass 2 — user-level entries only if no real-device copy exists.
   Object.entries(state.allNotifications).forEach(([, notifs]) => {
     notifs.forEach((n) => {
-      if (realDeviceIds.has(n.deviceId)) return;
+      if (!isUserLevelNotification(n)) return;
       if (realIds.has(n.id)) return;
       const key = `user:${n.id}`;
       if (!byKey.has(key)) byKey.set(key, n);
@@ -787,16 +959,35 @@ export function reRenderNotifications() {
     document.querySelector("#notificationsDeviceTabs .device-tab.active")?.dataset.device || "all";
   let filtered;
   if (selectedDevice === "all") {
-    // Exclude own-device notifications where sync is disabled, but never hide
-    // shared-device notifications via local sync preferences.
-    const sharedDeviceIds = new Set(
-      (state.sharedWithMeDevices || []).map((s) => s.deviceId).filter(Boolean),
+    const ownNotifDeviceIds = getOwnNotificationsDeviceIds();
+    const sharedDeviceIds = getSharedNotificationsDeviceIds();
+    const allOwnMobileDeviceIds = new Set(
+      (state.devices || [])
+        .filter(
+          (d) =>
+            (d.type === "mobile" ||
+              d.type === "phone" ||
+              d.platform === "android" ||
+              d.platform === "Android" ||
+              d.platform === "ios") &&
+            d.id,
+        )
+        .map((d) => d.id),
     );
+    const hasAnyLinkedNotifDevice =
+      allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
     filtered = merged.filter((n) => {
-      if (!n.deviceId) return true;
+      if (isUserLevelNotification(n)) return true;
+      if (ownNotifDeviceIds.has(n.deviceId)) return true;
       if (sharedDeviceIds.has(n.deviceId)) return true;
-      return state.getDeviceSyncPref(n.deviceId, "notifications");
+      return false;
     });
+
+    // First login/new install safety: if there are linked devices but strict
+    // ID matching yields nothing while data exists, fall back to visible data.
+    if (hasAnyLinkedNotifDevice && filtered.length === 0 && merged.length > 0) {
+      filtered = merged;
+    }
   } else {
     filtered = merged.filter((n) => n.deviceId === selectedDevice);
   }
@@ -1041,13 +1232,7 @@ function showNotifDetail(appKey, appName, notifications) {
   // items, so only marking deduped rows can leave the app unread count > 0.
   const unreadInGroup = notifications.filter((n) => !n.read);
   if (unreadInGroup.length > 0) {
-    const seen = new Set();
-    unreadInGroup.forEach((n) => {
-      const key = `${n.deviceId || ""}:${n.id || ""}`;
-      if (!n.id || seen.has(key)) return;
-      seen.add(key);
-      markNotificationAsRead(n.deviceId, n.id);
-    });
+    markNotificationsAsReadBulk(unreadInGroup);
   }
 
   // Deduplicate noisy repeated notifications from the same app/content.
@@ -1545,77 +1730,17 @@ function renderNotifications(notifications) {
 }
 
 async function markNotificationAsRead(deviceId, notifId) {
-  const user = state.currentUser;
-  if (!user) return;
-
-  // Optimistic update: mark as read in state immediately before the Firestore
-  // write so the badge drops right away (same pattern as SMS/calls).
-  Object.keys(state.allNotifications).forEach((key) => {
-    const updated = state.allNotifications[key].map((n) =>
-      n.id === notifId ? { ...n, read: true } : n,
-    );
-    state.setNotificationsData(key, updated);
-  });
+  applyOptimisticNotificationsRead([{ id: notifId, deviceId }]);
   updateTabBadges();
-  // Flush immediately so the read state survives popup close/SW cache refresh.
   flushNotificationsCache(state.allNotifications).catch(() => {});
 
   if (!notifId) {
     return;
   }
 
-  const isNotFoundError = (err) =>
-    String(err?.code || "").toLowerCase() === "not-found";
-
-  const tryMarkRead = async (ref) => {
-    try {
-      await updateDoc(ref, { read: true });
-      return true;
-    } catch (err) {
-      if (isNotFoundError(err)) return false;
-      throw err;
-    }
-  };
-
   try {
-    const hasDevicePath =
-      !!deviceId && deviceId !== "user" && deviceId !== "_user_notifications";
-
-    const deviceNotifRef = hasDevicePath
-      ? doc(
-        db,
-        "users",
-        user.uid,
-        "devices",
-        deviceId,
-        "notifications",
-        notifId,
-      )
-      : null;
-
-    const userNotifRef = doc(db, "users", user.uid, "notifications", notifId);
-
-    // Notifications can exist in either collection path depending on source.
-    // Try primary path first, then fallback path. Missing docs are expected races.
-    if (deviceNotifRef) {
-      if (await tryMarkRead(deviceNotifRef)) return;
-      await tryMarkRead(userNotifRef);
-      return;
-    }
-
-    if (await tryMarkRead(userNotifRef)) return;
-    if (deviceId) {
-      const fallbackDeviceRef = doc(
-        db,
-        "users",
-        user.uid,
-        "devices",
-        deviceId,
-        "notifications",
-        notifId,
-      );
-      await tryMarkRead(fallbackDeviceRef);
-    }
+    const ownerUid = resolveNotificationOwnerUid(deviceId);
+    await writeNotificationReadFlag({ ownerUid, deviceId, notifId });
   } catch (error) {
     // State already updated optimistically above; Firestore write failed but
     // the UI is already correct. Log and continue.
@@ -1686,28 +1811,23 @@ async function updateFirestoreNotifications(userId, unreadNotifs) {
   let successCount = 0;
   let failCount = 0;
 
-  // Split into batches of 500 (Firestore limit)
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < validNotifs.length; i += BATCH_SIZE) {
-    const chunk = validNotifs.slice(i, i + BATCH_SIZE);
-    const batch = writeBatch(db);
-    chunk.forEach((notif) => {
-      const deviceId = notif.actualDeviceId;
-      let notifRef;
-      if (deviceId && deviceId !== "user" && deviceId !== "_user_notifications") {
-        notifRef = doc(db, "users", userId, "devices", deviceId, "notifications", notif.id);
-      } else {
-        notifRef = doc(db, "users", userId, "notifications", notif.id);
-      }
-      batch.update(notifRef, { read: true });
+  // Use owner-aware per-doc updates so shared-device notifications are written
+  // under the correct owner's user path (prevents unread count rollback).
+  const CHUNK_SIZE = 120;
+  for (let i = 0; i < validNotifs.length; i += CHUNK_SIZE) {
+    const chunk = validNotifs.slice(i, i + CHUNK_SIZE);
+    const results = await Promise.allSettled(
+      chunk.map((notif) => {
+        const deviceId = notif.actualDeviceId;
+        const ownerUid = resolveNotificationOwnerUid(deviceId, notif.ownerUid || userId);
+        return writeNotificationReadFlag({ ownerUid, deviceId, notifId: notif.id });
+      }),
+    );
+
+    results.forEach((r) => {
+      if (r.status === "fulfilled" && r.value === true) successCount++;
+      else failCount++;
     });
-    try {
-      await batch.commit();
-      successCount += chunk.length;
-    } catch (e) {
-      failCount += chunk.length;
-      console.warn(`[Notifications] Batch update failed: ${e.message}`);
-    }
   }
 
   console.log(`[Notifications] Done: ${successCount} success, ${failCount} failed`);
@@ -1933,6 +2053,17 @@ export async function loadSharedDevicesNotifications(shares) {
   const user = state.currentUser;
   if (!user) return;
   const notifShares = (shares || []).filter((s) => hasSharedNotificationsPermission(s));
+
+  const allowedNotifDeviceIds = new Set([
+    ...(state.devices || []).map((d) => d?.id).filter(Boolean),
+    ...notifShares.map((s) => s?.deviceId).filter(Boolean),
+  ]);
+  if (pruneNotificationsForAllowedDevices(allowedNotifDeviceIds)) {
+    state.setAllNotificationsMessages(getMergedNotifications());
+    reRenderNotifications();
+    updateTabBadges();
+  }
+
   stopSharedNotificationsListeners();
   if (notifShares.length === 0) return;
 
@@ -1956,6 +2087,7 @@ export async function loadSharedDevicesNotifications(shares) {
                 id: docSnap.id,
                 deviceId: share.deviceId,
                 deviceName: share.deviceName || "",
+                ownerUid: share.ownerUid,
                 receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
               };
             }),

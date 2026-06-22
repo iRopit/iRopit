@@ -28,6 +28,27 @@ npm install
 firebase deploy --only functions
 ```
 
+## إعداد Email (أول تسجيل دخول)
+
+الـ Function `sendFirstLoginSetupEmail` ترسل رسالة setup لمرة واحدة عند إنشاء مستخدم Firebase Auth جديد (أول تسجيل دخول/إنشاء حساب).
+
+### إعداد SMTP عبر Firebase config
+
+```bash
+firebase functions:config:set smtp.host="smtp.yourprovider.com" smtp.port="465" smtp.secure="true" smtp.user="info@iRopit.com" smtp.pass="YOUR_SMTP_PASSWORD"
+firebase deploy --only functions
+```
+
+### أو عبر environment variables (للاختبار المحلي)
+
+```bash
+set SMTP_HOST=smtp.yourprovider.com
+set SMTP_PORT=465
+set SMTP_SECURE=true
+set SMTP_USER=info@iRopit.com
+set SMTP_PASS=YOUR_SMTP_PASSWORD
+```
+
 ## الـ Functions المتاحة
 
 ### 1. `sendPushNotification`
@@ -46,6 +67,12 @@ firebase deploy --only functions
 
 - **Trigger**: يعمل يومياً الساعة 00:00 UTC
 - **الوظيفة**: حذف الإشعارات القديمة (أكثر من 24 ساعة)
+
+### 4. `sendFirstLoginSetupEmail`
+
+- **Trigger**: عند إنشاء مستخدم جديد في Firebase Auth
+- **الوظيفة**: إرسال Email ترحيبي/setup لمرة واحدة فقط
+- **الحماية من التكرار**: يتم حفظ `firstLoginSetupEmailSentAt` في `users/{uid}` بعد الإرسال
 
 ## الاختبار المحلي
 
