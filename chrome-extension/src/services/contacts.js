@@ -15,6 +15,46 @@ import * as state from "../state/index.js";
 
 // Store unsubscribe functions for contacts listeners
 let contactsUnsubscribeFunctions = [];
+const CONTACTS_PHONE_MAP_CACHE_KEY = "contactsPhoneMapCache_v1";
+
+function sanitizePhoneMap(map) {
+  if (!map || typeof map !== "object") return {};
+  const cleaned = {};
+  Object.entries(map).forEach(([phone, name]) => {
+    if (!phone || typeof phone !== "string") return;
+    if (!name || typeof name !== "string") return;
+    const normalized = normalizePhoneNumber(phone);
+    const trimmedName = name.trim();
+    if (!normalized || !trimmedName) return;
+    if (!cleaned[normalized]) cleaned[normalized] = trimmedName;
+  });
+  return cleaned;
+}
+
+async function persistPhoneMap(phoneMap) {
+  try {
+    if (!chrome?.storage?.local) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [CONTACTS_PHONE_MAP_CACHE_KEY]: phoneMap }, resolve);
+    });
+  } catch (_) {}
+}
+
+export async function hydrateCachedContactsMap() {
+  try {
+    if (!chrome?.storage?.local) return;
+    if (state.phoneToContactMap && Object.keys(state.phoneToContactMap).length > 0) return;
+
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get([CONTACTS_PHONE_MAP_CACHE_KEY], resolve);
+    });
+    const cachedMap = sanitizePhoneMap(result?.[CONTACTS_PHONE_MAP_CACHE_KEY]);
+    if (Object.keys(cachedMap).length === 0) return;
+
+    state.setPhoneToContactMap(cachedMap);
+    console.log(`[Contacts] Hydrated cached phone map: ${Object.keys(cachedMap).length} entries`);
+  } catch (_) {}
+}
 
 /**
  * Normalize phone number for matching
@@ -92,6 +132,10 @@ export async function loadContactsForDevice(deviceId) {
 export async function loadAllContacts() {
   const user = state.currentUser;
   if (!user) return {};
+
+  // Warm contact resolution from local cache so calls/SMS render with names
+  // immediately while Firestore contacts are loading.
+  await hydrateCachedContactsMap();
 
   // Stop any previous listeners
   stopContactsListeners();
@@ -173,6 +217,7 @@ export async function loadAllContacts() {
             });
           });
           state.setPhoneToContactMap(newPhoneMap);
+          persistPhoneMap(newPhoneMap).catch(() => {});
           console.log(
             `[Contacts] Updated phone map: ${Object.keys(newPhoneMap).length} entries`,
           );
@@ -199,6 +244,7 @@ export async function loadAllContacts() {
   // Update state
   state.setAllContacts(allContacts);
   state.setPhoneToContactMap(phoneMap);
+  persistPhoneMap(phoneMap).catch(() => {});
 
   console.log(
     `[Contacts] Loaded contacts from ${Object.keys(allContacts).length} devices`,

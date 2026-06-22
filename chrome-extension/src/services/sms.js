@@ -1446,33 +1446,12 @@ export function renderSMS(messages) {
     // messages (no deviceId), own devices with SMS enabled, and active shared devices.
     const ownSmsDeviceIds = getOwnSmsDeviceIds();
     const sharedDeviceIds = getSharedSmsDeviceIds();
-    const allOwnMobileDeviceIds = new Set(
-      (state.devices || [])
-        .filter(
-          (d) =>
-            (d.type === "mobile" ||
-              d.type === "phone" ||
-              d.platform === "android" ||
-              d.platform === "Android" ||
-              d.platform === "ios") &&
-            d.id,
-        )
-        .map((d) => d.id),
-    );
-    const hasAnyLinkedSmsDevice =
-      allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
     filteredMessages = messages.filter((msg) => {
       if (!msg.deviceId) return true;
       if (ownSmsDeviceIds.has(msg.deviceId)) return true;
       if (sharedDeviceIds.has(msg.deviceId)) return true;
       return false;
     });
-
-    // First login/new install safety: if there are linked devices but strict
-    // ID matching yields nothing while data exists, fall back to visible data.
-    if (hasAnyLinkedSmsDevice && filteredMessages.length === 0 && messages.length > 0) {
-      filteredMessages = messages;
-    }
   }
 
   // Filter by search query

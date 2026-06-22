@@ -177,9 +177,15 @@ async function writeNotificationReadFlag({ ownerUid, deviceId, notifId }) {
 
   const userNotifRef = doc(db, "users", ownerUid, "notifications", notifId);
 
+  // Keep device-level and user-level mirrors in sync. Historically we returned
+  // early after the first successful write, which could leave the second copy
+  // stale (read:false) and let a later snapshot resurrect old unread counts.
   if (deviceNotifRef) {
-    if (await tryMarkRead(deviceNotifRef)) return true;
-    return await tryMarkRead(userNotifRef);
+    const [deviceOk, userOk] = await Promise.all([
+      tryMarkRead(deviceNotifRef),
+      tryMarkRead(userNotifRef),
+    ]);
+    return !!(deviceOk || userOk);
   }
 
   if (await tryMarkRead(userNotifRef)) return true;
@@ -324,6 +330,54 @@ function notifSnapshotReady() {
 // ── Selection mode state ──────────────────────────────────────────────────────
 let notifSelectionMode = false;
 let selectedNotifApps = new Set(); // keyed by app key (packageName or appName)
+
+const NOTIF_MIRROR_MAX_DRIFT_MS = 2500;
+
+function normalizeNotifTsMs(notif) {
+  const raw = Number(notif?.receivedAt || notif?.timestamp || notif?.createdAt || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return raw < 1e12 ? raw * 1000 : raw;
+}
+
+function buildNotifContentKey(notif) {
+  if (!notif) return null;
+  const app = String(notif.packageName || notif.appName || "").trim().toLowerCase();
+  const title = String(notif.title || "").trim().toLowerCase();
+  const body = String(notif.text || notif.body || "").trim().toLowerCase();
+  if (!app && !title && !body) return null;
+  const device = String(notif.deviceId || "user");
+  return `${device}|${app}|${title}|${body}`;
+}
+
+function countDistinctUnreadNotifications(notifications) {
+  const sorted = [...(notifications || [])].sort(
+    (a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a),
+  );
+  const seenIds = new Set();
+  const seenByContent = new Map();
+  let count = 0;
+
+  for (const n of sorted) {
+    if (!n || !n.id || n.read) continue;
+
+    if (seenIds.has(n.id)) continue;
+    seenIds.add(n.id);
+
+    const contentKey = buildNotifContentKey(n);
+    const ts = normalizeNotifTsMs(n);
+    if (contentKey && ts > 0) {
+      const prevTs = seenByContent.get(contentKey);
+      if (typeof prevTs === "number" && Math.abs(prevTs - ts) <= NOTIF_MIRROR_MAX_DRIFT_MS) {
+        continue;
+      }
+      seenByContent.set(contentKey, ts);
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
 
 const NOTIF_SNOOZE_STORAGE_KEY = "notifSnoozedGroups";
 let notifSnoozedGroups = {}; // { [appKey]: epochMs | "permanent" }
@@ -961,33 +1015,12 @@ export function reRenderNotifications() {
   if (selectedDevice === "all") {
     const ownNotifDeviceIds = getOwnNotificationsDeviceIds();
     const sharedDeviceIds = getSharedNotificationsDeviceIds();
-    const allOwnMobileDeviceIds = new Set(
-      (state.devices || [])
-        .filter(
-          (d) =>
-            (d.type === "mobile" ||
-              d.type === "phone" ||
-              d.platform === "android" ||
-              d.platform === "Android" ||
-              d.platform === "ios") &&
-            d.id,
-        )
-        .map((d) => d.id),
-    );
-    const hasAnyLinkedNotifDevice =
-      allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
     filtered = merged.filter((n) => {
       if (isUserLevelNotification(n)) return true;
       if (ownNotifDeviceIds.has(n.deviceId)) return true;
       if (sharedDeviceIds.has(n.deviceId)) return true;
       return false;
     });
-
-    // First login/new install safety: if there are linked devices but strict
-    // ID matching yields nothing while data exists, fall back to visible data.
-    if (hasAnyLinkedNotifDevice && filtered.length === 0 && merged.length > 0) {
-      filtered = merged;
-    }
   } else {
     filtered = merged.filter((n) => n.deviceId === selectedDevice);
   }
@@ -1235,20 +1268,20 @@ function showNotifDetail(appKey, appName, notifications) {
     markNotificationsAsReadBulk(unreadInGroup);
   }
 
-  // Deduplicate noisy repeated notifications from the same app/content.
-  // Keep only the newest entry when identical title/body repeats within 15 min.
-  const DEDUP_WINDOW_MS = 15 * 60 * 1000;
+  // Deduplicate only near-simultaneous mirror duplicates.
+  // Keep legitimate repeated notifications (e.g. screenshots at 11:13 and 11:14).
+  const DEDUP_WINDOW_MS = NOTIF_MIRROR_MAX_DRIFT_MS;
   const byContent = new Map();
   notifications.forEach((n) => {
-    const ts = Number(n.receivedAt || n.timestamp || 0);
-    const contentKey = `${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
+    const ts = normalizeNotifTsMs(n);
+    const contentKey = `${String(n.deviceId || "user").trim()}|${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
     const current = byContent.get(contentKey);
     if (!current) {
       byContent.set(contentKey, n);
       return;
     }
 
-    const currentTs = Number(current.receivedAt || current.timestamp || 0);
+    const currentTs = normalizeNotifTsMs(current);
     const sameBurst = Math.abs(ts - currentTs) <= DEDUP_WINDOW_MS;
     if (sameBurst) {
       if (ts >= currentTs) byContent.set(contentKey, n);
@@ -1573,7 +1606,7 @@ function renderNotifications(notifications) {
     const latest = group.items[0];
     const isSnoozed = isNotifGroupSnoozed(key);
     const isPinned = isNotifGroupPinned(key);
-    const unreadCount = group.items.filter(n => !n.read).length;
+    const unreadCount = countDistinctUnreadNotifications(group.items);
     const hasUnread = unreadCount > 0;
     const isSelected = notifSelectionMode && selectedNotifApps.has(key);
     const isAr = getCurrentLanguage() === "ar";
@@ -1770,33 +1803,115 @@ export async function markAllNotificationsAsRead() {
     });
   });
 
-  if (unreadNotifs.length === 0) return;
-
-  // Update local state IMMEDIATELY (for instant UI update)
-  Object.keys(state.allNotifications).forEach((key) => {
-    const updated = state.allNotifications[key].map((n) => {
-      const actualDeviceId = n.deviceId || key;
-      if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
-        return { ...n, read: true };
-      }
-      return n;
+  // Update local state IMMEDIATELY (for instant UI update) for already-loaded data.
+  if (unreadNotifs.length > 0) {
+    Object.keys(state.allNotifications).forEach((key) => {
+      const updated = state.allNotifications[key].map((n) => {
+        const actualDeviceId = n.deviceId || key;
+        if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
+          return { ...n, read: true };
+        }
+        return n;
+      });
+      state.setNotificationsData(key, updated);
     });
-    state.setNotificationsData(key, updated);
+
+    // Update badge IMMEDIATELY
+    updateTabBadges();
+
+    // Flush read state to cache immediately so it survives:
+    // (a) popup closing before the 3s debounce fires, and
+    // (b) SW's refreshPopupCache overwriting with stale read:false from Firestore.
+    flushNotificationsCache(state.allNotifications).catch(() => {});
+
+    // Re-render notifications list
+    reRenderNotifications();
+  }
+
+  // Also mark unread docs that are NOT currently loaded in local state
+  // (older pages / yesterday items), so they don't reappear as unread later.
+  const serverUnread = await collectUnreadNotificationsForMarkAll(user.uid, activeDevice);
+  const merged = dedupeUnreadTargets([...unreadNotifs, ...serverUnread]);
+  if (merged.length === 0) return;
+
+  // Update Firestore - await to ensure completion.
+  await updateFirestoreNotifications(user.uid, merged);
+}
+
+function dedupeUnreadTargets(items) {
+  const out = [];
+  const seen = new Set();
+  (items || []).forEach((n) => {
+    if (!n?.id) return;
+    const deviceId = n.actualDeviceId || n.deviceId || "user";
+    const key = `${deviceId}:${n.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ ...n, actualDeviceId: deviceId });
+  });
+  return out;
+}
+
+async function collectUnreadNotificationsForMarkAll(userUid, activeDevice) {
+  const targets = [];
+
+  const collectFromPath = async ({ ownerUid, deviceId }) => {
+    if (!ownerUid) return;
+
+    const notifCollection =
+      deviceId && deviceId !== "user" && deviceId !== "_user_notifications"
+        ? collection(db, "users", ownerUid, "devices", deviceId, "notifications")
+        : collection(db, "users", ownerUid, "notifications");
+
+    const q = query(notifCollection, where("read", "==", false));
+
+    let snapshot;
+    try {
+      snapshot = await getDocsFromServer(q);
+    } catch (serverErr) {
+      if (!isUnavailableError(serverErr)) throw serverErr;
+      snapshot = await getDocs(q);
+    }
+
+    snapshot.forEach((docSnap) => {
+      if (!docSnap.id) return;
+      targets.push({
+        id: docSnap.id,
+        actualDeviceId: deviceId || "user",
+        ownerUid,
+      });
+    });
+  };
+
+  if (activeDevice && activeDevice !== "all") {
+    const ownerUid = resolveNotificationOwnerUid(activeDevice, userUid);
+    await collectFromPath({ ownerUid, deviceId: activeDevice });
+    return targets;
+  }
+
+  // All devices: include user-level + own synced devices + shared devices.
+  const paths = [];
+  paths.push({ ownerUid: userUid, deviceId: "user" });
+
+  getOwnNotificationsDeviceIds().forEach((deviceId) => {
+    paths.push({ ownerUid: userUid, deviceId });
   });
 
-  // Update badge IMMEDIATELY
-  updateTabBadges();
+  (state.sharedWithMeDevices || []).forEach((share) => {
+    if (!hasSharedNotificationsPermission(share)) return;
+    if (!share?.ownerUid || !share?.deviceId) return;
+    paths.push({ ownerUid: share.ownerUid, deviceId: share.deviceId });
+  });
 
-  // Flush read state to cache immediately so it survives:
-  // (a) popup closing before the 3s debounce fires, and
-  // (b) SW's refreshPopupCache overwriting with stale read:false from Firestore.
-  flushNotificationsCache(state.allNotifications).catch(() => {});
+  for (const p of paths) {
+    try {
+      await collectFromPath(p);
+    } catch (err) {
+      console.warn("[Notifications] mark-all unread sweep skipped a path:", p, err?.message || err);
+    }
+  }
 
-  // Re-render notifications list
-  reRenderNotifications();
-
-  // Update Firestore - await to ensure completion
-  await updateFirestoreNotifications(user.uid, unreadNotifs);
+  return targets;
 }
 
 /**

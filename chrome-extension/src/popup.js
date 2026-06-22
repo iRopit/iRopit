@@ -54,7 +54,7 @@ import {
   loadUserSettings,
   initSettingsListeners,
 } from "./services/settings.js";
-import { loadAllContacts } from "./services/contacts.js";
+import { loadAllContacts, hydrateCachedContactsMap } from "./services/contacts.js";
 import { initTheme } from "./services/theme.js";
 import { clearCache, getCachedSMS, getCachedCalls, getCachedNotifications, flushSMSCache, flushNotificationsCache } from "./services/cache.js";
 import QRCode from "qrcode";
@@ -253,6 +253,8 @@ async function loadDevicesAndContacts() {
  */
 async function showCachedDataBeforeAuth() {
   try {
+    await hydrateCachedContactsMap();
+
     const [smsCache, callsCache, notifCache] = await Promise.all([
       getCachedSMS(),
       getCachedCalls(),
@@ -338,6 +340,9 @@ function loadData(options = {}) {
   cleanupSubscriptions();
   hasLoadedCalls = false;
   hasLoadedNotifications = false;
+
+  // Warm phone->contact map from local cache as early as possible.
+  hydrateCachedContactsMap().catch(() => {});
 
   // Prioritize SMS on startup so first-install history loads before lower-priority tabs.
   loadSMS(options.smsOptions || {});

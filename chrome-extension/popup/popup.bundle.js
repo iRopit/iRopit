@@ -24965,6 +24965,44 @@ ${this.customData.serverResponse}`;
   });
 
   // src/services/badges.js
+  function normalizeNotifTsMs(n) {
+    const raw = Number(n?.receivedAt || n?.timestamp || n?.createdAt || 0);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return raw < 1e12 ? raw * 1e3 : raw;
+  }
+  function buildNotifContentKey(n) {
+    if (!n) return null;
+    const app2 = String(n.packageName || n.appName || "").trim().toLowerCase();
+    const title = String(n.title || "").trim().toLowerCase();
+    const body = String(n.text || n.body || "").trim().toLowerCase();
+    if (!app2 && !title && !body) return null;
+    const device = String(n.deviceId || "user");
+    return `${device}|${app2}|${title}|${body}`;
+  }
+  function countDistinctUnreadNotifications(notifs) {
+    const sorted = [...notifs || []].sort(
+      (a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a)
+    );
+    const seenIds = /* @__PURE__ */ new Set();
+    const seenByContent = /* @__PURE__ */ new Map();
+    let count = 0;
+    for (const n of sorted) {
+      if (!n || !n.id || n.read) continue;
+      if (seenIds.has(n.id)) continue;
+      seenIds.add(n.id);
+      const contentKey = buildNotifContentKey(n);
+      const ts = normalizeNotifTsMs(n);
+      if (contentKey && ts > 0) {
+        const prevTs = seenByContent.get(contentKey);
+        if (typeof prevTs === "number" && Math.abs(prevTs - ts) <= NOTIF_MIRROR_MAX_DRIFT_MS) {
+          continue;
+        }
+        seenByContent.set(contentKey, ts);
+      }
+      count += 1;
+    }
+    return count;
+  }
   function updateTabBadges() {
     const user = currentUser;
     if (!user) return;
@@ -25086,19 +25124,15 @@ ${this.customData.serverResponse}`;
     const hasAnyLinkedNotifDevice = ownNotifDeviceIds.size > 0 || sharedNotifDeviceIds.size > 0;
     if (deviceId === "all") {
       if (!hasAnyLinkedNotifDevice) return 0;
-      return Object.values(allNotifications).flat().filter((n) => {
+      const unread = Object.values(allNotifications).flat().filter((n) => {
         if (!n || !n.id || n.read) return false;
         if (ownNotifDeviceIds.has(n.deviceId)) return true;
         if (sharedNotifDeviceIds.has(n.deviceId)) return true;
         return false;
-      }).reduce((acc, n) => {
-        if (acc.seen.has(n.id)) return acc;
-        acc.seen.add(n.id);
-        acc.count += 1;
-        return acc;
-      }, { seen: /* @__PURE__ */ new Set(), count: 0 }).count;
+      });
+      return countDistinctUnreadNotifications(unread);
     }
-    return (allNotifications[deviceId] || []).filter((n) => !n.read).length;
+    return countDistinctUnreadNotifications(allNotifications[deviceId] || []);
   }
   function updateBadge(badgeId, count) {
     const badge = document.getElementById(badgeId);
@@ -25110,9 +25144,11 @@ ${this.customData.serverResponse}`;
       badge.style.display = "none";
     }
   }
+  var NOTIF_MIRROR_MAX_DRIFT_MS;
   var init_badges = __esm({
     "src/services/badges.js"() {
       init_state();
+      NOTIF_MIRROR_MAX_DRIFT_MS = 2500;
     }
   });
 
@@ -28000,6 +28036,42 @@ ${this.customData.serverResponse}`;
   });
 
   // src/services/contacts.js
+  function sanitizePhoneMap(map) {
+    if (!map || typeof map !== "object") return {};
+    const cleaned = {};
+    Object.entries(map).forEach(([phone, name5]) => {
+      if (!phone || typeof phone !== "string") return;
+      if (!name5 || typeof name5 !== "string") return;
+      const normalized = normalizePhoneNumber2(phone);
+      const trimmedName = name5.trim();
+      if (!normalized || !trimmedName) return;
+      if (!cleaned[normalized]) cleaned[normalized] = trimmedName;
+    });
+    return cleaned;
+  }
+  async function persistPhoneMap(phoneMap) {
+    try {
+      if (!chrome?.storage?.local) return;
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ [CONTACTS_PHONE_MAP_CACHE_KEY]: phoneMap }, resolve);
+      });
+    } catch (_) {
+    }
+  }
+  async function hydrateCachedContactsMap() {
+    try {
+      if (!chrome?.storage?.local) return;
+      if (phoneToContactMap && Object.keys(phoneToContactMap).length > 0) return;
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get([CONTACTS_PHONE_MAP_CACHE_KEY], resolve);
+      });
+      const cachedMap = sanitizePhoneMap(result?.[CONTACTS_PHONE_MAP_CACHE_KEY]);
+      if (Object.keys(cachedMap).length === 0) return;
+      setPhoneToContactMap(cachedMap);
+      console.log(`[Contacts] Hydrated cached phone map: ${Object.keys(cachedMap).length} entries`);
+    } catch (_) {
+    }
+  }
   function normalizePhoneNumber2(phone) {
     if (!phone || !phone.trim()) return "";
     let normalized = phone.replace(/[^\d+]/g, "").trim();
@@ -28055,6 +28127,7 @@ ${this.customData.serverResponse}`;
   async function loadAllContacts() {
     const user = currentUser;
     if (!user) return {};
+    await hydrateCachedContactsMap();
     stopContactsListeners();
     const allContacts2 = {};
     const phoneMap = {};
@@ -28119,6 +28192,8 @@ ${this.customData.serverResponse}`;
               });
             });
             setPhoneToContactMap(newPhoneMap);
+            persistPhoneMap(newPhoneMap).catch(() => {
+            });
             console.log(
               `[Contacts] Updated phone map: ${Object.keys(newPhoneMap).length} entries`
             );
@@ -28142,6 +28217,8 @@ ${this.customData.serverResponse}`;
     }
     setAllContacts(allContacts2);
     setPhoneToContactMap(phoneMap);
+    persistPhoneMap(phoneMap).catch(() => {
+    });
     console.log(
       `[Contacts] Loaded contacts from ${Object.keys(allContacts2).length} devices`
     );
@@ -28159,12 +28236,13 @@ ${this.customData.serverResponse}`;
     const normalized = normalizePhoneNumber2(phoneNumber);
     return phoneToContactMap[normalized] || "";
   }
-  var contactsUnsubscribeFunctions;
+  var contactsUnsubscribeFunctions, CONTACTS_PHONE_MAP_CACHE_KEY;
   var init_contacts = __esm({
     "src/services/contacts.js"() {
       init_firebase();
       init_state();
       contactsUnsubscribeFunctions = [];
+      CONTACTS_PHONE_MAP_CACHE_KEY = "contactsPhoneMapCache_v1";
     }
   });
 
@@ -29157,21 +29235,12 @@ ${this.customData.serverResponse}`;
     } else {
       const ownSmsDeviceIds = getOwnSmsDeviceIds();
       const sharedDeviceIds = getSharedSmsDeviceIds();
-      const allOwnMobileDeviceIds = new Set(
-        (devices || []).filter(
-          (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "Android" || d.platform === "ios") && d.id
-        ).map((d) => d.id)
-      );
-      const hasAnyLinkedSmsDevice = allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
       filteredMessages = messages.filter((msg) => {
         if (!msg.deviceId) return true;
         if (ownSmsDeviceIds.has(msg.deviceId)) return true;
         if (sharedDeviceIds.has(msg.deviceId)) return true;
         return false;
       });
-      if (hasAnyLinkedSmsDevice && filteredMessages.length === 0 && messages.length > 0) {
-        filteredMessages = messages;
-      }
     }
     const searchQuery = (document.getElementById("smsSearchInput")?.value || "").trim().toLowerCase();
     const searchInput = document.getElementById("smsSearchInput");
@@ -31420,8 +31489,11 @@ ${this.customData.serverResponse}`;
     ) : null;
     const userNotifRef = doc(db, "users", ownerUid, "notifications", notifId);
     if (deviceNotifRef) {
-      if (await tryMarkRead(deviceNotifRef)) return true;
-      return await tryMarkRead(userNotifRef);
+      const [deviceOk, userOk] = await Promise.all([
+        tryMarkRead(deviceNotifRef),
+        tryMarkRead(userNotifRef)
+      ]);
+      return !!(deviceOk || userOk);
     }
     if (await tryMarkRead(userNotifRef)) return true;
     if (deviceId) {
@@ -31522,6 +31594,44 @@ ${this.customData.serverResponse}`;
       setAllNotificationsMessages(getMergedNotifications());
       document.dispatchEvent(new CustomEvent("notificationsDataUpdated"));
     }
+  }
+  function normalizeNotifTsMs2(notif) {
+    const raw = Number(notif?.receivedAt || notif?.timestamp || notif?.createdAt || 0);
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return raw < 1e12 ? raw * 1e3 : raw;
+  }
+  function buildNotifContentKey2(notif) {
+    if (!notif) return null;
+    const app2 = String(notif.packageName || notif.appName || "").trim().toLowerCase();
+    const title = String(notif.title || "").trim().toLowerCase();
+    const body = String(notif.text || notif.body || "").trim().toLowerCase();
+    if (!app2 && !title && !body) return null;
+    const device = String(notif.deviceId || "user");
+    return `${device}|${app2}|${title}|${body}`;
+  }
+  function countDistinctUnreadNotifications2(notifications) {
+    const sorted = [...notifications || []].sort(
+      (a, b) => normalizeNotifTsMs2(b) - normalizeNotifTsMs2(a)
+    );
+    const seenIds = /* @__PURE__ */ new Set();
+    const seenByContent = /* @__PURE__ */ new Map();
+    let count = 0;
+    for (const n of sorted) {
+      if (!n || !n.id || n.read) continue;
+      if (seenIds.has(n.id)) continue;
+      seenIds.add(n.id);
+      const contentKey = buildNotifContentKey2(n);
+      const ts = normalizeNotifTsMs2(n);
+      if (contentKey && ts > 0) {
+        const prevTs = seenByContent.get(contentKey);
+        if (typeof prevTs === "number" && Math.abs(prevTs - ts) <= NOTIF_MIRROR_MAX_DRIFT_MS2) {
+          continue;
+        }
+        seenByContent.set(contentKey, ts);
+      }
+      count += 1;
+    }
+    return count;
   }
   function tr(en2, ar) {
     return getCurrentLanguage() === "ar" ? ar : en2;
@@ -31991,21 +32101,12 @@ ${this.customData.serverResponse}`;
     if (selectedDevice === "all") {
       const ownNotifDeviceIds = getOwnNotificationsDeviceIds();
       const sharedDeviceIds = getSharedNotificationsDeviceIds();
-      const allOwnMobileDeviceIds = new Set(
-        (devices || []).filter(
-          (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "Android" || d.platform === "ios") && d.id
-        ).map((d) => d.id)
-      );
-      const hasAnyLinkedNotifDevice = allOwnMobileDeviceIds.size > 0 || sharedDeviceIds.size > 0;
       filtered = merged.filter((n) => {
         if (isUserLevelNotification(n)) return true;
         if (ownNotifDeviceIds.has(n.deviceId)) return true;
         if (sharedDeviceIds.has(n.deviceId)) return true;
         return false;
       });
-      if (hasAnyLinkedNotifDevice && filtered.length === 0 && merged.length > 0) {
-        filtered = merged;
-      }
     } else {
       filtered = merged.filter((n) => n.deviceId === selectedDevice);
     }
@@ -32197,17 +32298,17 @@ ${this.customData.serverResponse}`;
     if (unreadInGroup.length > 0) {
       markNotificationsAsReadBulk(unreadInGroup);
     }
-    const DEDUP_WINDOW_MS = 15 * 60 * 1e3;
+    const DEDUP_WINDOW_MS = NOTIF_MIRROR_MAX_DRIFT_MS2;
     const byContent = /* @__PURE__ */ new Map();
     notifications.forEach((n) => {
-      const ts = Number(n.receivedAt || n.timestamp || 0);
-      const contentKey = `${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
+      const ts = normalizeNotifTsMs2(n);
+      const contentKey = `${String(n.deviceId || "user").trim()}|${(n.title || "").trim()}|${(n.text || n.body || "").trim()}`;
       const current = byContent.get(contentKey);
       if (!current) {
         byContent.set(contentKey, n);
         return;
       }
-      const currentTs = Number(current.receivedAt || current.timestamp || 0);
+      const currentTs = normalizeNotifTsMs2(current);
       const sameBurst = Math.abs(ts - currentTs) <= DEDUP_WINDOW_MS;
       if (sameBurst) {
         if (ts >= currentTs) byContent.set(contentKey, n);
@@ -32483,7 +32584,7 @@ ${this.customData.serverResponse}`;
       const latest = group.items[0];
       const isSnoozed = isNotifGroupSnoozed(key);
       const isPinned = isNotifGroupPinned(key);
-      const unreadCount = group.items.filter((n) => !n.read).length;
+      const unreadCount = countDistinctUnreadNotifications2(group.items);
       const hasUnread = unreadCount > 0;
       const isSelected = notifSelectionMode && selectedNotifApps.has(key);
       const isAr = getCurrentLanguage() === "ar";
@@ -32666,22 +32767,85 @@ ${this.customData.serverResponse}`;
         }
       });
     });
-    if (unreadNotifs.length === 0) return;
-    Object.keys(allNotifications).forEach((key) => {
-      const updated = allNotifications[key].map((n) => {
-        const actualDeviceId = n.deviceId || key;
-        if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
-          return { ...n, read: true };
-        }
-        return n;
+    if (unreadNotifs.length > 0) {
+      Object.keys(allNotifications).forEach((key) => {
+        const updated = allNotifications[key].map((n) => {
+          const actualDeviceId = n.deviceId || key;
+          if (!n.read && (activeDevice === "all" || actualDeviceId === activeDevice)) {
+            return { ...n, read: true };
+          }
+          return n;
+        });
+        setNotificationsData(key, updated);
       });
-      setNotificationsData(key, updated);
+      updateTabBadges();
+      flushNotificationsCache(allNotifications).catch(() => {
+      });
+      reRenderNotifications();
+    }
+    const serverUnread = await collectUnreadNotificationsForMarkAll(user.uid, activeDevice);
+    const merged = dedupeUnreadTargets([...unreadNotifs, ...serverUnread]);
+    if (merged.length === 0) return;
+    await updateFirestoreNotifications(user.uid, merged);
+  }
+  function dedupeUnreadTargets(items) {
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    (items || []).forEach((n) => {
+      if (!n?.id) return;
+      const deviceId = n.actualDeviceId || n.deviceId || "user";
+      const key = `${deviceId}:${n.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ ...n, actualDeviceId: deviceId });
     });
-    updateTabBadges();
-    flushNotificationsCache(allNotifications).catch(() => {
+    return out;
+  }
+  async function collectUnreadNotificationsForMarkAll(userUid, activeDevice) {
+    const targets = [];
+    const collectFromPath = async ({ ownerUid, deviceId }) => {
+      if (!ownerUid) return;
+      const notifCollection = deviceId && deviceId !== "user" && deviceId !== "_user_notifications" ? collection(db, "users", ownerUid, "devices", deviceId, "notifications") : collection(db, "users", ownerUid, "notifications");
+      const q2 = query(notifCollection, where("read", "==", false));
+      let snapshot;
+      try {
+        snapshot = await getDocsFromServer(q2);
+      } catch (serverErr) {
+        if (!isUnavailableError3(serverErr)) throw serverErr;
+        snapshot = await getDocs(q2);
+      }
+      snapshot.forEach((docSnap) => {
+        if (!docSnap.id) return;
+        targets.push({
+          id: docSnap.id,
+          actualDeviceId: deviceId || "user",
+          ownerUid
+        });
+      });
+    };
+    if (activeDevice && activeDevice !== "all") {
+      const ownerUid = resolveNotificationOwnerUid(activeDevice, userUid);
+      await collectFromPath({ ownerUid, deviceId: activeDevice });
+      return targets;
+    }
+    const paths = [];
+    paths.push({ ownerUid: userUid, deviceId: "user" });
+    getOwnNotificationsDeviceIds().forEach((deviceId) => {
+      paths.push({ ownerUid: userUid, deviceId });
     });
-    reRenderNotifications();
-    await updateFirestoreNotifications(user.uid, unreadNotifs);
+    (sharedWithMeDevices || []).forEach((share) => {
+      if (!hasSharedNotificationsPermission(share)) return;
+      if (!share?.ownerUid || !share?.deviceId) return;
+      paths.push({ ownerUid: share.ownerUid, deviceId: share.deviceId });
+    });
+    for (const p of paths) {
+      try {
+        await collectFromPath(p);
+      } catch (err) {
+        console.warn("[Notifications] mark-all unread sweep skipped a path:", p, err?.message || err);
+      }
+    }
+    return targets;
   }
   async function updateFirestoreNotifications(userId, unreadNotifs) {
     const validNotifs = unreadNotifs.filter((n) => n.id);
@@ -32935,7 +33099,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubs, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubs, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, NOTIF_MIRROR_MAX_DRIFT_MS2, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -32962,6 +33126,7 @@ ${this.customData.serverResponse}`;
       notifScrollHandlerAttached = false;
       notifSelectionMode = false;
       selectedNotifApps = /* @__PURE__ */ new Set();
+      NOTIF_MIRROR_MAX_DRIFT_MS2 = 2500;
       NOTIF_SNOOZE_STORAGE_KEY = "notifSnoozedGroups";
       notifSnoozedGroups = {};
       notifSnoozeHydrated = false;
@@ -38328,6 +38493,7 @@ ${this.customData.serverResponse}`;
   }
   async function showCachedDataBeforeAuth() {
     try {
+      await hydrateCachedContactsMap();
       const [smsCache, callsCache, notifCache] = await Promise.all([
         getCachedSMS(),
         getCachedCalls(),
@@ -38381,6 +38547,8 @@ ${this.customData.serverResponse}`;
     cleanupSubscriptions();
     hasLoadedCalls = false;
     hasLoadedNotifications = false;
+    hydrateCachedContactsMap().catch(() => {
+    });
     loadSMS(options.smsOptions || {});
     loadDevices();
     loadDevicesAndContacts();

@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -34,7 +34,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const { user } = useAuthStore();
   const { currentDevice, devices } = useDeviceStore();
   const [caption, setCaption] = useState(data.text || '');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [error, setError] = useState('');
 
   const isImage = data.mimeType?.startsWith('image/');
@@ -43,7 +43,24 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const uris = data.uris || (data.uri ? [data.uri] : []);
 
   // Exclude current device - send TO other devices
-  const otherDevices = devices.filter(d => d.id !== currentDevice?.id);
+  const otherDevices = useMemo(
+    () => devices.filter(d => d.id !== currentDevice?.id),
+    [devices, currentDevice?.id],
+  );
+
+  // Keep selection aligned with available devices. Default to all selected.
+  useEffect(() => {
+    if (otherDevices.length === 0) {
+      setSelectedDeviceIds([]);
+      return;
+    }
+
+    setSelectedDeviceIds(prev => {
+      const allowed = new Set(otherDevices.map(d => d.id));
+      const filtered = prev.filter(id => allowed.has(id));
+      return filtered.length > 0 ? filtered : otherDevices.map(d => d.id);
+    });
+  }, [otherDevices]);
 
   const handleSend = useCallback(() => {
     if (!user?.uid) {
@@ -55,8 +72,12 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
       return;
     }
 
-    const targetDeviceIds: string[] =
-      selectedDeviceId ? [selectedDeviceId] : otherDevices.map(d => d.id);
+    const targetDeviceIds: string[] = selectedDeviceIds;
+
+    if (otherDevices.length > 0 && targetDeviceIds.length === 0) {
+      setError('Select at least one device');
+      return;
+    }
 
     // Close modal immediately - upload & send in background
     onClose();
@@ -139,7 +160,24 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
         }
       }
     })();
-  }, [user, currentDevice, selectedDeviceId, otherDevices, uris, isImage, isVideo, isText, caption, data, onClose]);
+  }, [user, currentDevice, selectedDeviceIds, otherDevices.length, uris, isImage, isVideo, isText, caption, data, onClose]);
+
+  const allSelected =
+    otherDevices.length > 0 && selectedDeviceIds.length === otherDevices.length;
+
+  const toggleAllDevices = useCallback(() => {
+    setSelectedDeviceIds(prev =>
+      prev.length === otherDevices.length ? [] : otherDevices.map(d => d.id),
+    );
+  }, [otherDevices]);
+
+  const toggleDevice = useCallback((deviceId: string) => {
+    setSelectedDeviceIds(prev =>
+      prev.includes(deviceId)
+        ? prev.filter(id => id !== deviceId)
+        : [...prev, deviceId],
+    );
+  }, []);
 
   const surfaceBg = isDarkMode ? colors.surface : '#fff';
   const deviceBorder = isDarkMode ? colors.border : '#e5e7eb';
@@ -229,46 +267,43 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                   style={[
                     styles.deviceRow,
                     { borderColor: deviceBorder },
-                    selectedDeviceId === null && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
+                    allSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
                   ]}
-                  onPress={() => setSelectedDeviceId(null)}
+                  onPress={toggleAllDevices}
                 >
                   <Ionicons
-                    name="layers-outline"
+                    name={allSelected ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={selectedDeviceId === null ? colors.primary : colors.textSecondary}
+                    color={allSelected ? colors.primary : colors.textSecondary}
                   />
-                  <Text style={[styles.deviceName, { color: selectedDeviceId === null ? colors.primary : colors.text }]}>
+                  <Text style={[styles.deviceName, { color: allSelected ? colors.primary : colors.text }]}> 
                     All devices
                   </Text>
-                  {selectedDeviceId === null && (
-                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />
-                  )}
                 </TouchableOpacity>
 
-                {otherDevices.map(device => (
+                {otherDevices.map(device => {
+                  const isSelected = selectedDeviceIds.includes(device.id);
+                  return (
                   <TouchableOpacity
                     key={device.id}
                     style={[
                       styles.deviceRow,
                       { borderColor: deviceBorder },
-                      selectedDeviceId === device.id && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
+                      isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
                     ]}
-                    onPress={() => setSelectedDeviceId(device.id)}
+                    onPress={() => toggleDevice(device.id)}
                   >
                     <Ionicons
-                      name={(device as any).platform === 'chrome' ? 'globe-outline' : 'laptop-outline'}
+                      name={isSelected ? 'checkbox' : 'square-outline'}
                       size={20}
-                      color={selectedDeviceId === device.id ? colors.primary : colors.textSecondary}
+                      color={isSelected ? colors.primary : colors.textSecondary}
                     />
-                    <Text style={[styles.deviceName, { color: selectedDeviceId === device.id ? colors.primary : colors.text }]}>
+                    <Text style={[styles.deviceName, { color: isSelected ? colors.primary : colors.text }]}> 
                       {(device as any).nickname || device.name}
                     </Text>
-                    {selectedDeviceId === device.id && (
-                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />
-                    )}
                   </TouchableOpacity>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
 
@@ -279,7 +314,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
               style={[styles.sendBtn, { backgroundColor: colors.primary }]}
               onPress={handleSend}
             >
-              <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 8 }} />
+              <Ionicons name="send" size={16} color="#000" style={{ marginRight: 8 }} />
               <Text style={styles.sendBtnText}>Send to Chat</Text>
             </TouchableOpacity>
 
@@ -417,7 +452,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sendBtnText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 16,
     fontWeight: '700',
   },

@@ -1135,6 +1135,8 @@ body[dir="rtl"] .device-tag {
 }
 
 .chat-message {
+  display: flex;
+  flex-direction: column;
   max-width: 100%;
   padding: 10px 14px;
   border-radius: 16px;
@@ -1149,18 +1151,25 @@ body[dir="rtl"] .device-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  align-self: flex-start;
-  margin-left: 0;
+  width: fit-content;
   margin-bottom: 4px;
   text-align: left;
-  font-weight: 700;
+}
+
+.chat-message .chat-message-device {
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .chat-message.sent .chat-message-device {
+  align-self: flex-end;
+  margin-left: auto;
   color: #000000;
 }
 
 .chat-message.received .chat-message-device {
+  align-self: flex-start;
+  margin-right: auto;
   color: #000000;
 }
 

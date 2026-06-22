@@ -5,6 +5,57 @@
 
 import * as state from "../state/index.js"
 
+const NOTIF_MIRROR_MAX_DRIFT_MS = 2500
+
+function normalizeNotifTsMs(n) {
+  const raw = Number(n?.receivedAt || n?.timestamp || n?.createdAt || 0)
+  if (!Number.isFinite(raw) || raw <= 0) return 0
+  return raw < 1e12 ? raw * 1000 : raw
+}
+
+function buildNotifContentKey(n) {
+  if (!n) return null
+  const app = String(n.packageName || n.appName || "").trim().toLowerCase()
+  const title = String(n.title || "").trim().toLowerCase()
+  const body = String(n.text || n.body || "").trim().toLowerCase()
+  if (!app && !title && !body) return null
+  const device = String(n.deviceId || "user")
+  return `${device}|${app}|${title}|${body}`
+}
+
+function countDistinctUnreadNotifications(notifs) {
+  const sorted = [...(notifs || [])].sort(
+    (a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a),
+  )
+  const seenIds = new Set()
+  const seenByContent = new Map()
+  let count = 0
+
+  for (const n of sorted) {
+    if (!n || !n.id || n.read) continue
+
+    // Fast-path dedup for exact duplicates.
+    if (seenIds.has(n.id)) continue
+    seenIds.add(n.id)
+
+    // Secondary dedup for dual-writer / mirror duplicates with different ids.
+    // Keep legitimate repeated notifications unless they are near-identical in time.
+    const contentKey = buildNotifContentKey(n)
+    const ts = normalizeNotifTsMs(n)
+    if (contentKey && ts > 0) {
+      const prevTs = seenByContent.get(contentKey)
+      if (typeof prevTs === "number" && Math.abs(prevTs - ts) <= NOTIF_MIRROR_MAX_DRIFT_MS) {
+        continue
+      }
+      seenByContent.set(contentKey, ts)
+    }
+
+    count += 1
+  }
+
+  return count
+}
+
 /**
  * Update all tab badges
  */
@@ -202,7 +253,7 @@ function getNotifsCount(deviceId) {
 
   if (deviceId === "all") {
     if (!hasAnyLinkedNotifDevice) return 0
-    return Object.values(state.allNotifications)
+    const unread = Object.values(state.allNotifications)
       .flat()
       .filter((n) => {
         if (!n || !n.id || n.read) return false
@@ -210,16 +261,9 @@ function getNotifsCount(deviceId) {
         if (sharedNotifDeviceIds.has(n.deviceId)) return true
         return false
       })
-      // Same notification can exist in multiple state slots. Deduplicate by id
-      // so badge count matches grouped list behavior.
-      .reduce((acc, n) => {
-        if (acc.seen.has(n.id)) return acc
-        acc.seen.add(n.id)
-        acc.count += 1
-        return acc
-      }, { seen: new Set(), count: 0 }).count
+    return countDistinctUnreadNotifications(unread)
   }
-  return (state.allNotifications[deviceId] || []).filter(n => !n.read).length
+  return countDistinctUnreadNotifications(state.allNotifications[deviceId] || [])
 }
 
 function getDeviceCount(deviceId) {
