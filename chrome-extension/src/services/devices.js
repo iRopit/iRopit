@@ -92,9 +92,192 @@ let sharedNotifsDeferredListenerAttached = false;
 const processedIncomingShareReqIds = new Set();
 const incomingShareModalByKey = new Map();
 const acceptingShareRequestIds = new Set();
+const handledIncomingShareKeys = new Map();
+let handledIncomingShareKeysLoaded = false;
+let handledIncomingShareKeysLoadPromise = null;
 
 function getIncomingShareReqKey(req) {
   return `${req?.ownerUid || ""}::${req?.deviceId || ""}::${req?.sharedWithUid || ""}`;
+}
+
+function normalizeHandledIncomingShareKeys(raw) {
+  const normalized = {};
+  if (!raw || typeof raw !== "object") return normalized;
+
+  Object.entries(raw).forEach(([key, value]) => {
+    if (!key) return;
+    const ts = Number(value);
+    if (!Number.isFinite(ts) || ts <= 0) return;
+    normalized[key] = ts;
+  });
+
+  return normalized;
+}
+
+async function ensureHandledIncomingShareKeysLoaded() {
+  if (handledIncomingShareKeysLoaded) return;
+  if (handledIncomingShareKeysLoadPromise) {
+    await handledIncomingShareKeysLoadPromise;
+    return;
+  }
+
+  handledIncomingShareKeysLoadPromise = (async () => {
+    try {
+      const result = await chrome.storage.local.get("handledIncomingShareKeys");
+      const normalized = normalizeHandledIncomingShareKeys(result.handledIncomingShareKeys);
+      Object.entries(normalized).forEach(([key, ts]) => {
+        handledIncomingShareKeys.set(key, ts);
+      });
+    } catch (_) {
+      // Ignore storage read failures; this is only a UX safeguard.
+    } finally {
+      handledIncomingShareKeysLoaded = true;
+      handledIncomingShareKeysLoadPromise = null;
+    }
+  })();
+
+  await handledIncomingShareKeysLoadPromise;
+}
+
+function persistHandledIncomingShareKeys() {
+  try {
+    const payload = {};
+    handledIncomingShareKeys.forEach((ts, key) => {
+      if (Number.isFinite(ts) && ts > 0) {
+        payload[key] = ts;
+      }
+    });
+    chrome.storage.local.set({ handledIncomingShareKeys: payload });
+  } catch (_) {
+    // Best-effort persistence only.
+  }
+}
+
+function markIncomingShareKeyHandled(reqOrKey, handledAt = Date.now()) {
+  const key = typeof reqOrKey === "string" ? reqOrKey : getIncomingShareReqKey(reqOrKey);
+  if (!key) return;
+  const existing = Number(handledIncomingShareKeys.get(key) || 0);
+  const nextTs = Math.max(existing, Number(handledAt) || Date.now());
+  handledIncomingShareKeys.set(key, nextTs);
+  persistHandledIncomingShareKeys();
+}
+
+function shouldSuppressIncomingShareRequest(req) {
+  const key = getIncomingShareReqKey(req);
+  if (!key) return false;
+
+  const handledAt = Number(handledIncomingShareKeys.get(key) || 0);
+  if (!Number.isFinite(handledAt) || handledAt <= 0) return false;
+
+  const createdAt = toEpochMs(req?.createdAt);
+  // If request timestamp is unavailable, prefer suppressing old repeats.
+  if (!createdAt) return true;
+
+  return createdAt <= handledAt;
+}
+
+function getSharedWithMeKey(share) {
+  const ownerUid = share?.ownerUid || "";
+  const deviceId = share?.deviceId || "";
+  const sharedWithUid = share?.sharedWithUid || "";
+  if (!ownerUid || !deviceId || !sharedWithUid) {
+    return `shareId::${share?.shareId || ""}`;
+  }
+  return `${ownerUid}::${deviceId}::${sharedWithUid}`;
+}
+
+function toEpochMs(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value && typeof value.toMillis === "function") {
+    try { return value.toMillis(); } catch (_) {}
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function dedupeSharedWithMeShares(rawShares) {
+  const byKey = new Map();
+
+  (rawShares || []).forEach((share) => {
+    const key = getSharedWithMeKey(share);
+    const current = byKey.get(key);
+    const nextShareId = share?.shareId;
+
+    if (!current) {
+      byKey.set(key, {
+        ...share,
+        shareIds: nextShareId ? [nextShareId] : [],
+      });
+      return;
+    }
+
+    const mergedIds = Array.from(new Set([
+      ...(current.shareIds || []),
+      ...(nextShareId ? [nextShareId] : []),
+    ]));
+
+    const currentTs = toEpochMs(current.createdAt);
+    const nextTs = toEpochMs(share.createdAt);
+    const keepNext = nextTs > currentTs;
+
+    if (keepNext) {
+      byKey.set(key, {
+        ...current,
+        ...share,
+        shareIds: mergedIds,
+      });
+      return;
+    }
+
+    byKey.set(key, {
+      ...current,
+      device: current.device || share.device || null,
+      deviceName: current.deviceName || share.deviceName || "",
+      shareIds: mergedIds,
+    });
+  });
+
+  return Array.from(byKey.values());
+}
+
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label || "operation"} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function logShareDebug(...args) {
+  try {
+    const enabled = localStorage.getItem("iropitDebugShare") === "1";
+    if (!enabled) return;
+  } catch (_) {
+    return;
+  }
+  console.debug(...args);
+}
+
+function removeSharedWithMeOptimistic({ shareIds = [], ownerUid = "", deviceId = "", sharedWithUid = "" }) {
+  const ids = new Set((shareIds || []).filter(Boolean));
+  const removeByLogicalKey = ownerUid && deviceId && sharedWithUid;
+  const logicalKey = `${ownerUid}::${deviceId}::${sharedWithUid}`;
+
+  const next = (state.sharedWithMeDevices || []).filter((s) => {
+    if (!s) return false;
+    if (ids.has(s.shareId)) return false;
+    if (removeByLogicalKey && getSharedWithMeKey(s) === logicalKey) return false;
+    return true;
+  });
+
+  state.setSharedWithMeDevices(next);
+  renderDevices();
+  updateDeviceSelects();
+  cacheSharedDevices(next).catch(() => {});
 }
 
 function scheduleSharedSmsLoad(shares) {
@@ -304,6 +487,8 @@ export async function loadDevices() {
   const user = state.currentUser;
   if (!user) return;
 
+  await ensureHandledIncomingShareKeysLoaded();
+
   const mapOwnDeviceDoc = (docSnap) => {
     const data = docSnap.data() || {};
     if (data?.userId && data.userId !== user.uid) return null;
@@ -474,11 +659,12 @@ export async function loadDevices() {
       // Build shares immediately from snapshot docs — each doc already contains
       // deviceName, deviceId, ownerUid and permissions, which is everything needed
       // to render the tab and load SMS/calls data. Don't await getDoc here.
-      const shares = snapshot.docs.map(shareDoc => ({
+      const rawShares = snapshot.docs.map((shareDoc) => ({
         shareId: shareDoc.id,
         ...shareDoc.data(),
         device: null, // enriched below in background
       }));
+      const shares = dedupeSharedWithMeShares(rawShares);
 
       // ── Render tabs + load data RIGHT AWAY ─────────────────────────────────
       state.setSharedWithMeDevices(shares);
@@ -495,7 +681,7 @@ export async function loadDevices() {
 
       // ── Enrich with live device docs in background (for Devices tab detail) ─
       // This runs AFTER the tab is already visible — no UX blocking.
-      const enriched = await Promise.all(shares.map(async (share) => {
+      const enrichedRaw = await Promise.all(shares.map(async (share) => {
         if (!share.deviceDocId) return share;
         try {
           const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
@@ -504,6 +690,7 @@ export async function loadDevices() {
           return share;
         }
       }));
+      const enriched = dedupeSharedWithMeShares(enrichedRaw);
       state.setSharedWithMeDevices(enriched);
       renderDevices();
       cacheSharedDevices(enriched).catch(() => {});
@@ -554,6 +741,7 @@ export async function loadDevices() {
     snapshot.docChanges().forEach((change) => {
       if (change.type === "added") {
         const incomingReq = { requestId: change.doc.id, ...change.doc.data() };
+        if (shouldSuppressIncomingShareRequest(incomingReq)) return;
         const incomingKey = getIncomingShareReqKey(incomingReq);
         if (processedIncomingShareReqIds.has(incomingReq.requestId)) return;
         const existingReqId = incomingShareModalByKey.get(incomingKey);
@@ -764,7 +952,14 @@ export function renderDevices() {
         ${d ? `<div class="device-id-info">${escapeHtml(d.id)}</div>` : ""}
       </div>
       <div class="device-actions">
-        <button class="remove-shared-device-btn" data-share-id="${escapeHtml(share.shareId)}" title="${t("device_stop_sharing")}">
+        <button
+          class="remove-shared-device-btn"
+          data-share-id="${escapeHtml(share.shareId)}"
+          data-share-ids="${escapeHtml((share.shareIds && share.shareIds.length > 0 ? share.shareIds : [share.shareId]).join(","))}"
+          data-owner-uid="${escapeHtml(share.ownerUid || "")}"
+          data-device-id="${escapeHtml(share.deviceId || "")}"
+          data-shared-with-uid="${escapeHtml(share.sharedWithUid || "")}"
+          title="${t("device_stop_sharing")}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -828,16 +1023,109 @@ export function renderDevices() {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const shareId = btn.dataset.shareId;
+      const ownerUid = btn.dataset.ownerUid || "";
+      const deviceId = btn.dataset.deviceId || "";
+      const sharedWithUid = btn.dataset.sharedWithUid || "";
+      const shareIdsFromUi = (btn.dataset.shareIds || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       const isAr = getCurrentLanguage() === "ar";
       const msg = isAr
         ? "إزالة هذا الجهاز المشترك من قائمتك؟"
         : "Remove this shared device from your list?";
       if (await showConfirmDialog(msg)) {
+        const previousSharedWithMe = [...(state.sharedWithMeDevices || [])];
+        const incomingKey = getIncomingShareReqKey({ ownerUid, deviceId, sharedWithUid });
+        markIncomingShareKeyHandled(incomingKey);
+        removeSharedWithMeOptimistic({
+          shareIds: [shareId, ...shareIdsFromUi],
+          ownerUid,
+          deviceId,
+          sharedWithUid,
+        });
+
         try {
-          await deleteDoc(doc(db, "deviceShares", shareId));
-          showToast(isAr ? "تمت إزالة الجهاز المشترك" : "Shared device removed", "success");
+          const deleteIds = new Set([...(shareId ? [shareId] : []), ...shareIdsFromUi]);
+
+          // Query by logical share key to remove duplicates created by retries.
+          if (ownerUid && deviceId && sharedWithUid) {
+            const dupQ = query(
+              collection(db, "deviceShares"),
+              where("ownerUid", "==", ownerUid),
+              where("deviceId", "==", deviceId),
+              where("sharedWithUid", "==", sharedWithUid),
+            );
+            try {
+              const dupSnap = await withTimeout(getDocs(dupQ), 4000, "query duplicate shares");
+              dupSnap.docs.forEach((d) => deleteIds.add(d.id));
+            } catch (dupErr) {
+              logShareDebug("[Share] duplicate share query skipped:", dupErr?.message || dupErr);
+            }
+          }
+
+          const ids = Array.from(deleteIds);
+          if (ids.length === 0) {
+            showToast(isAr ? "لا يوجد عنصر للحذف" : "Nothing to remove", "error");
+            return;
+          }
+
+          const deleteResults = await Promise.allSettled(
+            ids.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5000, `delete share ${id}`)),
+          );
+          const deletedCount = deleteResults.filter((r) => r.status === "fulfilled").length;
+          const rejectedReasons = deleteResults
+            .filter((r) => r.status === "rejected")
+            .map((r) => r.reason);
+          const hasPermissionDenied = rejectedReasons.some(
+            (reason) => reason?.code === "permission-denied" || String(reason?.message || "").toLowerCase().includes("permission-denied"),
+          );
+
+          if (deletedCount === 0) {
+            if (hasPermissionDenied) {
+              throw new Error("permission-denied while deleting share");
+            }
+            // Treat stale/missing docs as already removed to keep UI consistent.
+            showToast(isAr ? "تمت الإزالة" : "Shared device removed", "success");
+            return;
+          }
+
+          showToast(
+            deletedCount < ids.length
+              ? (isAr ? "تمت الإزالة جزئياً" : "Shared device removed (partial)")
+              : (isAr ? "تمت إزالة الجهاز المشترك" : "Shared device removed"),
+            "success",
+          );
+
+          // Best-effort: resolve any stale pending share requests so they do not
+          // reopen every time the popup starts.
+          if (ownerUid && deviceId && sharedWithUid) {
+            const staleReqQ = query(
+              collection(db, "deviceShareRequests"),
+              where("ownerUid", "==", ownerUid),
+              where("sharedWithUid", "==", sharedWithUid),
+              where("deviceId", "==", deviceId),
+              where("status", "==", "pending"),
+            );
+
+            withTimeout(getDocs(staleReqQ), 3500, "query stale share requests")
+              .then((staleReqSnap) => Promise.allSettled(
+                staleReqSnap.docs.map((d) => withTimeout(
+                  updateDoc(d.ref, { status: "rejected", resolvedAt: Date.now() }),
+                  3000,
+                  `resolve stale request ${d.id}`,
+                )),
+              ))
+              .catch((cleanupErr) => {
+                logShareDebug("[Share] stale request cleanup skipped:", cleanupErr?.message || cleanupErr);
+              });
+          }
         } catch (err) {
           console.error("[Share] remove shared device error:", err);
+          state.setSharedWithMeDevices(previousSharedWithMe);
+          renderDevices();
+          updateDeviceSelects();
+          cacheSharedDevices(previousSharedWithMe).catch(() => {});
           showToast(isAr ? "فشل في الإزالة" : "Failed to remove", "error");
         }
       }
@@ -1708,21 +1996,103 @@ export async function showShareDeviceModal(device) {
     const shareId = btn.dataset.shareId;
     const requestId = btn.dataset.requestId;
     const email = btn.dataset.email;
+    const sharedUid = btn.dataset.sharedUid || "";
+    const deviceId = btn.dataset.deviceId || device.id;
+    const emailKey = String(email || "").trim().toLowerCase();
     const msg = requestId
       ? (isAr ? `إلغاء طلب المشاركة المرسل إلى "${email}"؟` : `Cancel pending request to "${email}"?`)
       : (isAr ? `إيقاف مشاركة الجهاز مع "${email}"؟` : `Stop sharing with "${email}"?`);
       if (await showConfirmDialog(msg)) {
         try {
           if (requestId) {
-            await deleteDoc(doc(db, "deviceShareRequests", requestId));
+            const prevPending = [...pendingRequests];
+            pendingRequests = pendingRequests.filter((r) => r.requestId !== requestId);
+            if (existingContainer) {
+              existingContainer.innerHTML = renderExistingSharesHtml();
+            }
+            try {
+              await withTimeout(deleteDoc(doc(db, "deviceShareRequests", requestId)), 5000, "delete share request");
+            } catch (requestErr) {
+              pendingRequests = prevPending;
+              if (existingContainer) {
+                existingContainer.innerHTML = renderExistingSharesHtml();
+              }
+              throw requestErr;
+            }
           } else {
-            await deleteDoc(doc(db, "deviceShares", shareId));
+            const prevExistingShares = [...existingShares];
+            const optimisticRemovedIds = new Set();
+
+            const duplicateShareIds = existingShares
+              .filter((s) => {
+                if (!s) return false;
+                if (sharedUid) return s.sharedWithUid === sharedUid;
+                return String(s.sharedWithEmail || "").trim().toLowerCase() === emailKey;
+              })
+              .map((s) => s.shareId)
+              .filter(Boolean);
+
+            const uniqueDeleteIds = Array.from(new Set([
+              ...(shareId ? [shareId] : []),
+              ...duplicateShareIds,
+            ]));
+
+            if (sharedUid) {
+              existingShares = existingShares.filter((s) => s.sharedWithUid !== sharedUid);
+            } else {
+              existingShares = existingShares.filter(
+                (s) => String(s.sharedWithEmail || "").trim().toLowerCase() !== emailKey,
+              );
+            }
+            uniqueDeleteIds.forEach((id) => optimisticRemovedIds.add(id));
+            if (existingContainer) {
+              existingContainer.innerHTML = renderExistingSharesHtml();
+            }
+
+            if (uniqueDeleteIds.length > 0) {
+              const deleteResults = await Promise.allSettled(
+                uniqueDeleteIds.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5000, `delete share ${id}`)),
+              );
+              const deletedCount = deleteResults.filter((r) => r.status === "fulfilled").length;
+              const rejectedReasons = deleteResults
+                .filter((r) => r.status === "rejected")
+                .map((r) => r.reason);
+              const hasPermissionDenied = rejectedReasons.some(
+                (reason) => reason?.code === "permission-denied" || String(reason?.message || "").toLowerCase().includes("permission-denied"),
+              );
+              if (deletedCount === 0) {
+                if (!hasPermissionDenied) {
+                  // All targets were likely stale/non-existent, keep optimistic removal.
+                  // No rollback needed in this case.
+                } else {
+                  existingShares = prevExistingShares;
+                  if (existingContainer) {
+                    existingContainer.innerHTML = renderExistingSharesHtml();
+                  }
+                  throw new Error("permission-denied while deleting share");
+                }
+              }
+            }
+
             // Also remove from deviceShareIndex (for Firestore rules)
-            if (btn.dataset.deviceId && btn.dataset.sharedUid) {
-              deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {});
+            if (deviceId && sharedUid) {
+              withTimeout(deleteDoc(doc(db, "deviceShareIndex", `${deviceId}_${sharedUid}`)), 5000, "delete share index").catch(() => {});
+            }
+
+            if (optimisticRemovedIds.size > 0) {
+              removeSharedWithMeOptimistic({
+                shareIds: Array.from(optimisticRemovedIds),
+                ownerUid: user.uid,
+                deviceId,
+                sharedWithUid: sharedUid,
+              });
             }
           }
-          btn.closest(".share-existing-row").remove();
+
+          if (existingContainer) {
+            existingContainer.innerHTML = renderExistingSharesHtml();
+          }
+
           showToast(
             requestId
               ? (isAr ? "تم إلغاء الطلب" : "Request canceled")
@@ -1950,10 +2320,11 @@ async function _showIncomingShareRequestModal(req) {
       const shareRef = doc(collection(db, "deviceShares"));
       const shareIndexRef = doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`);
       const reqRef = doc(db, "deviceShareRequests", req.requestId);
-      const batch = writeBatch(db);
+      const criticalBatch = writeBatch(db);
 
-      // Create the active deviceShare doc
-      batch.set(shareRef, {
+      // Create the active deviceShare doc and share index first.
+      // These are the critical writes required for access.
+      criticalBatch.set(shareRef, {
         ownerUid: req.ownerUid,
         ownerEmail: req.ownerEmail,
         deviceId: req.deviceId,
@@ -1966,21 +2337,26 @@ async function _showIncomingShareRequestModal(req) {
       });
 
       // Create deviceShareIndex entry for Firestore security rules
-      batch.set(shareIndexRef, {
+      criticalBatch.set(shareIndexRef, {
         ownerUid: req.ownerUid,
         deviceId: req.deviceId,
         sharedWithUid: user.uid,
       }, { merge: true });
 
-      // Mark the current request accepted immediately for fast UX.
-      batch.set(reqRef, { status: "accepted" }, { merge: true });
+      // Mark this request as accepted in the same critical batch so it does not
+      // remain pending if background cleanup fails.
+      criticalBatch.set(reqRef, {
+        status: "accepted",
+        resolvedAt: Date.now(),
+      }, { merge: true });
 
-      await batch.commit();
+      await criticalBatch.commit();
       processedIncomingShareReqIds.add(req.requestId);
+      markIncomingShareKeyHandled(req);
       setStatus(isAr ? "تم قبول الطلب" : "Request accepted!", false);
       setTimeout(closeModal, 120);
 
-      // Best-effort cleanup of duplicate pending requests, without blocking UI.
+      // Best-effort request status updates without blocking UI close.
       (async () => {
         try {
           const duplicatePendingQ = query(
@@ -1991,16 +2367,28 @@ async function _showIncomingShareRequestModal(req) {
             where("status", "==", "pending"),
           );
           const duplicatePendingSnap = await getDocs(duplicatePendingQ);
-          if (duplicatePendingSnap.empty) return;
+
+          if (duplicatePendingSnap.empty) {
+            await setDoc(reqRef, { status: "accepted" }, { merge: true });
+            return;
+          }
 
           const dedupeBatch = writeBatch(db);
+          const seen = new Set();
           duplicatePendingSnap.docs.forEach((d) => {
+            if (seen.has(d.id)) return;
+            seen.add(d.id);
             dedupeBatch.update(d.ref, { status: "accepted" });
             processedIncomingShareReqIds.add(d.id);
           });
+
+          if (!seen.has(req.requestId)) {
+            dedupeBatch.set(reqRef, { status: "accepted" }, { merge: true });
+          }
+
           await dedupeBatch.commit();
         } catch (dupErr) {
-          console.warn("[ShareReq] duplicate cleanup skipped:", dupErr);
+          logShareDebug("[ShareReq] duplicate cleanup skipped:", dupErr?.message || dupErr);
         }
       })();
     } catch (err) {
@@ -2024,17 +2412,24 @@ async function _showIncomingShareRequestModal(req) {
         where("deviceId", "==", req.deviceId),
         where("status", "==", "pending"),
       );
-      const duplicatePendingSnap = await getDocs(duplicatePendingQ);
+      const duplicatePendingSnap = await withTimeout(getDocs(duplicatePendingQ), 4000, "query duplicate pending requests");
       if (duplicatePendingSnap.empty) {
-        await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+        await withTimeout(updateDoc(doc(db, "deviceShareRequests", req.requestId), {
+          status: "rejected",
+          resolvedAt: Date.now(),
+        }), 5000, "reject share request");
       } else {
         const rejectBatch = writeBatch(db);
         duplicatePendingSnap.docs.forEach((d) => {
-          rejectBatch.update(d.ref, { status: "rejected" });
+          rejectBatch.update(d.ref, {
+            status: "rejected",
+            resolvedAt: Date.now(),
+          });
           processedIncomingShareReqIds.add(d.id);
         });
         await rejectBatch.commit();
       }
+      markIncomingShareKeyHandled(req);
       setStatus(isAr ? "تم رفض الطلب" : "Request declined.", false);
       setTimeout(closeModal, 1000);
     } catch (err) {

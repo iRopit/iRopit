@@ -36577,8 +36577,165 @@ ${this.customData.serverResponse}`;
   var processedIncomingShareReqIds = /* @__PURE__ */ new Set();
   var incomingShareModalByKey = /* @__PURE__ */ new Map();
   var acceptingShareRequestIds = /* @__PURE__ */ new Set();
+  var handledIncomingShareKeys = /* @__PURE__ */ new Map();
+  var handledIncomingShareKeysLoaded = false;
+  var handledIncomingShareKeysLoadPromise = null;
   function getIncomingShareReqKey(req) {
     return `${req?.ownerUid || ""}::${req?.deviceId || ""}::${req?.sharedWithUid || ""}`;
+  }
+  function normalizeHandledIncomingShareKeys(raw) {
+    const normalized = {};
+    if (!raw || typeof raw !== "object") return normalized;
+    Object.entries(raw).forEach(([key, value]) => {
+      if (!key) return;
+      const ts = Number(value);
+      if (!Number.isFinite(ts) || ts <= 0) return;
+      normalized[key] = ts;
+    });
+    return normalized;
+  }
+  async function ensureHandledIncomingShareKeysLoaded() {
+    if (handledIncomingShareKeysLoaded) return;
+    if (handledIncomingShareKeysLoadPromise) {
+      await handledIncomingShareKeysLoadPromise;
+      return;
+    }
+    handledIncomingShareKeysLoadPromise = (async () => {
+      try {
+        const result = await chrome.storage.local.get("handledIncomingShareKeys");
+        const normalized = normalizeHandledIncomingShareKeys(result.handledIncomingShareKeys);
+        Object.entries(normalized).forEach(([key, ts]) => {
+          handledIncomingShareKeys.set(key, ts);
+        });
+      } catch (_) {
+      } finally {
+        handledIncomingShareKeysLoaded = true;
+        handledIncomingShareKeysLoadPromise = null;
+      }
+    })();
+    await handledIncomingShareKeysLoadPromise;
+  }
+  function persistHandledIncomingShareKeys() {
+    try {
+      const payload = {};
+      handledIncomingShareKeys.forEach((ts, key) => {
+        if (Number.isFinite(ts) && ts > 0) {
+          payload[key] = ts;
+        }
+      });
+      chrome.storage.local.set({ handledIncomingShareKeys: payload });
+    } catch (_) {
+    }
+  }
+  function markIncomingShareKeyHandled(reqOrKey, handledAt = Date.now()) {
+    const key = typeof reqOrKey === "string" ? reqOrKey : getIncomingShareReqKey(reqOrKey);
+    if (!key) return;
+    const existing = Number(handledIncomingShareKeys.get(key) || 0);
+    const nextTs = Math.max(existing, Number(handledAt) || Date.now());
+    handledIncomingShareKeys.set(key, nextTs);
+    persistHandledIncomingShareKeys();
+  }
+  function shouldSuppressIncomingShareRequest(req) {
+    const key = getIncomingShareReqKey(req);
+    if (!key) return false;
+    const handledAt = Number(handledIncomingShareKeys.get(key) || 0);
+    if (!Number.isFinite(handledAt) || handledAt <= 0) return false;
+    const createdAt = toEpochMs(req?.createdAt);
+    if (!createdAt) return true;
+    return createdAt <= handledAt;
+  }
+  function getSharedWithMeKey(share) {
+    const ownerUid = share?.ownerUid || "";
+    const deviceId = share?.deviceId || "";
+    const sharedWithUid = share?.sharedWithUid || "";
+    if (!ownerUid || !deviceId || !sharedWithUid) {
+      return `shareId::${share?.shareId || ""}`;
+    }
+    return `${ownerUid}::${deviceId}::${sharedWithUid}`;
+  }
+  function toEpochMs(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (value && typeof value.toMillis === "function") {
+      try {
+        return value.toMillis();
+      } catch (_) {
+      }
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function dedupeSharedWithMeShares(rawShares) {
+    const byKey = /* @__PURE__ */ new Map();
+    (rawShares || []).forEach((share) => {
+      const key = getSharedWithMeKey(share);
+      const current = byKey.get(key);
+      const nextShareId = share?.shareId;
+      if (!current) {
+        byKey.set(key, {
+          ...share,
+          shareIds: nextShareId ? [nextShareId] : []
+        });
+        return;
+      }
+      const mergedIds = Array.from(/* @__PURE__ */ new Set([
+        ...current.shareIds || [],
+        ...nextShareId ? [nextShareId] : []
+      ]));
+      const currentTs = toEpochMs(current.createdAt);
+      const nextTs = toEpochMs(share.createdAt);
+      const keepNext = nextTs > currentTs;
+      if (keepNext) {
+        byKey.set(key, {
+          ...current,
+          ...share,
+          shareIds: mergedIds
+        });
+        return;
+      }
+      byKey.set(key, {
+        ...current,
+        device: current.device || share.device || null,
+        deviceName: current.deviceName || share.deviceName || "",
+        shareIds: mergedIds
+      });
+    });
+    return Array.from(byKey.values());
+  }
+  function withTimeout(promise, ms, label) {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(`${label || "operation"} timed out after ${ms}ms`));
+      }, ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+  }
+  function logShareDebug(...args) {
+    try {
+      const enabled = localStorage.getItem("iropitDebugShare") === "1";
+      if (!enabled) return;
+    } catch (_) {
+      return;
+    }
+    console.debug(...args);
+  }
+  function removeSharedWithMeOptimistic({ shareIds = [], ownerUid = "", deviceId = "", sharedWithUid = "" }) {
+    const ids = new Set((shareIds || []).filter(Boolean));
+    const removeByLogicalKey = ownerUid && deviceId && sharedWithUid;
+    const logicalKey = `${ownerUid}::${deviceId}::${sharedWithUid}`;
+    const next = (sharedWithMeDevices || []).filter((s) => {
+      if (!s) return false;
+      if (ids.has(s.shareId)) return false;
+      if (removeByLogicalKey && getSharedWithMeKey(s) === logicalKey) return false;
+      return true;
+    });
+    setSharedWithMeDevices(next);
+    renderDevices();
+    updateDeviceSelects();
+    cacheSharedDevices(next).catch(() => {
+    });
   }
   function scheduleSharedSmsLoad(shares) {
     pendingSharedSmsShares = shares || [];
@@ -36737,6 +36894,7 @@ ${this.customData.serverResponse}`;
   async function loadDevices() {
     const user = currentUser;
     if (!user) return;
+    await ensureHandledIncomingShareKeysLoaded();
     const mapOwnDeviceDoc = (docSnap) => {
       const data = docSnap.data() || {};
       if (data?.userId && data.userId !== user.uid) return null;
@@ -36878,12 +37036,13 @@ ${this.customData.serverResponse}`;
     const sharesUnsub = onSnapshot(
       sharesQ,
       async (snapshot) => {
-        const shares = snapshot.docs.map((shareDoc) => ({
+        const rawShares = snapshot.docs.map((shareDoc) => ({
           shareId: shareDoc.id,
           ...shareDoc.data(),
           device: null
           // enriched below in background
         }));
+        const shares = dedupeSharedWithMeShares(rawShares);
         setSharedWithMeDevices(shares);
         renderDevices();
         updateDeviceSelects();
@@ -36894,7 +37053,7 @@ ${this.customData.serverResponse}`;
           Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
           Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares))
         ]);
-        const enriched = await Promise.all(shares.map(async (share) => {
+        const enrichedRaw = await Promise.all(shares.map(async (share) => {
           if (!share.deviceDocId) return share;
           try {
             const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
@@ -36903,6 +37062,7 @@ ${this.customData.serverResponse}`;
             return share;
           }
         }));
+        const enriched = dedupeSharedWithMeShares(enrichedRaw);
         setSharedWithMeDevices(enriched);
         renderDevices();
         cacheSharedDevices(enriched).catch(() => {
@@ -36950,6 +37110,7 @@ ${this.customData.serverResponse}`;
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const incomingReq = { requestId: change.doc.id, ...change.doc.data() };
+          if (shouldSuppressIncomingShareRequest(incomingReq)) return;
           const incomingKey = getIncomingShareReqKey(incomingReq);
           if (processedIncomingShareReqIds.has(incomingReq.requestId)) return;
           const existingReqId = incomingShareModalByKey.get(incomingKey);
@@ -37115,7 +37276,14 @@ ${this.customData.serverResponse}`;
         ${d ? `<div class="device-id-info">${escapeHtml(d.id)}</div>` : ""}
       </div>
       <div class="device-actions">
-        <button class="remove-shared-device-btn" data-share-id="${escapeHtml(share.shareId)}" title="${t3("device_stop_sharing")}">
+        <button
+          class="remove-shared-device-btn"
+          data-share-id="${escapeHtml(share.shareId)}"
+          data-share-ids="${escapeHtml((share.shareIds && share.shareIds.length > 0 ? share.shareIds : [share.shareId]).join(","))}"
+          data-owner-uid="${escapeHtml(share.ownerUid || "")}"
+          data-device-id="${escapeHtml(share.deviceId || "")}"
+          data-shared-with-uid="${escapeHtml(share.sharedWithUid || "")}"
+          title="${t3("device_stop_sharing")}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -37169,14 +37337,87 @@ ${this.customData.serverResponse}`;
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const shareId = btn.dataset.shareId;
+        const ownerUid = btn.dataset.ownerUid || "";
+        const deviceId = btn.dataset.deviceId || "";
+        const sharedWithUid = btn.dataset.sharedWithUid || "";
+        const shareIdsFromUi = (btn.dataset.shareIds || "").split(",").map((s) => s.trim()).filter(Boolean);
         const isAr = getCurrentLanguage() === "ar";
         const msg = isAr ? "\u0625\u0632\u0627\u0644\u0629 \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643 \u0645\u0646 \u0642\u0627\u0626\u0645\u062A\u0643\u061F" : "Remove this shared device from your list?";
         if (await showConfirmDialog(msg)) {
+          const previousSharedWithMe = [...sharedWithMeDevices || []];
+          const incomingKey = getIncomingShareReqKey({ ownerUid, deviceId, sharedWithUid });
+          markIncomingShareKeyHandled(incomingKey);
+          removeSharedWithMeOptimistic({
+            shareIds: [shareId, ...shareIdsFromUi],
+            ownerUid,
+            deviceId,
+            sharedWithUid
+          });
           try {
-            await deleteDoc(doc(db, "deviceShares", shareId));
-            showToast(isAr ? "\u062A\u0645\u062A \u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643" : "Shared device removed", "success");
+            const deleteIds = /* @__PURE__ */ new Set([...shareId ? [shareId] : [], ...shareIdsFromUi]);
+            if (ownerUid && deviceId && sharedWithUid) {
+              const dupQ = query(
+                collection(db, "deviceShares"),
+                where("ownerUid", "==", ownerUid),
+                where("deviceId", "==", deviceId),
+                where("sharedWithUid", "==", sharedWithUid)
+              );
+              try {
+                const dupSnap = await withTimeout(getDocs(dupQ), 4e3, "query duplicate shares");
+                dupSnap.docs.forEach((d) => deleteIds.add(d.id));
+              } catch (dupErr) {
+                logShareDebug("[Share] duplicate share query skipped:", dupErr?.message || dupErr);
+              }
+            }
+            const ids = Array.from(deleteIds);
+            if (ids.length === 0) {
+              showToast(isAr ? "\u0644\u0627 \u064A\u0648\u062C\u062F \u0639\u0646\u0635\u0631 \u0644\u0644\u062D\u0630\u0641" : "Nothing to remove", "error");
+              return;
+            }
+            const deleteResults = await Promise.allSettled(
+              ids.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5e3, `delete share ${id}`))
+            );
+            const deletedCount = deleteResults.filter((r) => r.status === "fulfilled").length;
+            const rejectedReasons = deleteResults.filter((r) => r.status === "rejected").map((r) => r.reason);
+            const hasPermissionDenied = rejectedReasons.some(
+              (reason) => reason?.code === "permission-denied" || String(reason?.message || "").toLowerCase().includes("permission-denied")
+            );
+            if (deletedCount === 0) {
+              if (hasPermissionDenied) {
+                throw new Error("permission-denied while deleting share");
+              }
+              showToast(isAr ? "\u062A\u0645\u062A \u0627\u0644\u0625\u0632\u0627\u0644\u0629" : "Shared device removed", "success");
+              return;
+            }
+            showToast(
+              deletedCount < ids.length ? isAr ? "\u062A\u0645\u062A \u0627\u0644\u0625\u0632\u0627\u0644\u0629 \u062C\u0632\u0626\u064A\u0627\u064B" : "Shared device removed (partial)" : isAr ? "\u062A\u0645\u062A \u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0627\u0644\u0645\u0634\u062A\u0631\u0643" : "Shared device removed",
+              "success"
+            );
+            if (ownerUid && deviceId && sharedWithUid) {
+              const staleReqQ = query(
+                collection(db, "deviceShareRequests"),
+                where("ownerUid", "==", ownerUid),
+                where("sharedWithUid", "==", sharedWithUid),
+                where("deviceId", "==", deviceId),
+                where("status", "==", "pending")
+              );
+              withTimeout(getDocs(staleReqQ), 3500, "query stale share requests").then((staleReqSnap) => Promise.allSettled(
+                staleReqSnap.docs.map((d) => withTimeout(
+                  updateDoc(d.ref, { status: "rejected", resolvedAt: Date.now() }),
+                  3e3,
+                  `resolve stale request ${d.id}`
+                ))
+              )).catch((cleanupErr) => {
+                logShareDebug("[Share] stale request cleanup skipped:", cleanupErr?.message || cleanupErr);
+              });
+            }
           } catch (err) {
             console.error("[Share] remove shared device error:", err);
+            setSharedWithMeDevices(previousSharedWithMe);
+            renderDevices();
+            updateDeviceSelects();
+            cacheSharedDevices(previousSharedWithMe).catch(() => {
+            });
             showToast(isAr ? "\u0641\u0634\u0644 \u0641\u064A \u0627\u0644\u0625\u0632\u0627\u0644\u0629" : "Failed to remove", "error");
           }
         }
@@ -37825,19 +38066,86 @@ ${this.customData.serverResponse}`;
       const shareId = btn.dataset.shareId;
       const requestId = btn.dataset.requestId;
       const email = btn.dataset.email;
+      const sharedUid = btn.dataset.sharedUid || "";
+      const deviceId = btn.dataset.deviceId || device.id;
+      const emailKey = String(email || "").trim().toLowerCase();
       const msg = requestId ? isAr ? `\u0625\u0644\u063A\u0627\u0621 \u0637\u0644\u0628 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u0645\u0631\u0633\u0644 \u0625\u0644\u0649 "${email}"\u061F` : `Cancel pending request to "${email}"?` : isAr ? `\u0625\u064A\u0642\u0627\u0641 \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0639 "${email}"\u061F` : `Stop sharing with "${email}"?`;
       if (await showConfirmDialog(msg)) {
         try {
           if (requestId) {
-            await deleteDoc(doc(db, "deviceShareRequests", requestId));
+            const prevPending = [...pendingRequests];
+            pendingRequests = pendingRequests.filter((r) => r.requestId !== requestId);
+            if (existingContainer) {
+              existingContainer.innerHTML = renderExistingSharesHtml();
+            }
+            try {
+              await withTimeout(deleteDoc(doc(db, "deviceShareRequests", requestId)), 5e3, "delete share request");
+            } catch (requestErr) {
+              pendingRequests = prevPending;
+              if (existingContainer) {
+                existingContainer.innerHTML = renderExistingSharesHtml();
+              }
+              throw requestErr;
+            }
           } else {
-            await deleteDoc(doc(db, "deviceShares", shareId));
-            if (btn.dataset.deviceId && btn.dataset.sharedUid) {
-              deleteDoc(doc(db, "deviceShareIndex", `${btn.dataset.deviceId}_${btn.dataset.sharedUid}`)).catch(() => {
+            const prevExistingShares = [...existingShares];
+            const optimisticRemovedIds = /* @__PURE__ */ new Set();
+            const duplicateShareIds = existingShares.filter((s) => {
+              if (!s) return false;
+              if (sharedUid) return s.sharedWithUid === sharedUid;
+              return String(s.sharedWithEmail || "").trim().toLowerCase() === emailKey;
+            }).map((s) => s.shareId).filter(Boolean);
+            const uniqueDeleteIds = Array.from(/* @__PURE__ */ new Set([
+              ...shareId ? [shareId] : [],
+              ...duplicateShareIds
+            ]));
+            if (sharedUid) {
+              existingShares = existingShares.filter((s) => s.sharedWithUid !== sharedUid);
+            } else {
+              existingShares = existingShares.filter(
+                (s) => String(s.sharedWithEmail || "").trim().toLowerCase() !== emailKey
+              );
+            }
+            uniqueDeleteIds.forEach((id) => optimisticRemovedIds.add(id));
+            if (existingContainer) {
+              existingContainer.innerHTML = renderExistingSharesHtml();
+            }
+            if (uniqueDeleteIds.length > 0) {
+              const deleteResults = await Promise.allSettled(
+                uniqueDeleteIds.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5e3, `delete share ${id}`))
+              );
+              const deletedCount = deleteResults.filter((r) => r.status === "fulfilled").length;
+              const rejectedReasons = deleteResults.filter((r) => r.status === "rejected").map((r) => r.reason);
+              const hasPermissionDenied = rejectedReasons.some(
+                (reason) => reason?.code === "permission-denied" || String(reason?.message || "").toLowerCase().includes("permission-denied")
+              );
+              if (deletedCount === 0) {
+                if (!hasPermissionDenied) {
+                } else {
+                  existingShares = prevExistingShares;
+                  if (existingContainer) {
+                    existingContainer.innerHTML = renderExistingSharesHtml();
+                  }
+                  throw new Error("permission-denied while deleting share");
+                }
+              }
+            }
+            if (deviceId && sharedUid) {
+              withTimeout(deleteDoc(doc(db, "deviceShareIndex", `${deviceId}_${sharedUid}`)), 5e3, "delete share index").catch(() => {
+              });
+            }
+            if (optimisticRemovedIds.size > 0) {
+              removeSharedWithMeOptimistic({
+                shareIds: Array.from(optimisticRemovedIds),
+                ownerUid: user.uid,
+                deviceId,
+                sharedWithUid: sharedUid
               });
             }
           }
-          btn.closest(".share-existing-row").remove();
+          if (existingContainer) {
+            existingContainer.innerHTML = renderExistingSharesHtml();
+          }
           showToast(
             requestId ? isAr ? "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0637\u0644\u0628" : "Request canceled" : isAr ? "\u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0645\u0634\u0627\u0631\u0643\u0629" : "Sharing stopped",
             "success"
@@ -38028,8 +38336,8 @@ ${this.customData.serverResponse}`;
         const shareRef = doc(collection(db, "deviceShares"));
         const shareIndexRef = doc(db, "deviceShareIndex", `${req.deviceId}_${user.uid}`);
         const reqRef = doc(db, "deviceShareRequests", req.requestId);
-        const batch = writeBatch(db);
-        batch.set(shareRef, {
+        const criticalBatch = writeBatch(db);
+        criticalBatch.set(shareRef, {
           ownerUid: req.ownerUid,
           ownerEmail: req.ownerEmail,
           deviceId: req.deviceId,
@@ -38040,14 +38348,18 @@ ${this.customData.serverResponse}`;
           permissions: req.permissions || {},
           createdAt: Date.now()
         });
-        batch.set(shareIndexRef, {
+        criticalBatch.set(shareIndexRef, {
           ownerUid: req.ownerUid,
           deviceId: req.deviceId,
           sharedWithUid: user.uid
         }, { merge: true });
-        batch.set(reqRef, { status: "accepted" }, { merge: true });
-        await batch.commit();
+        criticalBatch.set(reqRef, {
+          status: "accepted",
+          resolvedAt: Date.now()
+        }, { merge: true });
+        await criticalBatch.commit();
         processedIncomingShareReqIds.add(req.requestId);
+        markIncomingShareKeyHandled(req);
         setStatus(isAr ? "\u062A\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u0637\u0644\u0628" : "Request accepted!", false);
         setTimeout(closeModal, 120);
         (async () => {
@@ -38060,15 +38372,24 @@ ${this.customData.serverResponse}`;
               where("status", "==", "pending")
             );
             const duplicatePendingSnap = await getDocs(duplicatePendingQ);
-            if (duplicatePendingSnap.empty) return;
+            if (duplicatePendingSnap.empty) {
+              await setDoc(reqRef, { status: "accepted" }, { merge: true });
+              return;
+            }
             const dedupeBatch = writeBatch(db);
+            const seen = /* @__PURE__ */ new Set();
             duplicatePendingSnap.docs.forEach((d) => {
+              if (seen.has(d.id)) return;
+              seen.add(d.id);
               dedupeBatch.update(d.ref, { status: "accepted" });
               processedIncomingShareReqIds.add(d.id);
             });
+            if (!seen.has(req.requestId)) {
+              dedupeBatch.set(reqRef, { status: "accepted" }, { merge: true });
+            }
             await dedupeBatch.commit();
           } catch (dupErr) {
-            console.warn("[ShareReq] duplicate cleanup skipped:", dupErr);
+            logShareDebug("[ShareReq] duplicate cleanup skipped:", dupErr?.message || dupErr);
           }
         })();
       } catch (err) {
@@ -38091,17 +38412,24 @@ ${this.customData.serverResponse}`;
           where("deviceId", "==", req.deviceId),
           where("status", "==", "pending")
         );
-        const duplicatePendingSnap = await getDocs(duplicatePendingQ);
+        const duplicatePendingSnap = await withTimeout(getDocs(duplicatePendingQ), 4e3, "query duplicate pending requests");
         if (duplicatePendingSnap.empty) {
-          await updateDoc(doc(db, "deviceShareRequests", req.requestId), { status: "rejected" });
+          await withTimeout(updateDoc(doc(db, "deviceShareRequests", req.requestId), {
+            status: "rejected",
+            resolvedAt: Date.now()
+          }), 5e3, "reject share request");
         } else {
           const rejectBatch = writeBatch(db);
           duplicatePendingSnap.docs.forEach((d) => {
-            rejectBatch.update(d.ref, { status: "rejected" });
+            rejectBatch.update(d.ref, {
+              status: "rejected",
+              resolvedAt: Date.now()
+            });
             processedIncomingShareReqIds.add(d.id);
           });
           await rejectBatch.commit();
         }
+        markIncomingShareKeyHandled(req);
         setStatus(isAr ? "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628" : "Request declined.", false);
         setTimeout(closeModal, 1e3);
       } catch (err) {

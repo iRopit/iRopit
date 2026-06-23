@@ -134,35 +134,102 @@ service cloud.firestore {
     match /deviceShareRequests/{requestId} {
       allow read: if request.auth != null && (
         resource.data.ownerUid == request.auth.uid ||
-        resource.data.sharedWithUid == request.auth.uid
+        resource.data.sharedWithUid == request.auth.uid ||
+        (
+          request.auth.token.email != null && (
+            resource.data.ownerEmail == request.auth.token.email ||
+            resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
       );
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+
+      allow create: if request.auth != null && (
+        request.resource.data.ownerUid == request.auth.uid ||
+        (
+          request.auth.token.email != null &&
+          request.resource.data.ownerEmail == request.auth.token.email
+        )
+      );
+
       allow update: if request.auth != null && (
         resource.data.sharedWithUid == request.auth.uid ||
-        resource.data.ownerUid == request.auth.uid
+        resource.data.ownerUid == request.auth.uid ||
+        (
+          request.auth.token.email != null && (
+            resource.data.ownerEmail == request.auth.token.email ||
+            resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
       );
+
       allow delete: if request.auth != null && (
         resource.data.ownerUid == request.auth.uid ||
-        resource.data.sharedWithUid == request.auth.uid
+        resource.data.sharedWithUid == request.auth.uid ||
+        (
+          request.auth.token.email != null && (
+            resource.data.ownerEmail == request.auth.token.email ||
+            resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
       );
     }
 
     // Device sharing
     match /deviceShares/{shareId} {
+      function hasShareIndexForAuthUid(deviceId) {
+        return deviceId != null && request.auth != null &&
+          exists(/databases/$(database)/documents/deviceShareIndex/$(deviceId + '_' + request.auth.uid));
+      }
+
       // Owner can create/update/delete their own shares;
-      // recipient can also create when accepting a share request
+      // recipient can also create when accepting a share request.
+      // Backward compatibility: legacy docs may only have ownerEmail/sharedWithEmail.
       allow create: if request.auth != null && (
         request.resource.data.ownerUid == request.auth.uid ||
-        request.resource.data.sharedWithUid == request.auth.uid
+        request.resource.data.sharedWithUid == request.auth.uid ||
+        (
+          request.auth.token.email != null && (
+            request.resource.data.ownerEmail == request.auth.token.email ||
+            request.resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
       );
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      // Both owner and recipient can read a share
+
+      // Owner can update. Legacy ownerEmail fallback is supported.
+      allow update: if request.auth != null && (
+        resource.data.ownerUid == request.auth.uid ||
+        (
+          request.auth.token.email != null &&
+          resource.data.ownerEmail == request.auth.token.email
+        )
+      );
+
+      // Both owner and recipient can read a share.
       allow read: if request.auth != null && (
         resource.data.ownerUid == request.auth.uid ||
-        resource.data.sharedWithUid == request.auth.uid
+        resource.data.sharedWithUid == request.auth.uid ||
+        hasShareIndexForAuthUid(resource.data.deviceId) ||
+        (
+          request.auth.token.email != null && (
+            resource.data.ownerEmail == request.auth.token.email ||
+            resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
       );
-      // Recipient can also delete (to remove shared device from their list)
-      allow delete: if request.auth != null && resource.data.sharedWithUid == request.auth.uid;
+
+      // Recipient or owner can delete (recipient leaves share, owner revokes).
+      // Includes legacy email-based fallback for old docs.
+      allow delete: if request.auth != null && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.sharedWithUid == request.auth.uid ||
+        hasShareIndexForAuthUid(resource.data.deviceId) ||
+        (
+          request.auth.token.email != null && (
+            resource.data.ownerEmail == request.auth.token.email ||
+            resource.data.sharedWithEmail == request.auth.token.email
+          )
+        )
+      );
     }
   }
 }
