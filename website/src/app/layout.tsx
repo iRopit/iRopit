@@ -262,11 +262,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18202812826" />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-KF63PFVEGY" />
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'AW-18202812826');",
+              "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-KF63PFVEGY'); gtag('config', 'AW-18202812826');",
           }}
         />
         <script

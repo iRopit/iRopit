@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Globe, Shield, ArrowUpRight } from "lucide-react";
+import packageJson from "../../package.json";
+
+const WEBSITE_VERSION = process.env.NEXT_PUBLIC_WEBSITE_VERSION || packageJson.version;
 
 const footerLinks = {
   product: [
@@ -122,6 +125,8 @@ export default function Footer() {
             © {new Date().getFullYear()} iRopit. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
+            <span className="text-[11px] text-txt-tertiary">Version v{WEBSITE_VERSION}</span>
+            <span className="text-txt-tertiary">·</span>
             <Link
               href="/privacy-policy"
               className="text-xs text-txt-tertiary hover:text-primary transition-colors"
