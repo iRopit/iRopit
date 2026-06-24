@@ -13,8 +13,7 @@ import {
 } from "firebase/auth/web-extension";
 import {
   initializeFirestore,
-  persistentLocalCache,
-  persistentSingleTabManager,
+  memoryLocalCache,
   setLogLevel,
   collection,
   doc,
@@ -42,9 +41,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 setLogLevel("silent");
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({ forceOwnership: true }),
-  }),
+  // Popup lifecycle is short-lived and can race IndexedDB persistence ownership
+  // across extension contexts, which intermittently triggers Firestore internal
+  // assertions. Keep popup Firestore in memory for stability.
+  localCache: memoryLocalCache(),
   experimentalForceLongPolling: true,
 });
 const storage = getStorage(app);

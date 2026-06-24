@@ -39,6 +39,7 @@ type ExistingShare = {
 type PendingRequest = {
   requestId: string;
   sharedWithEmail: string;
+  sharedWithUid?: string;
   permissions?: SharePermissions;
 };
 
@@ -291,6 +292,47 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
                 .collection('deviceShareRequests')
                 .doc(request.requestId)
                 .delete();
+
+              // If the recipient accepted quickly (race), ensure Cancel also
+              // revokes the active share like the Stop action.
+              if (user?.uid && currentDevice?.id) {
+                const activeShareBaseQ = firestore()
+                  .collection('deviceShares')
+                  .where('ownerUid', '==', user.uid)
+                  .where('deviceId', '==', currentDevice.id);
+                const activeShareSnap = request.sharedWithUid
+                  ? await activeShareBaseQ
+                      .where('sharedWithUid', '==', request.sharedWithUid)
+                      .get()
+                  : await activeShareBaseQ
+                      .where('sharedWithEmail', '==', request.sharedWithEmail)
+                      .get();
+
+                if (!activeShareSnap.empty) {
+                  const batch = firestore().batch();
+                  activeShareSnap.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                    const data = doc.data() as any;
+                    const shareUid = data?.sharedWithUid || request.sharedWithUid;
+                    if (shareUid) {
+                      const indexId = `${currentDevice.id}_${shareUid}`;
+                      batch.delete(
+                        firestore().collection('deviceShareIndex').doc(indexId),
+                      );
+                    }
+                  });
+                  await batch.commit();
+
+                  setExistingShares(prev =>
+                    prev.filter(
+                      item =>
+                        (item.sharedWithEmail || '').toLowerCase() !==
+                        (request.sharedWithEmail || '').toLowerCase(),
+                    ),
+                  );
+                }
+              }
+
               setPendingRequests(prev =>
                 prev.filter(item => item.requestId !== request.requestId),
               );
@@ -318,20 +360,54 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await firestore().collection('deviceShares').doc(share.shareId).delete();
-
-              if (currentDevice?.id && share.sharedWithUid) {
-                const indexId = `${currentDevice.id}_${share.sharedWithUid}`;
-                firestore()
-                  .collection('deviceShareIndex')
-                  .doc(indexId)
-                  .delete()
-                  .catch(() => {});
+              if (!user?.uid || !currentDevice?.id) {
+                throw new Error('missing-context');
               }
 
+              const targetUid = share.sharedWithUid || '';
+              const targetEmail = (share.sharedWithEmail || '').trim().toLowerCase();
+
+              // Optimistically remove all matching rows so revocation is instant in UI.
               setExistingShares(prev =>
-                prev.filter(item => item.shareId !== share.shareId),
+                prev.filter(item => {
+                  const sameUid = targetUid && item.sharedWithUid === targetUid;
+                  const sameEmail =
+                    !targetUid &&
+                    (item.sharedWithEmail || '').trim().toLowerCase() === targetEmail;
+                  return !(sameUid || sameEmail || item.shareId === share.shareId);
+                }),
               );
+
+              const baseQ = firestore()
+                .collection('deviceShares')
+                .where('ownerUid', '==', user.uid)
+                .where('deviceId', '==', currentDevice.id);
+              const activeShareSnap = targetUid
+                ? await baseQ.where('sharedWithUid', '==', targetUid).get()
+                : await baseQ.where('sharedWithEmail', '==', targetEmail).get();
+
+              const batch = firestore().batch();
+              const indexUids = new Set<string>();
+
+              if (!activeShareSnap.empty) {
+                activeShareSnap.docs.forEach(doc => {
+                  batch.delete(doc.ref);
+                  const data = doc.data() as any;
+                  const uid = data?.sharedWithUid;
+                  if (uid) indexUids.add(uid);
+                });
+              } else {
+                // Fallback for stale/partial UI rows.
+                batch.delete(firestore().collection('deviceShares').doc(share.shareId));
+              }
+
+              if (targetUid) indexUids.add(targetUid);
+              indexUids.forEach(uid => {
+                const indexId = `${currentDevice.id}_${uid}`;
+                batch.delete(firestore().collection('deviceShareIndex').doc(indexId));
+              });
+
+              await batch.commit();
             } catch {
               setShareError(
                 isRTL ? 'فشل إيقاف المشاركة.' : 'Failed to stop sharing.',

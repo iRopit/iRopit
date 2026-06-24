@@ -2845,9 +2845,10 @@ async function markConversationAsRead(conversation) {
   // Write to Firestore (non-blocking for UI â€” state/cache already updated)
   try {
     const batch = writeBatch(db);
+    let writeCount = 0;
     for (const msg of unreadMsgs) {
       const ownerUid = resolveSMSOwnerUid(msg.deviceId, msg.ownerUid);
-      if (!ownerUid) continue;
+      if (!ownerUid || ownerUid !== user.uid) continue;
       const notifRef = doc(
         db,
         "users",
@@ -2858,8 +2859,11 @@ async function markConversationAsRead(conversation) {
         msg.id,
       );
       batch.set(notifRef, { read: true }, { merge: true });
+      writeCount++;
     }
-    await batch.commit();
+    if (writeCount > 0) {
+      await batch.commit();
+    }
   } catch (error) {
     console.error("Mark conversation read error:", error);
   }
@@ -3483,6 +3487,14 @@ export async function loadSharedDevicesSMS(shares) {
           });
         } catch (rawErr) {
           if (rawErr?.code !== "permission-denied") {
+            if (isUnavailableError(rawErr)) {
+              logSMSUnavailableOnce(
+                `shared-raw-probe:${share.deviceId}`,
+                `[SMS][shared-raw:${share.deviceId}] probe unavailable`,
+                rawErr?.code || rawErr?.message,
+              );
+              return;
+            }
             console.warn(
               `[SMS][shared-raw:${share.deviceId}] probe failed:`,
               rawErr?.code || rawErr?.message,

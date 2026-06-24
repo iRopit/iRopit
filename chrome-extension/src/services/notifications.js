@@ -330,6 +330,7 @@ function notifSnapshotReady() {
 // ── Selection mode state ──────────────────────────────────────────────────────
 let notifSelectionMode = false;
 let selectedNotifApps = new Set(); // keyed by app key (packageName or appName)
+let visibleNotifGroupKeys = [];
 
 const NOTIF_MIRROR_MAX_DRIFT_MS = 2500;
 
@@ -511,6 +512,43 @@ function _updateNotifSelectionToolbar(totalApps) {
     selectAllCb.checked = selectedNotifApps.size === totalApps && totalApps > 0;
     selectAllCb.indeterminate = selectedNotifApps.size > 0 && selectedNotifApps.size < totalApps;
   }
+}
+
+function getVisibleNotificationGroupKeys() {
+  return [...new Set(visibleNotifGroupKeys.filter(Boolean))];
+}
+
+export async function snoozeVisibleNotificationGroups() {
+  const keys = getVisibleNotificationGroupKeys();
+  if (keys.length === 0) {
+    showToast(tr("No visible notification groups to mute", "لا توجد مجموعات إشعارات ظاهرة لكتمها"), "info");
+    return;
+  }
+
+  const selected = document.getElementById("notifMainSnoozeSelect")?.value || "86400000";
+  const durationMs = selected === "permanent" ? "permanent" : Number(selected);
+
+  await Promise.all(keys.map((key) => snoozeNotifGroup(key, durationMs)));
+  showToast(
+    tr(`${keys.length} app notifications muted`, `تم كتم إشعارات ${keys.length} تطبيق`),
+    "success",
+  );
+  reRenderNotifications();
+}
+
+export async function unsnoozeVisibleNotificationGroups() {
+  const keys = Object.keys(notifSnoozedGroups || {}).filter((key) => isNotifGroupSnoozed(key));
+  if (keys.length === 0) {
+    showToast(tr("No muted notification groups to unmute", "لا توجد مجموعات إشعارات مكتومة لإلغاء كتمها"), "info");
+    return;
+  }
+
+  await Promise.all(keys.map((key) => unsnoozeNotifGroup(key)));
+  showToast(
+    tr(`${keys.length} app notifications unmuted`, `تم إلغاء كتم إشعارات ${keys.length} تطبيق`),
+    "success",
+  );
+  reRenderNotifications();
 }
 
 /**
@@ -973,6 +1011,7 @@ function getMergedNotifications() {
     ...state.devices.map((d) => d.id),
     ...(state.sharedWithMeDevices || []).map((s) => s.deviceId),
   ]);
+  const hasActiveDeviceSources = realDeviceIds.size > 0;
   const realIds = new Set(); // ids that have at least one real-device entry
   const byKey = new Map();
 
@@ -991,6 +1030,7 @@ function getMergedNotifications() {
   // Pass 2 — user-level entries only if no real-device copy exists.
   Object.entries(state.allNotifications).forEach(([, notifs]) => {
     notifs.forEach((n) => {
+      if (!hasActiveDeviceSources) return;
       if (!isUserLevelNotification(n)) return;
       if (realIds.has(n.id)) return;
       const key = `user:${n.id}`;
@@ -1580,6 +1620,7 @@ function renderNotifications(notifications) {
   });
 
   if (groupEntries.length === 0) {
+    visibleNotifGroupKeys = [];
     const hasUnreadFilter = document.getElementById("notifShowUnread")?.checked;
     const emptyTitle = hasUnreadFilter
       ? tr("No unread notifications", "لا توجد إشعارات غير مقروءة")
@@ -1667,6 +1708,7 @@ function renderNotifications(notifications) {
   wireHoverPreview(notificationsList);
 
   const appKeys = groupEntries.map(([key]) => key);
+  visibleNotifGroupKeys = [...appKeys];
 
   // Click → toggle selection or show detail
   notificationsList.querySelectorAll(".notif-unsnooze-btn").forEach((btn) => {

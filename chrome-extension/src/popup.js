@@ -48,7 +48,7 @@ import {
   initSMSNavigation,
 } from "./services/sms.js";
 import { loadCalls, renderCalls, exportCallsToCSV, markAllCallsAsViewed, toggleCallsSelectionMode, setCallsSelectAll, deleteSelectedCallGroups } from "./services/calls.js";
-import { loadNotifications, injectPushedNotification, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications } from "./services/notifications.js";
+import { loadNotifications, injectPushedNotification, reRenderNotifications, exportNotificationsToCSV, markAllNotificationsAsRead, toggleNotifSelectionMode, setNotifSelectAll, deleteSelectedNotifications, snoozeVisibleNotificationGroups, unsnoozeVisibleNotificationGroups } from "./services/notifications.js";
 import { subscribeToChat, initChatListeners, injectPushedChatMessage, refreshChatNow, exportChatToCSV } from "./services/chat.js";
 import {
   loadUserSettings,
@@ -531,6 +531,8 @@ function init() {
   document.getElementById("notifSelectAll")?.addEventListener("change", (e) => setNotifSelectAll(e.target.checked));
   document.getElementById("markAllNotifReadBtn")?.addEventListener("click", markAllNotificationsAsRead);
   document.getElementById("deleteAllNotifBtn")?.addEventListener("click", deleteSelectedNotifications);
+  document.getElementById("notifMainSnoozeBtn")?.addEventListener("click", snoozeVisibleNotificationGroups);
+  document.getElementById("notifMainUnsnoozeBtn")?.addEventListener("click", unsnoozeVisibleNotificationGroups);
 
   // Refresh button
   document.getElementById("refreshBtn")?.addEventListener("click", () => {
