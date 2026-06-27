@@ -169,9 +169,9 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-bg">
       {/* Search + Starred filter toolbar */}
-      <div className="p-3 border-b border-border flex items-center gap-2">
+      <div className="p-3 border-b border-border flex items-center gap-2 bg-surface">
         <div className="flex-1 relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
           <input
@@ -210,7 +210,7 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
           </p>
         </div>
       ) : (
-        <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-bg">
           {filtered.map((msg, idx) => {
             const isMine = msg.senderDeviceId === webDeviceId;
             const deviceName =
@@ -409,7 +409,7 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
       )}
 
       {/* Input */}
-      <div className="p-3 border-t border-border bg-surface">
+      <div className="p-2.5 border-t border-border bg-surface">
         <div className="flex flex-col gap-2 max-w-4xl mx-auto">
           {/* Reply preview bar */}
           {replyTo && (

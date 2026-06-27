@@ -30,6 +30,7 @@
   --color-border: #e5e7eb;
   --color-border-light: #f3f4f6;
   --color-border-dark: #d1d5db;
+  --color-hover: rgba(0, 0, 0, 0.04);
 
   /* Status */
   --color-error: #ef4444;
@@ -75,6 +76,7 @@
   --color-border: #374151;
   --color-border-light: #4b5563;
   --color-border-dark: #6b7280;
+  --color-hover: rgba(255, 255, 255, 0.06);
 
   --color-error: #f87171;
   --color-error-light: #7f1d1d;
@@ -211,4 +213,44 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Desktop dashboard shell to match extension proportions */
+.dashboard-viewport {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background:
+    radial-gradient(1200px 500px at 10% -20%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 70%),
+    radial-gradient(1000px 420px at 100% 120%, color-mix(in srgb, var(--color-secondary) 12%, transparent), transparent 70%),
+    var(--color-bg);
+}
+
+.dashboard-shell {
+  width: min(100%, 700px);
+  height: min(calc(100dvh - 32px), 600px);
+  min-height: 560px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--color-surface);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+@media (max-width: 768px) {
+  .dashboard-viewport {
+    padding: 0;
+    background: var(--color-bg);
+  }
+
+  .dashboard-shell {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }

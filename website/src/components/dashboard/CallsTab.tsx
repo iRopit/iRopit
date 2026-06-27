@@ -15,7 +15,6 @@ import {
   PhoneOutgoing,
   PhoneMissed,
   Clock,
-  Trash2,
   Search,
 } from "lucide-react";
 
@@ -131,9 +130,9 @@ export default function CallsTab({ devices }: CallsTabProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-bg">
       {/* Filter tabs + Search */}
-      <div className="flex flex-col gap-2 p-3 border-b border-border">
+      <div className="flex flex-col gap-2 p-3 border-b border-border bg-surface">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setFilter("all")}
@@ -182,7 +181,7 @@ export default function CallsTab({ devices }: CallsTabProps) {
           return (
             <div
               key={call.id}
-              className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-surface-secondary transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 border-b border-border/60 hover:bg-hover transition-colors"
             >
               <div
                 className={`w-10 h-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}

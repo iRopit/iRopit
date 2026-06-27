@@ -44,7 +44,7 @@ export default function DashboardPage() {  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("all");
-  const [badges, setBadges] = useState({
+  const [badges] = useState({
     overview: 0,
     chat: 0,
     sms: 0,
@@ -108,13 +108,6 @@ export default function DashboardPage() {  const { user } = useAuth();
     );
   });
 
-  // All devices as simple objects for header tabs
-  const deviceList = devices.map((d) => ({
-    id: d.id,
-    name: d.name || d.platform || d.id,
-    platform: d.platform || d.type || "",
-  }));
-
   // Filter devices based on selection for SMS/Calls/Notifications
   const filteredMobileDevices =
     deviceFilter === "all"
@@ -162,65 +155,65 @@ export default function DashboardPage() {  const { user } = useAuth();
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-bg text-txt">
-      {/* Gradient header */}
-      <DashboardHeader
-        devices={deviceList}
-        deviceFilter={deviceFilter}
-        onDeviceFilterChange={setDeviceFilter}
-      />
+    <div className="dashboard-viewport">
+      <div className="dashboard-shell">
+        <div className="flex flex-col h-full bg-bg text-txt relative">
+          {/* Gradient header */}
+          <DashboardHeader
+            onOpenSettings={() => setActiveTab("settings")}
+          />
 
-      {/* Horizontal tab bar */}
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        badges={badges}
-      />
+          {/* Horizontal tab bar */}
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            badges={badges}
+          />
 
-      {/* Tab content with vertical device sidebar */}
-      <main className="flex-1 flex min-h-0 bg-bg pb-16 md:pb-0 overflow-hidden">
-        {/* Vertical device sidebar — shown for tabs that use device filtering */}
-        {(["chat", "sms", "calls", "notifications", "overview"] as const).includes(activeTab as never) &&
-          (activeTab === "chat" ? chatSidebarDevices.length > 0 : mobileDevices.length > 0) && (
-          <aside className="hidden md:flex flex-col w-44 shrink-0 border-e border-border bg-surface overflow-y-auto">
-            <div className="p-2 flex flex-col gap-0.5">
-              <button
-                onClick={() => setDeviceFilter("all")}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
-                  deviceFilter === "all"
-                    ? "bg-primary text-white"
-                    : "text-txt-secondary hover:bg-hover hover:text-txt"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t("chat.allDevices")}</span>
-              </button>
-              {(activeTab === "chat" ? chatSidebarDevices : mobileDevices).map((dev) => (
-                <button
-                  key={dev.id}
-                  onClick={() => setDeviceFilter(dev.id)}
-                  className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
-                    deviceFilter === dev.id
-                      ? "bg-primary text-white"
-                      : "text-txt-secondary hover:bg-hover hover:text-txt"
-                  }`}
-                >
-                  {getPlatformIcon(dev.platform || "")}
-                  <span className="truncate">{dev.name || dev.platform || dev.id}</span>
-                </button>
-              ))}
+          {/* Tab content with vertical device sidebar */}
+          <main className="flex-1 flex min-h-0 bg-bg pb-16 md:pb-0 overflow-hidden">
+            {/* Vertical device sidebar — shown for tabs that use device filtering */}
+            {(["chat", "sms", "calls", "notifications", "overview"] as const).includes(activeTab as never) &&
+              (activeTab === "chat" ? chatSidebarDevices.length > 0 : mobileDevices.length > 0) && (
+              <aside className="hidden md:flex flex-col w-[200px] min-w-[200px] shrink-0 border-e border-border bg-surface overflow-y-auto">
+                <div className="p-2 flex flex-col gap-1">
+                  <button
+                    onClick={() => setDeviceFilter("all")}
+                    className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
+                      deviceFilter === "all"
+                        ? "bg-primary text-txt-inverse"
+                        : "text-txt-secondary hover:bg-hover hover:text-txt"
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{t("chat.allDevices")}</span>
+                  </button>
+                  {(activeTab === "chat" ? chatSidebarDevices : mobileDevices).map((dev) => (
+                    <button
+                      key={dev.id}
+                      onClick={() => setDeviceFilter(dev.id)}
+                      className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-semibold text-start transition-all ${
+                        deviceFilter === dev.id
+                          ? "bg-primary text-txt-inverse"
+                          : "text-txt-secondary hover:bg-hover hover:text-txt"
+                      }`}
+                    >
+                      {getPlatformIcon(dev.platform || "")}
+                      <span className="truncate">{dev.name || dev.platform || dev.id}</span>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+            )}
+            {/* Tab content */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {renderTab()}
             </div>
-          </aside>
-        )}
-        {/* Tab content */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {renderTab()}
-        </div>
-      </main>
+          </main>
 
-      {/* Mobile bottom bar */}
-      <div className="fixed bottom-0 inset-x-0 md:hidden bg-surface/80 backdrop-blur-lg border-t border-border z-40">
-        <div className="flex items-center justify-around h-16">
+          {/* Mobile bottom bar */}
+          <div className="absolute bottom-0 inset-x-0 md:hidden bg-surface/90 backdrop-blur-lg border-t border-border z-40">
+            <div className="flex items-center justify-around h-16">
           {(
             [
               "notifications",
@@ -234,33 +227,35 @@ export default function DashboardPage() {  const { user } = useAuth();
             const Icon = mobileTabIcons[tab];
             const badge = badges[tab] || 0;
 
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
-                  active ? "text-primary" : "text-txt-tertiary"
-                }`}
-              >
-                {active && (
-                  <div className="absolute top-0 w-8 h-0.5 bg-primary rounded-b" />
-                )}
-                <div className="relative">
-                  <Icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
-                  {badge > 0 && (
-                    <span className="absolute -top-1.5 -end-2 min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full bg-error text-white text-[10px] font-bold">
-                      {badge > 99 ? "99+" : badge}
-                    </span>
-                  )}
-                </div>
-                <span
-                  className={`text-[10px] ${active ? "font-semibold" : "font-medium"}`}
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
+                    active ? "text-primary" : "text-txt-tertiary"
+                  }`}
                 >
-                  {t(`tabs.${tab}`)}
-                </span>
-              </button>
-            );
+                  {active && (
+                    <div className="absolute top-0 w-8 h-0.5 bg-primary rounded-b" />
+                  )}
+                  <div className="relative">
+                    <Icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
+                    {badge > 0 && (
+                      <span className="absolute -top-1.5 -end-2 min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full bg-error text-white text-[10px] font-bold">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-[10px] ${active ? "font-semibold" : "font-medium"}`}
+                  >
+                    {t(`tabs.${tab}`)}
+                  </span>
+                </button>
+              );
           })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

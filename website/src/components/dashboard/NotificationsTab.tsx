@@ -103,9 +103,9 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-bg">
       {/* Search + filters toolbar */}
-      <div className="p-3 border-b border-border flex items-center gap-2">
+      <div className="p-3 border-b border-border flex items-center gap-2 bg-surface">
         <div className="flex-1 relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
           <input
@@ -144,7 +144,7 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
           return (
             <div
               key={`${notif.id}-${notif.deviceId}`}
-              className="flex items-start gap-3 px-4 py-3 border-b border-border/50 hover:bg-surface-secondary transition-colors"
+              className="flex items-start gap-3 px-4 py-2.5 border-b border-border/60 hover:bg-hover transition-colors"
             >
               <div
                 className={`w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0`}

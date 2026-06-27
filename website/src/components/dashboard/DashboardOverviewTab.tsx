@@ -316,9 +316,9 @@ export default function DashboardOverviewTab({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 overflow-y-auto p-3 bg-bg space-y-3">
       {/* Date Filter */}
-      <div className="bg-surface border border-border rounded-xl p-4">
+      <div className="bg-surface border border-border rounded-lg p-3.5">
         <h3 className="text-sm font-semibold text-txt mb-3 flex items-center gap-2">
           <Calendar className="w-4 h-4 text-primary" />
           {t("overview.title")}
@@ -362,8 +362,8 @@ export default function DashboardOverviewTab({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-surface border border-border rounded-xl p-4 flex items-center gap-3">
+      <div className="grid grid-cols-3 gap-2.5">
+        <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
             <MessageSquare className="w-5 h-5 text-secondary" />
           </div>
@@ -374,7 +374,7 @@ export default function DashboardOverviewTab({
             <p className="text-xs text-txt-secondary">{t("overview.sms")}</p>
           </div>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4 flex items-center gap-3">
+        <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
             <Phone className="w-5 h-5 text-warning" />
           </div>
@@ -385,7 +385,7 @@ export default function DashboardOverviewTab({
             <p className="text-xs text-txt-secondary">{t("overview.calls")}</p>
           </div>
         </div>
-        <div className="bg-surface border border-border rounded-xl p-4 flex items-center gap-3">
+        <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center shrink-0">
             <Bell className="w-5 h-5 text-error" />
           </div>
@@ -402,7 +402,7 @@ export default function DashboardOverviewTab({
 
       {/* SMS Spending Insights — per-currency cards + spending by date */}
       {spendingInsights && (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <svg
               width="16"
@@ -427,7 +427,7 @@ export default function DashboardOverviewTab({
               return (
                 <div
                   key={cur}
-                  className="flex-1 min-w-[140px] bg-surface-secondary border border-border rounded-xl p-3"
+                  className="flex-1 min-w-[140px] bg-surface-secondary border border-border rounded-lg p-3"
                 >
                   <p className="text-xs font-bold text-primary mb-2">{cur}</p>
                   <div className="space-y-1">
@@ -488,7 +488,7 @@ export default function DashboardOverviewTab({
 
       {/* Per-date Activity Breakdown */}
       {dateBreakdown.length > 0 ? (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-primary" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-txt">
@@ -548,7 +548,7 @@ export default function DashboardOverviewTab({
           </div>
         </div>
       ) : (
-        <div className="bg-surface border border-border rounded-xl p-8 text-center">
+        <div className="bg-surface border border-border rounded-lg p-8 text-center">
           <BarChart2 className="w-10 h-10 text-txt-tertiary mx-auto mb-3" />
           <p className="text-sm font-medium text-txt mb-1">
             {t("overview.noData")}

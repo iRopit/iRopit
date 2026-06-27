@@ -59,16 +59,16 @@ export default function Sidebar({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`relative flex flex-col items-center gap-1 px-4 py-2.5 min-w-fit whitespace-nowrap text-[11px] font-medium transition-all border-b-2 ${
+              className={`relative flex flex-col items-center gap-1 px-3 py-2.5 min-w-[88px] whitespace-nowrap text-[11px] font-medium transition-all border-b-2 ${
                 isActive
                   ? "border-primary text-primary"
-                  : "border-transparent text-txt-secondary hover:text-txt hover:border-border"
+                  : "border-transparent text-txt-secondary hover:text-primary"
               }`}
             >
               <div className="relative">
-                <Icon className="w-[18px] h-[18px]" />
+                <Icon className="w-4.5 h-4.5" />
                 {badge > 0 && (
-                  <span className="absolute -top-1.5 -end-2 min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full bg-error text-white text-[9px] font-bold">
+                  <span className="absolute top-[-6px] -end-2 min-w-[14px] h-[14px] flex items-center justify-center px-1 rounded-full bg-primary-light text-black text-[9px] font-bold">
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}

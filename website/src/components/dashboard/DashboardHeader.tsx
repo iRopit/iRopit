@@ -4,53 +4,32 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   LogOut,
-  Globe,
+  RefreshCw,
   ChevronDown,
-  Monitor,
-  Smartphone,
-  Chrome,
   Sun,
   Moon,
+  Settings,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-
-interface DeviceItem {
-  id: string;
-  name: string;
-  platform?: string;
-}
+import { useState } from "react";
 
 interface DashboardHeaderProps {
-  devices: DeviceItem[];
-  deviceFilter: string;
-  onDeviceFilterChange: (id: string) => void;
-}
-
-function getPlatformIcon(platform: string) {
-  const p = (platform || "").toLowerCase();
-  if (p.includes("chrome") || p.includes("ext"))
-    return <Chrome className="w-3.5 h-3.5" />;
-  if (p.includes("web")) return <Monitor className="w-3.5 h-3.5" />;
-  return <Smartphone className="w-3.5 h-3.5" />;
+  onOpenSettings?: () => void;
 }
 
 export default function DashboardHeader({
-  devices,
-  deviceFilter,
-  onDeviceFilterChange,
+  onOpenSettings,
 }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === "undefined") return false;
     const saved = localStorage.getItem("theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setIsDark(saved === "dark" || (!saved && prefersDark));
-  }, []);
+    return saved === "dark" || (!saved && prefersDark);
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -103,6 +82,22 @@ export default function DashboardHeader({
             title={t("common.language")}
           >
             {language === "en" ? "AR" : "EN"}
+          </button>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+            title={t("common.refresh")}
+          >
+            <RefreshCw className="w-4.5 h-4.5" />
+          </button>
+
+          <button
+            onClick={onOpenSettings}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+            title={t("tabs.settings")}
+          >
+            <Settings className="w-4.5 h-4.5" />
           </button>
 
           {/* Theme toggle */}

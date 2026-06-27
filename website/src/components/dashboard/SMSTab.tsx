@@ -117,13 +117,6 @@ export default function SMSTab({ devices }: SMSTabProps) {
     }
   }, [selectedConv, conversations]);
 
-  // Auto-select first device for compose
-  useEffect(() => {
-    if (showCompose && !composeDevice && mobileDevices.length > 0) {
-      setComposeDevice(mobileDevices[0].id);
-    }
-  }, [showCompose, mobileDevices, composeDevice]);
-
   const filtered = (() => {
     let result = conversations;
     if (search) {
@@ -163,19 +156,6 @@ export default function SMSTab({ devices }: SMSTabProps) {
     setComposePhone("");
     setComposeMessage("");
     setContactSearch("");
-    setComposeStatus(null);
-    setComposeDevice(mobileDevices[0]?.id || "");
-  };
-
-  const openComposeToNumber = (phoneNumber: string, contactName: string) => {
-    setShowCompose(true);
-    setComposePhone(phoneNumber);
-    setComposeMessage("");
-    setContactSearch(
-      contactName !== phoneNumber
-        ? `${contactName} (${phoneNumber})`
-        : phoneNumber,
-    );
     setComposeStatus(null);
     setComposeDevice(mobileDevices[0]?.id || "");
   };
@@ -560,9 +540,9 @@ export default function SMSTab({ devices }: SMSTabProps) {
       selectedConv;
 
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 bg-bg">
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-border bg-surface">
+        <div className="flex items-center gap-3 p-3 border-b border-border bg-surface">
           <button
             onClick={() => setSelectedConv(null)}
             className="text-txt-secondary hover:text-txt transition-colors"
@@ -635,7 +615,7 @@ export default function SMSTab({ devices }: SMSTabProps) {
 
         {/* Reply input */}
         {mobileDevices.length > 0 && (
-          <div className="p-3 border-t border-border bg-surface">
+          <div className="p-2.5 border-t border-border bg-surface">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -673,9 +653,9 @@ export default function SMSTab({ devices }: SMSTabProps) {
 
   // ─── Conversation List View ───
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-bg">
       {/* Search + New SMS button */}
-      <div className="p-3 border-b border-border">
+      <div className="p-3 border-b border-border bg-surface">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
@@ -748,7 +728,7 @@ export default function SMSTab({ devices }: SMSTabProps) {
             <button
               key={conv.phoneNumber}
               onClick={() => handleOpenConversation(conv)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-secondary transition-colors text-start border-b border-border/50"
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-hover transition-colors text-start border-b border-border/60"
             >
               <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <span className="text-primary font-bold text-sm">

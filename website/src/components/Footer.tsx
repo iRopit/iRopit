@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, Globe, Shield, ArrowUpRight } from "lucide-react";
+import { Mail, ArrowUpRight } from "lucide-react";
+import { usePathname } from "next/navigation";
 import packageJson from "../../package.json";
 
 const WEBSITE_VERSION = process.env.NEXT_PUBLIC_WEBSITE_VERSION || packageJson.version;
@@ -24,6 +27,13 @@ const footerLinks = {
 };
 
 export default function Footer() {
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/dashboard");
+  const isAuthPage =
+    pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+
+  if (isDashboard || isAuthPage) return null;
+
   return (
     <footer className="bg-surface border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
