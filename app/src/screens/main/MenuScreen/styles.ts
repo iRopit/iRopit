@@ -214,6 +214,19 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  languageOptionBtn: {
+    borderRadius: 10,
+    minHeight: 58,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  languageOptionText: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
   deleteWarningWrap: {
     flexDirection: 'row',
     alignItems: 'flex-start',

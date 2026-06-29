@@ -174,7 +174,7 @@ const UserSettingsScreen = ({ navigation }: UserSettingsScreenProps) => {
               style={[styles.button, { backgroundColor: colors.primary }]}
               onPress={() => setEditMode(true)}
             >
-              <Text style={styles.buttonText}>{t('editProfile')}</Text>
+              <Text style={styles.editButtonText}>{t('editProfile')}</Text>
             </TouchableOpacity>
           )}
         </View>

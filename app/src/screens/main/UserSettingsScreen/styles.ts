@@ -88,6 +88,11 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  editButtonText: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',

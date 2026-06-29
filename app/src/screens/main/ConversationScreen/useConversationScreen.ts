@@ -176,10 +176,10 @@ export const useConversationScreen = (
         return true;
       });
 
-      return uniqueMessages.sort((a, b) => a.timestamp - b.timestamp);
+      return uniqueMessages.sort((a, b) => b.timestamp - a.timestamp);
     }
 
-    return uniqueRegularNotifications.sort((a, b) => a.timestamp - b.timestamp);
+    return uniqueRegularNotifications.sort((a, b) => b.timestamp - a.timestamp);
   }, [
     allNotifications,
     loadedNotifications,
@@ -198,7 +198,7 @@ export const useConversationScreen = (
       e => {
         setKeyboardHeight(e.endCoordinates.height);
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
       },
     );
@@ -268,7 +268,7 @@ export const useConversationScreen = (
         Keyboard.dismiss();
 
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
       } else {
         setErrorMessage(t('failedToSendSMS'));
@@ -285,7 +285,7 @@ export const useConversationScreen = (
   }, [navigation]);
 
   const scrollToEnd = useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
   const isSMSType = type === 'sms';

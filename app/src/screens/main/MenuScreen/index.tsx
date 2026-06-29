@@ -56,6 +56,10 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
   const [shareError, setShareError] = useState('');
   const [isLoadingShares, setIsLoadingShares] = useState(false);
   const [isSubmittingShare, setIsSubmittingShare] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [deleteDeviceModalVisible, setDeleteDeviceModalVisible] = useState(false);
   const [isDeletingDevice, setIsDeletingDevice] = useState(false);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
@@ -136,12 +140,16 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
     bgColor,
     textColor,
     saveAndSync,
+    setLanguage,
     navigateToUserSettings,
+    performLogout,
     performDeleteDevice,
     performDeleteAccount,
   } = useMenuScreen(
     navigation,
     openShareDeviceModal,
+    () => setLanguageModalVisible(true),
+    () => setLogoutModalVisible(true),
     () => setDeleteDeviceModalVisible(true),
     () => setDeleteAccountModalVisible(true),
   );
@@ -170,6 +178,38 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
   const closeDeleteDeviceModal = () => {
     if (isDeletingDevice) return;
     setDeleteDeviceModalVisible(false);
+  };
+
+  const closeLanguageModal = () => {
+    if (isChangingLanguage) return;
+    setLanguageModalVisible(false);
+  };
+
+  const handleSelectLanguage = async (language: 'ar' | 'en') => {
+    if (isChangingLanguage) return;
+    setIsChangingLanguage(true);
+    try {
+      await setLanguage(language);
+      setLanguageModalVisible(false);
+    } finally {
+      setIsChangingLanguage(false);
+    }
+  };
+
+  const closeLogoutModal = () => {
+    if (isLoggingOut) return;
+    setLogoutModalVisible(false);
+  };
+
+  const handleConfirmLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await performLogout();
+      setLogoutModalVisible(false);
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const handleConfirmDeleteDevice = async () => {
@@ -783,6 +823,170 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
                 ) : (
                   <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
                     {isRTL ? 'مشاركة' : 'Share'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={languageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeLanguageModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.text }]}> 
+                {t('language')}
+              </Text>
+              <TouchableOpacity onPress={closeLanguageModal} disabled={isChangingLanguage}>
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <TouchableOpacity
+                style={[
+                  styles.languageOptionBtn,
+                  {
+                    backgroundColor:
+                      settings.language === 'en' ? colors.primary : colors.surfaceSecondary,
+                    borderWidth: 1,
+                    borderColor:
+                      settings.language === 'en' ? colors.primaryDark : colors.border,
+                    marginBottom: 10,
+                  },
+                ]}
+                onPress={() => handleSelectLanguage('en')}
+                disabled={isChangingLanguage}
+              >
+                <Text
+                  style={[
+                    styles.languageOptionText,
+                    {
+                      color:
+                        settings.language === 'en'
+                          ? colors.black
+                          : isDarkMode
+                          ? colors.white
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  {t('english') || 'English'}
+                </Text>
+                {settings.language === 'en' ? (
+                  <Icon name="checkmark-circle" size={18} color={colors.black} />
+                ) : (
+                  <View style={{ width: 18, height: 18 }} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.languageOptionBtn,
+                  {
+                    backgroundColor:
+                      settings.language === 'ar' ? colors.primary : colors.surfaceSecondary,
+                    borderWidth: 1,
+                    borderColor:
+                      settings.language === 'ar' ? colors.primaryDark : colors.border,
+                  },
+                ]}
+                onPress={() => handleSelectLanguage('ar')}
+                disabled={isChangingLanguage}
+              >
+                <Text
+                  style={[
+                    styles.languageOptionText,
+                    {
+                      color:
+                        settings.language === 'ar'
+                          ? colors.black
+                          : isDarkMode
+                          ? colors.white
+                          : colors.text,
+                    },
+                  ]}
+                >
+                  {t('arabic') || 'العربية'}
+                </Text>
+                {settings.language === 'ar' ? (
+                  <Icon name="checkmark-circle" size={18} color={colors.black} />
+                ) : (
+                  <View style={{ width: 18, height: 18 }} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeLanguageModal}
+                disabled={isChangingLanguage}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {t('cancel')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeLogoutModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.text }]}> 
+                {isRTL ? 'تسجيل الخروج' : 'Logout'}
+              </Text>
+              <TouchableOpacity onPress={closeLogoutModal} disabled={isLoggingOut}>
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <View style={styles.deleteWarningWrap}>
+                <Icon name="log-out-outline" size={20} color={colors.warning} />
+                <Text style={[styles.deleteWarningText, { color: colors.text }]}> 
+                  {isRTL
+                    ? 'هل تريد تسجيل الخروج؟'
+                    : 'Are you sure you want to logout?'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeLogoutModal}
+                disabled={isLoggingOut}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.primary }]}
+                onPress={handleConfirmLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
+                    {isRTL ? 'تسجيل الخروج' : 'Logout'}
                   </Text>
                 )}
               </TouchableOpacity>

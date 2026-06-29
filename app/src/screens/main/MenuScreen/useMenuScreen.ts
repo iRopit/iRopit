@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
 import { useSettingsStore } from '../../../store/settingsStore';
@@ -9,6 +8,8 @@ import { MenuSection } from './types';
 export const useMenuScreen = (
   navigation: any,
   onOpenShareDeviceModal?: () => void,
+  onOpenLanguageModal?: () => void,
+  onOpenLogoutModal?: () => void,
   onOpenDeleteDeviceModal?: () => void,
   onOpenDeleteAccountModal?: () => void,
 ) => {
@@ -32,27 +33,23 @@ export const useMenuScreen = (
   );
 
   const showLanguagePicker = useCallback(() => {
-    Alert.alert(t('language'), '', [
-      { text: t('arabic'), onPress: () => saveAndSync('language', 'ar') },
-      { text: t('english'), onPress: () => saveAndSync('language', 'en') },
-      { text: t('cancel'), style: 'cancel' },
-    ]);
-  }, [t, saveAndSync]);
+    onOpenLanguageModal?.();
+  }, [onOpenLanguageModal]);
+
+  const setLanguage = useCallback(
+    async (language: 'ar' | 'en') => {
+      await saveAndSync('language', language);
+    },
+    [saveAndSync],
+  );
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
-      isRTL ? 'تسجيل الخروج' : 'Logout',
-      isRTL ? 'هل تريد تسجيل الخروج؟' : 'Are you sure you want to logout?',
-      [
-        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
-        {
-          text: isRTL ? 'خروج' : 'Logout',
-          style: 'destructive',
-          onPress: () => signOut(),
-        },
-      ],
-    );
-  }, [isRTL, signOut]);
+    onOpenLogoutModal?.();
+  }, [onOpenLogoutModal]);
+
+  const performLogout = useCallback(async () => {
+    await signOut();
+  }, [signOut]);
 
   const handleDeleteDevice = useCallback(() => {
     onOpenDeleteDeviceModal?.();
@@ -191,7 +188,9 @@ export const useMenuScreen = (
 
     // Actions
     saveAndSync,
+    setLanguage,
     navigateToUserSettings,
+    performLogout,
     performDeleteDevice,
     performDeleteAccount,
   };
