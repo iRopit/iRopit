@@ -56,6 +56,10 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
   const [shareError, setShareError] = useState('');
   const [isLoadingShares, setIsLoadingShares] = useState(false);
   const [isSubmittingShare, setIsSubmittingShare] = useState(false);
+  const [deleteDeviceModalVisible, setDeleteDeviceModalVisible] = useState(false);
+  const [isDeletingDevice, setIsDeletingDevice] = useState(false);
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [existingShares, setExistingShares] = useState<ExistingShare[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
 
@@ -133,7 +137,14 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
     textColor,
     saveAndSync,
     navigateToUserSettings,
-  } = useMenuScreen(navigation, openShareDeviceModal);
+    performDeleteDevice,
+    performDeleteAccount,
+  } = useMenuScreen(
+    navigation,
+    openShareDeviceModal,
+    () => setDeleteDeviceModalVisible(true),
+    () => setDeleteAccountModalVisible(true),
+  );
 
   const getCurrentDeviceName = () =>
     (currentDevice as any)?.nickname ||
@@ -154,6 +165,46 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
   const closeShareModal = () => {
     setShareModalVisible(false);
     setShareError('');
+  };
+
+  const closeDeleteDeviceModal = () => {
+    if (isDeletingDevice) return;
+    setDeleteDeviceModalVisible(false);
+  };
+
+  const handleConfirmDeleteDevice = async () => {
+    if (isDeletingDevice) return;
+    setIsDeletingDevice(true);
+    try {
+      await performDeleteDevice();
+      setDeleteDeviceModalVisible(false);
+    } finally {
+      setIsDeletingDevice(false);
+    }
+  };
+
+  const closeDeleteAccountModal = () => {
+    if (isDeletingAccount) return;
+    setDeleteAccountModalVisible(false);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await performDeleteAccount();
+      setDeleteAccountModalVisible(false);
+    } catch (error: any) {
+      const message =
+        error?.getLocalizedMessage?.('en') ||
+        error?.message ||
+        (isRTL
+          ? 'تعذر حذف الحساب. يرجى إعادة تسجيل الدخول ثم المحاولة مرة أخرى.'
+          : 'Could not delete account. Please sign in again and try one more time.');
+      Alert.alert(isRTL ? 'خطأ' : 'Error', message);
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   const handleSubmitShare = async () => {
@@ -732,6 +783,120 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
                 ) : (
                   <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
                     {isRTL ? 'مشاركة' : 'Share'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteDeviceModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDeleteDeviceModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.error }]}> 
+                {isRTL ? 'حذف هذا الجهاز' : 'Delete This Device'}
+              </Text>
+              <TouchableOpacity onPress={closeDeleteDeviceModal} disabled={isDeletingDevice}>
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <View style={styles.deleteWarningWrap}>
+                <Icon name="warning-outline" size={20} color={colors.warning} />
+                <Text style={[styles.deleteWarningText, { color: colors.text }]}> 
+                  {isRTL
+                    ? 'سيتم حذف هذا الجهاز من حسابك الحالي وسيتم تسجيل خروجك تلقائياً من التطبيق.'
+                    : 'This device will be removed from your account and you will be signed out automatically.'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeDeleteDeviceModal}
+                disabled={isDeletingDevice}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.error }]}
+                onPress={handleConfirmDeleteDevice}
+                disabled={isDeletingDevice}
+              >
+                {isDeletingDevice ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
+                    {isRTL ? 'حذف الجهاز' : 'Delete Device'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteAccountModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDeleteAccountModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.error }]}> 
+                {isRTL ? 'حذف الحساب' : 'Delete Account'}
+              </Text>
+              <TouchableOpacity onPress={closeDeleteAccountModal} disabled={isDeletingAccount}>
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <View style={styles.deleteWarningWrap}>
+                <Icon name="warning-outline" size={20} color={colors.warning} />
+                <Text style={[styles.deleteWarningText, { color: colors.text }]}> 
+                  {isRTL
+                    ? 'هل تريد حذف هذا الحساب نهائياً؟ سيتم حذف البيانات المرتبطة بالحساب وإلغاء أي مشاركة أجهزة مرتبطة به.'
+                    : 'Do you want to permanently delete this account? Account-related data will be deleted and any linked shared-device access will be revoked.'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeDeleteAccountModal}
+                disabled={isDeletingAccount}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {isRTL ? 'إلغاء' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.error }]}
+                onPress={handleConfirmDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={[styles.shareFooterBtnText, { color: colors.textInverse }]}> 
+                    {isRTL ? 'حذف الحساب' : 'Delete Account'}
                   </Text>
                 )}
               </TouchableOpacity>

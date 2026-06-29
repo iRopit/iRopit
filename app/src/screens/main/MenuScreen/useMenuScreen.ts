@@ -9,8 +9,10 @@ import { MenuSection } from './types';
 export const useMenuScreen = (
   navigation: any,
   onOpenShareDeviceModal?: () => void,
+  onOpenDeleteDeviceModal?: () => void,
+  onOpenDeleteAccountModal?: () => void,
 ) => {
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, deleteAccount } = useAuthStore();
   const { currentDevice, deleteDevice } = useDeviceStore();
   const settings = useSettingsStore();
   const { colors, t, isDarkMode, isRTL } = useTheme();
@@ -53,30 +55,28 @@ export const useMenuScreen = (
   }, [isRTL, signOut]);
 
   const handleDeleteDevice = useCallback(() => {
-    Alert.alert(
-      isRTL ? 'حذف هذا الجهاز' : 'Delete This Device',
-      isRTL
-        ? 'هل أنت متأكد؟ سيتم حذف هذا الجهاز وسيتم تسجيل الخروج تلقائياً.'
-        : 'Are you sure? This device will be removed and you will be signed out.',
-      [
-        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
-        {
-          text: isRTL ? 'حذف' : 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            if (!currentDevice) {
-              signOut();
-              return;
-            }
-            deleteDevice(currentDevice.id).catch(() => {
-              // still sign out even if delete fails
-            });
-            signOut();
-          },
-        },
-      ],
-    );
-  }, [isRTL, currentDevice, deleteDevice, signOut]);
+    onOpenDeleteDeviceModal?.();
+  }, [onOpenDeleteDeviceModal]);
+
+  const performDeleteDevice = useCallback(async () => {
+    if (!currentDevice) {
+      await signOut();
+      return;
+    }
+
+    await deleteDevice(currentDevice.id).catch(() => {
+      // still sign out even if delete fails
+    });
+    await signOut();
+  }, [currentDevice, deleteDevice, signOut]);
+
+  const handleDeleteAccount = useCallback(() => {
+    onOpenDeleteAccountModal?.();
+  }, [onOpenDeleteAccountModal]);
+
+  const performDeleteAccount = useCallback(async () => {
+    await deleteAccount();
+  }, [deleteAccount]);
 
   const navigateToUserSettings = useCallback(() => {
     navigation.navigate('UserSettings');
@@ -163,6 +163,13 @@ export const useMenuScreen = (
           danger: true,
           onPress: handleDeleteDevice,
         },
+        {
+          icon: 'trash',
+          title: isRTL ? 'حذف الحساب' : 'Delete Account',
+          subtitle: '',
+          danger: true,
+          onPress: handleDeleteAccount,
+        },
       ],
     },
   ];
@@ -185,5 +192,7 @@ export const useMenuScreen = (
     // Actions
     saveAndSync,
     navigateToUserSettings,
+    performDeleteDevice,
+    performDeleteAccount,
   };
 };

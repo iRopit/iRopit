@@ -5,6 +5,7 @@ import { initializeApp } from "firebase/app";
 import {
   getAuth,
   onAuthStateChanged,
+  signOut,
   signInWithCredential,
   GoogleAuthProvider,
 } from "firebase/auth/web-extension";
@@ -54,6 +55,8 @@ const SMS_CACHE_CAP = 10000;
 const CALLS_CACHE_CAP = 2000;
 let isStartingListeners = false;
 let activeListenersUserUid = null;
+let unsubscribeUserProfile = null;
+let isForcedSignOutInProgress = false;
 // Store last timestamp to avoid duplicate notifications
 let lastNotificationTimestamp = Date.now() - 5 * 60 * 1000; // 5 minutes ago
 let unsubscribeNotifications = [];
@@ -157,6 +160,7 @@ onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
+    watchCurrentUserProfile(user.uid);
     await loadDeviceId();
     await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
@@ -167,6 +171,7 @@ onAuthStateChanged(auth, async (user) => {
     // Warm the popup cache immediately so next popup open shows fresh data
     refreshPopupCache();
   } else {
+    stopWatchingUserProfile();
     currentUser = null;
     currentDeviceId = null;
     console.log("ZyncIT: User logged out, stopping listeners");
@@ -178,6 +183,48 @@ onAuthStateChanged(auth, async (user) => {
     setBadgeCount(0);
   }
 });
+
+function stopWatchingUserProfile() {
+  if (typeof unsubscribeUserProfile === "function") {
+    try {
+      unsubscribeUserProfile();
+    } catch (_) {}
+    unsubscribeUserProfile = null;
+  }
+}
+
+async function forceSignOutAfterAccountRemoval(reason) {
+  if (isForcedSignOutInProgress) return;
+  isForcedSignOutInProgress = true;
+  try {
+    console.log("ZyncIT: Forcing sign-out:", reason);
+    await signOut(auth);
+  } catch (error) {
+    console.warn("ZyncIT: Forced sign-out warning:", error?.message || error);
+  } finally {
+    isForcedSignOutInProgress = false;
+  }
+}
+
+function watchCurrentUserProfile(uid) {
+  stopWatchingUserProfile();
+  if (!uid) return;
+
+  const userRef = doc(db, "users", uid);
+  unsubscribeUserProfile = onSnapshot(
+    userRef,
+    async (snap) => {
+      if (!snap.exists()) {
+        await forceSignOutAfterAccountRemoval("users-doc-missing");
+      }
+    },
+    async (error) => {
+      if (error?.code === "permission-denied") {
+        await forceSignOutAfterAccountRemoval("users-doc-permission-denied");
+      }
+    },
+  );
+}
 
 async function loadLocallyReadNotificationIds() {
   try {

@@ -166,10 +166,9 @@ function getSmsCount(deviceId) {
 function getCallsCount(deviceId) {
   const calls = state.allCallsData || []
 
-  // Avoid showing a non-zero badge before any calls are available, but do not
-  // block counts when cached/shared calls are already present in memory.
-  // This keeps badge/device counts responsive while sync is still running.
-  if (!state.callsDataConfirmed && calls.length === 0) return 0
+  // Keep calls badge at zero until Firestore confirms calls data. Cached calls
+  // can be stale during startup and cause transient wrong counts (e.g. 2 -> 99+ -> 27).
+  if (!state.callsDataConfirmed) return 0
 
   const sharedCallsDeviceIds = new Set(
     (state.sharedWithMeDevices || [])

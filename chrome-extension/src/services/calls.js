@@ -284,21 +284,27 @@ export async function markAllCallsAsViewed() {
 
   try {
     const batch = writeBatch(db);
+    let writes = 0;
     missedToMark.forEach((call) => {
       if (call.deviceId) {
+        const ownerUid = resolveCallOwnerUid(call.deviceId, call.ownerUid);
+        // Shared-with-me calls can be read-only; keep them viewed locally
+        // and only persist server writes for calls owned by current user.
+        if (!ownerUid || ownerUid !== user.uid) return;
         const callRef = doc(
           db,
           "users",
-          user.uid,
+          ownerUid,
           "devices",
           call.deviceId,
           "calls",
           call.id,
         );
         batch.set(callRef, { viewed: true }, { merge: true });
+        writes += 1;
       }
     });
-    await batch.commit();
+    if (writes > 0) await batch.commit();
   } catch (error) {
     console.error("Failed to mark calls as viewed:", error);
   }
@@ -605,10 +611,10 @@ export async function loadCalls() {
         const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
         state.setAllCallsData(sanitizedCachedCalls);
         suppressCallsSyncIndicator = true;
-        // Reset confirmed flag — badge stays 0 until Firestore validates the viewed state
-        setCallsDataConfirmed(false);
+        // Use cached calls immediately so the calls badge appears on popup open
+        // (same fast behavior as SMS). Fresh Firestore sync will reconcile soon after.
+        setCallsDataConfirmed(true);
         renderCalls(sanitizedCachedCalls);
-        // Don't call updateTabBadges() here — stale cache may have viewed:false, causing phantom badge
       } // end hasEncryptedCache else
     }
   } catch (e) {
@@ -662,13 +668,10 @@ export async function loadCalls() {
       renderCalls(state.allCallsData);
     }
 
-    // No mobile devices found — stop syncing state first, then render empty state.
+    // No mobile devices found — show empty state instead of infinite spinner
     if (devicesList.length === 0) {
       console.info("[Calls] No mobile devices found; showing empty state");
-      isSyncingCalls = false;
-      updateCallsCountIndicator();
       renderCalls([]);
-      try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
       return;
     }
 
@@ -927,21 +930,6 @@ export function renderCalls(calls) {
         .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
         .map((s) => s.deviceId),
     );
-    const allOwnMobileDeviceIds = new Set(
-      (state.devices || [])
-        .filter(
-          (d) =>
-            (d.type === "mobile" ||
-              d.type === "phone" ||
-              d.platform === "android" ||
-              d.platform === "Android" ||
-              d.platform === "ios") &&
-            d.id,
-        )
-        .map((d) => d.id),
-    );
-    const hasAnyLinkedCallsDevice =
-      allOwnMobileDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
     // Exclude calls from devices where Calls sync is disabled
     filteredCalls = normalizedCalls.filter(
       (call) =>
@@ -949,12 +937,6 @@ export function renderCalls(calls) {
         ownCallsDeviceIds.has(call.deviceId) ||
         sharedCallsDeviceIds.has(call.deviceId),
     );
-
-    // First login/new install safety: if there are linked devices but strict
-    // ID matching yields nothing while data exists, fall back to visible data.
-    if (hasAnyLinkedCallsDevice && filteredCalls.length === 0 && normalizedCalls.length > 0) {
-      filteredCalls = normalizedCalls;
-    }
   }
 
   // Drop phantom VoIP entries that carry no phone number and no app name.
@@ -1341,11 +1323,14 @@ async function showCallHistory(groupKey) {
       const user = state.currentUser;
       if (user) {
         const batch = writeBatch(db);
+        let writes = 0;
         missedToMark.forEach((call) => {
           // Use the correct path: users/{userId}/devices/{deviceId}/calls/{callId}
           if (call.deviceId) {
             const ownerUid = resolveCallOwnerUid(call.deviceId, call.ownerUid);
-            if (!ownerUid) return;
+            // Shared-with-me calls can be read-only; keep them viewed locally
+            // and only persist server writes for calls owned by current user.
+            if (!ownerUid || ownerUid !== user.uid) return;
             const callRef = doc(
               db,
               "users",
@@ -1356,9 +1341,10 @@ async function showCallHistory(groupKey) {
               call.id,
             );
             batch.set(callRef, { viewed: true }, { merge: true });
+            writes += 1;
           }
         });
-        await batch.commit();
+        if (writes > 0) await batch.commit();
       }
     } catch (error) {
       console.error("Failed to mark calls as viewed:", error);

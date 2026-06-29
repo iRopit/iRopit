@@ -14,7 +14,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { AuthStackParamList } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { APP_VERSION } from '../../../constants';
-import { Button } from '../../../components';
+import { Button, ConfirmDialog } from '../../../components';
 import { useLoading } from '../../../hooks';
 import { styles } from './styles';
 
@@ -25,9 +25,10 @@ type LoginScreenProps = {
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [generalError, setGeneralError] = useState('');
   const { isLoading, startLoading, stopLoading } = useLoading();
-  const { colors, t, isDarkMode } = useTheme();
+  const { colors, t, isDarkMode, isRTL } = useTheme();
 
-  const { signInWithGoogle } = useAuthStore();
+  const { signInWithGoogle, accountDeletedNotice, clearAccountDeletedNotice } =
+    useAuthStore();
 
   const handleGoogleLogin = useCallback(async () => {
     setGeneralError('');
@@ -44,6 +45,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      <ConfirmDialog
+        visible={accountDeletedNotice}
+        onClose={clearAccountDeletedNotice}
+        onConfirm={clearAccountDeletedNotice}
+        title={isRTL ? 'تم' : 'Done'}
+        message={
+          isRTL
+            ? 'تم حذف الحساب بنجاح.'
+            : 'Your account has been deleted successfully.'
+        }
+        type="success"
+        confirmText="OK"
+        hideCancelButton
+        isDark={isDarkMode}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

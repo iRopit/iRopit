@@ -179,45 +179,6 @@ const UserSettingsScreen = ({ navigation }: UserSettingsScreenProps) => {
           )}
         </View>
 
-        {/* Account Section */}
-        <View style={[styles.section, { borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t('account')}
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.settingItem,
-              styles.lastSettingItem,
-              { borderColor: colors.border },
-            ]}
-            onPress={() => {
-              Alert.alert('Delete Account', 'Coming soon', [
-                { text: 'OK', style: 'cancel' },
-              ]);
-            }}
-          >
-            <Icon name="trash" size={20} color={colors.error} />
-            <View style={styles.settingContent}>
-              <Text style={[styles.settingTitle, { color: colors.error }]}>
-                {t('deleteAccount')}
-              </Text>
-              <Text
-                style={[
-                  styles.settingSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {t('permanentlyDelete')}
-              </Text>
-            </View>
-            <Icon
-              name={isRTL ? 'chevron-back' : 'chevron-forward'}
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </Container>
   );

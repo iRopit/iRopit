@@ -34,7 +34,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
   const { user } = useAuthStore();
   const { currentDevice, devices } = useDeviceStore();
   const [caption, setCaption] = useState(data.text || '');
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [selectedTarget, setSelectedTarget] = useState<string>('all');
   const [error, setError] = useState('');
 
   const isImage = data.mimeType?.startsWith('image/');
@@ -48,17 +48,17 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
     [devices, currentDevice?.id],
   );
 
-  // Keep selection aligned with available devices. Default to all selected.
+  // Keep selection aligned with available devices. Default to "All devices".
   useEffect(() => {
     if (otherDevices.length === 0) {
-      setSelectedDeviceIds([]);
+      setSelectedTarget('all');
       return;
     }
 
-    setSelectedDeviceIds(prev => {
+    setSelectedTarget(prev => {
       const allowed = new Set(otherDevices.map(d => d.id));
-      const filtered = prev.filter(id => allowed.has(id));
-      return filtered.length > 0 ? filtered : otherDevices.map(d => d.id);
+      if (prev === 'all' || allowed.has(prev)) return prev;
+      return 'all';
     });
   }, [otherDevices]);
 
@@ -72,7 +72,12 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
       return;
     }
 
-    const targetDeviceIds: string[] = selectedDeviceIds;
+    const targetDeviceIds: string[] =
+      selectedTarget === 'all'
+        ? otherDevices.map(d => d.id)
+        : selectedTarget
+          ? [selectedTarget]
+          : [];
 
     if (otherDevices.length > 0 && targetDeviceIds.length === 0) {
       setError('Select at least one device');
@@ -160,24 +165,9 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
         }
       }
     })();
-  }, [user, currentDevice, selectedDeviceIds, otherDevices.length, uris, isImage, isVideo, isText, caption, data, onClose]);
+  }, [user, currentDevice, selectedTarget, otherDevices, uris, isImage, isVideo, isText, caption, data, onClose]);
 
-  const allSelected =
-    otherDevices.length > 0 && selectedDeviceIds.length === otherDevices.length;
-
-  const toggleAllDevices = useCallback(() => {
-    setSelectedDeviceIds(prev =>
-      prev.length === otherDevices.length ? [] : otherDevices.map(d => d.id),
-    );
-  }, [otherDevices]);
-
-  const toggleDevice = useCallback((deviceId: string) => {
-    setSelectedDeviceIds(prev =>
-      prev.includes(deviceId)
-        ? prev.filter(id => id !== deviceId)
-        : [...prev, deviceId],
-    );
-  }, []);
+  const allSelected = selectedTarget === 'all';
 
   const surfaceBg = isDarkMode ? colors.surface : '#fff';
   const deviceBorder = isDarkMode ? colors.border : '#e5e7eb';
@@ -269,10 +259,10 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                     { borderColor: deviceBorder },
                     allSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
                   ]}
-                  onPress={toggleAllDevices}
+                  onPress={() => setSelectedTarget('all')}
                 >
                   <Ionicons
-                    name={allSelected ? 'checkbox' : 'square-outline'}
+                    name={allSelected ? 'radio-button-on' : 'radio-button-off'}
                     size={20}
                     color={allSelected ? colors.primary : colors.textSecondary}
                   />
@@ -282,7 +272,7 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                 </TouchableOpacity>
 
                 {otherDevices.map(device => {
-                  const isSelected = selectedDeviceIds.includes(device.id);
+                  const isSelected = selectedTarget === device.id;
                   return (
                   <TouchableOpacity
                     key={device.id}
@@ -291,10 +281,10 @@ export const ShareModal: React.FC<Props> = ({ data, onClose }) => {
                       { borderColor: deviceBorder },
                       isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
                     ]}
-                    onPress={() => toggleDevice(device.id)}
+                    onPress={() => setSelectedTarget(device.id)}
                   >
                     <Ionicons
-                      name={isSelected ? 'checkbox' : 'square-outline'}
+                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                       size={20}
                       color={isSelected ? colors.primary : colors.textSecondary}
                     />

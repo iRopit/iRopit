@@ -335,9 +335,12 @@ let visibleNotifGroupKeys = [];
 const NOTIF_MIRROR_MAX_DRIFT_MS = 2500;
 
 function normalizeNotifTsMs(notif) {
-  const raw = Number(notif?.receivedAt || notif?.timestamp || notif?.createdAt || 0);
-  if (!Number.isFinite(raw) || raw <= 0) return 0;
-  return raw < 1e12 ? raw * 1000 : raw;
+  return (
+    tsMs(notif?.receivedAt) ||
+    tsMs(notif?.timestamp) ||
+    tsMs(notif?.createdAt) ||
+    0
+  );
 }
 
 function buildNotifContentKey(notif) {
@@ -1040,8 +1043,8 @@ function getMergedNotifications() {
 
   const merged = Array.from(byKey.values());
   merged.sort((a, b) => {
-    const timeA = a.receivedAt || a.timestamp || 0;
-    const timeB = b.receivedAt || b.timestamp || 0;
+    const timeA = normalizeNotifTsMs(a);
+    const timeB = normalizeNotifTsMs(b);
     return timeB - timeA;
   });
   return merged;
@@ -1596,6 +1599,7 @@ function renderNotifications(notifications) {
   // Finalize display name per group (after scanning all items).
   Object.values(groups).forEach((g) => {
     g.appName = prettyAppName(g.appName, g.packageName || (g.items[0] && g.items[0].appName));
+    g.items.sort((a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a));
   });
 
   // Apply unread filter
@@ -1614,8 +1618,8 @@ function renderNotifications(notifications) {
     const aPinned = isNotifGroupPinned(a[0]) ? 1 : 0;
     const bPinned = isNotifGroupPinned(b[0]) ? 1 : 0;
     if (aPinned !== bPinned) return bPinned - aPinned;
-    const aTs = Number(a[1]?.items?.[0]?.receivedAt || a[1]?.items?.[0]?.timestamp || 0);
-    const bTs = Number(b[1]?.items?.[0]?.receivedAt || b[1]?.items?.[0]?.timestamp || 0);
+    const aTs = normalizeNotifTsMs(a[1]?.items?.[0]);
+    const bTs = normalizeNotifTsMs(b[1]?.items?.[0]);
     return bTs - aTs;
   });
 

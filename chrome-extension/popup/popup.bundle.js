@@ -21588,7 +21588,7 @@ ${this.customData.serverResponse}`;
   }
   function getCallsCount(deviceId) {
     const calls = allCallsData || [];
-    if (!callsDataConfirmed && calls.length === 0) return 0;
+    if (!callsDataConfirmed) return 0;
     const sharedCallsDeviceIds = new Set(
       (sharedWithMeDevices || []).filter((s) => s?.deviceId && s?.permissions?.calls !== false).map((s) => s.deviceId)
     );
@@ -23384,21 +23384,25 @@ ${this.customData.serverResponse}`;
     renderCalls(updatedCalls);
     try {
       const batch = writeBatch(db);
+      let writes = 0;
       missedToMark.forEach((call) => {
         if (call.deviceId) {
+          const ownerUid = resolveCallOwnerUid(call.deviceId, call.ownerUid);
+          if (!ownerUid || ownerUid !== user.uid) return;
           const callRef = doc(
             db,
             "users",
-            user.uid,
+            ownerUid,
             "devices",
             call.deviceId,
             "calls",
             call.id
           );
           batch.set(callRef, { viewed: true }, { merge: true });
+          writes += 1;
         }
       });
-      await batch.commit();
+      if (writes > 0) await batch.commit();
     } catch (error) {
       console.error("Failed to mark calls as viewed:", error);
     }
@@ -23585,7 +23589,7 @@ ${this.customData.serverResponse}`;
           const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
           setAllCallsData(sanitizedCachedCalls);
           suppressCallsSyncIndicator = true;
-          setCallsDataConfirmed(false);
+          setCallsDataConfirmed(true);
           renderCalls(sanitizedCachedCalls);
         }
       }
@@ -23628,13 +23632,7 @@ ${this.customData.serverResponse}`;
       }
       if (devicesList2.length === 0) {
         console.info("[Calls] No mobile devices found; showing empty state");
-        isSyncingCalls = false;
-        updateCallsCountIndicator();
         renderCalls([]);
-        try {
-          window.dispatchEvent(new CustomEvent("iropit:calls-sync-done"));
-        } catch (_) {
-        }
         return;
       }
       const loadPromises = devicesList2.map(async (device) => {
@@ -23819,18 +23817,9 @@ ${this.customData.serverResponse}`;
       const sharedCallsDeviceIds = new Set(
         (sharedWithMeDevices || []).filter((s) => s?.deviceId && s?.permissions?.calls !== false).map((s) => s.deviceId)
       );
-      const allOwnMobileDeviceIds = new Set(
-        (devices || []).filter(
-          (d) => (d.type === "mobile" || d.type === "phone" || d.platform === "android" || d.platform === "Android" || d.platform === "ios") && d.id
-        ).map((d) => d.id)
-      );
-      const hasAnyLinkedCallsDevice = allOwnMobileDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
       filteredCalls = normalizedCalls.filter(
         (call) => !call.deviceId || ownCallsDeviceIds.has(call.deviceId) || sharedCallsDeviceIds.has(call.deviceId)
       );
-      if (hasAnyLinkedCallsDevice && filteredCalls.length === 0 && normalizedCalls.length > 0) {
-        filteredCalls = normalizedCalls;
-      }
     }
     filteredCalls = filteredCalls.filter((call) => {
       const phone = (call.phoneNumber || "").trim();
@@ -24139,10 +24128,11 @@ ${this.customData.serverResponse}`;
         const user = currentUser;
         if (user) {
           const batch = writeBatch(db);
+          let writes = 0;
           missedToMark.forEach((call) => {
             if (call.deviceId) {
               const ownerUid = resolveCallOwnerUid(call.deviceId, call.ownerUid);
-              if (!ownerUid) return;
+              if (!ownerUid || ownerUid !== user.uid) return;
               const callRef = doc(
                 db,
                 "users",
@@ -24153,9 +24143,10 @@ ${this.customData.serverResponse}`;
                 call.id
               );
               batch.set(callRef, { viewed: true }, { merge: true });
+              writes += 1;
             }
           });
-          await batch.commit();
+          if (writes > 0) await batch.commit();
         }
       } catch (error) {
         console.error("Failed to mark calls as viewed:", error);
@@ -28123,9 +28114,7 @@ ${this.customData.serverResponse}`;
     }
   }
   function normalizeNotifTsMs2(notif) {
-    const raw = Number(notif?.receivedAt || notif?.timestamp || notif?.createdAt || 0);
-    if (!Number.isFinite(raw) || raw <= 0) return 0;
-    return raw < 1e12 ? raw * 1e3 : raw;
+    return tsMs(notif?.receivedAt) || tsMs(notif?.timestamp) || tsMs(notif?.createdAt) || 0;
   }
   function buildNotifContentKey2(notif) {
     if (!notif) return null;
@@ -28648,8 +28637,8 @@ ${this.customData.serverResponse}`;
     });
     const merged = Array.from(byKey.values());
     merged.sort((a, b) => {
-      const timeA = a.receivedAt || a.timestamp || 0;
-      const timeB = b.receivedAt || b.timestamp || 0;
+      const timeA = normalizeNotifTsMs2(a);
+      const timeB = normalizeNotifTsMs2(b);
       return timeB - timeA;
     });
     return merged;
@@ -29103,6 +29092,7 @@ ${this.customData.serverResponse}`;
     });
     Object.values(groups).forEach((g) => {
       g.appName = prettyAppName(g.appName, g.packageName || g.items[0] && g.items[0].appName);
+      g.items.sort((a, b) => normalizeNotifTsMs2(b) - normalizeNotifTsMs2(a));
     });
     let groupEntries = Object.entries(groups);
     if (document.getElementById("notifShowUnread")?.checked) {
@@ -29118,8 +29108,8 @@ ${this.customData.serverResponse}`;
       const aPinned = isNotifGroupPinned(a[0]) ? 1 : 0;
       const bPinned = isNotifGroupPinned(b[0]) ? 1 : 0;
       if (aPinned !== bPinned) return bPinned - aPinned;
-      const aTs = Number(a[1]?.items?.[0]?.receivedAt || a[1]?.items?.[0]?.timestamp || 0);
-      const bTs = Number(b[1]?.items?.[0]?.receivedAt || b[1]?.items?.[0]?.timestamp || 0);
+      const aTs = normalizeNotifTsMs2(a[1]?.items?.[0]);
+      const bTs = normalizeNotifTsMs2(b[1]?.items?.[0]);
       return bTs - aTs;
     });
     if (groupEntries.length === 0) {
@@ -32760,6 +32750,46 @@ ${this.customData.serverResponse}`;
   init_toasts();
   init_state();
   var isInitialAuthCheckDone = false;
+  var stopAccountDocWatcher = null;
+  function teardownAccountDocWatcher() {
+    if (typeof stopAccountDocWatcher === "function") {
+      try {
+        stopAccountDocWatcher();
+      } catch (_) {
+      }
+      stopAccountDocWatcher = null;
+    }
+  }
+  async function forceSignOutForDeletedAccount() {
+    teardownAccountDocWatcher();
+    try {
+      await signOut(auth);
+    } catch (_) {
+    }
+  }
+  function setupAccountDocWatcher(user) {
+    teardownAccountDocWatcher();
+    if (!user?.uid) return;
+    const userRef = doc(db, "users", user.uid);
+    stopAccountDocWatcher = onSnapshot(
+      userRef,
+      async (snap) => {
+        if (!snap.exists()) {
+          authLogger.info("User profile missing; forcing sign-out");
+          await forceSignOutForDeletedAccount();
+        }
+      },
+      async (error) => {
+        if (error?.code === "permission-denied") {
+          authLogger.warn(
+            "Profile watch permission denied; forcing sign-out",
+            error?.message || ""
+          );
+          await forceSignOutForDeletedAccount();
+        }
+      }
+    );
+  }
   function isOAuthUserCancelMessage(message) {
     const text = String(message || "").toLowerCase();
     return text.includes("did not approve access") || text.includes("access_denied") || text.includes("user_denied") || text.includes("cancel");
@@ -33012,6 +33042,7 @@ ${this.customData.serverResponse}`;
   }
   async function handleLogout() {
     try {
+      teardownAccountDocWatcher();
       chrome.identity.getAuthToken({ interactive: false }, (token) => {
         const err = chrome.runtime.lastError;
         if (err) return;
@@ -33034,6 +33065,7 @@ ${this.customData.serverResponse}`;
       if (user) {
         setCurrentUser(user);
         showMainUI();
+        setupAccountDocWatcher(user);
         try {
           chrome.runtime.sendMessage({ type: "userLoggedIn", userId: user.uid }).catch(() => {
           });
@@ -33041,6 +33073,7 @@ ${this.customData.serverResponse}`;
         }
         if (onLogin) await onLogin(user);
       } else {
+        teardownAccountDocWatcher();
         setCurrentUser(null);
         showAuthUI();
         if (onLogout) onLogout();
@@ -35600,6 +35633,7 @@ ${this.customData.serverResponse}`;
             setCallsByDevice(deviceId, calls);
           }
         }
+        setCallsDataConfirmed(true);
         setAllCallsData(callsCache.allCalls);
         renderCalls(callsCache.allCalls.slice(0, 100));
       }
@@ -35621,6 +35655,7 @@ ${this.customData.serverResponse}`;
     hydrateCachedContactsMap().catch(() => {
     });
     loadSMS(options.smsOptions || {});
+    loadCallsIfNeeded(true);
     loadDevices();
     loadDevicesAndContacts();
     loadUserSettings();
@@ -35628,7 +35663,6 @@ ${this.customData.serverResponse}`;
     drainPendingChatPushes().catch(() => {
     });
     const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
-    if (activeTab === "calls") loadCallsIfNeeded(true);
     if (activeTab === "notifications") loadNotificationsIfNeeded(true);
   }
   function cleanupSubscriptions() {

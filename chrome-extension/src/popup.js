@@ -314,6 +314,7 @@ async function showCachedDataBeforeAuth() {
           state.setCallsByDevice(deviceId, calls);
         }
       }
+      state.setCallsDataConfirmed(true);
       state.setAllCallsData(callsCache.allCalls);
       renderCalls(callsCache.allCalls.slice(0, 100));
     }
@@ -347,6 +348,10 @@ function loadData(options = {}) {
   // Prioritize SMS on startup so first-install history loads before lower-priority tabs.
   loadSMS(options.smsOptions || {});
 
+  // Preload calls on startup so call history and missed-call badges are ready
+  // before the user opens the Calls tab.
+  loadCallsIfNeeded(true);
+
   // Load devices first, then contacts (contacts need devices to be loaded)
   loadDevices();
   loadDevicesAndContacts();
@@ -355,9 +360,8 @@ function loadData(options = {}) {
   subscribeToChat();
   drainPendingChatPushes().catch(() => {});
 
-  // If user refreshes while already inside Calls/Notifications, refresh that tab too.
+  // If user refreshes while already inside Notifications, refresh that tab too.
   const activeTab = document.querySelector(".tab.active")?.dataset?.tab;
-  if (activeTab === "calls") loadCallsIfNeeded(true);
   if (activeTab === "notifications") loadNotificationsIfNeeded(true);
 }
 

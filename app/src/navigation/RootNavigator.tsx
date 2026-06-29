@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Alert, Linking } from 'react-native';
+import {
+  Linking,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAuthStore } from '../store/authStore';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -27,13 +35,15 @@ const isFileShare = (data: SharedData) =>
 
 const RootNavigator = () => {
   const { isAuthenticated, isLoading } = useAuthStore();
-  const { isRTL } = useTheme();
+  const { isRTL, colors } = useTheme();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<
     boolean | null
   >(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [shareData, setShareData] = useState<SharedData | null>(null);
   const [extensionPromptChecked, setExtensionPromptChecked] = useState(false);
+  const [showExtensionPromptModal, setShowExtensionPromptModal] =
+    useState(false);
 
   // Subscribe to pendingShare so the effect below re-runs when it changes.
   // Without this subscription, the effect only ran when auth/onboarding state
@@ -119,37 +129,7 @@ const RootNavigator = () => {
         }
 
         setExtensionPromptChecked(true);
-
-        Alert.alert(
-          isRTL ? 'أكمل إعداد iRopit' : 'Complete iRopit Setup',
-          isRTL
-            ? `لإكمال التثبيت والاستفادة من كل الميزات، ثبّت إضافة Chrome على اللابتوب من الرابط التالي:\n\n${CHROME_EXTENSION_URL}`
-            : `To complete installation and unlock all features, install the Chrome Extension on your laptop using this URL:\n\n${CHROME_EXTENSION_URL}`,
-          [
-            {
-              text: isRTL ? 'لاحقاً' : 'Later',
-              onPress: () => {
-                AsyncStorage.setItem(CHROME_EXTENSION_PROMPT_KEY, '1').catch(
-                  () => {},
-                );
-              },
-            },
-            {
-              text: isRTL ? 'فتح الرابط' : 'Open Link',
-              onPress: async () => {
-                try {
-                  await Linking.openURL(CHROME_EXTENSION_URL);
-                } catch (_) {
-                  // Ignore openURL failures and still mark as shown once.
-                }
-                AsyncStorage.setItem(CHROME_EXTENSION_PROMPT_KEY, '1').catch(
-                  () => {},
-                );
-              },
-            },
-          ],
-          { cancelable: false },
-        );
+        setShowExtensionPromptModal(true);
       } catch (_) {
         setExtensionPromptChecked(true);
       }
@@ -177,6 +157,25 @@ const RootNavigator = () => {
     // the app entirely, making the share sheet open the app again as a cold launch.
     // Instead, do nothing — the user stays in the app.
   }, []);
+
+  const markExtensionPromptSeen = useCallback(() => {
+    AsyncStorage.setItem(CHROME_EXTENSION_PROMPT_KEY, '1').catch(() => {});
+  }, []);
+
+  const closeExtensionPrompt = useCallback(() => {
+    markExtensionPromptSeen();
+    setShowExtensionPromptModal(false);
+  }, [markExtensionPromptSeen]);
+
+  const handleOpenExtensionLink = useCallback(async () => {
+    try {
+      await Linking.openURL(CHROME_EXTENSION_URL);
+    } catch (_) {
+      // Ignore openURL failures and still mark as shown once.
+    }
+    markExtensionPromptSeen();
+    setShowExtensionPromptModal(false);
+  }, [markExtensionPromptSeen]);
 
   if (isLoading || checkingOnboarding) {
     return <LoadingScreen />;
@@ -214,8 +213,116 @@ const RootNavigator = () => {
       </Stack.Navigator>
 
       {shareData && <ShareModal data={shareData} onClose={handleShareClose} />}
+
+      <Modal
+        visible={showExtensionPromptModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeExtensionPrompt}
+      >
+        <View style={styles.shareOverlay}>
+          <View style={[styles.shareModalCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.shareModalHeader}>
+              <Text style={[styles.shareModalTitle, { color: colors.text }]}> 
+                {isRTL ? 'أكمل إعداد iRopit' : 'Complete iRopit Setup'}
+              </Text>
+              <TouchableOpacity onPress={closeExtensionPrompt}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareModalBody}>
+              <Text style={[styles.shareDescription, { color: colors.textSecondary }]}> 
+                {isRTL
+                  ? 'لإكمال التثبيت والاستفادة من كل الميزات، ثبّت إضافة Chrome على اللابتوب من الرابط التالي:'
+                  : 'To complete installation and unlock all features, install the Chrome Extension on your laptop using this URL:'}
+              </Text>
+              <Text style={[styles.shareHint, { color: colors.text }]}> 
+                {CHROME_EXTENSION_URL}
+              </Text>
+            </View>
+
+            <View style={styles.shareFooter}>
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={closeExtensionPrompt}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: colors.text }]}> 
+                  {isRTL ? 'لاحقاً' : 'Later'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareFooterBtn, { backgroundColor: '#D9C4A1' }]}
+                onPress={handleOpenExtensionLink}
+              >
+                <Text style={[styles.shareFooterBtnText, { color: '#111111' }]}> 
+                  {isRTL ? 'فتح الرابط' : 'Open Link'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  shareOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  shareModalCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  shareModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  shareModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    flex: 1,
+    marginRight: 12,
+  },
+  shareModalBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  shareDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  shareHint: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
+  shareFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  shareFooterBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareFooterBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+});
 
 export default RootNavigator;

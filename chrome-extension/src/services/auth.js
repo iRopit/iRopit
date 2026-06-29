@@ -16,6 +16,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  onSnapshot,
 } from "../config/firebase.js";
 
 import { parseAuthError, logError } from "../utils/errors.js";
@@ -49,6 +50,48 @@ import * as state from "../state/index.js";
 
 // Track if initial auth check is done
 let isInitialAuthCheckDone = false;
+let stopAccountDocWatcher = null;
+
+function teardownAccountDocWatcher() {
+  if (typeof stopAccountDocWatcher === "function") {
+    try {
+      stopAccountDocWatcher();
+    } catch (_) {}
+    stopAccountDocWatcher = null;
+  }
+}
+
+async function forceSignOutForDeletedAccount() {
+  teardownAccountDocWatcher();
+  try {
+    await signOut(auth);
+  } catch (_) {}
+}
+
+function setupAccountDocWatcher(user) {
+  teardownAccountDocWatcher();
+  if (!user?.uid) return;
+
+  const userRef = doc(db, "users", user.uid);
+  stopAccountDocWatcher = onSnapshot(
+    userRef,
+    async (snap) => {
+      if (!snap.exists()) {
+        logger.info("User profile missing; forcing sign-out");
+        await forceSignOutForDeletedAccount();
+      }
+    },
+    async (error) => {
+      if (error?.code === "permission-denied") {
+        logger.warn(
+          "Profile watch permission denied; forcing sign-out",
+          error?.message || "",
+        );
+        await forceSignOutForDeletedAccount();
+      }
+    },
+  );
+}
 
 function isOAuthUserCancelMessage(message) {
   const text = String(message || "").toLowerCase();
@@ -413,6 +456,8 @@ async function handleGoogleSignIn() {
  */
 async function handleLogout() {
   try {
+    teardownAccountDocWatcher();
+
     // Revoke Google token
     chrome.identity.getAuthToken({ interactive: false }, (token) => {
       // Access runtime.lastError to prevent unchecked callback errors when no grant exists.
@@ -463,6 +508,7 @@ export function initAuthObserver(onLogin, onLogout) {
     if (user) {
       state.setCurrentUser(user);
       showMainUI();
+      setupAccountDocWatcher(user);
 
       try {
         chrome.runtime
@@ -472,6 +518,7 @@ export function initAuthObserver(onLogin, onLogout) {
 
       if (onLogin) await onLogin(user);
     } else {
+      teardownAccountDocWatcher();
       state.setCurrentUser(null);
       showAuthUI();
       if (onLogout) onLogout();

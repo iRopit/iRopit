@@ -214,6 +214,18 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  deleteWarningWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  deleteWarningText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
 });
 
 export const styles = createStyles(require('../../../theme/colors').LIGHT_COLORS);

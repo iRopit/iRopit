@@ -1,5 +1,8 @@
-﻿import { StyleSheet } from 'react-native';
+﻿import { StyleSheet, Platform, StatusBar } from 'react-native';
 import { ColorTheme } from '../../../theme/colors';
+
+const STATUS_BAR_OFFSET =
+  Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 6 : 12;
 
 export const createStyles = (colors: ColorTheme) => StyleSheet.create({
   container: {
@@ -9,7 +12,7 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingTop: 4,
+    paddingTop: STATUS_BAR_OFFSET,
   },
   backButton: {
     padding: 8,

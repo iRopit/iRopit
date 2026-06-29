@@ -5408,6 +5408,9 @@ async function signInWithCredential(auth2, credential) {
 function onAuthStateChanged(auth2, nextOrObserver, error, completed) {
   return getModularInstance(auth2).onAuthStateChanged(nextOrObserver, error, completed);
 }
+function signOut(auth2) {
+  return getModularInstance(auth2).signOut();
+}
 function startEnrollTotpMfa(auth2, request) {
   return _performApiRequest(auth2, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth2, request));
 }
@@ -18866,6 +18869,8 @@ var SMS_CACHE_CAP = 1e4;
 var CALLS_CACHE_CAP = 2e3;
 var isStartingListeners = false;
 var activeListenersUserUid = null;
+var unsubscribeUserProfile = null;
+var isForcedSignOutInProgress = false;
 var lastNotificationTimestamp = Date.now() - 5 * 60 * 1e3;
 var unsubscribeNotifications = [];
 var seenNotifications = /* @__PURE__ */ new Set();
@@ -18955,6 +18960,7 @@ onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
+    watchCurrentUserProfile(user.uid);
     await loadDeviceId();
     await loadLocallyReadNotificationIds();
     console.log("ZyncIT: Starting listeners for user:", user.uid);
@@ -18963,6 +18969,7 @@ onAuthStateChanged(auth, async (user) => {
     });
     refreshPopupCache();
   } else {
+    stopWatchingUserProfile();
     currentUser = null;
     currentDeviceId = null;
     console.log("ZyncIT: User logged out, stopping listeners");
@@ -18973,6 +18980,45 @@ onAuthStateChanged(auth, async (user) => {
     setBadgeCount(0);
   }
 });
+function stopWatchingUserProfile() {
+  if (typeof unsubscribeUserProfile === "function") {
+    try {
+      unsubscribeUserProfile();
+    } catch (_) {
+    }
+    unsubscribeUserProfile = null;
+  }
+}
+async function forceSignOutAfterAccountRemoval(reason) {
+  if (isForcedSignOutInProgress) return;
+  isForcedSignOutInProgress = true;
+  try {
+    console.log("ZyncIT: Forcing sign-out:", reason);
+    await signOut(auth);
+  } catch (error) {
+    console.warn("ZyncIT: Forced sign-out warning:", error?.message || error);
+  } finally {
+    isForcedSignOutInProgress = false;
+  }
+}
+function watchCurrentUserProfile(uid) {
+  stopWatchingUserProfile();
+  if (!uid) return;
+  const userRef = doc(db, "users", uid);
+  unsubscribeUserProfile = onSnapshot(
+    userRef,
+    async (snap) => {
+      if (!snap.exists()) {
+        await forceSignOutAfterAccountRemoval("users-doc-missing");
+      }
+    },
+    async (error) => {
+      if (error?.code === "permission-denied") {
+        await forceSignOutAfterAccountRemoval("users-doc-permission-denied");
+      }
+    }
+  );
+}
 async function loadLocallyReadNotificationIds() {
   try {
     const result = await chrome.storage.local.get(["cached_notifications_data"]);

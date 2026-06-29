@@ -19,6 +19,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  accountDeletedNotice: boolean;
 
   // Actions
   initialize: () => void;
@@ -31,6 +32,8 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  clearAccountDeletedNotice: () => void;
   clearError: () => void;
 }
 
@@ -45,6 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   error: null,
+  accountDeletedNotice: false,
 
   initialize: () => {
     const unsubscribe = auth().onAuthStateChanged(async firebaseUser => {
@@ -278,9 +282,98 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  deleteAccount: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        throw new AppError(
+          ErrorCode.AUTH_USER_NOT_FOUND,
+          'No authenticated user found',
+        );
+      }
+
+      const uid = currentUser.uid;
+
+      const deleteByQuery = async (
+        ref: any,
+        field: string,
+        value: string,
+      ) => {
+        const snap = await ref.where(field, '==', value).get();
+        if (snap.empty) return;
+
+        const batch = firestore().batch();
+        snap.docs.forEach((d: any) => batch.delete(d.ref));
+        await batch.commit();
+      };
+
+      // Revoke all device sharing links so recipients immediately lose access.
+      // Owner side: shares/requests created by this user.
+      await deleteByQuery(firestore().collection('deviceShares'), 'ownerUid', uid).catch(() => {});
+      await deleteByQuery(firestore().collection('deviceShareRequests'), 'ownerUid', uid).catch(() => {});
+      await deleteByQuery(firestore().collection('deviceShareIndex'), 'ownerUid', uid).catch(() => {});
+
+      // Recipient side: shares/requests where this user is the recipient.
+      await deleteByQuery(firestore().collection('deviceShares'), 'sharedWithUid', uid).catch(() => {});
+      await deleteByQuery(firestore().collection('deviceShareRequests'), 'sharedWithUid', uid).catch(() => {});
+      await deleteByQuery(firestore().collection('deviceShareIndex'), 'sharedWithUid', uid).catch(() => {});
+
+      // Best-effort cleanup of profile document before deleting auth user.
+      await firestore().collection(COLLECTIONS.USERS).doc(uid).delete().catch(() => {});
+
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignore if user is not signed in with Google.
+      }
+
+      try {
+        await NativeCredentialsService.clearCredentials();
+      } catch (e) {
+        // Ignore native credential cleanup errors.
+      }
+
+      await currentUser.delete();
+
+      // Clear app stores to avoid stale cached data after deletion.
+      try {
+        const { useSMSStore } = require('./smsStore');
+        const { useDeviceStore } = require('./deviceStore');
+        const { useChatStore } = require('./chatStore');
+        const { useCallStore } = require('./callStore');
+        const { useNotificationStore } = require('./notificationStore');
+
+        useSMSStore.getState().cleanup();
+        useDeviceStore.getState().cleanup();
+        useChatStore.getState().cleanup();
+        useCallStore.getState().cleanup();
+        useNotificationStore.getState().cleanup();
+      } catch (e) {
+        // Ignore cleanup errors.
+      }
+
+      set({
+        user: null,
+        firebaseUser: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+        accountDeletedNotice: true,
+      });
+    } catch (error: any) {
+      const appError = parseFirebaseAuthError(error);
+      logError(appError, 'deleteAccount');
+      set({ error: appError.getLocalizedMessage('en'), isLoading: false });
+      throw appError;
+    }
+  },
+
   resetPassword: async (email: string) => {
     await auth().sendPasswordResetEmail(email);
   },
+
+  clearAccountDeletedNotice: () => set({ accountDeletedNotice: false }),
 
   clearError: () => set({ error: null }),
 }))
