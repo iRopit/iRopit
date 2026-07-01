@@ -19001,6 +19001,20 @@ async function forceSignOutAfterAccountRemoval(reason) {
     isForcedSignOutInProgress = false;
   }
 }
+async function verifyThenForceSignOut(userRef, uid, reason) {
+  await new Promise((r) => setTimeout(r, 6e3));
+  if (isForcedSignOutInProgress) return;
+  if (!currentUser || currentUser.uid !== uid) return;
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists()) return;
+    await forceSignOutAfterAccountRemoval(`${reason}:verified-missing`);
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      await forceSignOutAfterAccountRemoval(`${reason}:verified-denied`);
+    }
+  }
+}
 function watchCurrentUserProfile(uid) {
   stopWatchingUserProfile();
   if (!uid) return;
@@ -19009,12 +19023,12 @@ function watchCurrentUserProfile(uid) {
     userRef,
     async (snap) => {
       if (!snap.exists()) {
-        await forceSignOutAfterAccountRemoval("users-doc-missing");
+        verifyThenForceSignOut(userRef, uid, "users-doc-missing");
       }
     },
     async (error) => {
       if (error?.code === "permission-denied") {
-        await forceSignOutAfterAccountRemoval("users-doc-permission-denied");
+        verifyThenForceSignOut(userRef, uid, "users-doc-permission-denied");
       }
     }
   );

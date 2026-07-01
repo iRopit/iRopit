@@ -206,6 +206,29 @@ async function forceSignOutAfterAccountRemoval(reason) {
   }
 }
 
+// A single permission-denied / not-exists snapshot on the user profile is often
+// TRANSIENT (auth-token race right after an update, service-worker restart, or
+// token refresh). Forcing an immediate sign-out on it tears down all listeners
+// and makes the popup reload SMS/Calls from scratch on re-login. Instead, wait a
+// few seconds for the token race to settle, then re-verify against the SERVER.
+// Only sign out if the profile is genuinely gone / access is genuinely revoked.
+async function verifyThenForceSignOut(userRef, uid, reason) {
+  await new Promise((r) => setTimeout(r, 6000));
+  if (isForcedSignOutInProgress) return;
+  // User already changed / logged out while we waited — nothing to do.
+  if (!currentUser || currentUser.uid !== uid) return;
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists()) return; // false alarm — profile readable, keep session
+    await forceSignOutAfterAccountRemoval(`${reason}:verified-missing`);
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      await forceSignOutAfterAccountRemoval(`${reason}:verified-denied`);
+    }
+    // Any other error (unavailable/network) → keep the session, do NOT sign out.
+  }
+}
+
 function watchCurrentUserProfile(uid) {
   stopWatchingUserProfile();
   if (!uid) return;
@@ -215,12 +238,12 @@ function watchCurrentUserProfile(uid) {
     userRef,
     async (snap) => {
       if (!snap.exists()) {
-        await forceSignOutAfterAccountRemoval("users-doc-missing");
+        verifyThenForceSignOut(userRef, uid, "users-doc-missing");
       }
     },
     async (error) => {
       if (error?.code === "permission-denied") {
-        await forceSignOutAfterAccountRemoval("users-doc-permission-denied");
+        verifyThenForceSignOut(userRef, uid, "users-doc-permission-denied");
       }
     },
   );

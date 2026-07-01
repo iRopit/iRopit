@@ -486,6 +486,10 @@ const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+bee
 // Arabic monthly card-statement / account-summary notifications.
 // Contain informational fields like minimum-due and last-payment-received — NOT individual transactions.
 const CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
+// English monthly card mini-statement / payment-due reminders.
+// Example fields: "Card Starting", "Statement Date", "Minimum Amount Due",
+// "Amount to be paid to avoid charges", "Due Date".
+const CARD_STATEMENT_RE_EN = /\b(?:credit\s*card\s*)?(?:mini\s*statement|statement\s*date|minimum\s*amount\s*due|amount\s*to\s*be\s*paid\s*to\s*avoid\s*charges|due\s*date|card\s*starting)\b/i;
 // Merchant/utility payment confirmation — "payment of AED X against A/C YYYY"
 // These duplicate the bank debit SMS for the same transaction and must not be double-counted.
 const MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
@@ -545,6 +549,8 @@ function extractTransactions(body) {
   if (CARD_BILL_PAYMENT_RE.test(body)) return [];
   // Skip Arabic card-statement / account-summary SMSes (كشف حساب, الحد الأدنى للدفع, etc.)
   if (CARD_STATEMENT_RE_AR.test(body)) return [];
+  // Skip English card mini-statement / due reminders.
+  if (CARD_STATEMENT_RE_EN.test(body)) return [];
   // Skip merchant/utility payment confirmations ("against A/C") — bank SMS already covers this debit
   if (MERCHANT_CONFIRM_RE.test(body)) return [];
   // Skip telecom bundle / roaming subscription instructions — not financial transactions

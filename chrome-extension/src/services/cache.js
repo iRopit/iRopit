@@ -52,6 +52,30 @@ function stripNonSerializable(items) {
  */
 let smsCacheWriteTimer = null;
 let smsCachePending = null;
+
+/**
+ * Guard: never overwrite an already-populated cache with an EMPTY payload.
+ * A transient sign-out / permission race can momentarily empty in-memory state;
+ * persisting that would make history "disappear" and reload from scratch on the
+ * next open. Returns true when the write should be SKIPPED.
+ */
+async function wouldClobberWithEmpty(cacheKey, incomingCount) {
+  if (incomingCount > 0) return false;
+  try {
+    const existing = await chrome.storage.local.get([cacheKey]);
+    const data = existing[cacheKey];
+    const existingCount =
+      (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
+    if (existingCount > 0) {
+      console.warn(
+        `[Cache] Skipped empty write to ${cacheKey} — existing cache has ${existingCount} items`,
+      );
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 export async function cacheSMSData(smsByDevice, allMessages) {
   // Capture latest call's payload; the timer flushes the most recent one.
   smsCachePending = { smsByDevice, allMessages };
@@ -61,6 +85,7 @@ export async function cacheSMSData(smsByDevice, allMessages) {
     const payload = smsCachePending;
     smsCachePending = null;
     if (!payload) return;
+    if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
     try {
       const cacheData = {
         byDevice: {},
@@ -93,6 +118,7 @@ export async function flushSMSCache() {
   const payload = smsCachePending;
   smsCachePending = null;
   if (!payload) return;
+  if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
   try {
     const cacheData = {
       byDevice: {},
@@ -118,6 +144,7 @@ export async function flushSMSCache() {
  */
 export async function cacheCallsData(callsByDevice, allCalls) {
   try {
+    if (await wouldClobberWithEmpty(CACHE_KEYS.CALLS, allCalls?.length || 0)) return;
     const cacheData = {
       byDevice: {},
       allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP),

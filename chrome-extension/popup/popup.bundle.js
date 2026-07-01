@@ -22825,6 +22825,22 @@ ${this.customData.serverResponse}`;
       return rest;
     });
   }
+  async function wouldClobberWithEmpty(cacheKey, incomingCount) {
+    if (incomingCount > 0) return false;
+    try {
+      const existing = await chrome.storage.local.get([cacheKey]);
+      const data = existing[cacheKey];
+      const existingCount = (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
+      if (existingCount > 0) {
+        console.warn(
+          `[Cache] Skipped empty write to ${cacheKey} \u2014 existing cache has ${existingCount} items`
+        );
+        return true;
+      }
+    } catch (_) {
+    }
+    return false;
+  }
   async function cacheSMSData(smsByDevice, allMessages) {
     smsCachePending = { smsByDevice, allMessages };
     if (smsCacheWriteTimer) clearTimeout(smsCacheWriteTimer);
@@ -22833,6 +22849,7 @@ ${this.customData.serverResponse}`;
       const payload = smsCachePending;
       smsCachePending = null;
       if (!payload) return;
+      if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
       try {
         const cacheData = {
           byDevice: {},
@@ -22859,6 +22876,7 @@ ${this.customData.serverResponse}`;
     const payload = smsCachePending;
     smsCachePending = null;
     if (!payload) return;
+    if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
     try {
       const cacheData = {
         byDevice: {},
@@ -22878,6 +22896,7 @@ ${this.customData.serverResponse}`;
   }
   async function cacheCallsData(callsByDevice, allCalls) {
     try {
+      if (await wouldClobberWithEmpty(CACHE_KEYS.CALLS, allCalls?.length || 0)) return;
       const cacheData = {
         byDevice: {},
         allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP)
@@ -32225,6 +32244,7 @@ ${this.customData.serverResponse}`;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
   var CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
+  var CARD_STATEMENT_RE_EN = /\b(?:credit\s*card\s*)?(?:mini\s*statement|statement\s*date|minimum\s*amount\s*due|amount\s*to\s*be\s*paid\s*to\s*avoid\s*charges|due\s*date|card\s*starting)\b/i;
   var MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
@@ -32245,6 +32265,7 @@ ${this.customData.serverResponse}`;
     if (!body || typeof body !== "string") return [];
     if (CARD_BILL_PAYMENT_RE.test(body)) return [];
     if (CARD_STATEMENT_RE_AR.test(body)) return [];
+    if (CARD_STATEMENT_RE_EN.test(body)) return [];
     if (MERCHANT_CONFIRM_RE.test(body)) return [];
     if (TELECOM_SERVICE_RE.test(body)) return [];
     const masked = body.replace(RATE_MASK_RE, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length));
@@ -32800,6 +32821,7 @@ ${this.customData.serverResponse}`;
   init_state();
   var isInitialAuthCheckDone = false;
   var stopAccountDocWatcher = null;
+  var explicitSignOutInProgress = false;
   function teardownAccountDocWatcher() {
     if (typeof stopAccountDocWatcher === "function") {
       try {
@@ -32811,9 +32833,23 @@ ${this.customData.serverResponse}`;
   }
   async function forceSignOutForDeletedAccount() {
     teardownAccountDocWatcher();
+    explicitSignOutInProgress = true;
     try {
       await signOut(auth);
     } catch (_) {
+    }
+  }
+  async function verifyThenForceSignOut(userRef, uid) {
+    await new Promise((r) => setTimeout(r, 6e3));
+    if (!currentUser || currentUser.uid !== uid) return;
+    try {
+      const snap = await getDoc(userRef);
+      if (snap.exists()) return;
+      await forceSignOutForDeletedAccount();
+    } catch (error) {
+      if (error?.code === "permission-denied") {
+        await forceSignOutForDeletedAccount();
+      }
     }
   }
   function setupAccountDocWatcher(user) {
@@ -32824,17 +32860,17 @@ ${this.customData.serverResponse}`;
       userRef,
       async (snap) => {
         if (!snap.exists()) {
-          authLogger.info("User profile missing; forcing sign-out");
-          await forceSignOutForDeletedAccount();
+          authLogger.info("User profile missing; verifying before sign-out");
+          verifyThenForceSignOut(userRef, user.uid);
         }
       },
       async (error) => {
         if (error?.code === "permission-denied") {
           authLogger.warn(
-            "Profile watch permission denied; forcing sign-out",
+            "Profile watch permission denied; verifying before sign-out",
             error?.message || ""
           );
-          await forceSignOutForDeletedAccount();
+          verifyThenForceSignOut(userRef, user.uid);
         }
       }
     );
@@ -33092,6 +33128,7 @@ ${this.customData.serverResponse}`;
   async function handleLogout() {
     try {
       teardownAccountDocWatcher();
+      explicitSignOutInProgress = true;
       chrome.identity.getAuthToken({ interactive: false }, (token) => {
         const err = chrome.runtime.lastError;
         if (err) return;
@@ -33125,7 +33162,9 @@ ${this.customData.serverResponse}`;
         teardownAccountDocWatcher();
         setCurrentUser(null);
         showAuthUI();
-        if (onLogout) onLogout();
+        const wasExplicit = explicitSignOutInProgress;
+        explicitSignOutInProgress = false;
+        if (onLogout) onLogout({ explicit: wasExplicit });
       }
     });
   }
@@ -35863,12 +35902,11 @@ ${this.customData.serverResponse}`;
         }
       },
       // On logout
-      () => {
-        const shouldClearCache = hadAuthenticatedSession;
+      (info) => {
         hadAuthenticatedSession = false;
         cleanupSubscriptions();
         resetState();
-        if (shouldClearCache) clearCache();
+        if (info?.explicit === true) clearCache();
       }
     );
     markAllReadBtn?.addEventListener("click", markAllSmsAsRead);

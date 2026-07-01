@@ -52,6 +52,22 @@ import * as state from "../state/index.js";
 let isInitialAuthCheckDone = false;
 let stopAccountDocWatcher = null;
 
+// True only while an EXPLICIT sign-out is in progress (user pressed logout, or
+// the account was deleted/revoked). Transient auth-null events (token refresh,
+// MV3 service-worker restarts, network blips) must NOT be treated as explicit
+// sign-outs, otherwise the cached SMS/Calls get wiped and reload from scratch.
+let explicitSignOutInProgress = false;
+
+/**
+ * Whether the most recent logout was an explicit, user-initiated (or forced
+ * account-removal) sign-out. Consumed by the auth observer's logout handler to
+ * decide whether the local cache should be cleared.
+ * @returns {boolean}
+ */
+export function isExplicitSignOut() {
+  return explicitSignOutInProgress;
+}
+
 function teardownAccountDocWatcher() {
   if (typeof stopAccountDocWatcher === "function") {
     try {
@@ -63,9 +79,32 @@ function teardownAccountDocWatcher() {
 
 async function forceSignOutForDeletedAccount() {
   teardownAccountDocWatcher();
+  // Account was deleted/revoked → this is a real sign-out, clear the cache.
+  explicitSignOutInProgress = true;
   try {
     await signOut(auth);
   } catch (_) {}
+}
+
+// A single permission-denied / not-exists snapshot on the user profile is often
+// TRANSIENT (auth-token race right after an update, service-worker restart, or
+// token refresh). Signing out immediately tears down the session and forces a
+// full SMS/Calls reload from scratch. Wait for the race to settle, then verify
+// against the server before signing out.
+async function verifyThenForceSignOut(userRef, uid) {
+  await new Promise((r) => setTimeout(r, 6000));
+  // User already changed / logged out while we waited — nothing to do.
+  if (!state.currentUser || state.currentUser.uid !== uid) return;
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists()) return; // false alarm — profile readable, keep session
+    await forceSignOutForDeletedAccount();
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      await forceSignOutForDeletedAccount();
+    }
+    // Any other error (unavailable/network) → keep the session, do NOT sign out.
+  }
 }
 
 function setupAccountDocWatcher(user) {
@@ -77,17 +116,17 @@ function setupAccountDocWatcher(user) {
     userRef,
     async (snap) => {
       if (!snap.exists()) {
-        logger.info("User profile missing; forcing sign-out");
-        await forceSignOutForDeletedAccount();
+        logger.info("User profile missing; verifying before sign-out");
+        verifyThenForceSignOut(userRef, user.uid);
       }
     },
     async (error) => {
       if (error?.code === "permission-denied") {
         logger.warn(
-          "Profile watch permission denied; forcing sign-out",
+          "Profile watch permission denied; verifying before sign-out",
           error?.message || "",
         );
-        await forceSignOutForDeletedAccount();
+        verifyThenForceSignOut(userRef, user.uid);
       }
     },
   );
@@ -457,6 +496,8 @@ async function handleGoogleSignIn() {
 async function handleLogout() {
   try {
     teardownAccountDocWatcher();
+    // User pressed logout → this is a real sign-out, clear the cache.
+    explicitSignOutInProgress = true;
 
     // Revoke Google token
     chrome.identity.getAuthToken({ interactive: false }, (token) => {
@@ -521,7 +562,11 @@ export function initAuthObserver(onLogin, onLogout) {
       teardownAccountDocWatcher();
       state.setCurrentUser(null);
       showAuthUI();
-      if (onLogout) onLogout();
+      // Snapshot + reset the explicit-signout flag so a later transient
+      // auth-null event is not mistaken for a real sign-out.
+      const wasExplicit = explicitSignOutInProgress;
+      explicitSignOutInProgress = false;
+      if (onLogout) onLogout({ explicit: wasExplicit });
     }
   });
 }

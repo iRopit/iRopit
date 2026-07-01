@@ -521,14 +521,16 @@ function init() {
       }
     },
     // On logout
-    () => {
-      const shouldClearCache = hadAuthenticatedSession;
+    (info) => {
       hadAuthenticatedSession = false;
       cleanupSubscriptions();
       state.resetState();
-      // Guard against startup auth races where onAuthStateChanged may briefly
-      // emit a logged-out state before restoring the persisted session.
-      if (shouldClearCache) clearCache();
+      // Only wipe the local cache on an EXPLICIT, user-initiated (or forced
+      // account-removal) sign-out. Transient auth-null events during an active
+      // session (token refresh, MV3 service-worker restarts, network blips)
+      // must NOT clear the cache, otherwise SMS/Calls history disappears and
+      // reloads from scratch on the next auth tick.
+      if (info?.explicit === true) clearCache();
     },
   );
 
