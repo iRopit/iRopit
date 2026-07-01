@@ -44,6 +44,12 @@ function isUnavailableError(error) {
   return code.includes("unavailable") || msg.includes("failed to get documents from server");
 }
 
+function isPermissionDeniedError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return code.includes("permission-denied") || msg.includes("missing or insufficient permissions");
+}
+
 const deviceUnavailableLogKeys = new Set();
 function logDeviceUnavailableOnce(key, message, details) {
   if (deviceUnavailableLogKeys.has(key)) return;
@@ -613,6 +619,12 @@ export async function loadDevices() {
           `[Device] server reconcile skipped (${reason}) - backend unavailable`,
           err?.code || err?.message,
         );
+      } else if (isPermissionDeniedError(err)) {
+        logDeviceUnavailableOnce(
+          `server-reconcile-permission:${reason}`,
+          `[Device] server reconcile skipped (${reason}) - permission denied`,
+          err?.code || err?.message,
+        );
       } else {
         console.warn(`[Device] server reconcile failed (${reason}):`, err?.code || err?.message || err);
       }
@@ -649,6 +661,14 @@ export async function loadDevices() {
       }
     },
     (error) => {
+      if (isPermissionDeniedError(error)) {
+        logDeviceUnavailableOnce(
+          "loadDevices:onSnapshot:permission",
+          "[Device] loadDevices onSnapshot skipped - permission denied",
+          error?.code || error?.message,
+        );
+        return;
+      }
       if (isUnavailableError(error)) {
         logDeviceUnavailableOnce(
           "loadDevices:onSnapshot",
@@ -743,6 +763,12 @@ export async function loadDevices() {
           `[Device] shared-with-me server reconcile skipped (${reason}) - backend unavailable`,
           err?.code || err?.message,
         );
+      } else if (isPermissionDeniedError(err)) {
+        logDeviceUnavailableOnce(
+          `shared-server-reconcile-permission:${reason}`,
+          `[Device] shared-with-me server reconcile skipped (${reason}) - permission denied`,
+          err?.code || err?.message,
+        );
       } else {
         console.warn(`[Device] shared-with-me server reconcile failed (${reason}):`, err?.code || err?.message || err);
       }
@@ -779,6 +805,22 @@ export async function loadDevices() {
       }
     },
     (error) => {
+      if (isPermissionDeniedError(error)) {
+        logDeviceUnavailableOnce(
+          "shared-with-me:onSnapshot:permission",
+          "[Device] shared-with-me snapshot skipped - permission denied",
+          error?.code || error?.message,
+        );
+        return;
+      }
+      if (isUnavailableError(error)) {
+        logDeviceUnavailableOnce(
+          "shared-with-me:onSnapshot:unavailable",
+          "[Device] shared-with-me snapshot unavailable",
+          error?.code || error?.message,
+        );
+        return;
+      }
       console.error("[Device] shared-with-me snapshot error:", error?.code);
     },
   );

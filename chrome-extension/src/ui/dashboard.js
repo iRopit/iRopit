@@ -496,6 +496,12 @@ const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|
 // "Roaming Bundles that work in GCC", "Data bundle valid for", etc.
 const TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
 
+// User-requested TT rule:
+// - "TT Payment to" => receive (credit)
+// - "TT Payment from" => spent (debit)
+const TT_PAYMENT_TO_RE = /\btt\s+payment\s+to\b/i;
+const TT_PAYMENT_FROM_RE = /\btt\s+payment\s+from\b/i;
+
 // Mask rate/pricing amounts — e.g. "EGP 20 per Min", "AED 0.5 per SMS"
 const RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
 
@@ -586,7 +592,14 @@ function extractTransactions(body) {
     // Skip future-tense credit notifications (e.g. "refund will be credited in 14 days")
     if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
 
-    const type     = isCredit && !isDebit ? "credit" : "debit";
+    let type;
+    if (TT_PAYMENT_TO_RE.test(ctx)) {
+      type = "credit";
+    } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
+      type = "debit";
+    } else {
+      type = isCredit && !isDebit ? "credit" : "debit";
+    }
     const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
     const key      = `${currency}:${c.amount}:${type}`;
     if (seen.has(key)) continue;
@@ -598,6 +611,21 @@ function extractTransactions(body) {
   return results;
 }
 
+function getSmsTimestampMs(msg) {
+  return msg?.timestamp || msg?.receivedAt || 0;
+}
+
+// Keep UI and CSV totals in sync by deduplicating mirrored SMS writes
+// (same body on the same day, often from parallel sync paths).
+function getSmsBodyDedupKey(msg) {
+  const ts = getSmsTimestampMs(msg);
+  const dayKey = Math.floor(ts / 86400000);
+  const body = String(msg?.body || msg?.text || msg?.content || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${dayKey}_${body.substring(0, 120)}`;
+}
+
 /**
  * Analyse an array of SMS messages and return aggregated spending insights.
  */
@@ -605,6 +633,7 @@ function analyzeSmsSpending(smsMessages) {
   // { currency -> { debit, credit, txns: [{amount, type, sender, ts, snippet}] } }
   const byCurrency = {};
   const byDate = {}; // dateStr -> { currency -> debit total }
+  const seenBodyKeys = new Set();
 
   for (const msg of smsMessages) {
     const body   = msg.body || msg.text || msg.content || "";
@@ -612,8 +641,12 @@ function analyzeSmsSpending(smsMessages) {
     // Skip SMS that are not bank/card related
     if (!isBankingSMS(body)) continue;
 
+    const bodyKey = getSmsBodyDedupKey(msg);
+    if (seenBodyKeys.has(bodyKey)) continue;
+    seenBodyKeys.add(bodyKey);
+
     const sender = (msg.sender || msg.address || "Unknown").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
-    const ts     = msg.timestamp || msg.receivedAt || 0;
+    const ts     = getSmsTimestampMs(msg);
     const txns   = extractTransactions(body);
 
     for (const txn of txns) {
@@ -919,12 +952,11 @@ export async function exportInsightsSpendingToCSV() {
     if (!isBankingSMS(body)) continue;
     const txns = extractTransactions(body);
     if (txns.length === 0) continue;
-    const dayKey = Math.floor((msg.timestamp || 0) / 86400000);
-    const bodyKey = `${dayKey}_${body.trim().substring(0, 120)}`;
+    const bodyKey = getSmsBodyDedupKey(msg);
     if (csvSeenBodies.has(bodyKey)) continue;
     csvSeenBodies.add(bodyKey);
 
-    const d       = new Date(msg.timestamp || 0);
+    const d       = new Date(getSmsTimestampMs(msg));
     const date    = d.toLocaleDateString("en-GB");
     const time    = d.toLocaleTimeString();
     const sender  = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");

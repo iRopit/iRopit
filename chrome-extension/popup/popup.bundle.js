@@ -23606,7 +23606,19 @@ ${this.customData.serverResponse}`;
         collection(db, "devices"),
         where("userId", "==", user.uid)
       );
-      const devicesSnapshot = await getDocs(devicesQuery);
+      let devicesSnapshot;
+      let usedDevicesCacheFallback = false;
+      try {
+        devicesSnapshot = await getDocsFromServer(devicesQuery);
+      } catch (err) {
+        if (!isUnavailableError(err)) throw err;
+        usedDevicesCacheFallback = true;
+        devicesSnapshot = await getDocs(devicesQuery);
+        logCallsUnavailableOnce(
+          "devices:list",
+          "[Calls] Server unavailable for devices list, using local cache fallback"
+        );
+      }
       const devicesList2 = [];
       devicesSnapshot.forEach((doc2) => {
         const data = doc2.data();
@@ -23626,7 +23638,7 @@ ${this.customData.serverResponse}`;
         ...devicesList2.map((d) => d.id).filter(Boolean),
         ...sharedCallsDeviceIds
       ]);
-      if (pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+      if (!usedDevicesCacheFallback && pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
         updateTabBadges();
         renderCalls(allCallsData);
       }
@@ -23817,9 +23829,10 @@ ${this.customData.serverResponse}`;
       const sharedCallsDeviceIds = new Set(
         (sharedWithMeDevices || []).filter((s) => s?.deviceId && s?.permissions?.calls !== false).map((s) => s.deviceId)
       );
-      filteredCalls = normalizedCalls.filter(
+      const hasResolvedDeviceScope = ownCallsDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
+      filteredCalls = hasResolvedDeviceScope ? normalizedCalls.filter(
         (call) => !call.deviceId || ownCallsDeviceIds.has(call.deviceId) || sharedCallsDeviceIds.has(call.deviceId)
-      );
+      ) : normalizedCalls;
     }
     filteredCalls = filteredCalls.filter((call) => {
       const phone = (call.phoneNumber || "").trim();
@@ -25214,7 +25227,19 @@ ${this.customData.serverResponse}`;
         where("userId", "==", user.uid)
       );
       smsLogger.debug("Fetching devices...");
-      const devicesSnapshot = await fetchDocs(devicesQuery);
+      let devicesSnapshot;
+      let usedDevicesCacheFallback = false;
+      try {
+        devicesSnapshot = await getDocsFromServer(devicesQuery);
+      } catch (err) {
+        if (!isUnavailableError2(err)) throw err;
+        usedDevicesCacheFallback = true;
+        devicesSnapshot = await getDocs(devicesQuery);
+        logSMSUnavailableOnce(
+          "devices:list",
+          "[SMS] Server unavailable for devices list, using local cache fallback"
+        );
+      }
       console.log(
         `[SMS] Found ${devicesSnapshot.size} devices for user ${user.uid}`
       );
@@ -25234,7 +25259,7 @@ ${this.customData.serverResponse}`;
         ...devicesList2.map((d) => d.id).filter(Boolean),
         ...sharedSmsDeviceIds
       ]);
-      if (pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+      if (!usedDevicesCacheFallback && pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
         updateTabBadges();
         renderSMS(allSMSMessages || []);
       }
@@ -25739,12 +25764,13 @@ ${this.customData.serverResponse}`;
     } else {
       const ownSmsDeviceIds = getOwnSmsDeviceIds();
       const sharedDeviceIds = getSharedSmsDeviceIds();
-      filteredMessages = messages.filter((msg) => {
+      const hasResolvedDeviceScope = ownSmsDeviceIds.size > 0 || sharedDeviceIds.size > 0;
+      filteredMessages = hasResolvedDeviceScope ? messages.filter((msg) => {
         if (!msg.deviceId) return true;
         if (ownSmsDeviceIds.has(msg.deviceId)) return true;
         if (sharedDeviceIds.has(msg.deviceId)) return true;
         return false;
-      });
+      }) : messages;
     }
     const searchQuery = (document.getElementById("smsSearchInput")?.value || "").trim().toLowerCase();
     const searchInput = document.getElementById("smsSearchInput");
@@ -26686,12 +26712,16 @@ ${this.customData.serverResponse}`;
     const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
     showLoadingOverlay();
     try {
-      const batch = writeBatch(db);
-      let count = 0;
-      for (const msg of allSMSMessages) {
-        if (!msg.read && msg.id && msg.deviceId && (activeDevice === "all" || msg.deviceId === activeDevice)) {
+      const targetUnread = allSMSMessages.filter(
+        (msg) => !msg.read && (activeDevice === "all" || msg.deviceId === activeDevice)
+      );
+      if (targetUnread.length > 0) {
+        const batch = writeBatch(db);
+        let remoteWritableCount = 0;
+        for (const msg of targetUnread) {
+          if (!msg.id || !msg.deviceId) continue;
           const ownerUid = resolveSMSOwnerUid(msg.deviceId, msg.ownerUid);
-          if (!ownerUid) continue;
+          if (!ownerUid || ownerUid !== user.uid) continue;
           const notifRef = doc(
             db,
             "users",
@@ -26702,12 +26732,11 @@ ${this.customData.serverResponse}`;
             msg.id
           );
           batch.set(notifRef, { read: true }, { merge: true });
-          count++;
+          remoteWritableCount++;
         }
-      }
-      if (count > 0) {
-        await batch.commit();
-        showToast(`${count} messages marked as read`, "success");
+        if (remoteWritableCount > 0) {
+          await batch.commit();
+        }
         const updatedMessages = allSMSMessages.map((msg) => activeDevice === "all" || msg.deviceId === activeDevice ? { ...msg, read: true } : msg);
         setAllSMSMessages(updatedMessages);
         const deviceIds = activeDevice === "all" ? Object.keys(allSMS) : [activeDevice];
@@ -26718,12 +26747,11 @@ ${this.customData.serverResponse}`;
           }));
           setSMSData(deviceId, updatedDeviceMsgs);
         });
-        cacheSMSData(allSMS, allSMSMessages.map(
-          (m) => activeDevice === "all" || m.deviceId === activeDevice ? { ...m, read: true } : m
-        )).catch(() => {
+        cacheSMSData(allSMS, updatedMessages).catch(() => {
         });
         await flushSMSCache();
         updateTabBadges();
+        showToast(`${targetUnread.length} messages marked as read`, "success");
         if (currentConversation) {
           showConversation(currentConversation);
         } else {
@@ -32200,6 +32228,8 @@ ${this.customData.serverResponse}`;
   var MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
+  var TT_PAYMENT_TO_RE = /\btt\s+payment\s+to\b/i;
+  var TT_PAYMENT_FROM_RE = /\btt\s+payment\s+from\b/i;
   var RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
   var BALANCE_MASK_RE_A = /\b(balance|bal\.?|avail(?:able)?\.?|remaining|rem\.?|limit|outstanding|due|minimum|min\.?|opening|closing|cr\.?\s*bal|dr\.?\s*bal)\s*(?:is\s+|are\s+)?[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
@@ -32241,7 +32271,14 @@ ${this.customData.serverResponse}`;
       const isCredit = CREDIT_KEYWORDS.test(ctx);
       if (!isDebit && !isCredit) continue;
       if (!isDebit && isCredit && PENDING_RE.test(body)) continue;
-      const type = isCredit && !isDebit ? "credit" : "debit";
+      let type;
+      if (TT_PAYMENT_TO_RE.test(ctx)) {
+        type = "credit";
+      } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
+        type = "debit";
+      } else {
+        type = isCredit && !isDebit ? "credit" : "debit";
+      }
       const currency = CURRENCY_MAP[c.currRaw] || c.currRaw;
       const key = `${currency}:${c.amount}:${type}`;
       if (seen.has(key)) continue;
@@ -32250,14 +32287,27 @@ ${this.customData.serverResponse}`;
     }
     return results;
   }
+  function getSmsTimestampMs(msg) {
+    return msg?.timestamp || msg?.receivedAt || 0;
+  }
+  function getSmsBodyDedupKey(msg) {
+    const ts = getSmsTimestampMs(msg);
+    const dayKey = Math.floor(ts / 864e5);
+    const body = String(msg?.body || msg?.text || msg?.content || "").replace(/\s+/g, " ").trim();
+    return `${dayKey}_${body.substring(0, 120)}`;
+  }
   function analyzeSmsSpending(smsMessages) {
     const byCurrency = {};
     const byDate = {};
+    const seenBodyKeys = /* @__PURE__ */ new Set();
     for (const msg of smsMessages) {
       const body = msg.body || msg.text || msg.content || "";
       if (!isBankingSMS(body)) continue;
+      const bodyKey = getSmsBodyDedupKey(msg);
+      if (seenBodyKeys.has(bodyKey)) continue;
+      seenBodyKeys.add(bodyKey);
       const sender = (msg.sender || msg.address || "Unknown").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
-      const ts = msg.timestamp || msg.receivedAt || 0;
+      const ts = getSmsTimestampMs(msg);
       const txns = extractTransactions(body);
       for (const txn of txns) {
         const cur = txn.currency;
@@ -32492,11 +32542,10 @@ ${this.customData.serverResponse}`;
       if (!isBankingSMS(body)) continue;
       const txns = extractTransactions(body);
       if (txns.length === 0) continue;
-      const dayKey = Math.floor((msg.timestamp || 0) / 864e5);
-      const bodyKey = `${dayKey}_${body.trim().substring(0, 120)}`;
+      const bodyKey = getSmsBodyDedupKey(msg);
       if (csvSeenBodies.has(bodyKey)) continue;
       csvSeenBodies.add(bodyKey);
-      const d = new Date(msg.timestamp || 0);
+      const d = new Date(getSmsTimestampMs(msg));
       const date = d.toLocaleDateString("en-GB");
       const time = d.toLocaleTimeString();
       const sender = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
@@ -33136,6 +33185,11 @@ ${this.customData.serverResponse}`;
     const msg = String(error?.message || "").toLowerCase();
     return code.includes("unavailable") || msg.includes("failed to get documents from server");
   }
+  function isPermissionDeniedError(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("permission-denied") || msg.includes("missing or insufficient permissions");
+  }
   var deviceUnavailableLogKeys = /* @__PURE__ */ new Set();
   function logDeviceUnavailableOnce(key, message, details) {
     if (deviceUnavailableLogKeys.has(key)) return;
@@ -33598,6 +33652,12 @@ ${this.customData.serverResponse}`;
             `[Device] server reconcile skipped (${reason}) - backend unavailable`,
             err?.code || err?.message
           );
+        } else if (isPermissionDeniedError(err)) {
+          logDeviceUnavailableOnce(
+            `server-reconcile-permission:${reason}`,
+            `[Device] server reconcile skipped (${reason}) - permission denied`,
+            err?.code || err?.message
+          );
         } else {
           console.warn(`[Device] server reconcile failed (${reason}):`, err?.code || err?.message || err);
         }
@@ -33629,6 +33689,14 @@ ${this.customData.serverResponse}`;
         }
       },
       (error) => {
+        if (isPermissionDeniedError(error)) {
+          logDeviceUnavailableOnce(
+            "loadDevices:onSnapshot:permission",
+            "[Device] loadDevices onSnapshot skipped - permission denied",
+            error?.code || error?.message
+          );
+          return;
+        }
         if (isUnavailableError4(error)) {
           logDeviceUnavailableOnce(
             "loadDevices:onSnapshot",
@@ -33716,6 +33784,12 @@ ${this.customData.serverResponse}`;
             `[Device] shared-with-me server reconcile skipped (${reason}) - backend unavailable`,
             err?.code || err?.message
           );
+        } else if (isPermissionDeniedError(err)) {
+          logDeviceUnavailableOnce(
+            `shared-server-reconcile-permission:${reason}`,
+            `[Device] shared-with-me server reconcile skipped (${reason}) - permission denied`,
+            err?.code || err?.message
+          );
         } else {
           console.warn(`[Device] shared-with-me server reconcile failed (${reason}):`, err?.code || err?.message || err);
         }
@@ -33742,6 +33816,22 @@ ${this.customData.serverResponse}`;
         }
       },
       (error) => {
+        if (isPermissionDeniedError(error)) {
+          logDeviceUnavailableOnce(
+            "shared-with-me:onSnapshot:permission",
+            "[Device] shared-with-me snapshot skipped - permission denied",
+            error?.code || error?.message
+          );
+          return;
+        }
+        if (isUnavailableError4(error)) {
+          logDeviceUnavailableOnce(
+            "shared-with-me:onSnapshot:unavailable",
+            "[Device] shared-with-me snapshot unavailable",
+            error?.code || error?.message
+          );
+          return;
+        }
         console.error("[Device] shared-with-me snapshot error:", error?.code);
       }
     );
@@ -35449,6 +35539,7 @@ ${this.customData.serverResponse}`;
   var hasLoadedCalls = false;
   var hasLoadedNotifications = false;
   var lazyTabLoadsWired = false;
+  var hadAuthenticatedSession = false;
   var INSTALL_ANDROID_PROMPT_KEY = "installAndroidPromptPending";
   var INSTALL_ANDROID_PROMPT_SHOWN_KEY = "installAndroidPromptShown_v1";
   var ANDROID_APP_URL = "https://play.google.com/store/apps/details?id=com.IRopit";
@@ -35561,6 +35652,10 @@ ${this.customData.serverResponse}`;
           [INSTALL_ANDROID_PROMPT_SHOWN_KEY]: true
         });
         overlay.remove();
+        try {
+          window.dispatchEvent(new CustomEvent("iropit:android-install-prompt-closed"));
+        } catch (_) {
+        }
       };
       laterBtn.addEventListener("click", () => {
         markShownAndClose().catch(() => overlay.remove());
@@ -35748,19 +35843,32 @@ ${this.customData.serverResponse}`;
     initAuthObserver(
       // On login
       async (user) => {
+        hadAuthenticatedSession = true;
         registerDevice().catch(
           (err) => console.error("[Popup] registerDevice error:", err)
         );
         loadData();
         wireLazyTabLoads();
         const promptShown = await showAndroidAppInstallPromptIfNeeded();
-        if (!promptShown) initTour();
+        if (!promptShown) {
+          initTour();
+        } else {
+          window.addEventListener(
+            "iropit:android-install-prompt-closed",
+            () => {
+              initTour();
+            },
+            { once: true }
+          );
+        }
       },
       // On logout
       () => {
+        const shouldClearCache = hadAuthenticatedSession;
+        hadAuthenticatedSession = false;
         cleanupSubscriptions();
         resetState();
-        clearCache();
+        if (shouldClearCache) clearCache();
       }
     );
     markAllReadBtn?.addEventListener("click", markAllSmsAsRead);

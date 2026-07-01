@@ -635,7 +635,19 @@ export async function loadCalls() {
       where("userId", "==", user.uid),
     );
 
-    const devicesSnapshot = await getDocs(devicesQuery);
+    let devicesSnapshot;
+    let usedDevicesCacheFallback = false;
+    try {
+      devicesSnapshot = await getDocsFromServer(devicesQuery);
+    } catch (err) {
+      if (!isUnavailableError(err)) throw err;
+      usedDevicesCacheFallback = true;
+      devicesSnapshot = await getDocs(devicesQuery);
+      logCallsUnavailableOnce(
+        "devices:list",
+        "[Calls] Server unavailable for devices list, using local cache fallback",
+      );
+    }
     const devicesList = [];
     devicesSnapshot.forEach((doc) => {
       const data = doc.data();
@@ -663,7 +675,7 @@ export async function loadCalls() {
       ...devicesList.map((d) => d.id).filter(Boolean),
       ...sharedCallsDeviceIds,
     ]);
-    if (pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+    if (!usedDevicesCacheFallback && pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
       updateTabBadges();
       renderCalls(state.allCallsData);
     }
@@ -931,12 +943,17 @@ export function renderCalls(calls) {
         .map((s) => s.deviceId),
     );
     // Exclude calls from devices where Calls sync is disabled
-    filteredCalls = normalizedCalls.filter(
-      (call) =>
-        !call.deviceId ||
-        ownCallsDeviceIds.has(call.deviceId) ||
-        sharedCallsDeviceIds.has(call.deviceId),
-    );
+    const hasResolvedDeviceScope =
+      ownCallsDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
+    // During transient device-list churn, don't hide all cached Calls in All Devices.
+    filteredCalls = hasResolvedDeviceScope
+      ? normalizedCalls.filter(
+          (call) =>
+            !call.deviceId ||
+            ownCallsDeviceIds.has(call.deviceId) ||
+            sharedCallsDeviceIds.has(call.deviceId),
+        )
+      : normalizedCalls;
   }
 
   // Drop phantom VoIP entries that carry no phone number and no app name.

@@ -722,14 +722,28 @@ export async function loadSMS() {
   const fetchDocs = hasCachedData ? getDocs : getDocsFromServer;
 
   try {
-    // First, get all user devices
+    // First, get all user devices.
+    // Use server-first here: if we read a stale/truncated local device cache,
+    // pruneSMSForAllowedDevices can drop valid devices and persist a partial SMS set.
     const devicesQuery = query(
       collection(db, COLLECTIONS.DEVICES),
       where("userId", "==", user.uid),
     );
 
     logger.debug("Fetching devices...");
-    const devicesSnapshot = await fetchDocs(devicesQuery);
+    let devicesSnapshot;
+    let usedDevicesCacheFallback = false;
+    try {
+      devicesSnapshot = await getDocsFromServer(devicesQuery);
+    } catch (err) {
+      if (!isUnavailableError(err)) throw err;
+      usedDevicesCacheFallback = true;
+      devicesSnapshot = await getDocs(devicesQuery);
+      logSMSUnavailableOnce(
+        "devices:list",
+        "[SMS] Server unavailable for devices list, using local cache fallback",
+      );
+    }
     console.log(
       `[SMS] Found ${devicesSnapshot.size} devices for user ${user.uid}`,
     );
@@ -755,7 +769,7 @@ export async function loadSMS() {
       ...devicesList.map((d) => d.id).filter(Boolean),
       ...sharedSmsDeviceIds,
     ]);
-    if (pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+    if (!usedDevicesCacheFallback && pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
       updateTabBadges();
       renderSMS(state.allSMSMessages || []);
     }
@@ -1446,12 +1460,17 @@ export function renderSMS(messages) {
     // messages (no deviceId), own devices with SMS enabled, and active shared devices.
     const ownSmsDeviceIds = getOwnSmsDeviceIds();
     const sharedDeviceIds = getSharedSmsDeviceIds();
-    filteredMessages = messages.filter((msg) => {
-      if (!msg.deviceId) return true;
-      if (ownSmsDeviceIds.has(msg.deviceId)) return true;
-      if (sharedDeviceIds.has(msg.deviceId)) return true;
-      return false;
-    });
+    const hasResolvedDeviceScope =
+      ownSmsDeviceIds.size > 0 || sharedDeviceIds.size > 0;
+    // During transient device-list churn, don't hide all cached SMS in All Devices.
+    filteredMessages = hasResolvedDeviceScope
+      ? messages.filter((msg) => {
+          if (!msg.deviceId) return true;
+          if (ownSmsDeviceIds.has(msg.deviceId)) return true;
+          if (sharedDeviceIds.has(msg.deviceId)) return true;
+          return false;
+        })
+      : messages;
   }
 
   // Filter by search query
@@ -2742,13 +2761,23 @@ export async function markAllSmsAsRead() {
 
   showLoadingOverlay();
   try {
-    const batch = writeBatch(db);
-    let count = 0;
+    const targetUnread = state.allSMSMessages.filter(
+      (msg) =>
+        !msg.read &&
+        (activeDevice === "all" || msg.deviceId === activeDevice),
+    );
 
-    for (const msg of state.allSMSMessages) {
-      if (!msg.read && msg.id && msg.deviceId && (activeDevice === "all" || msg.deviceId === activeDevice)) {
+    if (targetUnread.length > 0) {
+      // Write only own-device SMS to Firestore. Including shared-device docs in
+      // the same batch can trigger permission-denied and fail the whole commit.
+      const batch = writeBatch(db);
+      let remoteWritableCount = 0;
+
+      for (const msg of targetUnread) {
+        if (!msg.id || !msg.deviceId) continue;
         const ownerUid = resolveSMSOwnerUid(msg.deviceId, msg.ownerUid);
-        if (!ownerUid) continue;
+        if (!ownerUid || ownerUid !== user.uid) continue;
+
         const notifRef = doc(
           db,
           "users",
@@ -2759,13 +2788,14 @@ export async function markAllSmsAsRead() {
           msg.id,
         );
         batch.set(notifRef, { read: true }, { merge: true });
-        count++;
+        remoteWritableCount++;
       }
-    }
 
-    if (count > 0) {
-      await batch.commit();
-      showToast(`${count} messages marked as read`, "success");
+      if (remoteWritableCount > 0) {
+        await batch.commit();
+      }
+
+      // Apply read state locally for current view (including shared messages).
       const updatedMessages = state.allSMSMessages.map((msg) => (
         (activeDevice === "all" || msg.deviceId === activeDevice) ? { ...msg, read: true } : msg
       ));
@@ -2782,13 +2812,13 @@ export async function markAllSmsAsRead() {
       });
 
       // Update cache so reopening the popup shows correct unread count
-      cacheSMSData(state.allSMS, state.allSMSMessages.map(m =>
-        (activeDevice === "all" || m.deviceId === activeDevice) ? { ...m, read: true } : m
-      )).catch(() => {});
+      cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
       // Mark-all is often followed by closing popup quickly; flush now to persist.
       await flushSMSCache();
 
       updateTabBadges();
+
+      showToast(`${targetUnread.length} messages marked as read`, "success");
 
       if (state.currentConversation) {
         showConversation(state.currentConversation);

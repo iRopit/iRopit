@@ -65,6 +65,7 @@ import { applyTranslations, getCurrentLanguage, setCurrentLanguage } from "./uti
 let hasLoadedCalls = false;
 let hasLoadedNotifications = false;
 let lazyTabLoadsWired = false;
+let hadAuthenticatedSession = false;
 const INSTALL_ANDROID_PROMPT_KEY = "installAndroidPromptPending";
 const INSTALL_ANDROID_PROMPT_SHOWN_KEY = "installAndroidPromptShown_v1";
 const ANDROID_APP_URL = "https://play.google.com/store/apps/details?id=com.IRopit";
@@ -201,6 +202,9 @@ async function showAndroidAppInstallPromptIfNeeded() {
         [INSTALL_ANDROID_PROMPT_SHOWN_KEY]: true,
       });
       overlay.remove();
+      try {
+        window.dispatchEvent(new CustomEvent("iropit:android-install-prompt-closed"));
+      } catch (_) {}
     };
 
     laterBtn.addEventListener("click", () => {
@@ -491,6 +495,7 @@ function init() {
   initAuthObserver(
     // On login
     async (user) => {
+      hadAuthenticatedSession = true;
       // Do not block UI/data loading on registerDevice network latency.
       // Register in background while tabs start loading immediately.
       registerDevice().catch((err) =>
@@ -501,13 +506,29 @@ function init() {
       // Show first-install Android app prompt once after first login.
       const promptShown = await showAndroidAppInstallPromptIfNeeded();
       // Show first-time tour after login (only on fresh install).
-      if (!promptShown) initTour();
+      // If Android install prompt is shown, start the tour as soon as user closes it
+      // so onboarding continues in the same popup session.
+      if (!promptShown) {
+        initTour();
+      } else {
+        window.addEventListener(
+          "iropit:android-install-prompt-closed",
+          () => {
+            initTour();
+          },
+          { once: true },
+        );
+      }
     },
     // On logout
     () => {
+      const shouldClearCache = hadAuthenticatedSession;
+      hadAuthenticatedSession = false;
       cleanupSubscriptions();
       state.resetState();
-      clearCache(); // Clear local cache on logout
+      // Guard against startup auth races where onAuthStateChanged may briefly
+      // emit a logged-out state before restoring the persisted session.
+      if (shouldClearCache) clearCache();
     },
   );
 
