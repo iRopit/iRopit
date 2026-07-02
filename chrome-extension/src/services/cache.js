@@ -53,22 +53,60 @@ function stripNonSerializable(items) {
 let smsCacheWriteTimer = null;
 let smsCachePending = null;
 
+function _getExistingCacheCount(data) {
+  return (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
+}
+
+function _looksLikeDangerousShrink(cacheKey, incomingCount, existingCount) {
+  if (incomingCount <= 0 || existingCount <= 0) return false;
+
+  if (cacheKey === CACHE_KEYS.SMS) {
+    const minExisting = 300;
+    const minIncoming = 120;
+    const minRatio = 0.35;
+    return (
+      existingCount >= minExisting &&
+      incomingCount < minIncoming &&
+      incomingCount < Math.floor(existingCount * minRatio)
+    );
+  }
+
+  if (cacheKey === CACHE_KEYS.CALLS) {
+    const minExisting = 80;
+    const minIncoming = 25;
+    const minRatio = 0.4;
+    return (
+      existingCount >= minExisting &&
+      incomingCount < minIncoming &&
+      incomingCount < Math.floor(existingCount * minRatio)
+    );
+  }
+
+  return false;
+}
+
 /**
  * Guard: never overwrite an already-populated cache with an EMPTY payload.
  * A transient sign-out / permission race can momentarily empty in-memory state;
  * persisting that would make history "disappear" and reload from scratch on the
  * next open. Returns true when the write should be SKIPPED.
  */
-async function wouldClobberWithEmpty(cacheKey, incomingCount) {
-  if (incomingCount > 0) return false;
+async function shouldSkipCacheWrite(cacheKey, incomingCount, options = {}) {
+  const { allowShrink = false } = options || {};
   try {
     const existing = await chrome.storage.local.get([cacheKey]);
     const data = existing[cacheKey];
-    const existingCount =
-      (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
-    if (existingCount > 0) {
-      console.warn(
+    const existingCount = _getExistingCacheCount(data);
+    if (incomingCount <= 0 && existingCount > 0 && !allowShrink) {
+      console.debug(
         `[Cache] Skipped empty write to ${cacheKey} — existing cache has ${existingCount} items`,
+      );
+      return true;
+    }
+
+    if (!allowShrink && _looksLikeDangerousShrink(cacheKey, incomingCount, existingCount)) {
+      console.debug(
+        `[Cache] Skipped suspicious shrink write to ${cacheKey} — incoming=${incomingCount}, existing=${existingCount}`,
       );
       return true;
     }
@@ -76,16 +114,16 @@ async function wouldClobberWithEmpty(cacheKey, incomingCount) {
   return false;
 }
 
-export async function cacheSMSData(smsByDevice, allMessages) {
+export async function cacheSMSData(smsByDevice, allMessages, options = {}) {
   // Capture latest call's payload; the timer flushes the most recent one.
-  smsCachePending = { smsByDevice, allMessages };
+  smsCachePending = { smsByDevice, allMessages, options };
   if (smsCacheWriteTimer) clearTimeout(smsCacheWriteTimer);
   smsCacheWriteTimer = setTimeout(async () => {
     smsCacheWriteTimer = null;
     const payload = smsCachePending;
     smsCachePending = null;
     if (!payload) return;
-    if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
+    if (await shouldSkipCacheWrite(CACHE_KEYS.SMS, payload.allMessages?.length || 0, payload.options)) return;
     try {
       const cacheData = {
         byDevice: {},
@@ -118,7 +156,7 @@ export async function flushSMSCache() {
   const payload = smsCachePending;
   smsCachePending = null;
   if (!payload) return;
-  if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
+  if (await shouldSkipCacheWrite(CACHE_KEYS.SMS, payload.allMessages?.length || 0, payload.options)) return;
   try {
     const cacheData = {
       byDevice: {},
@@ -142,9 +180,9 @@ export async function flushSMSCache() {
  * @param {Object} callsByDevice - Calls data keyed by deviceId
  * @param {Array} allCalls - All merged calls
  */
-export async function cacheCallsData(callsByDevice, allCalls) {
+export async function cacheCallsData(callsByDevice, allCalls, options = {}) {
   try {
-    if (await wouldClobberWithEmpty(CACHE_KEYS.CALLS, allCalls?.length || 0)) return;
+    if (await shouldSkipCacheWrite(CACHE_KEYS.CALLS, allCalls?.length || 0, options)) return;
     const cacheData = {
       byDevice: {},
       allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP),
@@ -174,7 +212,7 @@ export async function cacheCallsData(callsByDevice, allCalls) {
  *
  * @param {Object} notifsByDevice - Notifications keyed by deviceId
  */
-const NOTIF_CACHE_CAP_PER_DEVICE = 2000;
+const NOTIF_CACHE_CAP_PER_DEVICE = 5000;
 function _serializeNotifs(notifsByDevice) {
   const out = {};
   for (const [key, notifs] of Object.entries(notifsByDevice)) {

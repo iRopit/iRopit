@@ -22825,15 +22825,40 @@ ${this.customData.serverResponse}`;
       return rest;
     });
   }
-  async function wouldClobberWithEmpty(cacheKey, incomingCount) {
-    if (incomingCount > 0) return false;
+  function _getExistingCacheCount(data) {
+    return (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
+  }
+  function _looksLikeDangerousShrink(cacheKey, incomingCount, existingCount) {
+    if (incomingCount <= 0 || existingCount <= 0) return false;
+    if (cacheKey === CACHE_KEYS.SMS) {
+      const minExisting = 300;
+      const minIncoming = 120;
+      const minRatio = 0.35;
+      return existingCount >= minExisting && incomingCount < minIncoming && incomingCount < Math.floor(existingCount * minRatio);
+    }
+    if (cacheKey === CACHE_KEYS.CALLS) {
+      const minExisting = 80;
+      const minIncoming = 25;
+      const minRatio = 0.4;
+      return existingCount >= minExisting && incomingCount < minIncoming && incomingCount < Math.floor(existingCount * minRatio);
+    }
+    return false;
+  }
+  async function shouldSkipCacheWrite(cacheKey, incomingCount, options = {}) {
+    const { allowShrink = false } = options || {};
     try {
       const existing = await chrome.storage.local.get([cacheKey]);
       const data = existing[cacheKey];
-      const existingCount = (data?.allMessages?.length || 0) + (data?.allCalls?.length || 0);
-      if (existingCount > 0) {
-        console.warn(
+      const existingCount = _getExistingCacheCount(data);
+      if (incomingCount <= 0 && existingCount > 0 && !allowShrink) {
+        console.debug(
           `[Cache] Skipped empty write to ${cacheKey} \u2014 existing cache has ${existingCount} items`
+        );
+        return true;
+      }
+      if (!allowShrink && _looksLikeDangerousShrink(cacheKey, incomingCount, existingCount)) {
+        console.debug(
+          `[Cache] Skipped suspicious shrink write to ${cacheKey} \u2014 incoming=${incomingCount}, existing=${existingCount}`
         );
         return true;
       }
@@ -22841,15 +22866,15 @@ ${this.customData.serverResponse}`;
     }
     return false;
   }
-  async function cacheSMSData(smsByDevice, allMessages) {
-    smsCachePending = { smsByDevice, allMessages };
+  async function cacheSMSData(smsByDevice, allMessages, options = {}) {
+    smsCachePending = { smsByDevice, allMessages, options };
     if (smsCacheWriteTimer) clearTimeout(smsCacheWriteTimer);
     smsCacheWriteTimer = setTimeout(async () => {
       smsCacheWriteTimer = null;
       const payload = smsCachePending;
       smsCachePending = null;
       if (!payload) return;
-      if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
+      if (await shouldSkipCacheWrite(CACHE_KEYS.SMS, payload.allMessages?.length || 0, payload.options)) return;
       try {
         const cacheData = {
           byDevice: {},
@@ -22876,7 +22901,7 @@ ${this.customData.serverResponse}`;
     const payload = smsCachePending;
     smsCachePending = null;
     if (!payload) return;
-    if (await wouldClobberWithEmpty(CACHE_KEYS.SMS, payload.allMessages?.length || 0)) return;
+    if (await shouldSkipCacheWrite(CACHE_KEYS.SMS, payload.allMessages?.length || 0, payload.options)) return;
     try {
       const cacheData = {
         byDevice: {},
@@ -22894,9 +22919,9 @@ ${this.customData.serverResponse}`;
       console.warn("[Cache] Failed to flush SMS cache:", error);
     }
   }
-  async function cacheCallsData(callsByDevice, allCalls) {
+  async function cacheCallsData(callsByDevice, allCalls, options = {}) {
     try {
-      if (await wouldClobberWithEmpty(CACHE_KEYS.CALLS, allCalls?.length || 0)) return;
+      if (await shouldSkipCacheWrite(CACHE_KEYS.CALLS, allCalls?.length || 0, options)) return;
       const cacheData = {
         byDevice: {},
         allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP)
@@ -23100,7 +23125,7 @@ ${this.customData.serverResponse}`;
       CALLS_CACHE_CAP = 2e3;
       smsCacheWriteTimer = null;
       smsCachePending = null;
-      NOTIF_CACHE_CAP_PER_DEVICE = 2e3;
+      NOTIF_CACHE_CAP_PER_DEVICE = 5e3;
       notifCacheWriteTimer = null;
       notifCachePending = null;
     }
@@ -23241,9 +23266,25 @@ ${this.customData.serverResponse}`;
       console.info(message);
     }
   }
+  async function getServerCallsDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await getDocsFromServer(q2);
+      } catch (err) {
+        lastErr = err;
+        if (err?.code === "permission-denied" && attempt < retries) {
+          await _callsSleep(delayMs);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
+  }
   async function getCallsSnapshotWithFallback(q2, keyPrefix) {
     try {
-      return await getDocsFromServer(q2);
+      return await getServerCallsDocsWithAuthRetry(q2);
     } catch (serverErr) {
       if (!isUnavailableError(serverErr)) throw serverErr;
       logCallsUnavailableOnce(
@@ -23628,7 +23669,7 @@ ${this.customData.serverResponse}`;
       let devicesSnapshot;
       let usedDevicesCacheFallback = false;
       try {
-        devicesSnapshot = await getDocsFromServer(devicesQuery);
+        devicesSnapshot = await getServerCallsDocsWithAuthRetry(devicesQuery);
       } catch (err) {
         if (!isUnavailableError(err)) throw err;
         usedDevicesCacheFallback = true;
@@ -24072,6 +24113,8 @@ ${this.customData.serverResponse}`;
     let callLongPressTimer = null;
     callsList.addEventListener("pointerdown", (e) => {
       const group = e.target.closest(".call-group");
+      const iconTarget = e.target.closest(".list-item-avatar");
+      if (!iconTarget || !group?.contains(iconTarget)) return;
       if (!group || callsSelectionMode) return;
       callLongPressTimer = setTimeout(() => {
         callLongPressTimer = null;
@@ -24323,7 +24366,7 @@ ${this.customData.serverResponse}`;
         setCallsByDevice(deviceId, updated);
       });
       setAllCallsData(remaining);
-      cacheCallsData(allCallsByDevice, remaining).catch(() => {
+      cacheCallsData(allCallsByDevice, remaining, { allowShrink: true }).catch(() => {
       });
       showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
     } catch (error) {
@@ -24376,7 +24419,7 @@ ${this.customData.serverResponse}`;
     });
     remaining.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     setAllCallsData(remaining);
-    cacheCallsData(allCallsByDevice, remaining).catch(() => {
+    cacheCallsData(allCallsByDevice, remaining, { allowShrink: true }).catch(() => {
     });
     renderCalls(remaining);
     updateTabBadges();
@@ -24540,7 +24583,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var CALLS_FETCH_LIMIT, CALLS_FULL_FETCH_MAX_PAGES, callsUnavailableLogKeys, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
+  var CALLS_FETCH_LIMIT, CALLS_FULL_FETCH_MAX_PAGES, callsUnavailableLogKeys, _callsSleep, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -24558,6 +24601,7 @@ ${this.customData.serverResponse}`;
       CALLS_FETCH_LIMIT = 2e3;
       CALLS_FULL_FETCH_MAX_PAGES = 25;
       callsUnavailableLogKeys = /* @__PURE__ */ new Set();
+      _callsSleep = (ms) => new Promise((r) => setTimeout(r, ms));
       callsSelectionMode = false;
       selectedCallGroups = /* @__PURE__ */ new Set();
       CALLS_PIN_STORAGE_KEY = "callsPinnedGroups";
@@ -24825,6 +24869,22 @@ ${this.customData.serverResponse}`;
     } else {
       console.info(message);
     }
+  }
+  async function getServerDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await getDocsFromServer(q2);
+      } catch (err) {
+        lastErr = err;
+        if (err?.code === "permission-denied" && attempt < retries) {
+          await _smsSleep(delayMs);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   }
   function stopSharedSMSListeners(keepKeys = null) {
     for (const [key, unsubs] of sharedSmsUnsubscribeByKey.entries()) {
@@ -25249,7 +25309,7 @@ ${this.customData.serverResponse}`;
       let devicesSnapshot;
       let usedDevicesCacheFallback = false;
       try {
-        devicesSnapshot = await getDocsFromServer(devicesQuery);
+        devicesSnapshot = await getServerDocsWithAuthRetry(devicesQuery);
       } catch (err) {
         if (!isUnavailableError2(err)) throw err;
         usedDevicesCacheFallback = true;
@@ -25329,7 +25389,7 @@ ${this.customData.serverResponse}`;
           let snapshot;
           if (isDelta) {
             try {
-              snapshot = await getDocsFromServer(q2);
+              snapshot = await getServerDocsWithAuthRetry(q2);
             } catch (serverErr) {
               if (!isUnavailableError2(serverErr)) throw serverErr;
               logSMSUnavailableOnce(
@@ -25359,7 +25419,7 @@ ${this.customData.serverResponse}`;
               );
               let pageSnap;
               try {
-                pageSnap = await getDocsFromServer(pageQuery);
+                pageSnap = await getServerDocsWithAuthRetry(pageQuery);
                 hadSuccessfulFullOwnServerFetch = true;
               } catch (serverErr) {
                 if (!isUnavailableError2(serverErr)) throw serverErr;
@@ -26027,6 +26087,8 @@ ${this.customData.serverResponse}`;
     let longPressTimer = null;
     smsList2?.addEventListener("pointerdown", (e) => {
       const conversation = e.target.closest(".sms-conversation");
+      const iconTarget = e.target.closest(".list-item-avatar");
+      if (!iconTarget || !conversation?.contains(iconTarget)) return;
       if (!conversation || selectionMode) return;
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
@@ -26836,7 +26898,7 @@ ${this.customData.serverResponse}`;
       const filtered = (allSMS[deviceId] || []).filter((m) => !deletedIds.has(m.id));
       setSMSData(deviceId, filtered);
     }
-    cacheSMSData(allSMS, updatedMessages).catch(() => {
+    cacheSMSData(allSMS, updatedMessages, { allowShrink: true }).catch(() => {
     });
     flushSMSCache().catch(() => {
     });
@@ -27738,7 +27800,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnavailableLogKeys, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -27756,6 +27818,7 @@ ${this.customData.serverResponse}`;
       init_i18n();
       init_hoverPreview();
       smsUnavailableLogKeys = /* @__PURE__ */ new Set();
+      _smsSleep = (ms) => new Promise((r) => setTimeout(r, ms));
       smsUnsubscribeFunctions = [];
       sharedSmsUnsubscribeByKey = /* @__PURE__ */ new Map();
       sharedSmsSourceDataByKey = /* @__PURE__ */ new Map();
@@ -27967,6 +28030,22 @@ ${this.customData.serverResponse}`;
     } else {
       console.info(message);
     }
+  }
+  async function getServerNotifDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
+    let lastErr;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await getDocsFromServer(q2);
+      } catch (err) {
+        lastErr = err;
+        if (err?.code === "permission-denied" && attempt < retries) {
+          await _notifSleep(delayMs);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   }
   function linkifyText3(text) {
     const escaped = escapeHtml(text);
@@ -28478,7 +28557,7 @@ ${this.customData.serverResponse}`;
       try {
         let snapshot;
         try {
-          snapshot = await getDocsFromServer(q2);
+          snapshot = await getServerNotifDocsWithAuthRetry(q2);
         } catch (serverErr) {
           if (!isUnavailableError3(serverErr)) throw serverErr;
           logNotifUnavailableOnce(
@@ -28566,7 +28645,7 @@ ${this.customData.serverResponse}`;
     const userNotificationsQuery = query(
       collection(db, "users", user.uid, "notifications"),
       orderBy("createdAt", "desc"),
-      limit(500)
+      limit(2e3)
     );
     let userNotifFirstSnap = true;
     const userNotifUnsub = onSnapshot(userNotificationsQuery, async (snapshot) => {
@@ -28825,7 +28904,7 @@ ${this.customData.serverResponse}`;
           0
         );
         const groupCount = container.querySelectorAll(".notification-item").length;
-        if (rawCount >= 1e3 || groupCount >= 30) break;
+        if (rawCount >= 5e3 || groupCount >= 120) break;
         showNotifScrollLoader();
         await loadMoreNotifications();
         hideNotifScrollLoader();
@@ -29292,6 +29371,8 @@ ${this.customData.serverResponse}`;
     let notifLongPressTimer = null;
     notificationsList.addEventListener("pointerdown", (e) => {
       const item = e.target.closest(".notification-item");
+      const iconTarget = e.target.closest(".notification-icon");
+      if (!iconTarget || !item?.contains(iconTarget)) return;
       if (!item || notifSelectionMode) return;
       notifLongPressTimer = setTimeout(() => {
         notifLongPressTimer = null;
@@ -29698,7 +29779,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var notifUnavailableLogKeys, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubs, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, visibleNotifGroupKeys, NOTIF_MIRROR_MAX_DRIFT_MS2, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, _notifSleep, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubs, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, visibleNotifGroupKeys, NOTIF_MIRROR_MAX_DRIFT_MS2, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -29713,13 +29794,14 @@ ${this.customData.serverResponse}`;
       init_cryptoService();
       init_hoverPreview();
       notifUnavailableLogKeys = /* @__PURE__ */ new Set();
+      _notifSleep = (ms) => new Promise((r) => setTimeout(r, ms));
       isSyncingNotif = false;
       pendingNotifSnapshots = 0;
       suppressNotifSyncIndicator = false;
       notifHydrated = false;
       sharedNotifListenerUnsubs = [];
-      NOTIF_INITIAL_LIMIT = 500;
-      NOTIF_PAGE_SIZE = 200;
+      NOTIF_INITIAL_LIMIT = 2e3;
+      NOTIF_PAGE_SIZE = 500;
       notifPaginationState = {};
       isLoadingMoreNotif = false;
       notifScrollHandlerAttached = false;
@@ -32821,6 +32903,7 @@ ${this.customData.serverResponse}`;
   init_state();
   var isInitialAuthCheckDone = false;
   var stopAccountDocWatcher = null;
+  var transientLogoutTimer = null;
   var explicitSignOutInProgress = false;
   function teardownAccountDocWatcher() {
     if (typeof stopAccountDocWatcher === "function") {
@@ -33149,6 +33232,10 @@ ${this.customData.serverResponse}`;
       isInitialAuthCheckDone = true;
       hideLoading();
       if (user) {
+        if (transientLogoutTimer) {
+          clearTimeout(transientLogoutTimer);
+          transientLogoutTimer = null;
+        }
         setCurrentUser(user);
         showMainUI();
         setupAccountDocWatcher(user);
@@ -33160,10 +33247,22 @@ ${this.customData.serverResponse}`;
         if (onLogin) await onLogin(user);
       } else {
         teardownAccountDocWatcher();
-        setCurrentUser(null);
-        showAuthUI();
         const wasExplicit = explicitSignOutInProgress;
         explicitSignOutInProgress = false;
+        if (!wasExplicit && currentUser) {
+          if (!transientLogoutTimer) {
+            transientLogoutTimer = setTimeout(() => {
+              transientLogoutTimer = null;
+              if (auth.currentUser) return;
+              setCurrentUser(null);
+              showAuthUI();
+              if (onLogout) onLogout({ explicit: false });
+            }, 4500);
+          }
+          return;
+        }
+        setCurrentUser(null);
+        showAuthUI();
         if (onLogout) onLogout({ explicit: wasExplicit });
       }
     });

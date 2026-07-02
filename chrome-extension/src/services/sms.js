@@ -76,6 +76,35 @@ function logSMSUnavailableOnce(key, message, details) {
   }
 }
 
+const _smsSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Server fetch that retries on transient `permission-denied`.
+ * Right after an extension update / MV3 service-worker restart / token refresh,
+ * the auth token can briefly not be ready → Firestore emits `permission-denied`.
+ * Treating that as fatal makes the FULL history load return nothing, leaving only
+ * the realtime listener's last 10 messages (looks like a "fresh install / only new").
+ * Retrying after a short delay lets the token settle so the real history loads.
+ * Non-permission errors (e.g. `unavailable`) are thrown immediately so existing
+ * cache-fallback logic still runs.
+ */
+async function getServerDocsWithAuthRetry(q, { retries = 3, delayMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await getDocsFromServer(q);
+    } catch (err) {
+      lastErr = err;
+      if (err?.code === "permission-denied" && attempt < retries) {
+        await _smsSleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 // Store unsubscribe functions for real-time listeners
 let smsUnsubscribeFunctions = [];
 let sharedSmsUnsubscribeByKey = new Map();
@@ -734,7 +763,7 @@ export async function loadSMS() {
     let devicesSnapshot;
     let usedDevicesCacheFallback = false;
     try {
-      devicesSnapshot = await getDocsFromServer(devicesQuery);
+      devicesSnapshot = await getServerDocsWithAuthRetry(devicesQuery);
     } catch (err) {
       if (!isUnavailableError(err)) throw err;
       usedDevicesCacheFallback = true;
@@ -851,7 +880,7 @@ export async function loadSMS() {
         let snapshot;
         if (isDelta) {
           try {
-            snapshot = await getDocsFromServer(q);
+            snapshot = await getServerDocsWithAuthRetry(q);
           } catch (serverErr) {
             if (!isUnavailableError(serverErr)) throw serverErr;
             logSMSUnavailableOnce(
@@ -886,7 +915,7 @@ export async function loadSMS() {
                 );
             let pageSnap;
             try {
-              pageSnap = await getDocsFromServer(pageQuery);
+              pageSnap = await getServerDocsWithAuthRetry(pageQuery);
               hadSuccessfulFullOwnServerFetch = true;
             } catch (serverErr) {
               if (!isUnavailableError(serverErr)) throw serverErr;
@@ -1782,6 +1811,8 @@ export function renderSMS(messages) {
   let longPressTimer = null;
   smsList2?.addEventListener("pointerdown", (e) => {
     const conversation = e.target.closest(".sms-conversation");
+    const iconTarget = e.target.closest(".list-item-avatar");
+    if (!iconTarget || !conversation?.contains(iconTarget)) return;
     if (!conversation || selectionMode) return;
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
@@ -2914,7 +2945,7 @@ function _purgeSMSFromCache(deletedIds, updatedMessages) {
     state.setSMSData(deviceId, filtered);
   }
   // Queue the new data and force an immediate write (bypasses the 3 s debounce)
-  cacheSMSData(state.allSMS, updatedMessages).catch(() => {});
+  cacheSMSData(state.allSMS, updatedMessages, { allowShrink: true }).catch(() => {});
   flushSMSCache().catch(() => {});
 }
 

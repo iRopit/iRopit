@@ -70,6 +70,31 @@ function logNotifUnavailableOnce(key, message, details) {
   }
 }
 
+const _notifSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Server fetch that retries on transient `permission-denied` (auth token not yet
+ * ready after an extension update / MV3 SW restart / token refresh). Without this,
+ * the full notification history returns nothing on that transient error, leaving
+ * only the realtime listener's few latest items ("fresh install / only new").
+ */
+async function getServerNotifDocsWithAuthRetry(q, { retries = 3, delayMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await getDocsFromServer(q);
+    } catch (err) {
+      lastErr = err;
+      if (err?.code === "permission-denied" && attempt < retries) {
+        await _notifSleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 // Linkify URLs in notification body text
 function linkifyText(text) {
   const escaped = escapeHtml(text);
@@ -285,8 +310,8 @@ export function isNotificationsSyncing() {
 }
 
 // ── Pagination state ──────────────────────────────────────────────────────────
-const NOTIF_INITIAL_LIMIT = 500; // first load per device (matches legacy)
-const NOTIF_PAGE_SIZE = 200; // subsequent "load more" page size
+const NOTIF_INITIAL_LIMIT = 2000; // first load per device
+const NOTIF_PAGE_SIZE = 500; // subsequent "load more" page size
 let notifPaginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
 let isLoadingMoreNotif = false;
 let notifScrollHandlerAttached = false;
@@ -772,7 +797,7 @@ export async function loadNotifications() {
       // read guarantees we pick up everything written while the popup was closed.
       let snapshot;
       try {
-        snapshot = await getDocsFromServer(q);
+        snapshot = await getServerNotifDocsWithAuthRetry(q);
       } catch (serverErr) {
         if (!isUnavailableError(serverErr)) throw serverErr;
         logNotifUnavailableOnce(
@@ -888,7 +913,7 @@ export async function loadNotifications() {
   const userNotificationsQuery = query(
     collection(db, "users", user.uid, "notifications"),
     orderBy("createdAt", "desc"),
-    limit(500),
+    limit(2000),
   );
 
   let userNotifFirstSnap = true;
@@ -1222,7 +1247,7 @@ async function autoFillNotifications() {
       const rawCount = Object.values(state.allNotifications).reduce(
         (n, arr) => n + (arr?.length || 0), 0);
       const groupCount = container.querySelectorAll(".notification-item").length;
-      if (rawCount >= 1000 || groupCount >= 30) break;
+      if (rawCount >= 5000 || groupCount >= 120) break;
       showNotifScrollLoader();
       await loadMoreNotifications();
       hideNotifScrollLoader();
@@ -1775,6 +1800,8 @@ function renderNotifications(notifications) {
   let notifLongPressTimer = null;
   notificationsList.addEventListener("pointerdown", (e) => {
     const item = e.target.closest(".notification-item");
+    const iconTarget = e.target.closest(".notification-icon");
+    if (!iconTarget || !item?.contains(iconTarget)) return;
     if (!item || notifSelectionMode) return;
     notifLongPressTimer = setTimeout(() => {
       notifLongPressTimer = null;

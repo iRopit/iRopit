@@ -51,6 +51,7 @@ import * as state from "../state/index.js";
 // Track if initial auth check is done
 let isInitialAuthCheckDone = false;
 let stopAccountDocWatcher = null;
+let transientLogoutTimer = null;
 
 // True only while an EXPLICIT sign-out is in progress (user pressed logout, or
 // the account was deleted/revoked). Transient auth-null events (token refresh,
@@ -547,6 +548,10 @@ export function initAuthObserver(onLogin, onLogout) {
     hideLoading();
 
     if (user) {
+      if (transientLogoutTimer) {
+        clearTimeout(transientLogoutTimer);
+        transientLogoutTimer = null;
+      }
       state.setCurrentUser(user);
       showMainUI();
       setupAccountDocWatcher(user);
@@ -560,12 +565,29 @@ export function initAuthObserver(onLogin, onLogout) {
       if (onLogin) await onLogin(user);
     } else {
       teardownAccountDocWatcher();
-      state.setCurrentUser(null);
-      showAuthUI();
       // Snapshot + reset the explicit-signout flag so a later transient
       // auth-null event is not mistaken for a real sign-out.
       const wasExplicit = explicitSignOutInProgress;
       explicitSignOutInProgress = false;
+
+      // If we previously had an authenticated session and this wasn't explicit,
+      // treat auth-null as potentially transient (token refresh / MV3 wake race).
+      // Wait briefly; only commit logout if auth is still null afterwards.
+      if (!wasExplicit && state.currentUser) {
+        if (!transientLogoutTimer) {
+          transientLogoutTimer = setTimeout(() => {
+            transientLogoutTimer = null;
+            if (auth.currentUser) return;
+            state.setCurrentUser(null);
+            showAuthUI();
+            if (onLogout) onLogout({ explicit: false });
+          }, 4500);
+        }
+        return;
+      }
+
+      state.setCurrentUser(null);
+      showAuthUI();
       if (onLogout) onLogout({ explicit: wasExplicit });
     }
   });

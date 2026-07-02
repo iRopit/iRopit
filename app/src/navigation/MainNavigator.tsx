@@ -132,7 +132,12 @@ const MainNavigator = () => {
       <Tab.Navigator
         key={language} // Force re-mount when language changes
         backBehavior="none"
+        detachInactiveScreens={true}
         screenOptions={{
+          // Prevent hidden tabs from re-rendering on every global store update.
+          // This reduces intermittent lag when switching between menu tabs.
+          freezeOnBlur: true,
+          lazy: true,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarHideOnKeyboard: true,

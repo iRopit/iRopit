@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
@@ -27,9 +27,9 @@ export const useNotificationsScreen = (
   const {
     notifications,
     addNotification,
+    setNotifications,
     removeNotification,
     markGroupAsRead,
-    clearNotifications,
   } = useNotificationStore();
 
   const {
@@ -65,6 +65,7 @@ export const useNotificationsScreen = (
   const [selectedNotifications, setSelectedNotifications] = useState<string[]>(
     [],
   );
+  const lastSmsLoadKeyRef = useRef<string>('');
 
   // Theme colors
   const bgColor = colors.background;
@@ -476,7 +477,11 @@ export const useNotificationsScreen = (
       // hasn't run yet). The previous code cleared initialLoading in a
       // .finally() that fires immediately, so the spinner barely flashed.
       if (filterType !== 'sms' || hasPermission) {
-        loadSmsMessages(smsDeviceId);
+        const loadKey = `${user.uid}:${smsDeviceId || 'all'}:${filterType || 'all'}:${hasPermission ? '1' : '0'}`;
+        if (lastSmsLoadKeyRef.current !== loadKey) {
+          lastSmsLoadKeyRef.current = loadKey;
+          loadSmsMessages(smsDeviceId);
+        }
       }
     }
   }, [
@@ -484,7 +489,6 @@ export const useNotificationsScreen = (
     currentDevice,
     loadSmsMessages,
     smsDeviceId,
-    devices.length,
     filterType,
     hasPermission,
   ]);
@@ -505,9 +509,6 @@ export const useNotificationsScreen = (
   useEffect(() => {
     if (!user || !currentDevice || !activeDeviceId) return;
 
-    // Clear old notifications when device changes so we only show the selected device's data
-    clearNotifications();
-
     const unsubscribe = firestore()
       .collection('users')
       .doc(user.uid)
@@ -515,16 +516,11 @@ export const useNotificationsScreen = (
       .doc(activeDeviceId)
       .collection('notifications')
       .orderBy('timestamp', 'desc')
-      .limit(200)
+      .limit(10000)
       .onSnapshot(
         snapshot => {
-          // Only process 'added' events — 'modified' events are Android re-fires
-          // of the same notification with a slightly different timestamp, not new
-          // notifications. Processing all docs on every snapshot change causes
-          // duplicates because addNotification dedups by key+timestamp (not docId).
-          snapshot.docChanges().forEach(change => {
-            if (change.type !== 'added') return;
-            const doc = change.doc;
+          const mapped: AppNotification[] = [];
+          snapshot.forEach(doc => {
             const data = doc.data();
             const type = data.type || 'other';
 
@@ -537,7 +533,7 @@ export const useNotificationsScreen = (
               return;
             }
 
-            const notification: AppNotification & { appIcon?: string } = {
+            const notification: AppNotification = {
               id: doc.id,
               key: data.key || `${data.packageName}_${data.timestamp}`,
               packageName: data.packageName || '',
@@ -547,16 +543,17 @@ export const useNotificationsScreen = (
               timestamp: data.timestamp || Date.now(),
               appName: data.appName || '',
               read: data.read ?? false,
-              appIcon: data.appIcon,
             };
-            addNotification(notification);
+            mapped.push(notification);
           });
+
+          setNotifications(mapped);
         },
         _error => {},
       );
 
     return () => unsubscribe();
-  }, [user, currentDevice, addNotification, clearNotifications, activeDeviceId]);
+  }, [user, currentDevice, setNotifications, activeDeviceId]);
 
   // Listen for new notifications
   useEffect(() => {

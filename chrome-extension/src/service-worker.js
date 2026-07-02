@@ -53,6 +53,30 @@ let currentUser = null;
 let currentDeviceId = null;
 const SMS_CACHE_CAP = 10000;
 const CALLS_CACHE_CAP = 2000;
+const NOTIF_CACHE_CAP = 5000;
+
+function isDangerousCacheShrink(kind, incomingCount, existingCount) {
+  if (incomingCount <= 0 || existingCount <= 0) return false;
+
+  if (kind === "sms") {
+    return (
+      existingCount >= 300 &&
+      incomingCount < 120 &&
+      incomingCount < Math.floor(existingCount * 0.35)
+    );
+  }
+
+  if (kind === "calls") {
+    return (
+      existingCount >= 80 &&
+      incomingCount < 25 &&
+      incomingCount < Math.floor(existingCount * 0.4)
+    );
+  }
+
+  return false;
+}
+
 let isStartingListeners = false;
 let activeListenersUserUid = null;
 let unsubscribeUserProfile = null;
@@ -2318,17 +2342,18 @@ async function refreshPopupCache() {
 
       // ── Notifications ─────────────────────────────────────────────────────
       const notifNewest = newestTs(notifsByDevice, device.id, "timestamp");
+        const notifIsFullFetch = !notifNewest;
       const notifQ = notifNewest
         ? query(collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
-            where("timestamp", ">", notifNewest), orderBy("timestamp", "desc"), limit(100))
+          where("timestamp", ">", notifNewest), orderBy("timestamp", "desc"), limit(300))
         : query(collection(db, "users", currentUser.uid, "devices", device.id, "notifications"),
-            orderBy("timestamp", "desc"), limit(200));
+          orderBy("timestamp", "desc"), limit(NOTIF_CACHE_CAP));
 
       try {
         const [smsSnap, callsSnap, notifSnap] = await Promise.all([
           smsIsFullFetch ? getDocsFromServer(smsQ) : getDocs(smsQ),
           getDocs(callsQ),
-          getDocs(notifQ),
+          notifIsFullFetch ? getDocsFromServer(notifQ) : getDocs(notifQ),
         ]);
 
         // Merge SMS — cap to agreed bulk size to keep cache consistent with popup full loads.
@@ -2349,13 +2374,13 @@ async function refreshPopupCache() {
           newCallsByDevice[device.id] = [...brandNew, ...existing].slice(0, CALLS_CACHE_CAP);
         }
 
-        // Merge Notifications (non-SMS) — always cap to 200
+        // Merge Notifications (non-SMS) — keep a deeper history window
         {
           const newNotifs = notifSnap.docs.map((d) => ({ ...d.data(), id: d.id, deviceId: device.id, deviceName: device.name }));
           const existing = notifsByDevice[device.id] || [];
           const existingIds = new Set(existing.map((n) => n.id));
           const brandNew = newNotifs.filter((n) => !existingIds.has(n.id));
-          newNotifsByDevice[device.id] = [...brandNew, ...existing].slice(0, 200);
+          newNotifsByDevice[device.id] = [...brandNew, ...existing].slice(0, NOTIF_CACHE_CAP);
         }
       } catch (err) {
         if (err?.code !== "permission-denied") {
@@ -2425,11 +2450,42 @@ async function refreshPopupCache() {
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .slice(0, CALLS_CACHE_CAP);
 
+    const existingSmsCount = latestSMSCache.cached_sms_data?.allMessages?.length || 0;
+    const existingCallsCount = latestCallsCache.cached_calls_data?.allCalls?.length || 0;
+
+    const keepExistingSms = isDangerousCacheShrink("sms", allMessages.length, existingSmsCount);
+    const keepExistingCalls = isDangerousCacheShrink("calls", allCalls.length, existingCallsCount);
+
+    const finalSmsByDevice = keepExistingSms
+      ? (latestSMSCache.cached_sms_data?.byDevice || newSmsByDevice)
+      : newSmsByDevice;
+    const finalAllMessages = keepExistingSms
+      ? (latestSMSCache.cached_sms_data?.allMessages || allMessages)
+      : allMessages;
+
+    const finalCallsByDevice = keepExistingCalls
+      ? (latestCallsCache.cached_calls_data?.byDevice || newCallsByDevice)
+      : newCallsByDevice;
+    const finalAllCalls = keepExistingCalls
+      ? (latestCallsCache.cached_calls_data?.allCalls || allCalls)
+      : allCalls;
+
+    if (keepExistingSms) {
+      console.warn(
+        `ZyncIT: Skipped suspicious SW SMS cache shrink — incoming=${allMessages.length}, existing=${existingSmsCount}`,
+      );
+    }
+    if (keepExistingCalls) {
+      console.warn(
+        `ZyncIT: Skipped suspicious SW Calls cache shrink — incoming=${allCalls.length}, existing=${existingCallsCount}`,
+      );
+    }
+
     // Persist all caches atomically
     await chrome.storage.local.set({
-      cached_sms_data: { byDevice: newSmsByDevice, allMessages },
+      cached_sms_data: { byDevice: finalSmsByDevice, allMessages: finalAllMessages },
       cache_timestamp: Date.now(),
-      cached_calls_data: { byDevice: newCallsByDevice, allCalls },
+      cached_calls_data: { byDevice: finalCallsByDevice, allCalls: finalAllCalls },
       cached_notifications_data: { byDevice: newNotifsByDevice, savedAt: Date.now() },
     });
 
@@ -2439,7 +2495,7 @@ async function refreshPopupCache() {
     setBadgeCountFromCache(computeUnreadCountFromByDevice(newNotifsByDevice));
 
     console.log(
-      `ZyncIT: ✅ Cache refreshed — SMS: ${allMessages.length}, Calls: ${allCalls.length}`,
+      `ZyncIT: ✅ Cache refreshed — SMS: ${finalAllMessages.length}, Calls: ${finalAllCalls.length}`,
     );
   } catch (error) {
     if (error?.code !== "permission-denied") {

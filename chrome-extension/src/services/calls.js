@@ -61,9 +61,34 @@ function logCallsUnavailableOnce(key, message, details) {
   }
 }
 
+const _callsSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Server fetch that retries on transient `permission-denied` (auth token not yet
+ * ready after an extension update / MV3 SW restart / token refresh). Without this,
+ * the full call history returns nothing on that transient error, leaving only the
+ * realtime listener's few latest calls ("fresh install / only new" symptom).
+ */
+async function getServerCallsDocsWithAuthRetry(q, { retries = 3, delayMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await getDocsFromServer(q);
+    } catch (err) {
+      lastErr = err;
+      if (err?.code === "permission-denied" && attempt < retries) {
+        await _callsSleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 async function getCallsSnapshotWithFallback(q, keyPrefix) {
   try {
-    return await getDocsFromServer(q);
+    return await getServerCallsDocsWithAuthRetry(q);
   } catch (serverErr) {
     if (!isUnavailableError(serverErr)) throw serverErr;
     logCallsUnavailableOnce(
@@ -638,7 +663,7 @@ export async function loadCalls() {
     let devicesSnapshot;
     let usedDevicesCacheFallback = false;
     try {
-      devicesSnapshot = await getDocsFromServer(devicesQuery);
+      devicesSnapshot = await getServerCallsDocsWithAuthRetry(devicesQuery);
     } catch (err) {
       if (!isUnavailableError(err)) throw err;
       usedDevicesCacheFallback = true;
@@ -1242,6 +1267,8 @@ export function renderCalls(calls) {
   let callLongPressTimer = null;
   callsList.addEventListener("pointerdown", (e) => {
     const group = e.target.closest(".call-group");
+    const iconTarget = e.target.closest(".list-item-avatar");
+    if (!iconTarget || !group?.contains(iconTarget)) return;
     if (!group || callsSelectionMode) return;
     callLongPressTimer = setTimeout(() => {
       callLongPressTimer = null;
@@ -1533,7 +1560,7 @@ export async function deleteSelectedCallGroups() {
       state.setCallsByDevice(deviceId, updated);
     });
     state.setAllCallsData(remaining);
-    cacheCallsData(state.allCallsByDevice, remaining).catch(() => {});
+    cacheCallsData(state.allCallsByDevice, remaining, { allowShrink: true }).catch(() => {});
     showToast(`Deleted calls for ${count} contact${count > 1 ? "s" : ""}`, "success");
   } catch (error) {
     console.error("[Calls] deleteSelectedCallGroups error:", error);
@@ -1601,7 +1628,7 @@ export async function clearAllCalls() {
   Object.values(state.allCallsByDevice).forEach((calls) => { remaining = remaining.concat(calls); });
   remaining.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   state.setAllCallsData(remaining);
-  cacheCallsData(state.allCallsByDevice, remaining).catch(() => {});
+  cacheCallsData(state.allCallsByDevice, remaining, { allowShrink: true }).catch(() => {});
   renderCalls(remaining);
   updateTabBadges();
 }

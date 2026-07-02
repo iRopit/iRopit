@@ -9,6 +9,7 @@ import { COLLECTIONS } from '../constants';
 
 interface NotificationState {
   notifications: AppNotification[];
+  setNotifications: (notifications: AppNotification[]) => void;
   addNotification: (notification: AppNotification) => void;
   removeNotification: (id: string) => void;
   removeNotificationsByKeys: (keys: string[]) => void;
@@ -26,10 +27,24 @@ interface NotificationState {
   cleanup: () => void;
 }
 
+const NOTIFICATION_STORE_CAP = 10000;
+
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       notifications: [],
+
+      setNotifications: (notifications: AppNotification[]) => {
+        const deduped = new Map<string, AppNotification>();
+        notifications.forEach(n => {
+          if (!n?.id) return;
+          deduped.set(n.id, n);
+        });
+        const ordered = Array.from(deduped.values()).sort(
+          (a, b) => b.timestamp - a.timestamp,
+        );
+        set({ notifications: ordered.slice(0, NOTIFICATION_STORE_CAP) });
+      },
 
       addNotification: (notification: AppNotification) => {
         set(state => {
@@ -56,10 +71,7 @@ export const useNotificationStore = create<NotificationState>()(
             read: false,
           };
 
-          const updated = [notificationWithId, ...state.notifications].slice(
-            0,
-            500,
-          );
+          const updated = [notificationWithId, ...state.notifications].slice(0, NOTIFICATION_STORE_CAP);
           return { notifications: updated };
         });
       },
@@ -157,7 +169,7 @@ export const useNotificationStore = create<NotificationState>()(
               }
             });
             merged.sort((a, b) => b.timestamp - a.timestamp);
-            return { notifications: merged.slice(0, 500) };
+            return { notifications: merged.slice(0, NOTIFICATION_STORE_CAP) };
           });
         } catch (error) {
           console.log('Error syncing notifications from Firebase:', error);
