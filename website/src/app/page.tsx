@@ -193,18 +193,16 @@ export default function HomePage() {
                 transition={{ duration: 0.6 }}
               >
                 <div className="mb-6 w-full max-w-[340px]">
-                  <video
-                    className="w-full rounded-2xl border border-border-light shadow-xl"
-                    src="/videos/iropit-animated-video.mp4"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    controls
-                    preload="metadata"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                  <div className="aspect-video overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
+                    <iframe
+                      className="h-full w-full"
+                      src="https://www.youtube.com/embed/nvcpXxFtrZI?autoplay=1&mute=1&loop=1&playlist=nvcpXxFtrZI&rel=0"
+                      title="iRopit animated overview"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  </div>
                 </div>
 
                 <div className="inline-flex items-center gap-2 bg-primary-soft border border-primary-light px-4 py-2 rounded-full mb-6">
