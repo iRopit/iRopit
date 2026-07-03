@@ -192,7 +192,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <div className="mb-6 w-full max-w-[340px]">
+                <div className="mb-6 w-full max-w-[340px] sm:max-w-[420px] lg:max-w-none lg:w-[680px]">
                   <div className="aspect-video overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
                     <iframe
                       className="h-full w-full"
