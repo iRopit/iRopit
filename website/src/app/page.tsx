@@ -184,7 +184,7 @@ export default function HomePage() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center lg:items-start">
             {/* Left - Content */}
             <div>
               <motion.div
@@ -192,6 +192,21 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
+                <div className="mb-6 w-full max-w-[340px]">
+                  <video
+                    className="w-full rounded-2xl border border-border-light shadow-xl"
+                    src="/videos/iropit-animated-video.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    preload="metadata"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+
                 <div className="inline-flex items-center gap-2 bg-primary-soft border border-primary-light px-4 py-2 rounded-full mb-6">
                   <Zap className="w-4 h-4 text-primary-dark" />
                   <span className="text-sm font-medium text-primary-dark">
