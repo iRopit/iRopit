@@ -224,7 +224,54 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+type MockPreviewKey =
+  | "chat"
+  | "sms"
+  | "calls"
+  | "notifications"
+  | "insights"
+  | "devices";
+
+const mockPreviewContent: Record<
+  MockPreviewKey,
+  { src: string; alt: string; badge: string }
+> = {
+  chat: {
+    src: "/screenshots/chat.png",
+    alt: "Chat feature preview",
+    badge: "Chat Preview",
+  },
+  sms: {
+    src: "/screenshots/sms.png",
+    alt: "SMS feature preview",
+    badge: "SMS Preview",
+  },
+  calls: {
+    src: "/screenshots/calls.png",
+    alt: "Calls feature preview",
+    badge: "Calls Preview",
+  },
+  notifications: {
+    src: "/screenshots/notifications.png",
+    alt: "Notifications feature preview",
+    badge: "Notifications Preview",
+  },
+  insights: {
+    src: "/screenshots/insights.png",
+    alt: "Insights feature preview",
+    badge: "Insights Preview",
+  },
+  devices: {
+    src: "/screenshots/devices.png",
+    alt: "Devices feature preview",
+    badge: "Devices Preview",
+  },
+};
+
 export default function HomePage() {
+  const [activeMockPreview, setActiveMockPreview] =
+    useState<MockPreviewKey | null>(null);
+
   return (
     <>
       {/* ====== HERO SECTION ====== */}
@@ -329,9 +376,19 @@ export default function HomePage() {
                     </div>
                   </div>
                   {/* Mock content */}
-                  <div className="p-4 space-y-2.5">
+                  <div
+                    className="p-4 space-y-2.5"
+                    onMouseLeave={() => setActiveMockPreview(null)}
+                  >
                     {/* Chat item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("chat")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "chat"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center">
                           <Send className="w-4 h-4 text-primary-dark" />
@@ -350,7 +407,14 @@ export default function HomePage() {
                       </div>
                     </div>
                     {/* SMS item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("sms")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "sms"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 rounded-full bg-info-light flex items-center justify-center">
                           <MessageSquare className="w-4 h-4 text-info" />
@@ -369,7 +433,14 @@ export default function HomePage() {
                       </div>
                     </div>
                     {/* Call item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("calls")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "calls"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-success-light flex items-center justify-center">
                           <Phone className="w-4 h-4 text-success" />
@@ -385,7 +456,14 @@ export default function HomePage() {
                       </div>
                     </div>
                     {/* Notification item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("notifications")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "notifications"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-warning-light flex items-center justify-center">
                           <Bell className="w-4 h-4 text-warning" />
@@ -401,7 +479,14 @@ export default function HomePage() {
                       </div>
                     </div>
                     {/* Insights item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("insights")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "insights"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center">
                           <InsightsIcon className="w-4 h-4 text-primary-dark" />
@@ -417,7 +502,14 @@ export default function HomePage() {
                       </div>
                     </div>
                     {/* Devices item */}
-                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                    <div
+                      onMouseEnter={() => setActiveMockPreview("devices")}
+                      className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
+                        activeMockPreview === "devices"
+                          ? "border-primary-light"
+                          : "border-border-light"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-success-light flex items-center justify-center">
                           <Smartphone className="w-4 h-4 text-success" />
@@ -443,6 +535,33 @@ export default function HomePage() {
                     <Smartphone className="w-4 h-4 text-txt-tertiary" />
                   </div>
                 </div>
+
+                <AnimatePresence>
+                  {activeMockPreview && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 18, scale: 0.96 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: 12, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                      className="hidden lg:block absolute left-full ml-8 top-1/2 -translate-y-1/2 w-[420px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
+                    >
+                      <div className="px-4 py-3 border-b border-border bg-surface-secondary">
+                        <span className="inline-flex rounded-full border border-primary-light bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-dark">
+                          {mockPreviewContent[activeMockPreview].badge}
+                        </span>
+                      </div>
+                      <div className="relative aspect-[16/10]">
+                        <Image
+                          src={mockPreviewContent[activeMockPreview].src}
+                          alt={mockPreviewContent[activeMockPreview].alt}
+                          fill
+                          className="object-cover"
+                          sizes="420px"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Floating elements */}
                 <motion.div
