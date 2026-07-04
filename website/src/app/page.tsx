@@ -234,35 +234,41 @@ type MockPreviewKey =
 
 const mockPreviewContent: Record<
   MockPreviewKey,
-  { src: string; alt: string; badge: string }
+  { src: string; fallback: string; alt: string; badge: string }
 > = {
   chat: {
     src: "/screenshots/Chat%20messages.jpg",
+    fallback: "/screenshots/desktop.png",
     alt: "Chat feature preview",
     badge: "Chat Preview",
   },
   sms: {
     src: "/screenshots/SMS%20Screen.jpg",
+    fallback: "/screenshots/desktop.png",
     alt: "SMS feature preview",
     badge: "SMS Preview",
   },
   calls: {
     src: "/screenshots/Call%20screen.jpg",
+    fallback: "/screenshots/desktop.png",
     alt: "Calls feature preview",
     badge: "Calls Preview",
   },
   notifications: {
     src: "/screenshots/Notification%20Screen.jpg",
+    fallback: "/screenshots/desktop.png",
     alt: "Notifications feature preview",
     badge: "Notifications Preview",
   },
   insights: {
     src: "/screenshots/Insights%20Data.jpg",
+    fallback: "/screenshots/desktop.png",
     alt: "Insights feature preview",
     badge: "Insights Preview",
   },
   devices: {
     src: "/screenshots/Devices.jpg",
+    fallback: "/screenshots/mobile.png",
     alt: "Devices feature preview",
     badge: "Devices Preview",
   },
@@ -271,6 +277,12 @@ const mockPreviewContent: Record<
 export default function HomePage() {
   const [activeMockPreview, setActiveMockPreview] =
     useState<MockPreviewKey | null>(null);
+  const [activePreviewSrc, setActivePreviewSrc] = useState<string | null>(null);
+
+  const handleMockHover = (key: MockPreviewKey) => {
+    setActiveMockPreview(key);
+    setActivePreviewSrc(mockPreviewContent[key].src);
+  };
 
   return (
     <>
@@ -284,7 +296,7 @@ export default function HomePage() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center lg:items-start">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-10 lg:gap-12 items-start">
             {/* Left - Content */}
             <div>
               <motion.div
@@ -292,8 +304,8 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <div className="mb-6 w-full max-w-[340px] sm:max-w-[420px] lg:max-w-none lg:w-[760px]">
-                  <div className="grid gap-3 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-stretch">
+                <div className="mb-6 w-full">
+                  <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-stretch">
                     <div className="order-2 lg:order-1 space-y-3">
                       {steps.map((step) => (
                         <div
@@ -373,7 +385,7 @@ export default function HomePage() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="relative flex justify-center"
+              className="relative flex justify-center lg:justify-end"
             >
               <div className="relative">
                 {/* Phone Frame */}
@@ -406,11 +418,14 @@ export default function HomePage() {
                   {/* Mock content */}
                   <div
                     className="p-4 space-y-2.5"
-                    onMouseLeave={() => setActiveMockPreview(null)}
+                    onMouseLeave={() => {
+                      setActiveMockPreview(null);
+                      setActivePreviewSrc(null);
+                    }}
                   >
                     {/* Chat item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("chat")}
+                      onMouseEnter={() => handleMockHover("chat")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "chat"
                           ? "border-primary-light"
@@ -436,7 +451,7 @@ export default function HomePage() {
                     </div>
                     {/* SMS item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("sms")}
+                      onMouseEnter={() => handleMockHover("sms")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "sms"
                           ? "border-primary-light"
@@ -462,7 +477,7 @@ export default function HomePage() {
                     </div>
                     {/* Call item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("calls")}
+                      onMouseEnter={() => handleMockHover("calls")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "calls"
                           ? "border-primary-light"
@@ -485,7 +500,7 @@ export default function HomePage() {
                     </div>
                     {/* Notification item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("notifications")}
+                      onMouseEnter={() => handleMockHover("notifications")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "notifications"
                           ? "border-primary-light"
@@ -508,7 +523,7 @@ export default function HomePage() {
                     </div>
                     {/* Insights item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("insights")}
+                      onMouseEnter={() => handleMockHover("insights")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "insights"
                           ? "border-primary-light"
@@ -531,7 +546,7 @@ export default function HomePage() {
                     </div>
                     {/* Devices item */}
                     <div
-                      onMouseEnter={() => setActiveMockPreview("devices")}
+                      onMouseEnter={() => handleMockHover("devices")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "devices"
                           ? "border-primary-light"
@@ -580,11 +595,21 @@ export default function HomePage() {
                       </div>
                       <div className="relative aspect-[16/10]">
                         <Image
-                          src={mockPreviewContent[activeMockPreview].src}
+                          src={
+                            activePreviewSrc ||
+                            mockPreviewContent[activeMockPreview].fallback
+                          }
                           alt={mockPreviewContent[activeMockPreview].alt}
                           fill
                           className="object-cover"
                           sizes="420px"
+                          onError={() => {
+                            const fallback =
+                              mockPreviewContent[activeMockPreview].fallback;
+                            if (activePreviewSrc !== fallback) {
+                              setActivePreviewSrc(fallback);
+                            }
+                          }}
                         />
                       </div>
                     </motion.div>
