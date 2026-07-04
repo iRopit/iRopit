@@ -212,7 +212,7 @@ export default function HomePage() {
                   </span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-txt leading-tight mb-6">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-txt leading-tight mb-6">
                   Your Android Phone(s){" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
                     On Your Computer
