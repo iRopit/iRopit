@@ -353,9 +353,9 @@ export default function HomePage() {
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-txt leading-tight mb-6">
-                  Your Android Phone(s){" "}
+                  Your Android Devices{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
-                    On Your Computer
+                    on Your Computer
                   </span>
                 </h1>
 
