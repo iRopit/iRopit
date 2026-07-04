@@ -83,14 +83,14 @@ const steps = [
     icon: Smartphone,
     title: "Install the App",
     description:
-      "Download iRopit from Google Play Store and set up your account in seconds.",
+      "Download iRopit from Google Play Store and login with your google account.",
   },
   {
     step: "02",
     icon: Monitor,
     title: "Add Chrome Extension",
     description:
-      "Install the iRopit Chrome Extension and sign in with the same account.",
+      "Install the iRopit Chrome Extension and sign in with the same google account.",
   },
   {
     step: "03",
