@@ -237,32 +237,32 @@ const mockPreviewContent: Record<
   { src: string; alt: string; badge: string }
 > = {
   chat: {
-    src: "/screenshots/chat.png",
+    src: "/screenshots/Chat%20messages.jpg",
     alt: "Chat feature preview",
     badge: "Chat Preview",
   },
   sms: {
-    src: "/screenshots/sms.png",
+    src: "/screenshots/SMS%20Screen.jpg",
     alt: "SMS feature preview",
     badge: "SMS Preview",
   },
   calls: {
-    src: "/screenshots/calls.png",
+    src: "/screenshots/Call%20screen.jpg",
     alt: "Calls feature preview",
     badge: "Calls Preview",
   },
   notifications: {
-    src: "/screenshots/notifications.png",
+    src: "/screenshots/Notification%20Screen.jpg",
     alt: "Notifications feature preview",
     badge: "Notifications Preview",
   },
   insights: {
-    src: "/screenshots/insights.png",
+    src: "/screenshots/Insights%20Data.jpg",
     alt: "Insights feature preview",
     badge: "Insights Preview",
   },
   devices: {
-    src: "/screenshots/devices.png",
+    src: "/screenshots/Devices.jpg",
     alt: "Devices feature preview",
     badge: "Devices Preview",
   },
@@ -292,16 +292,44 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <div className="mb-6 w-full max-w-[340px] sm:max-w-[420px] lg:max-w-none lg:w-[680px]">
-                  <div className="aspect-video overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
-                    <iframe
-                      className="h-full w-full"
-                      src="https://www.youtube.com/embed/nvcpXxFtrZI?autoplay=1&mute=1&loop=1&playlist=nvcpXxFtrZI&rel=0"
-                      title="iRopit animated overview"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
+                <div className="mb-6 w-full max-w-[340px] sm:max-w-[420px] lg:max-w-none lg:w-[760px]">
+                  <div className="grid gap-3 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-stretch">
+                    <div className="order-2 lg:order-1 space-y-3">
+                      {steps.map((step) => (
+                        <div
+                          key={`hero-step-${step.step}`}
+                          className="rounded-2xl border border-primary-light/60 bg-primary-soft/40 px-4 py-3"
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-xl bg-surface border border-primary-light flex items-center justify-center flex-shrink-0">
+                              <step.icon className="w-5 h-5 text-primary-dark" />
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-primary-dark/80">
+                                {step.step}
+                              </div>
+                              <div className="text-sm font-semibold text-txt leading-tight">
+                                {step.title}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-txt-secondary leading-relaxed">
+                            {step.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="order-1 lg:order-2 aspect-video overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
+                      <iframe
+                        className="h-full w-full"
+                        src="https://www.youtube.com/embed/nvcpXxFtrZI?autoplay=1&mute=1&loop=1&playlist=nvcpXxFtrZI&rel=0"
+                        title="iRopit animated overview"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    </div>
                   </div>
                 </div>
 
