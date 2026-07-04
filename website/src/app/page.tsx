@@ -237,37 +237,37 @@ const mockPreviewContent: Record<
   { src: string; fallback: string; alt: string; badge: string }
 > = {
   chat: {
-    src: "/screenshots/Chat%20messages.jpg",
+    src: "/screenshots/1.Chat%20messages.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Chat feature preview",
     badge: "Chat Preview",
   },
   sms: {
-    src: "/screenshots/SMS%20Screen.jpg",
+    src: "/screenshots/2.SMS%20Screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "SMS feature preview",
     badge: "SMS Preview",
   },
   calls: {
-    src: "/screenshots/Call%20screen.jpg",
+    src: "/screenshots/3.Call%20screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Calls feature preview",
     badge: "Calls Preview",
   },
   notifications: {
-    src: "/screenshots/Notification%20Screen.jpg",
+    src: "/screenshots/4.Notification%20Screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Notifications feature preview",
     badge: "Notifications Preview",
   },
   insights: {
-    src: "/screenshots/Insights%20Data.jpg",
+    src: "/screenshots/5.Insights%20Data.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Insights feature preview",
     badge: "Insights Preview",
   },
   devices: {
-    src: "/screenshots/Devices.jpg",
+    src: "/screenshots/7.Devices.jpg",
     fallback: "/screenshots/mobile.png",
     alt: "Devices feature preview",
     badge: "Devices Preview",
@@ -305,7 +305,7 @@ export default function HomePage() {
                 transition={{ duration: 0.6 }}
               >
                 <div className="mb-6 w-full">
-                  <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-stretch">
+                  <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-stretch">
                     <div className="order-2 lg:order-1 space-y-3">
                       {steps.map((step) => (
                         <div
@@ -332,7 +332,7 @@ export default function HomePage() {
                       ))}
                     </div>
 
-                    <div className="order-1 lg:order-2 aspect-video overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
+                    <div className="order-1 lg:order-2 aspect-video w-full max-w-[520px] overflow-hidden rounded-2xl border border-border-light shadow-xl bg-surface-secondary">
                       <iframe
                         className="h-full w-full"
                         src="https://www.youtube.com/embed/nvcpXxFtrZI?autoplay=1&mute=1&loop=1&playlist=nvcpXxFtrZI&rel=0"
