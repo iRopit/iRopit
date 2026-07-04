@@ -213,9 +213,9 @@ export default function HomePage() {
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-txt leading-tight mb-6">
-                  Sync Your Devices{" "}
+                  Your Android Phone(s){" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
-                    Seamlessly
+                    On Your Computer
                   </span>
                 </h1>
 

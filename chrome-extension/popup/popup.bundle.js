@@ -23331,6 +23331,30 @@ ${this.customData.serverResponse}`;
         return type;
     }
   }
+  function rememberCallsListPosition(groupKey) {
+    const list = document.getElementById("callsList");
+    callsListReturnState = {
+      groupKey: groupKey || null,
+      scrollTop: list ? list.scrollTop : 0
+    };
+  }
+  function restoreCallsListPosition() {
+    const { groupKey, scrollTop } = callsListReturnState;
+    requestAnimationFrame(() => {
+      const list = document.getElementById("callsList");
+      if (!list) return;
+      if (Number.isFinite(scrollTop)) {
+        list.scrollTop = scrollTop;
+      }
+      if (groupKey) {
+        const row = list.querySelector(
+          `.call-group[data-group-key="${CSS.escape(groupKey)}"]`
+        );
+        row?.scrollIntoView({ block: "nearest" });
+      }
+      callsListReturnState = { groupKey: null, scrollTop: 0 };
+    });
+  }
   async function hydrateCallsPinnedGroups() {
     if (callsPinHydrated) return;
     callsPinHydrated = true;
@@ -23523,6 +23547,7 @@ ${this.customData.serverResponse}`;
   }
   function pruneCallsForAllowedDevices(allowedDeviceIds) {
     const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : /* @__PURE__ */ new Set();
+    if (allowed.size === 0) return false;
     let changed = false;
     Object.keys(allCallsByDevice || {}).forEach((deviceId) => {
       if (!allowed.has(deviceId)) {
@@ -23703,6 +23728,16 @@ ${this.customData.serverResponse}`;
         renderCalls(allCallsData);
       }
       if (devicesList2.length === 0) {
+        const hasExistingCalls = allCallsData && allCallsData.length > 0 || Object.values(allCallsByDevice || {}).some(
+          (rows) => Array.isArray(rows) && rows.length > 0
+        );
+        if (hasExistingCalls) {
+          console.warn(
+            "[Calls] Devices list temporarily empty; preserving existing calls list"
+          );
+          renderCalls(allCallsData || []);
+          return;
+        }
         console.info("[Calls] No mobile devices found; showing empty state");
         renderCalls([]);
         return;
@@ -24097,6 +24132,7 @@ ${this.customData.serverResponse}`;
           _updateCallsSelectionToolbar(callGroups.length);
           return;
         }
+        rememberCallsListPosition(groupKey);
         showCallHistory(groupKey);
       });
       const phoneNumber = el.dataset.phone;
@@ -24283,6 +24319,7 @@ ${this.customData.serverResponse}`;
     document.getElementById("backToCalls")?.addEventListener("click", () => {
       setCurrentCallConversation(null);
       renderCalls(allCallsData);
+      restoreCallsListPosition();
     });
     if (!isVoIP) {
       document.querySelector(".copy-phone-btn")?.addEventListener("click", () => {
@@ -24583,7 +24620,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var CALLS_FETCH_LIMIT, CALLS_FULL_FETCH_MAX_PAGES, callsUnavailableLogKeys, _callsSleep, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
+  var CALLS_FETCH_LIMIT, CALLS_FULL_FETCH_MAX_PAGES, callsUnavailableLogKeys, _callsSleep, callsSelectionMode, selectedCallGroups, CALLS_PIN_STORAGE_KEY, callsPinnedGroups, callsPinHydrated, callsListReturnState, callDecryptionCache, callListenerUnsubs, sharedCallListenerUnsubs, isSyncingCalls, suppressCallsSyncIndicator;
   var init_calls = __esm({
     "src/services/calls.js"() {
       init_firebase();
@@ -24607,6 +24644,7 @@ ${this.customData.serverResponse}`;
       CALLS_PIN_STORAGE_KEY = "callsPinnedGroups";
       callsPinnedGroups = {};
       callsPinHydrated = false;
+      callsListReturnState = { groupKey: null, scrollTop: 0 };
       callDecryptionCache = /* @__PURE__ */ new Map();
       callListenerUnsubs = [];
       sharedCallListenerUnsubs = [];
@@ -24886,6 +24924,30 @@ ${this.customData.serverResponse}`;
     }
     throw lastErr;
   }
+  function rememberSmsListPosition(conversationKey) {
+    const list = document.getElementById("smsList");
+    smsListReturnState = {
+      conversationKey: conversationKey || null,
+      scrollTop: list ? list.scrollTop : 0
+    };
+  }
+  function restoreSmsListPosition() {
+    const { conversationKey, scrollTop } = smsListReturnState;
+    requestAnimationFrame(() => {
+      const list = document.getElementById("smsList");
+      if (!list) return;
+      if (Number.isFinite(scrollTop)) {
+        list.scrollTop = scrollTop;
+      }
+      if (conversationKey) {
+        const row = list.querySelector(
+          `.sms-conversation[data-phone="${CSS.escape(conversationKey)}"]`
+        );
+        row?.scrollIntoView({ block: "nearest" });
+      }
+      smsListReturnState = { conversationKey: null, scrollTop: 0 };
+    });
+  }
   function stopSharedSMSListeners(keepKeys = null) {
     for (const [key, unsubs] of sharedSmsUnsubscribeByKey.entries()) {
       if (keepKeys && keepKeys.has(key)) continue;
@@ -24957,6 +25019,7 @@ ${this.customData.serverResponse}`;
   }
   function pruneSMSForAllowedDevices(allowedDeviceIds) {
     const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : /* @__PURE__ */ new Set();
+    if (allowed.size === 0) return false;
     let changed = false;
     Object.keys(allSMS || {}).forEach((deviceId) => {
       if (!allowed.has(deviceId)) {
@@ -25343,6 +25406,22 @@ ${this.customData.serverResponse}`;
         renderSMS(allSMSMessages || []);
       }
       if (devicesList2.length === 0) {
+        const hasExistingSms = allSMSMessages && allSMSMessages.length > 0 || Object.values(allSMS || {}).some(
+          (msgs) => Array.isArray(msgs) && msgs.length > 0
+        );
+        if (hasExistingSms) {
+          console.warn(
+            "[SMS] Devices list temporarily empty; preserving existing SMS list"
+          );
+          isSyncing = false;
+          updateSMSCountIndicator();
+          renderSMS(allSMSMessages || []);
+          try {
+            window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
+          } catch (_) {
+          }
+          return;
+        }
         console.info(
           "[SMS] No mobile devices found for SMS loading; showing empty state"
         );
@@ -26186,6 +26265,7 @@ ${this.customData.serverResponse}`;
           }
           _updateSelectionToolbar(conversations.length);
         } else {
+          rememberSmsListPosition(phoneNumber);
           showConversation(phoneNumber);
         }
       }
@@ -26281,6 +26361,7 @@ ${this.customData.serverResponse}`;
     const starredCb = document.getElementById("smsShowStarred");
     if (starredCb) delete starredCb.dataset.convWired;
     renderSMS(allSMSMessages);
+    restoreSmsListPosition();
   }
   function initSMSNavigation() {
     document.addEventListener("click", (e) => {
@@ -27800,7 +27881,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnavailableLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, smsListReturnState, processedMessageIds, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -27823,6 +27904,7 @@ ${this.customData.serverResponse}`;
       sharedSmsUnsubscribeByKey = /* @__PURE__ */ new Map();
       sharedSmsSourceDataByKey = /* @__PURE__ */ new Map();
       sharedSmsServerProbeTsByKey = /* @__PURE__ */ new Map();
+      smsListReturnState = { conversationKey: null, scrollTop: 0 };
       processedMessageIds = /* @__PURE__ */ new Set();
       decryptionCache = /* @__PURE__ */ new Map();
       PAGE_SIZE = 1e4;

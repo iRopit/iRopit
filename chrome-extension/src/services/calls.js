@@ -146,6 +146,37 @@ let selectedCallGroups = new Set(); // keyed by group.phoneNumber
 const CALLS_PIN_STORAGE_KEY = "callsPinnedGroups";
 let callsPinnedGroups = {};
 let callsPinHydrated = false;
+let callsListReturnState = { groupKey: null, scrollTop: 0 };
+
+function rememberCallsListPosition(groupKey) {
+  const list = document.getElementById("callsList");
+  callsListReturnState = {
+    groupKey: groupKey || null,
+    scrollTop: list ? list.scrollTop : 0,
+  };
+}
+
+function restoreCallsListPosition() {
+  const { groupKey, scrollTop } = callsListReturnState;
+
+  requestAnimationFrame(() => {
+    const list = document.getElementById("callsList");
+    if (!list) return;
+
+    if (Number.isFinite(scrollTop)) {
+      list.scrollTop = scrollTop;
+    }
+
+    if (groupKey) {
+      const row = list.querySelector(
+        `.call-group[data-group-key="${CSS.escape(groupKey)}"]`,
+      );
+      row?.scrollIntoView({ block: "nearest" });
+    }
+
+    callsListReturnState = { groupKey: null, scrollTop: 0 };
+  });
+}
 
 async function hydrateCallsPinnedGroups() {
   if (callsPinHydrated) return;
@@ -401,6 +432,9 @@ function rebuildMergedCallsFromState() {
 
 function pruneCallsForAllowedDevices(allowedDeviceIds) {
   const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  // Guard against transient empty device snapshots: avoid clearing all calls
+  // while device scope is temporarily unavailable.
+  if (allowed.size === 0) return false;
   let changed = false;
 
   Object.keys(state.allCallsByDevice || {}).forEach((deviceId) => {
@@ -707,6 +741,19 @@ export async function loadCalls() {
 
     // No mobile devices found — show empty state instead of infinite spinner
     if (devicesList.length === 0) {
+      const hasExistingCalls =
+        (state.allCallsData && state.allCallsData.length > 0) ||
+        Object.values(state.allCallsByDevice || {}).some(
+          (rows) => Array.isArray(rows) && rows.length > 0,
+        );
+      if (hasExistingCalls) {
+        console.warn(
+          "[Calls] Devices list temporarily empty; preserving existing calls list",
+        );
+        renderCalls(state.allCallsData || []);
+        return;
+      }
+
       console.info("[Calls] No mobile devices found; showing empty state");
       renderCalls([]);
       return;
@@ -1246,6 +1293,7 @@ export function renderCalls(calls) {
         _updateCallsSelectionToolbar(callGroups.length);
         return;
       }
+      rememberCallsListPosition(groupKey);
       showCallHistory(groupKey);
     });
 
@@ -1455,6 +1503,7 @@ async function showCallHistory(groupKey) {
   document.getElementById("backToCalls")?.addEventListener("click", () => {
     state.setCurrentCallConversation(null);
     renderCalls(state.allCallsData);
+    restoreCallsListPosition();
   });
 
   if (!isVoIP) {

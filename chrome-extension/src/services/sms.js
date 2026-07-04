@@ -110,6 +110,37 @@ let smsUnsubscribeFunctions = [];
 let sharedSmsUnsubscribeByKey = new Map();
 let sharedSmsSourceDataByKey = new Map();
 let sharedSmsServerProbeTsByKey = new Map();
+let smsListReturnState = { conversationKey: null, scrollTop: 0 };
+
+function rememberSmsListPosition(conversationKey) {
+  const list = document.getElementById("smsList");
+  smsListReturnState = {
+    conversationKey: conversationKey || null,
+    scrollTop: list ? list.scrollTop : 0,
+  };
+}
+
+function restoreSmsListPosition() {
+  const { conversationKey, scrollTop } = smsListReturnState;
+
+  requestAnimationFrame(() => {
+    const list = document.getElementById("smsList");
+    if (!list) return;
+
+    if (Number.isFinite(scrollTop)) {
+      list.scrollTop = scrollTop;
+    }
+
+    if (conversationKey) {
+      const row = list.querySelector(
+        `.sms-conversation[data-phone="${CSS.escape(conversationKey)}"]`,
+      );
+      row?.scrollIntoView({ block: "nearest" });
+    }
+
+    smsListReturnState = { conversationKey: null, scrollTop: 0 };
+  });
+}
 
 function stopSharedSMSListeners(keepKeys = null) {
   for (const [key, unsubs] of sharedSmsUnsubscribeByKey.entries()) {
@@ -215,6 +246,9 @@ function rebuildMergedSMSFromState() {
 
 function pruneSMSForAllowedDevices(allowedDeviceIds) {
   const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  // Guard against transient empty device snapshots: do not wipe in-memory SMS
+  // when allowed scope is temporarily unresolved.
+  if (allowed.size === 0) return false;
   let changed = false;
 
   Object.keys(state.allSMS || {}).forEach((deviceId) => {
@@ -804,6 +838,24 @@ export async function loadSMS() {
     }
 
     if (devicesList.length === 0) {
+      const hasExistingSms =
+        (state.allSMSMessages && state.allSMSMessages.length > 0) ||
+        Object.values(state.allSMS || {}).some(
+          (msgs) => Array.isArray(msgs) && msgs.length > 0,
+        );
+      if (hasExistingSms) {
+        console.warn(
+          "[SMS] Devices list temporarily empty; preserving existing SMS list",
+        );
+        isSyncing = false;
+        updateSMSCountIndicator();
+        renderSMS(state.allSMSMessages || []);
+        try {
+          window.dispatchEvent(new CustomEvent("iropit:sms-sync-done"));
+        } catch (_) {}
+        return;
+      }
+
       console.info(
         "[SMS] No mobile devices found for SMS loading; showing empty state",
       );
@@ -1902,6 +1954,7 @@ export function renderSMS(messages) {
         }
         _updateSelectionToolbar(conversations.length);
       } else {
+        rememberSmsListPosition(phoneNumber);
         showConversation(phoneNumber);
       }
     }
@@ -2053,6 +2106,7 @@ function _goBackFromConversation() {
   const starredCb = document.getElementById("smsShowStarred");
   if (starredCb) delete starredCb.dataset.convWired;
   renderSMS(state.allSMSMessages);
+  restoreSmsListPosition();
 }
 
 /**
