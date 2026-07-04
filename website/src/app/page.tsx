@@ -319,17 +319,36 @@ export default function HomePage() {
                         />
                       </div>
                       <div>
-                        <div className="text-white font-semibold text-sm">
+                        <div className="text-black font-semibold text-sm">
                           iRopit
                         </div>
-                        <div className="text-white/70 text-xs">
+                        <div className="text-black/70 text-xs">
                           All devices synced
                         </div>
                       </div>
                     </div>
                   </div>
                   {/* Mock content */}
-                  <div className="p-4 space-y-3">
+                  <div className="p-4 space-y-2.5">
+                    {/* Chat item */}
+                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center">
+                          <Send className="w-4 h-4 text-primary-dark" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-semibold text-txt">
+                            Chat
+                          </div>
+                          <div className="text-[10px] text-txt-tertiary">
+                            File shared
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-txt-secondary">
+                        Sent from your phone
+                      </div>
+                    </div>
                     {/* SMS item */}
                     <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
                       <div className="flex items-center gap-3 mb-2">
@@ -338,7 +357,7 @@ export default function HomePage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-txt">
-                            New Message
+                            SMS
                           </div>
                           <div className="text-[10px] text-txt-tertiary">
                             Just now
@@ -357,7 +376,7 @@ export default function HomePage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-txt">
-                            Incoming Call
+                            Calls
                           </div>
                           <div className="text-[10px] text-txt-tertiary">
                             2 min ago · 3:42
@@ -373,37 +392,55 @@ export default function HomePage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-txt">
-                            WhatsApp
+                            Notifications
                           </div>
                           <div className="text-[10px] text-txt-tertiary">
-                            New notification
+                            WhatsApp alert
                           </div>
                         </div>
                       </div>
                     </div>
-                    {/* Chat item */}
+                    {/* Insights item */}
                     <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center">
-                          <Send className="w-4 h-4 text-primary-dark" />
+                          <InsightsIcon className="w-4 h-4 text-primary-dark" />
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-txt">
-                            Device Chat
+                            Insights
                           </div>
                           <div className="text-[10px] text-txt-tertiary">
-                            File shared
+                            Spending overview
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Devices item */}
+                    <div className="bg-surface rounded-[var(--radius)] p-3 shadow-sm border border-border-light">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-success-light flex items-center justify-center">
+                          <Smartphone className="w-4 h-4 text-success" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-semibold text-txt">
+                            Devices
+                          </div>
+                          <div className="text-[10px] text-txt-tertiary">
+                            2 devices online
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                   {/* Bottom nav */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-around px-4 py-3">
-                    <MessageSquare className="w-5 h-5 text-primary-dark" />
-                    <Bell className="w-5 h-5 text-txt-tertiary" />
-                    <MessagesSquare className="w-5 h-5 text-txt-tertiary" />
-                    <Phone className="w-5 h-5 text-txt-tertiary" />
+                  <div className="absolute bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-between px-3 py-3">
+                    <MessagesSquare className="w-4 h-4 text-primary-dark" />
+                    <MessageSquare className="w-4 h-4 text-txt-tertiary" />
+                    <Phone className="w-4 h-4 text-txt-tertiary" />
+                    <Bell className="w-4 h-4 text-txt-tertiary" />
+                    <InsightsIcon className="w-4 h-4 text-txt-tertiary" />
+                    <Smartphone className="w-4 h-4 text-txt-tertiary" />
                   </div>
                 </div>
 
@@ -631,18 +668,24 @@ export default function HomePage() {
                             iRopit Extension
                           </span>
                         </div>
-                        <div className="flex gap-2 text-[9px]">
+                        <div className="flex gap-1 text-[9px]">
                           <span className="bg-primary-soft text-primary-dark px-2 py-0.5 rounded-full font-medium">
+                            Chat
+                          </span>
+                          <span className="text-txt-tertiary px-2 py-0.5">
                             SMS
                           </span>
                           <span className="text-txt-tertiary px-2 py-0.5">
                             Calls
                           </span>
                           <span className="text-txt-tertiary px-2 py-0.5">
-                            Chat
+                            Notifications
                           </span>
                           <span className="text-txt-tertiary px-2 py-0.5">
-                            Notifications
+                            Insights
+                          </span>
+                          <span className="text-txt-tertiary px-2 py-0.5">
+                            Devices
                           </span>
                         </div>
                         <div className="space-y-1.5 mt-2">
