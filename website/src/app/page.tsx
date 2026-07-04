@@ -26,6 +26,23 @@ import {
 import AnimatedSection from "@/components/AnimatedSection";
 import DownloadButtons from "@/components/DownloadButtons";
 
+function InsightsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
 const features = [
   {
     icon: MessageSquare,
@@ -50,6 +67,14 @@ const features = [
       "Get your WhatsApp, Telegram, and other app notifications synced directly to your desktop.",
     color: "text-warning",
     bg: "bg-warning-light",
+  },
+  {
+    icon: InsightsIcon,
+    title: "Insights",
+    description:
+      "Turn your bank SMS messages into meaningful financial insights. Track income, expenses, and spending trends in one place.",
+    color: "text-primary-dark",
+    bg: "bg-primary-soft",
   },
   {
     icon: MessagesSquare,
@@ -435,7 +460,7 @@ export default function HomePage() {
             </p>
           </AnimatedSection>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             {features.map((feature, i) => (
               <AnimatedSection key={feature.title} delay={i * 0.1}>
                 <div className="group h-full bg-bg dark:bg-surface-secondary hover:bg-primary-soft border border-border hover:border-primary-light rounded-[var(--radius-lg)] p-6 lg:p-8 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
