@@ -43,6 +43,26 @@ function InsightsIcon({ className }: { className?: string }) {
   );
 }
 
+function ShareDeviceIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
 const features = [
   {
     icon: MessageSquare,
@@ -81,6 +101,14 @@ const features = [
     title: "Device Chat",
     description:
       "Chat between your devices with file sharing — send images, videos, PDFs, and more.",
+    color: "text-primary-dark",
+    bg: "bg-primary-soft",
+  },
+  {
+    icon: ShareDeviceIcon,
+    title: "Share Device",
+    description:
+      "Share your device securely with trusted users and let them access SMS, calls, and notifications from anywhere.",
     color: "text-primary-dark",
     bg: "bg-primary-soft",
   },
@@ -460,7 +488,7 @@ export default function HomePage() {
             </p>
           </AnimatedSection>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
             {features.map((feature, i) => (
               <AnimatedSection key={feature.title} delay={i * 0.1}>
                 <div className="group h-full bg-bg dark:bg-surface-secondary hover:bg-primary-soft border border-border hover:border-primary-light rounded-[var(--radius-lg)] p-6 lg:p-8 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
