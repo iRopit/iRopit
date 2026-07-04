@@ -237,31 +237,31 @@ const mockPreviewContent: Record<
   { src: string; fallback: string; alt: string; badge: string }
 > = {
   chat: {
-    src: "/screenshots/1.Chat%20messages.jpg",
+    src: "/screenshots/1.Chat messages.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Chat feature preview",
     badge: "Chat Preview",
   },
   sms: {
-    src: "/screenshots/2.SMS%20Screen.jpg",
+    src: "/screenshots/2.SMS Screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "SMS feature preview",
     badge: "SMS Preview",
   },
   calls: {
-    src: "/screenshots/3.Call%20screen.jpg",
+    src: "/screenshots/3.Call screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Calls feature preview",
     badge: "Calls Preview",
   },
   notifications: {
-    src: "/screenshots/4.Notification%20Screen.jpg",
+    src: "/screenshots/4.Notification Screen.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Notifications feature preview",
     badge: "Notifications Preview",
   },
   insights: {
-    src: "/screenshots/5.Insights%20Data.jpg",
+    src: "/screenshots/5.Insights Data.jpg",
     fallback: "/screenshots/desktop.png",
     alt: "Insights feature preview",
     badge: "Insights Preview",
@@ -310,7 +310,7 @@ export default function HomePage() {
                       {steps.map((step) => (
                         <div
                           key={`hero-step-${step.step}`}
-                          className="rounded-2xl border border-primary-light/60 bg-primary-soft/40 px-4 py-3"
+                          className="px-1 py-2"
                         >
                           <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 rounded-xl bg-surface border border-primary-light flex items-center justify-center flex-shrink-0">
