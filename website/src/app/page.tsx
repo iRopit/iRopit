@@ -583,14 +583,14 @@ export default function HomePage() {
                       animate={{ opacity: 1, x: 0, scale: 1 }}
                       exit={{ opacity: 0, x: 12, scale: 0.98 }}
                       transition={{ duration: 0.2 }}
-                      className="hidden lg:block absolute left-full ml-10 top-1/2 -translate-y-1/2 w-[520px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
+                      className="hidden lg:block absolute left-full ml-2 top-1/2 -translate-y-1/2 w-[560px] xl:w-[620px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
                     >
                       <div className="px-4 py-3 border-b border-border bg-surface-secondary">
                         <span className="inline-flex rounded-full border border-primary-light bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-dark">
                           {mockPreviewContent[activeMockPreview].badge}
                         </span>
                       </div>
-                      <div className="relative aspect-[16/9]">
+                      <div className="relative aspect-[16/10]">
                         <Image
                           src={
                             activePreviewSrc ||
@@ -599,7 +599,7 @@ export default function HomePage() {
                           alt={mockPreviewContent[activeMockPreview].alt}
                           fill
                           className="object-cover"
-                          sizes="520px"
+                          sizes="(min-width: 1280px) 620px, 560px"
                           onError={() => {
                             const fallback =
                               mockPreviewContent[activeMockPreview].fallback;
