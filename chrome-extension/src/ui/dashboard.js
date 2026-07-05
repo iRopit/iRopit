@@ -483,6 +483,9 @@ const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+// Card payment received alerts — e.g. "a payment of AED 199 has been received on your RAKBANK Card ..."
+// This is money received into the card account and should be treated as CREDIT, not spending.
+const CARD_PAYMENT_RECEIVED_RE = /\bpayment\s+of\b.{0,80}\bhas\s+been\s+received\s+on\s+your\b.{0,80}\bcard\b/i;
 // Arabic monthly card-statement / account-summary notifications.
 // Contain informational fields like minimum-due and last-payment-received — NOT individual transactions.
 const CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
@@ -499,6 +502,9 @@ const PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|
 // Matches: "SMS the correct keyword to 5102", "to subscribe to a Roaming bundle",
 // "Roaming Bundles that work in GCC", "Data bundle valid for", etc.
 const TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
+// Marketing/promotional cashback campaigns (not completed transactions).
+// Example: "...unlimited 16% cashback, when you spend EGP 600 or more... Use code ... at checkout"
+const PROMO_CASHBACK_OFFER_RE = /\bcashback\b.{0,140}\bspend\b.{0,120}\b(or\s+more|min(?:imum)?\s+spend)\b|\buse\s+code\b.{0,80}\bcheckout\b|\btoday\s+only\b/i;
 
 // User-requested TT rule:
 // - "TT Payment to" => receive (credit)
@@ -555,6 +561,8 @@ function extractTransactions(body) {
   if (MERCHANT_CONFIRM_RE.test(body)) return [];
   // Skip telecom bundle / roaming subscription instructions — not financial transactions
   if (TELECOM_SERVICE_RE.test(body)) return [];
+  // Skip promotional cashback offers — these describe potential future spend, not actual transactions
+  if (PROMO_CASHBACK_OFFER_RE.test(body)) return [];
 
   // Step 1: Mask balance/informational amounts in both directions
   const masked = body
@@ -578,6 +586,10 @@ function extractTransactions(body) {
   }
 
   if (candidates.length === 0) return [];
+
+  // Some issuers phrase card account top-ups as "payment ... received on your card".
+  // Force such messages to CREDIT to avoid misclassification by generic debit keywords.
+  const forceCreditMessage = CARD_PAYMENT_RECEIVED_RE.test(body);
 
   // Step 3: Proximity check — only count amounts with a nearby transaction keyword
   const WINDOW = 120;
@@ -603,6 +615,8 @@ function extractTransactions(body) {
       type = "credit";
     } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
       type = "debit";
+    } else if (forceCreditMessage) {
+      type = "credit";
     } else {
       type = isCredit && !isDebit ? "credit" : "debit";
     }
@@ -845,6 +859,49 @@ function resolveDeviceName(id) {
   return dev ? getFriendlyDeviceName(dev) : "";
 }
 
+/**
+ * Extract merchant/payee name from spending SMS body.
+ * Intended for debit rows in CSV export ("where did I spend / to whom").
+ */
+function extractReceiverFromSpendingSMS(body, txnType) {
+  if (!body || txnType !== "debit") return "";
+
+  const text = String(body).replace(/\s+/g, " ").trim();
+
+  const cleanReceiver = (value) =>
+    String(value || "")
+      .replace(/\s+/g, " ")
+      .replace(/[،,.;:\-\s]+$/g, "")
+      .trim();
+
+  // Arabic: "... عند <merchant> في <date>"
+  const arMatch = text.match(/عند\s+(.+?)(?=\s+(?:في|بتاريخ|تاريخ|الرصيد|الحد|مرجع|رقم)|\s+\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|[،,]|$)/i);
+  if (arMatch && arMatch[1]) {
+    return cleanReceiver(arMatch[1]);
+  }
+
+  // English with explicit label: "At: Amazon.ae, Dubai Amount: ..."
+  const atColonMatch = text.match(/\bat\s*:\s*(.+?)(?=\s*,|\s+(?:amount|date|on|your|available|combined|balance|limit)\b|$)/i);
+  if (atColonMatch && atColonMatch[1]) {
+    return cleanReceiver(atColonMatch[1]);
+  }
+
+  // English debit alerts with "from <merchant> on ..."
+  const fromMatch = text.match(/\bfrom\s+(.+?)(?=\s+(?:on|at|date|your|available|combined|balance|limit|ref(?:erence)?|transaction|txn)\b|\s+(?:SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY)\s*\d|[،,]|$)/i);
+  if (fromMatch && fromMatch[1]) {
+    return cleanReceiver(fromMatch[1]);
+  }
+
+  // English: capture the last "at <merchant>" segment.
+  const enMatches = [...text.matchAll(/\bat\s+(.+?)(?=\s*,|\s+(?:on|date|your|available|combined|balance|limit|ref(?:erence)?|transaction|txn)\b|$)/gi)];
+  if (enMatches.length > 0) {
+    const candidate = enMatches[enMatches.length - 1][1] || "";
+    return cleanReceiver(candidate);
+  }
+
+  return "";
+}
+
 /** Return the current date-filtered, device-filtered SMS and Calls data */
 async function getCurrentFilteredData() {
   const fromInput = document.getElementById("dashFromDate");
@@ -935,7 +992,7 @@ export async function exportInsightsSummaryToCSV() {
 
 /**
  * Export 2 – SMS spending transactions for the current date/device filter.
- * Columns: Date, Time, Currency, Type, Amount, Sender, Device, Message Snippet
+ * Columns: Date, Time, Currency, Type, Amount, Sender, Receiver, Device, Message
  */
 export async function exportInsightsSpendingToCSV() {
   const { filteredSms, fromVal, toVal } = await getCurrentFilteredData();
@@ -947,7 +1004,7 @@ export async function exportInsightsSpendingToCSV() {
     return;
   }
 
-  const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
+  const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Receiver", "Device", "Message"];
   const rows   = [];
   // Dedup by body content + calendar day — prevents dual-writer duplicates (NotificationService
   // vs BackgroundSmsService) from appearing as separate rows even if they have different senders.
@@ -967,11 +1024,12 @@ export async function exportInsightsSpendingToCSV() {
     const time    = d.toLocaleTimeString();
     const sender  = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
     const device  = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
-    const snippet = body.slice(0, 100).replace(/\n/g, " ");
+    const fullMessage = body.replace(/\n/g, " ").trim();
 
     for (const txn of txns) {
+      const receiver = extractReceiverFromSpendingSMS(body, txn.type);
       rows.push(
-        [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, device, snippet]
+        [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, receiver, device, fullMessage]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
       );
     }

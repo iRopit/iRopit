@@ -32407,11 +32407,13 @@ ${this.customData.serverResponse}`;
   var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
+  var CARD_PAYMENT_RECEIVED_RE = /\bpayment\s+of\b.{0,80}\bhas\s+been\s+received\s+on\s+your\b.{0,80}\bcard\b/i;
   var CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
   var CARD_STATEMENT_RE_EN = /\b(?:credit\s*card\s*)?(?:mini\s*statement|statement\s*date|minimum\s*amount\s*due|amount\s*to\s*be\s*paid\s*to\s*avoid\s*charges|due\s*date|card\s*starting)\b/i;
   var MERCHANT_CONFIRM_RE = /\bagainst\s+a[\/.\-]?c\b/i;
   var PENDING_RE = /\bwill\s+be\b|\bon\s+its\s+way\b|\bpending\b|\bprocessing\b|\bwithin\s+\d+\s+(?:business\s+)?days\b/i;
   var TELECOM_SERVICE_RE = /\bsms\s+(?:the\s+)?(?:correct\s+)?(?:keyword|word)\s+to\s+\d{3,6}\b|\bto\s+(?:un)?subscribe\b.{0,80}\bsms\b.{0,80}\bto\s+\d{3,6}\b|\b(?:roaming|data|voice|sms)\s+bundles?\s+(?:that\s+works?|valid|for|to|in)\b|\bsubscribe\s+to\s+a\s+(?:roaming|data|voice)\s+bundle\b/i;
+  var PROMO_CASHBACK_OFFER_RE = /\bcashback\b.{0,140}\bspend\b.{0,120}\b(or\s+more|min(?:imum)?\s+spend)\b|\buse\s+code\b.{0,80}\bcheckout\b|\btoday\s+only\b/i;
   var TT_PAYMENT_TO_RE = /\btt\s+payment\s+to\b/i;
   var TT_PAYMENT_FROM_RE = /\btt\s+payment\s+from\b/i;
   var RATE_MASK_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s+per\s+\w+/gi;
@@ -32432,6 +32434,7 @@ ${this.customData.serverResponse}`;
     if (CARD_STATEMENT_RE_EN.test(body)) return [];
     if (MERCHANT_CONFIRM_RE.test(body)) return [];
     if (TELECOM_SERVICE_RE.test(body)) return [];
+    if (PROMO_CASHBACK_OFFER_RE.test(body)) return [];
     const masked = body.replace(RATE_MASK_RE, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_A, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_B, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR, (m2) => " ".repeat(m2.length)).replace(BALANCE_MASK_RE_AR_B, (m2) => " ".repeat(m2.length));
     const candidates = [];
     let m;
@@ -32445,6 +32448,7 @@ ${this.customData.serverResponse}`;
       }
     }
     if (candidates.length === 0) return [];
+    const forceCreditMessage = CARD_PAYMENT_RECEIVED_RE.test(body);
     const WINDOW = 120;
     const results = [];
     const seen = /* @__PURE__ */ new Set();
@@ -32461,6 +32465,8 @@ ${this.customData.serverResponse}`;
         type = "credit";
       } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
         type = "debit";
+      } else if (forceCreditMessage) {
+        type = "credit";
       } else {
         type = isCredit && !isDebit ? "credit" : "debit";
       }
@@ -32643,6 +32649,29 @@ ${this.customData.serverResponse}`;
     const dev = (devices || []).find((d) => d.id === id);
     return dev ? getFriendlyDeviceName(dev) : "";
   }
+  function extractReceiverFromSpendingSMS(body, txnType) {
+    if (!body || txnType !== "debit") return "";
+    const text = String(body).replace(/\s+/g, " ").trim();
+    const cleanReceiver = (value) => String(value || "").replace(/\s+/g, " ").replace(/[،,.;:\-\s]+$/g, "").trim();
+    const arMatch = text.match(/عند\s+(.+?)(?=\s+(?:في|بتاريخ|تاريخ|الرصيد|الحد|مرجع|رقم)|\s+\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|[،,]|$)/i);
+    if (arMatch && arMatch[1]) {
+      return cleanReceiver(arMatch[1]);
+    }
+    const atColonMatch = text.match(/\bat\s*:\s*(.+?)(?=\s*,|\s+(?:amount|date|on|your|available|combined|balance|limit)\b|$)/i);
+    if (atColonMatch && atColonMatch[1]) {
+      return cleanReceiver(atColonMatch[1]);
+    }
+    const fromMatch = text.match(/\bfrom\s+(.+?)(?=\s+(?:on|at|date|your|available|combined|balance|limit|ref(?:erence)?|transaction|txn)\b|\s+(?:SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY)\s*\d|[،,]|$)/i);
+    if (fromMatch && fromMatch[1]) {
+      return cleanReceiver(fromMatch[1]);
+    }
+    const enMatches = [...text.matchAll(/\bat\s+(.+?)(?=\s*,|\s+(?:on|date|your|available|combined|balance|limit|ref(?:erence)?|transaction|txn)\b|$)/gi)];
+    if (enMatches.length > 0) {
+      const candidate = enMatches[enMatches.length - 1][1] || "";
+      return cleanReceiver(candidate);
+    }
+    return "";
+  }
   async function getCurrentFilteredData() {
     const fromInput = document.getElementById("dashFromDate");
     const toInput = document.getElementById("dashToDate");
@@ -32719,7 +32748,7 @@ ${this.customData.serverResponse}`;
       alert("No SMS data to export.");
       return;
     }
-    const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message Snippet"];
+    const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Receiver", "Device", "Message"];
     const rows = [];
     const csvSeenBodies = /* @__PURE__ */ new Set();
     for (const msg of filteredSms) {
@@ -32735,10 +32764,11 @@ ${this.customData.serverResponse}`;
       const time = d.toLocaleTimeString();
       const sender = (msg.sender || msg.address || msg.phoneNumber || "").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
       const device = resolveDeviceName(msg.deviceId) || msg.deviceName || msg.deviceId || "";
-      const snippet = body.slice(0, 100).replace(/\n/g, " ");
+      const fullMessage = body.replace(/\n/g, " ").trim();
       for (const txn of txns) {
+        const receiver = extractReceiverFromSpendingSMS(body, txn.type);
         rows.push(
-          [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, device, snippet].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
+          [date, time, txn.currency, txn.type === "debit" ? "Spent" : "Received", txn.amount, sender, receiver, device, fullMessage].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
         );
       }
     }
