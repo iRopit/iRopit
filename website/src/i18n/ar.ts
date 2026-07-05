@@ -177,7 +177,7 @@ const ar = {
     theme: "المظهر",
     light: "فاتح",
     dark: "داكن",
-    install: "تثبيت التطبيق",
+    install: "تثبيت تطبيق أندرويد",
     installDescription: "ثبّت iRopit لتجربة أفضل",
     dismiss: "إغلاق",
     pwaOffline: "يعمل بلا إنترنت",

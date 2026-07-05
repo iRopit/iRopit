@@ -177,7 +177,7 @@ const en = {
     theme: "Theme",
     light: "Light",
     dark: "Dark",
-    install: "Install App",
+    install: "Install Android App",
     installDescription: "Install iRopit for a better experience",
     dismiss: "Dismiss",
     pwaOffline: "Works offline",
