@@ -315,6 +315,16 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
+                  Your Android Devices on Your Computer
+                </h1>
+
+                <p className="text-lg sm:text-xl text-txt-secondary leading-relaxed mb-8 max-w-lg">
+                  View and manage your phone&apos;s SMS, calls, and
+                  notifications on your computer — all with end-to-end
+                  encryption.
+                </p>
+
                 <div className="mb-6 w-full">
                   <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-stretch">
                     <div className="order-2 lg:order-1 space-y-3">
@@ -362,16 +372,6 @@ export default function HomePage() {
                     Smart Device Sync Platform
                   </span>
                 </div>
-
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
-                  Your Android Devices on Your Computer
-                </h1>
-
-                <p className="text-lg sm:text-xl text-txt-secondary leading-relaxed mb-8 max-w-lg">
-                  View and manage your phone&apos;s SMS, calls, and
-                  notifications on your computer — all with end-to-end
-                  encryption.
-                </p>
 
                 <DownloadButtons className="mb-8" />
 
