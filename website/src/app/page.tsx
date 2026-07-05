@@ -22,6 +22,7 @@ import {
   HelpCircle,
   Plus,
   Minus,
+  X,
 } from "lucide-react";
 import AnimatedSection from "@/components/AnimatedSection";
 import DownloadButtons from "@/components/DownloadButtons";
@@ -278,10 +279,20 @@ export default function HomePage() {
   const [activeMockPreview, setActiveMockPreview] =
     useState<MockPreviewKey | null>(null);
   const [activePreviewSrc, setActivePreviewSrc] = useState<string | null>(null);
+  const [expandedMockPreview, setExpandedMockPreview] =
+    useState<MockPreviewKey | null>(null);
+  const [expandedPreviewSrc, setExpandedPreviewSrc] = useState<string | null>(
+    null
+  );
 
   const handleMockHover = (key: MockPreviewKey) => {
     setActiveMockPreview(key);
     setActivePreviewSrc(mockPreviewContent[key].src);
+  };
+
+  const handleMockClick = (key: MockPreviewKey) => {
+    setExpandedMockPreview(key);
+    setExpandedPreviewSrc(mockPreviewContent[key].src);
   };
 
   return (
@@ -423,6 +434,7 @@ export default function HomePage() {
                     {/* Chat item */}
                     <div
                       onMouseEnter={() => handleMockHover("chat")}
+                      onClick={() => handleMockClick("chat")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "chat"
                           ? "border-primary-light"
@@ -449,6 +461,7 @@ export default function HomePage() {
                     {/* SMS item */}
                     <div
                       onMouseEnter={() => handleMockHover("sms")}
+                      onClick={() => handleMockClick("sms")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "sms"
                           ? "border-primary-light"
@@ -475,6 +488,7 @@ export default function HomePage() {
                     {/* Call item */}
                     <div
                       onMouseEnter={() => handleMockHover("calls")}
+                      onClick={() => handleMockClick("calls")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "calls"
                           ? "border-primary-light"
@@ -498,6 +512,7 @@ export default function HomePage() {
                     {/* Notification item */}
                     <div
                       onMouseEnter={() => handleMockHover("notifications")}
+                      onClick={() => handleMockClick("notifications")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "notifications"
                           ? "border-primary-light"
@@ -521,6 +536,7 @@ export default function HomePage() {
                     {/* Insights item */}
                     <div
                       onMouseEnter={() => handleMockHover("insights")}
+                      onClick={() => handleMockClick("insights")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "insights"
                           ? "border-primary-light"
@@ -544,6 +560,7 @@ export default function HomePage() {
                     {/* Devices item */}
                     <div
                       onMouseEnter={() => handleMockHover("devices")}
+                      onClick={() => handleMockClick("devices")}
                       className={`bg-surface rounded-[var(--radius)] p-3 shadow-sm border transition-colors cursor-pointer ${
                         activeMockPreview === "devices"
                           ? "border-primary-light"
@@ -583,7 +600,7 @@ export default function HomePage() {
                       animate={{ opacity: 1, x: 0, scale: 1 }}
                       exit={{ opacity: 0, x: 12, scale: 0.98 }}
                       transition={{ duration: 0.2 }}
-                      className="hidden lg:block absolute left-full -ml-6 top-1/2 -translate-y-1/2 w-[560px] xl:w-[620px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
+                      className="hidden lg:block absolute left-full -ml-16 top-1/2 -translate-y-1/2 w-[560px] xl:w-[620px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
                     >
                       <div className="px-4 py-3 border-b border-border bg-surface-secondary">
                         <span className="inline-flex rounded-full border border-primary-light bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-dark">
@@ -650,6 +667,60 @@ export default function HomePage() {
           <ChevronDown className="w-6 h-6 text-txt-tertiary" />
         </motion.div>
       </section>
+
+      <AnimatePresence>
+        {expandedMockPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setExpandedMockPreview(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 8 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-[1100px] rounded-2xl border border-border-light bg-surface shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 border-b border-border bg-surface-secondary flex items-center justify-between gap-4">
+                <span className="inline-flex rounded-full border border-primary-light bg-primary-soft px-3 py-1 text-xs font-semibold text-primary-dark">
+                  {mockPreviewContent[expandedMockPreview].badge}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedMockPreview(null)}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border hover:border-primary-light text-txt-secondary hover:text-txt transition-colors"
+                  aria-label="Close preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="relative aspect-[16/9] bg-black">
+                <Image
+                  src={
+                    expandedPreviewSrc ||
+                    mockPreviewContent[expandedMockPreview].fallback
+                  }
+                  alt={mockPreviewContent[expandedMockPreview].alt}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 1200px) 95vw, 1100px"
+                  onError={() => {
+                    const fallback =
+                      mockPreviewContent[expandedMockPreview].fallback;
+                    if (expandedPreviewSrc !== fallback) {
+                      setExpandedPreviewSrc(fallback);
+                    }
+                  }}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ====== TRUST BADGES ====== */}
       <section className="py-8 border-b border-border bg-surface-secondary">
