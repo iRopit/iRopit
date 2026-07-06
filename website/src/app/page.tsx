@@ -69,7 +69,7 @@ const features = [
     icon: MessageSquare,
     title: "SMS Sync",
     description:
-      "View and manage all your SMS messages on your computer in real-time. Never miss a text again.",
+      "Synchronize SMS messages between your Android phone and Chrome browser in real time. Receive and export text messages from your computer without picking up your phone.",
     color: "text-info",
     bg: "bg-info-light",
   },
