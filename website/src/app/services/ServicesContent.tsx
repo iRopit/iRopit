@@ -4,6 +4,7 @@ import {
   MessageSquare,
   Phone,
   Bell,
+  BarChart3,
   MessagesSquare,
   Shield,
   Smartphone,
@@ -26,6 +27,24 @@ import Link from "next/link";
 import DownloadButtons from "@/components/DownloadButtons";
 
 const services = [
+  {
+    icon: MessagesSquare,
+    title: "Device-to-Device Chat",
+    description:
+      "A full-featured chat system between your registered devices. Share files, images, videos — communicate seamlessly across all your devices.",
+    features: [
+      "Text messaging between devices",
+      "File sharing (images, videos, PDFs, archives)",
+      "Real-time typing indicators",
+      "Reply to specific messages",
+      "Multiple file type support",
+      "Instant delivery via Firebase",
+    ],
+    color: "text-primary-dark",
+    bg: "bg-primary-soft",
+    gradient: "from-primary/10 to-primary/5",
+    icons: [ImageIcon, Video, FileText],
+  },
   {
     icon: MessageSquare,
     title: "SMS Synchronization",
@@ -79,22 +98,21 @@ const services = [
     gradient: "from-warning/10 to-warning/5",
   },
   {
-    icon: MessagesSquare,
-    title: "Device-to-Device Chat",
+    icon: BarChart3,
+    title: "Insights",
     description:
-      "A full-featured chat system between your registered devices. Share files, images, videos — communicate seamlessly across all your devices.",
+      "Turn banking SMS data into clear financial visibility. Track spending, monitor income, and understand patterns across categories.",
     features: [
-      "Text messaging between devices",
-      "File sharing (images, videos, PDFs, archives)",
-      "Real-time typing indicators",
-      "Reply to specific messages",
-      "Multiple file type support",
-      "Instant delivery via Firebase",
+      "Automatic income and expense detection",
+      "Category-wise spending breakdown",
+      "Monthly trend analysis",
+      "Merchant and receiver insights",
+      "Searchable spending history",
+      "CSV export for reporting",
     ],
     color: "text-primary-dark",
     bg: "bg-primary-soft",
     gradient: "from-primary/10 to-primary/5",
-    icons: [ImageIcon, Video, FileText],
   },
   {
     icon: MonitorSmartphone,
@@ -106,7 +124,7 @@ const services = [
       "Device online/offline status",
       "Custom device nicknames",
       "Device-specific settings",
-      "Secure device authentication",
+      "Share device with another iRopit account",
       "Easy device removal",
     ],
     color: "text-secondary",
