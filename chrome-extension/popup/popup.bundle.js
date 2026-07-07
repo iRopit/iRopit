@@ -23670,8 +23670,10 @@ ${this.customData.serverResponse}`;
       const syncingMsg = lang === "ar" ? "\u062C\u0627\u0631\u064D \u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0627\u062A \u0645\u0646 \u0647\u0627\u062A\u0641\u0643\u2026" : "Syncing calls from your phone\u2026";
       showListLoading(callsList, syncingMsg);
     }
+    let cachedCallsData = null;
     try {
       const cached = await getCachedCalls();
+      cachedCallsData = cached;
       if (cached && cached.allCalls && cached.allCalls.length > 0) {
         const isEnc = (call) => call.contactName && typeof call.contactName === "string" && call.contactName.startsWith("ENC:") || call.phoneNumber && typeof call.phoneNumber === "string" && call.phoneNumber.startsWith("ENC:");
         const encCount = cached.allCalls.filter(isEnc).length;
@@ -23747,16 +23749,26 @@ ${this.customData.serverResponse}`;
           name: getFriendlyDeviceName(data)
         });
       });
+      const ownDeviceIds = new Set(devicesList2.map((d) => d.id).filter(Boolean));
       const sharedCallsDeviceIds = new Set(
         (sharedWithMeDevices || []).filter((s) => hasSharedCallsPermission(s)).map((s) => s.deviceId).filter(Boolean)
       );
       const allowedCallsDeviceIds = /* @__PURE__ */ new Set([
-        ...devicesList2.map((d) => d.id).filter(Boolean),
+        ...ownDeviceIds,
         ...sharedCallsDeviceIds
       ]);
-      if (!usedDevicesCacheFallback && pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+      const cachedHasNonOwnDeviceRows = !!cachedCallsData?.allCalls?.some((c) => {
+        const did = c?.deviceId;
+        return did && !ownDeviceIds.has(did);
+      });
+      const shouldDeferSharedPrune = (sharedWithMeDevices || []).length === 0 && cachedHasNonOwnDeviceRows;
+      if (!usedDevicesCacheFallback && !shouldDeferSharedPrune && pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
         updateTabBadges();
         renderCalls(allCallsData);
+      } else if (shouldDeferSharedPrune) {
+        console.log(
+          "[Calls] Deferring shared-calls prune until shared device metadata is loaded"
+        );
       }
       if (devicesList2.length === 0) {
         const hasExistingCalls = allCallsData && allCallsData.length > 0 || Object.values(allCallsByDevice || {}).some(
@@ -25543,14 +25555,24 @@ ${this.customData.serverResponse}`;
           });
         }
       });
+      const ownDeviceIds = new Set(devicesList2.map((d) => d.id).filter(Boolean));
       const sharedSmsDeviceIds = getSharedSmsDeviceIds();
       const allowedSmsDeviceIds = /* @__PURE__ */ new Set([
-        ...devicesList2.map((d) => d.id).filter(Boolean),
+        ...ownDeviceIds,
         ...sharedSmsDeviceIds
       ]);
-      if (!usedDevicesCacheFallback && pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+      const cachedHasNonOwnDeviceRows = !!cachedSMSData?.allMessages?.some((m) => {
+        const did = m?.deviceId;
+        return did && !ownDeviceIds.has(did);
+      });
+      const shouldDeferSharedPrune = (sharedWithMeDevices || []).length === 0 && cachedHasNonOwnDeviceRows;
+      if (!usedDevicesCacheFallback && !shouldDeferSharedPrune && pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
         updateTabBadges();
         renderSMS(allSMSMessages || []);
+      } else if (shouldDeferSharedPrune) {
+        console.log(
+          "[SMS] Deferring shared-SMS prune until shared device metadata is loaded"
+        );
       }
       if (devicesList2.length === 0) {
         const hasExistingSms = allSMSMessages && allSMSMessages.length > 0 || Object.values(allSMS || {}).some(

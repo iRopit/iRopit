@@ -843,14 +843,33 @@ export async function loadSMS() {
       }
     });
 
+    const ownDeviceIds = new Set(devicesList.map((d) => d.id).filter(Boolean));
     const sharedSmsDeviceIds = getSharedSmsDeviceIds();
     const allowedSmsDeviceIds = new Set([
-      ...devicesList.map((d) => d.id).filter(Boolean),
+      ...ownDeviceIds,
       ...sharedSmsDeviceIds,
     ]);
-    if (!usedDevicesCacheFallback && pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
+
+    // On popup startup, loadSMS() can run before shared-with-me metadata arrives.
+    // If we prune too early, cached shared SMS disappear until a manual refresh.
+    const cachedHasNonOwnDeviceRows = !!cachedSMSData?.allMessages?.some((m) => {
+      const did = m?.deviceId;
+      return did && !ownDeviceIds.has(did);
+    });
+    const shouldDeferSharedPrune =
+      (state.sharedWithMeDevices || []).length === 0 && cachedHasNonOwnDeviceRows;
+
+    if (
+      !usedDevicesCacheFallback &&
+      !shouldDeferSharedPrune &&
+      pruneSMSForAllowedDevices(allowedSmsDeviceIds)
+    ) {
       updateTabBadges();
       renderSMS(state.allSMSMessages || []);
+    } else if (shouldDeferSharedPrune) {
+      console.log(
+        "[SMS] Deferring shared-SMS prune until shared device metadata is loaded",
+      );
     }
 
     if (devicesList.length === 0) {

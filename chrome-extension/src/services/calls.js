@@ -621,8 +621,10 @@ export async function loadCalls() {
   }
 
   // === STEP 1: Show cached calls instantly ===
+  let cachedCallsData = null;
   try {
     const cached = await getCachedCalls();
+    cachedCallsData = cached;
     if (cached && cached.allCalls && cached.allCalls.length > 0) {
       // Detect cached calls still in encrypted form (ENC: prefix).
       // Some individual records may legitimately fail to decrypt (e.g. records
@@ -724,6 +726,7 @@ export async function loadCalls() {
       });
     });
 
+    const ownDeviceIds = new Set(devicesList.map((d) => d.id).filter(Boolean));
     const sharedCallsDeviceIds = new Set(
       (state.sharedWithMeDevices || [])
         .filter((s) => hasSharedCallsPermission(s))
@@ -731,12 +734,30 @@ export async function loadCalls() {
         .filter(Boolean),
     );
     const allowedCallsDeviceIds = new Set([
-      ...devicesList.map((d) => d.id).filter(Boolean),
+      ...ownDeviceIds,
       ...sharedCallsDeviceIds,
     ]);
-    if (!usedDevicesCacheFallback && pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
+
+    // On popup startup, loadCalls() can run before shared-with-me metadata arrives.
+    // If we prune too early, cached shared calls disappear until manual refresh.
+    const cachedHasNonOwnDeviceRows = !!cachedCallsData?.allCalls?.some((c) => {
+      const did = c?.deviceId;
+      return did && !ownDeviceIds.has(did);
+    });
+    const shouldDeferSharedPrune =
+      (state.sharedWithMeDevices || []).length === 0 && cachedHasNonOwnDeviceRows;
+
+    if (
+      !usedDevicesCacheFallback &&
+      !shouldDeferSharedPrune &&
+      pruneCallsForAllowedDevices(allowedCallsDeviceIds)
+    ) {
       updateTabBadges();
       renderCalls(state.allCallsData);
+    } else if (shouldDeferSharedPrune) {
+      console.log(
+        "[Calls] Deferring shared-calls prune until shared device metadata is loaded",
+      );
     }
 
     // No mobile devices found — show empty state instead of infinite spinner
