@@ -66,6 +66,7 @@ let hasLoadedCalls = false;
 let hasLoadedNotifications = false;
 let lazyTabLoadsWired = false;
 let hadAuthenticatedSession = false;
+let initialDataLoadedForUid = null;
 const INSTALL_ANDROID_PROMPT_KEY = "installAndroidPromptPending";
 const INSTALL_ANDROID_PROMPT_SHOWN_KEY = "installAndroidPromptShown_v1";
 const ANDROID_APP_URL = "https://play.google.com/store/apps/details?id=com.IRopit";
@@ -501,7 +502,11 @@ function init() {
       registerDevice().catch((err) =>
         console.error("[Popup] registerDevice error:", err),
       );
-      loadData();
+      const sameUidSessionReload = initialDataLoadedForUid === user.uid;
+      if (!sameUidSessionReload) {
+        loadData();
+        initialDataLoadedForUid = user.uid;
+      }
       wireLazyTabLoads();
       // Show first-install Android app prompt once after first login.
       const promptShown = await showAndroidAppInstallPromptIfNeeded();
@@ -523,6 +528,7 @@ function init() {
     // On logout
     (info) => {
       hadAuthenticatedSession = false;
+      initialDataLoadedForUid = null;
       cleanupSubscriptions();
       state.resetState();
       // Only wipe the local cache on an EXPLICIT, user-initiated (or forced

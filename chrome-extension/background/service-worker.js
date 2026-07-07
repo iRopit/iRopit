@@ -19067,6 +19067,77 @@ async function loadDeviceId() {
     });
   });
 }
+function normalizeDeviceRecord(docSnap) {
+  const data = docSnap?.data?.() || {};
+  const id = String(data.id || docSnap?.id || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    name: data.name || "",
+    nickname: data.nickname || "",
+    platform: data.platform || "",
+    userId: data.userId || ""
+  };
+}
+function isExtensionLikeDevice(device) {
+  const platform = String(device?.platform || "").toLowerCase();
+  const id = String(device?.id || "");
+  return platform === "chrome" || platform === "chrome-extension" || id.startsWith("ext_");
+}
+function deriveFriendlyDeviceName(device) {
+  let friendlyName = device?.nickname;
+  if (!friendlyName) {
+    if (device?.name && /[a-zA-Z]/.test(device.name) && !/^[A-Z0-9]+$/.test(device.name)) {
+      friendlyName = device.name;
+    } else {
+      const platform = (device?.platform || "").toLowerCase();
+      friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
+    }
+  }
+  return friendlyName;
+}
+async function getUserMobileDevices() {
+  if (!currentUser) return [];
+  const byId = /* @__PURE__ */ new Map();
+  try {
+    const rootSnap = await getDocs(
+      query(collection(db, "devices"), where("userId", "==", currentUser.uid))
+    );
+    rootSnap.forEach((docSnap) => {
+      const d = normalizeDeviceRecord(docSnap);
+      if (!d) return;
+      byId.set(d.id, d);
+    });
+  } catch (error) {
+    console.warn("ZyncIT: Failed loading root devices:", error?.message || error);
+  }
+  try {
+    const userSnap = await getDocs(
+      collection(db, "users", currentUser.uid, "devices")
+    );
+    userSnap.forEach((docSnap) => {
+      const d = normalizeDeviceRecord(docSnap);
+      if (!d) return;
+      const existing = byId.get(d.id);
+      byId.set(d.id, {
+        ...existing,
+        ...d
+      });
+    });
+  } catch (error) {
+    console.warn("ZyncIT: Failed loading user-scoped devices:", error?.message || error);
+  }
+  const mobileDevices = [];
+  byId.forEach((device) => {
+    if (isExtensionLikeDevice(device)) return;
+    mobileDevices.push({
+      id: device.id,
+      name: deriveFriendlyDeviceName(device),
+      platform: device.platform
+    });
+  });
+  return mobileDevices;
+}
 async function startListening(forceRestart = false) {
   refreshContextMenuDevices();
   if (!currentUser) {
@@ -19090,28 +19161,10 @@ async function startListening(forceRestart = false) {
     setBadgeCount(0);
     listenToUserNotifications();
     listenToChatMessages();
-    const devicesQuery = query(
-      collection(db, "devices"),
-      where("userId", "==", currentUser.uid)
-    );
-    const devicesSnapshot = await getDocs(devicesQuery);
-    devicesSnapshot.forEach((doc2) => {
-      const device = doc2.data();
-      if (device.platform !== "chrome" && device.platform !== "chrome-extension" && !device.id?.startsWith("ext_")) {
-        let friendlyName = device.nickname;
-        if (!friendlyName) {
-          if (device.name && /[a-zA-Z]/.test(device.name) && !/^[A-Z0-9]+$/.test(device.name)) {
-            friendlyName = device.name;
-          } else {
-            const platform = (device.platform || "").toLowerCase();
-            friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-          }
-        }
-        console.log("ZyncIT: Listening to device:", device.id, friendlyName);
-        listenToDevice(device.id, friendlyName);
-      } else {
-        console.log("ZyncIT: Skipping extension device:", device.id);
-      }
+    const mobileDevices = await getUserMobileDevices();
+    mobileDevices.forEach((device) => {
+      console.log("ZyncIT: Listening to device:", device.id, device.name);
+      listenToDevice(device.id, device.name);
     });
     console.log(
       "ZyncIT: Total listeners active:",
@@ -20481,15 +20534,8 @@ async function pollForChatSmartActions() {
 async function pollForNewNotifications() {
   if (!currentUser || !auth.currentUser) return;
   try {
-    const devicesQuery = query(
-      collection(db, "devices"),
-      where("userId", "==", currentUser.uid)
-    );
-    const devicesSnapshot = await getDocs(devicesQuery);
-    for (const deviceDoc of devicesSnapshot.docs) {
-      const device = deviceDoc.data();
-      if (device.platform === "chrome" || device.platform === "chrome-extension")
-        continue;
+    const mobileDevices = await getUserMobileDevices();
+    for (const device of mobileDevices) {
       const notifQuery = query(
         collection(
           db,
@@ -20523,12 +20569,12 @@ async function pollForNewNotifications() {
         }
         const notificationWithDevice = {
           ...notification,
-          deviceName: device.nickname || device.name || "Android"
+          deviceName: device.name || "Android"
         };
         showNotification(notificationWithDevice);
         chrome.runtime.sendMessage({
           type: "newNotification",
-          data: { ...notification, id: docId, deviceId: device.id, deviceName: device.nickname || device.name || "Android" }
+          data: { ...notification, id: docId, deviceId: device.id, deviceName: device.name || "Android" }
         }).catch(() => {
         });
       });
@@ -20548,23 +20594,7 @@ async function refreshPopupCache() {
       if (!items.length) return null;
       return Math.max(...items.map((x2) => x2[field] || x2.timestamp || 0));
     };
-    const devicesQuery = query(
-      collection(db, "devices"),
-      where("userId", "==", currentUser.uid)
-    );
-    const devicesSnapshot = await getDocs(devicesQuery);
-    const mobileDevices = [];
-    devicesSnapshot.forEach((docSnap) => {
-      const d = docSnap.data();
-      if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
-        let friendlyName = d.nickname;
-        if (!friendlyName) {
-          const platform = (d.platform || "").toLowerCase();
-          friendlyName = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-        }
-        mobileDevices.push({ id: d.id, name: friendlyName });
-      }
-    });
+    const mobileDevices = await getUserMobileDevices();
     if (mobileDevices.length === 0) return;
     const [existingSMS, existingCalls, existingNotifs] = await Promise.all([
       chrome.storage.local.get(["cached_sms_data", "cache_timestamp"]),
@@ -21056,26 +21086,7 @@ function buildContextMenus() {
 async function refreshContextMenuDevices() {
   if (!currentUser) return;
   try {
-    const snap = await getDocs(
-      query(collection(db, "devices"), where("userId", "==", currentUser.uid))
-    );
-    const mobile = [];
-    snap.forEach((d) => {
-      const dev = d.data();
-      if (dev.platform !== "chrome" && dev.platform !== "chrome-extension" && !dev.id?.startsWith("ext_")) {
-        let name4 = dev.nickname;
-        if (!name4) {
-          if (dev.name && /[a-zA-Z]/.test(dev.name) && !/^[A-Z0-9]+$/.test(dev.name)) {
-            name4 = dev.name;
-          } else {
-            const p = (dev.platform || "").toLowerCase();
-            name4 = p === "ios" ? "iPhone" : p === "android" ? "Android" : "Device";
-          }
-        }
-        mobile.push({ id: dev.id, name: name4 });
-      }
-    });
-    contextMenuDevices = mobile;
+    contextMenuDevices = await getUserMobileDevices();
     buildContextMenus();
   } catch (e) {
     console.warn("ZyncIT: Could not refresh context menu devices:", e);
@@ -21268,22 +21279,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 async function fetchInsightsFromFirestore(fromTs, toTs) {
   if (!currentUser || !auth.currentUser) throw new Error("Not authenticated");
-  const devicesSnap = await getDocs(query(
-    collection(db, "devices"),
-    where("userId", "==", currentUser.uid)
-  ));
-  const mobileDevices = [];
-  devicesSnap.forEach((docSnap) => {
-    const d = docSnap.data();
-    if (d.platform !== "chrome" && d.platform !== "chrome-extension" && !d.id?.startsWith("ext_")) {
-      let name4 = d.nickname;
-      if (!name4) {
-        const platform = (d.platform || "").toLowerCase();
-        name4 = platform === "ios" ? "iPhone" : platform === "android" ? "Android" : "Device";
-      }
-      mobileDevices.push({ id: d.id, name: name4 });
-    }
-  });
+  const mobileDevices = await getUserMobileDevices();
   const allSms = [];
   const allCalls = [];
   const allNotifs = [];

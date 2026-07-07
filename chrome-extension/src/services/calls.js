@@ -38,7 +38,7 @@ import { setCallsDataConfirmed } from "../state/index.js";
 import { updateTabBadges } from "./badges.js";
 import { decryptCall } from "./cryptoService.js";
 import { getContactName } from "./contacts.js";
-import { getCachedCalls, cacheCallsData } from "./cache.js";
+import { getCachedCalls, cacheCallsData, flushCallsCache } from "./cache.js";
 import { wireHoverPreview } from "../utils/hoverPreview.js";
 
 const CALLS_FETCH_LIMIT = 2000;
@@ -872,6 +872,9 @@ export async function loadCalls() {
       setCallsDataConfirmed(true);
       updateTabBadges();
     }
+    // Persist the latest merged calls snapshot now so a quick popup close/reopen
+    // does not keep a partial per-device cache write.
+    flushCallsCache().catch(() => {});
     updateCallsCountIndicator();
     try { window.dispatchEvent(new CustomEvent("iropit:calls-sync-done")); } catch (_) {}
   }
@@ -931,14 +934,17 @@ function updateCallsList(deviceId, newCalls) {
   // Save to cache in background
   cacheCallsData(state.allCallsByDevice, merged).catch(() => {});
 
-  updateCallsCountIndicator();
+  // renderCalls() updates the count indicator using the active tab/filter scope.
 }
 
 /**
  * Update calls count indicator with sync status
  */
-function updateCallsCountIndicator() {
-  const total = state.allCallsData?.length || 0;
+function updateCallsCountIndicator(totalOverride = null, selectedTab = "all") {
+  const total =
+    Number.isFinite(totalOverride) && totalOverride >= 0
+      ? totalOverride
+      : state.allCallsData?.length || 0;
   let indicator = document.getElementById("callsCountIndicator");
 
   if (total === 0 && !isSyncingCalls) {
@@ -967,7 +973,8 @@ function updateCallsCountIndicator() {
     const countText = total > 0 ? `${total} calls` : "";
     indicator.innerHTML = `<span>${countText}</span><span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`;
   } else {
-    indicator.innerHTML = `<span>${total} calls · All loaded</span>`;
+    const suffix = selectedTab === "all" ? "All loaded" : "Filtered";
+    indicator.innerHTML = `<span>${total} calls · ${suffix}</span>`;
   }
 }
 
@@ -992,8 +999,42 @@ export function renderCalls(calls) {
   let filteredCalls = normalizedCalls;
   if (selectedTab !== "all") {
     filteredCalls = normalizedCalls.filter(
-      (call) => call.deviceId === selectedTab,
+      (call) =>
+        call.deviceId === selectedTab ||
+        call.sharedRootDeviceId === selectedTab,
     );
+
+    // Backward-compat fallback for older cached shared calls that were stored
+    // under source device IDs instead of the visible shared tab deviceId.
+    if (filteredCalls.length === 0) {
+      const selectedShared = (state.sharedWithMeDevices || []).find(
+        (s) => s?.deviceId === selectedTab && hasSharedCallsPermission(s),
+      );
+      if (selectedShared?.ownerUid) {
+        const ownCallsDeviceIds = new Set(
+          (state.devices || [])
+            .filter(
+              (d) =>
+                (d.type === "mobile" ||
+                  d.type === "phone" ||
+                  d.platform === "android" ||
+                  d.platform === "Android" ||
+                  d.platform === "ios") &&
+                d.id &&
+                state.getDeviceSyncPref(d.id, "calls"),
+            )
+            .map((d) => d.id),
+        );
+
+        filteredCalls = normalizedCalls.filter((call) => {
+          if (call.deviceId === selectedTab || call.sharedRootDeviceId === selectedTab) return true;
+          if ((call.ownerUid || null) !== selectedShared.ownerUid) return false;
+          // Never leak own-device calls into a shared tab.
+          if (call.deviceId && ownCallsDeviceIds.has(call.deviceId)) return false;
+          return true;
+        });
+      }
+    }
   } else {
     const ownCallsDeviceIds = new Set(
       (state.devices || [])
@@ -1011,14 +1052,14 @@ export function renderCalls(calls) {
     );
     const sharedCallsDeviceIds = new Set(
       (state.sharedWithMeDevices || [])
-        .filter((s) => s?.deviceId && s?.permissions?.calls !== false)
+        .filter((s) => s?.deviceId && hasSharedCallsPermission(s))
         .map((s) => s.deviceId),
     );
     // Exclude calls from devices where Calls sync is disabled
     const hasResolvedDeviceScope =
       ownCallsDeviceIds.size > 0 || sharedCallsDeviceIds.size > 0;
     // During transient device-list churn, don't hide all cached Calls in All Devices.
-    filteredCalls = hasResolvedDeviceScope
+    const scopedCalls = hasResolvedDeviceScope
       ? normalizedCalls.filter(
           (call) =>
             !call.deviceId ||
@@ -1026,18 +1067,42 @@ export function renderCalls(calls) {
             sharedCallsDeviceIds.has(call.deviceId),
         )
       : normalizedCalls;
+
+    // Safety fallback: if we already have calls loaded but scope resolution
+    // temporarily drops everything (alias/stale device-id churn), keep list visible.
+    filteredCalls =
+      hasResolvedDeviceScope && scopedCalls.length === 0 && normalizedCalls.length > 0
+        ? normalizedCalls
+        : scopedCalls;
   }
 
   // Drop phantom VoIP entries that carry no phone number and no app name.
   // These are mis-captured calls (e.g. Google Meet) that Android logged with
   // an empty NUMBER — they have zero actionable information and should not
   // appear in the call list.
+  const prePlaceholderFilterCalls = filteredCalls;
   filteredCalls = filteredCalls.filter((call) => {
     const phone = (call.phoneNumber || "").trim();
-    const app  = (call.appName   || "").trim();
-    const isPhantomVoIP = (!phone || phone.toLowerCase() === "unknown" || !normalizePhoneNumber(phone)) && !app;
-    return !isPhantomVoIP;
+    const app = (call.appName || "").trim();
+    const contact = (call.contactName || call.displayName || call.title || "").trim();
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    // Keep sparse records when they still carry user-visible signal (missed type,
+    // contact/title text, or known app). Only drop truly empty placeholders.
+    const isTrulyEmptyPlaceholder =
+      (!phone || phone.toLowerCase() === "unknown" || !normalizedPhone) &&
+      !app &&
+      !contact &&
+      call.type !== "missed";
+
+    return !isTrulyEmptyPlaceholder;
   });
+
+  // If placeholder filtering would hide every loaded record, prefer showing
+  // the source list rather than an incorrect empty-state screen.
+  if (filteredCalls.length === 0 && prePlaceholderFilterCalls.length > 0) {
+    filteredCalls = prePlaceholderFilterCalls;
+  }
 
   // Wire search input once
   const callsSearch = document.getElementById("callsSearchInput");
@@ -1063,6 +1128,22 @@ export function renderCalls(calls) {
     });
   }
 
+  // Absolute guard for the reported regression: in All Devices with no user
+  // filters, never show an empty list while calls are already loaded.
+  const unreadFilterActive = !!document.getElementById("callsShowUnread")?.checked;
+  if (
+    selectedTab === "all" &&
+    filteredCalls.length === 0 &&
+    !searchQuery &&
+    !unreadFilterActive &&
+    normalizedCalls.length > 0
+  ) {
+    console.warn("[Calls] Empty render guard triggered; falling back to loaded calls", {
+      totalLoaded: normalizedCalls.length,
+    });
+    filteredCalls = normalizedCalls;
+  }
+
   if (filteredCalls.length === 0) {
     // On fresh install we are still syncing while the list is empty.
     // Don't replace the "Syncing calls…" spinner with the empty state until
@@ -1079,6 +1160,7 @@ export function renderCalls(calls) {
           <p>${syncingMsg}</p>
         </div>
       `;
+      updateCallsCountIndicator(0, selectedTab);
       updateTabBadges();
       return;
     }
@@ -1091,6 +1173,7 @@ export function renderCalls(calls) {
         <span>Call history from your phone will appear here</span>
       </div>
     `;
+    updateCallsCountIndicator(0, selectedTab);
     updateTabBadges();
     return;
   }
@@ -1159,6 +1242,7 @@ export function renderCalls(calls) {
           <p>${syncingMsg}</p>
         </div>
       `;
+      updateCallsCountIndicator(0, selectedTab);
       updateTabBadges();
       return;
     }
@@ -1172,6 +1256,7 @@ export function renderCalls(calls) {
         <span>No missed calls to review</span>
       </div>
     `;
+    updateCallsCountIndicator(0, selectedTab);
     updateTabBadges();
     return;
   }
@@ -1310,6 +1395,7 @@ export function renderCalls(calls) {
   });
 
   _updateCallsSelectionToolbar(callGroups.length);
+  updateCallsCountIndicator(filteredCalls.length, selectedTab);
 
   // Long-press to enter selection mode
   let callLongPressTimer = null;
@@ -1793,85 +1879,153 @@ export async function loadSharedDevicesCalls(shares) {
 
   for (const share of callShares) {
     try {
-      // Initial full backfill for shared devices (paged), then keep realtime light.
-      const sharedDocs = await fetchAllCallsDocsPaged(
-        share.ownerUid,
-        share.deviceId,
-        `shared-full:${share.deviceId}`,
-      );
+      const resolveSharedCandidateDeviceIds = async () => {
+        const ids = new Set([share.deviceId]);
+        try {
+          const idxQ = query(
+            collection(db, "deviceShareIndex"),
+            where("ownerUid", "==", share.ownerUid),
+            where("sharedWithUid", "==", user.uid),
+            limit(50),
+          );
+          const idxSnap = await getDocsFromServer(idxQ);
+          idxSnap.docs.forEach((d) => {
+            const data = d.data() || {};
+            if (data.deviceId) {
+              ids.add(String(data.deviceId));
+              return;
+            }
+            const suffix = `_${user.uid}`;
+            if (d.id && d.id.endsWith(suffix)) {
+              ids.add(d.id.slice(0, -suffix.length));
+            }
+          });
+        } catch (_) {}
+        return Array.from(ids).filter(Boolean);
+      };
 
-      const initialCalls = await Promise.all(
-        sharedDocs.map(async (docSnap) => {
-          let data = docSnap.data();
-          data = await decryptCall(data, share.ownerUid);
-          return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
-        }),
-      );
-      updateCallsList(share.deviceId, initialCalls);
+      const sourceDeviceIds = await resolveSharedCandidateDeviceIds();
+      const callsBySource = new Map();
 
-      const q = query(
-        collection(db, "users", share.ownerUid, "devices", share.deviceId, "calls"),
-        orderBy("timestamp", "desc"),
-        limit(5),
-      );
+      const publishSharedCalls = () => {
+        const mergedById = new Map();
+        callsBySource.forEach((list) => {
+          (list || []).forEach((call) => {
+            if (!call?.id) return;
+            const prev = mergedById.get(call.id);
+            if (!prev || Number(call.timestamp || 0) >= Number(prev.timestamp || 0)) {
+              mergedById.set(call.id, call);
+            }
+          });
+        });
+        const merged = Array.from(mergedById.values()).sort(
+          (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+        );
+        updateCallsList(share.deviceId, merged);
+      };
 
-      const unsub = onSnapshot(
-        q,
-        async (snapshot) => {
-          if (snapshot.metadata.fromCache && snapshot.empty) return;
+      const mapCallForShare = async (docSnap, sourceDeviceId = null) => {
+        let data = docSnap.data();
+        data = await decryptCall(data, share.ownerUid);
+        const call = processCallDoc(
+          data,
+          docSnap.id,
+          share.deviceId,
+          share.deviceName || "",
+        );
+        call.ownerUid = share.ownerUid;
+        call.sharedRootDeviceId = share.deviceId;
+        call.sharedSourceDeviceId = sourceDeviceId;
+        return call;
+      };
 
-          const currentCalls = state.allCallsByDevice[share.deviceId] || [];
-          const callsMap = new Map(currentCalls.map((c) => [c.id, c]));
-
-          for (const change of snapshot.docChanges()) {
-            if (change.type !== "added" && change.type !== "modified") continue;
-            const docSnap = change.doc;
-            let data = docSnap.data();
-            data = await decryptCall(data, share.ownerUid);
-            const call = processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
-            call.ownerUid = share.ownerUid;
-            const existing = callsMap.get(call.id);
-            const preserved = existing && existing.viewed === true && !call.viewed
-              ? { ...call, viewed: true }
-              : call;
-            callsMap.set(call.id, preserved);
-          }
-
-          const mergedCalls = Array.from(callsMap.values()).sort(
-            (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+      for (const sourceDeviceId of sourceDeviceIds) {
+        try {
+          const sharedDocs = await fetchAllCallsDocsPaged(
+            share.ownerUid,
+            sourceDeviceId,
+            `shared-full:${share.deviceId}:${sourceDeviceId}`,
           );
 
-          // Fallback for environments where docChanges is empty on initial snap.
-          if (mergedCalls.length === 0 && snapshot.docs.length > 0) {
-            const calls = await Promise.all(
-              snapshot.docs.map(async (docSnap) => {
-              let data = docSnap.data();
-              data = await decryptCall(data, share.ownerUid);
-              return processCallDoc(data, docSnap.id, share.deviceId, share.deviceName || "");
-            }),
-            );
-            updateCallsList(share.deviceId, calls);
-            return;
-          }
+          const initialCalls = await Promise.all(
+            sharedDocs.map(async (docSnap) => mapCallForShare(docSnap, sourceDeviceId)),
+          );
+          callsBySource.set(sourceDeviceId, initialCalls);
+          publishSharedCalls();
 
-          updateCallsList(share.deviceId, mergedCalls);
-        },
-        (err) => {
-          if (err?.code === "permission-denied") return;
-          if (isUnavailableError(err)) {
+          const q = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "calls"),
+            orderBy("timestamp", "desc"),
+            limit(5),
+          );
+
+          const unsub = onSnapshot(
+            q,
+            async (snapshot) => {
+              if (snapshot.metadata.fromCache && snapshot.empty) return;
+
+              const currentCalls = callsBySource.get(sourceDeviceId) || [];
+              const callsMap = new Map(currentCalls.map((c) => [c.id, c]));
+
+              for (const change of snapshot.docChanges()) {
+                if (change.type !== "added" && change.type !== "modified") continue;
+                const call = await mapCallForShare(change.doc, sourceDeviceId);
+                const existing = callsMap.get(call.id);
+                const preserved = existing && existing.viewed === true && !call.viewed
+                  ? { ...call, viewed: true }
+                  : call;
+                callsMap.set(call.id, preserved);
+              }
+
+              let mergedCalls = Array.from(callsMap.values()).sort(
+                (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+              );
+
+              // Fallback for environments where docChanges is empty on initial snap.
+              if (mergedCalls.length === 0 && snapshot.docs.length > 0) {
+                mergedCalls = await Promise.all(
+                  snapshot.docs.map(async (docSnap) => mapCallForShare(docSnap, sourceDeviceId)),
+                );
+              }
+
+              callsBySource.set(sourceDeviceId, mergedCalls);
+              publishSharedCalls();
+            },
+            (err) => {
+              if (err?.code === "permission-denied") return;
+              if (isUnavailableError(err)) {
+                logCallsUnavailableOnce(
+                  `shared-listener:${share.deviceId}:${sourceDeviceId}`,
+                  `[Calls] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
+                  err?.message || err?.code,
+                );
+                return;
+              }
+              console.warn(
+                `[Calls] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
+                err?.code,
+              );
+            },
+          );
+
+          sharedCallListenerUnsubs.push(unsub);
+          state.addUnsubscriber(unsub);
+        } catch (sourceErr) {
+          if (sourceErr?.code === "permission-denied") continue;
+          if (isUnavailableError(sourceErr)) {
             logCallsUnavailableOnce(
-              `shared-listener:${share.deviceId}`,
-              `[Calls] Shared listener unavailable for ${share.deviceId}`,
-              err?.message || err?.code,
+              `shared-source-load:${share.deviceId}:${sourceDeviceId}`,
+              `[Calls] Shared source unavailable for ${share.deviceId}/${sourceDeviceId}`,
+              sourceErr?.message || sourceErr?.code,
             );
-            return;
+            continue;
           }
-          console.warn(`[Calls] Shared listener failed for ${share.deviceId}:`, err?.code);
-        },
-      );
-
-      sharedCallListenerUnsubs.push(unsub);
-      state.addUnsubscriber(unsub);
+          console.warn(
+            `[Calls] Shared source load failed for ${share.deviceId}/${sourceDeviceId}:`,
+            sourceErr?.code,
+          );
+        }
+      }
     } catch (err) {
       if (err?.code !== "permission-denied") {
         console.warn(`[Calls] Failed to load shared device ${share.deviceId}:`, err?.code);

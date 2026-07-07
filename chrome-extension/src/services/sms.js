@@ -234,6 +234,16 @@ function getSharedSmsDeviceIds() {
   );
 }
 
+function getActiveSharedSmsDeviceIds() {
+  const ids = new Set();
+  for (const key of sharedSmsUnsubscribeByKey.keys()) {
+    const parts = String(key).split("::");
+    const deviceId = parts[1] || "";
+    if (deviceId) ids.add(deviceId);
+  }
+  return ids;
+}
+
 function rebuildMergedSMSFromState() {
   let merged = [];
   Object.values(state.allSMS || {}).forEach((msgs) => {
@@ -245,7 +255,13 @@ function rebuildMergedSMSFromState() {
 }
 
 function pruneSMSForAllowedDevices(allowedDeviceIds) {
-  const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  const allowed = allowedDeviceIds instanceof Set ? new Set(allowedDeviceIds) : new Set();
+
+  // Keep devices with active shared listeners even if sharedWithMeDevices briefly
+  // snapshots as empty during reconcile/network churn.
+  const activeShared = getActiveSharedSmsDeviceIds();
+  activeShared.forEach((id) => allowed.add(id));
+
   // Guard against transient empty device snapshots: do not wipe in-memory SMS
   // when allowed scope is temporarily unresolved.
   if (allowed.size === 0) return false;
@@ -1466,7 +1482,7 @@ export function updateSMSList(deviceId, newMessages) {
   const uniqueMessages = [];
   const seenIds = new Set();
   const seenContentTs = new Map();
-  const DEDUP_WINDOW_MS = 10 * 60 * 1000;
+  const DEDUP_WINDOW_MS = 2 * 60 * 1000;
 
   for (const msg of merged) {
     // Pass 1: Deduplicate by document ID (consistent between cache and Firebase)
@@ -1487,11 +1503,14 @@ export function updateSMSList(deviceId, newMessages) {
     // Use normalized phone for numeric numbers, raw for text senders (HSBC, Orange, etc.)
     const phone =
       normalizePhoneNumber(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
-    const body = stripBidi(msg.body || msg.text || "").trim().substring(0, 100);
+    const body = stripBidi(msg.body || msg.text || "").trim();
+    const direction = String(msg.direction || msg.type || "").toLowerCase();
+    const simKey = Number.isInteger(msg.simSlot) ? String(msg.simSlot) : "-1";
+    const deviceKey = String(msg.deviceId || "");
 
     // Skip content dedupe for very short/empty bodies to avoid false positives.
     if (phone && body.length >= 8) {
-      const contentKey = `${phone}_${body}`;
+      const contentKey = `${deviceKey}_${simKey}_${direction}_${phone}_${body}`;
       const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
       const seenTs = seenContentTs.get(contentKey);
       if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
@@ -3621,7 +3640,7 @@ export async function loadSharedDevicesSMS(shares) {
       const publishSharedMerged = () => {
         const latest = sharedSmsSourceDataByKey.get(listenerKey);
         if (!latest) return;
-        updateSMSList(share.deviceId, [
+        const mergedShared = [
           ...latest.strict,
           ...latest.strictReceivedAt,
           ...latest.altStrict,
@@ -3629,7 +3648,27 @@ export async function loadSharedDevicesSMS(shares) {
           ...latest.relaxed,
           ...latest.legacy,
           ...latest.legacyWide,
-        ]);
+        ];
+
+        const existingShared = state.getSMSData(share.deviceId) || [];
+        const hadSharedRows = existingShared.some((m) => {
+          const ownerMatches =
+            String(m?.ownerUid || "") === String(share.ownerUid || "");
+          const deviceMatches =
+            String(m?.deviceId || "") === String(share.deviceId || "");
+          return ownerMatches || deviceMatches;
+        });
+
+        // Guard against transient empty snapshots (cache churn / listener rebinding)
+        // that can temporarily emit zero rows and wipe an already-loaded shared thread.
+        if (mergedShared.length === 0 && hadSharedRows) {
+          console.debug(
+            `[SMS][shared:${share.deviceId}] ignoring transient empty publish to preserve existing messages`,
+          );
+          return;
+        }
+
+        updateSMSList(share.deviceId, mergedShared);
       };
 
       const mergeByDocId = (current, incoming) => {

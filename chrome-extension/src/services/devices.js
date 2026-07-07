@@ -365,12 +365,25 @@ function scheduleSharedCallsLoad(shares) {
       if (m.isCallsSyncing && m.isCallsSyncing()) {
         if (sharedCallsDeferredListenerAttached) return;
         sharedCallsDeferredListenerAttached = true;
+        let fallbackTimer = null;
         const onDone = () => {
           window.removeEventListener("iropit:calls-sync-done", onDone);
           sharedCallsDeferredListenerAttached = false;
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
           runLatest();
         };
         window.addEventListener("iropit:calls-sync-done", onDone, { once: true });
+
+        // Safety net: if the sync-done event is missed or a long sync stalls,
+        // still start shared listeners so shared Calls does not stay stale.
+        fallbackTimer = setTimeout(() => {
+          try { window.removeEventListener("iropit:calls-sync-done", onDone); } catch (_) {}
+          sharedCallsDeferredListenerAttached = false;
+          runLatest();
+        }, 8000);
         return;
       }
 

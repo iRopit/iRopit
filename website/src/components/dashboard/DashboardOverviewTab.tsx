@@ -10,7 +10,7 @@ import {
   type NotificationItem,
 } from "@/services/notificationService";
 import type { DeviceInfo } from "@/services/deviceService";
-import { MessageSquare, Phone, Bell, Calendar, BarChart2 } from "lucide-react";
+import { MessageSquare, Phone, Bell, Calendar, BarChart2, Download } from "lucide-react";
 
 interface DashboardOverviewTabProps {
   devices: DeviceInfo[];
@@ -198,6 +198,30 @@ function fmtAmt(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function localStampNow(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}${m}${day}_${hh}${mm}`;
+}
+
+function csvEscape(value: unknown): string {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function downloadCSV(content: string, filename: string): void {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function DashboardOverviewTab({
   devices,
 }: DashboardOverviewTabProps) {
@@ -214,6 +238,12 @@ export default function DashboardOverviewTab({
   const [appliedFrom, setAppliedFrom] = useState(defaults.from);
   const [appliedTo, setAppliedTo] = useState(defaults.to);
 
+  const deviceNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    devices.forEach((d) => map.set(d.id, d.name || d.platform || d.id));
+    return map;
+  }, [devices]);
+
   useEffect(() => {
     if (!user) return;
     return subscribeToSMS(user.uid, devices, setConversations);
@@ -229,7 +259,7 @@ export default function DashboardOverviewTab({
     return subscribeToNotifications(user.uid, devices, setNotifications);
   }, [user, devices]);
 
-  const { filteredStats, dateBreakdown, spendingInsights } = useMemo(() => {
+  const { filteredStats, dateBreakdown, spendingInsights, filteredSms, filteredCalls } = useMemo(() => {
     const from = new Date(appliedFrom + "T00:00:00").getTime();
     const to = new Date(appliedTo + "T23:59:59.999").getTime();
 
@@ -299,6 +329,8 @@ export default function DashboardOverviewTab({
       },
       dateBreakdown: breakdown,
       spendingInsights: hasCurrencies ? byCurrency : null,
+      filteredSms,
+      filteredCalls,
     };
   }, [conversations, calls, notifications, appliedFrom, appliedTo, language]);
 
@@ -313,6 +345,94 @@ export default function DashboardOverviewTab({
     setToDate(d.to);
     setAppliedFrom(d.from);
     setAppliedTo(d.to);
+  };
+
+  const handleExportSummary = () => {
+    if (filteredSms.length === 0 && filteredCalls.length === 0) return;
+
+    const suffix = appliedFrom && appliedTo ? `_${appliedFrom}_to_${appliedTo}` : "";
+    const stamp = localStampNow();
+
+    const smsHeader = ["Date", "Time", "Direction", "Contact", "Phone Number", "Message", "Device"];
+    const smsRows = filteredSms.map((m) => {
+      const d = new Date(m.timestamp || 0);
+      const direction = String(m.type || "").toLowerCase().includes("sent") || String(m.type || "").toLowerCase().includes("out")
+        ? "Sent"
+        : "Received";
+      const resolvedDevice = deviceNameById.get(m.deviceId) || m.deviceName || m.deviceId || "";
+      return [
+        d.toLocaleDateString("en-GB"),
+        d.toLocaleTimeString(),
+        direction,
+        m.contactName || "",
+        m.phoneNumber || "",
+        m.body || "",
+        resolvedDevice,
+      ];
+    });
+
+    const callsHeader = ["Date", "Time", "Type", "Contact", "Phone Number", "Duration (s)", "Device"];
+    const callsRows = filteredCalls.map((c) => {
+      const d = new Date(c.timestamp || 0);
+      const resolvedDevice = deviceNameById.get(c.deviceId) || c.deviceName || c.deviceId || "";
+      return [
+        d.toLocaleDateString("en-GB"),
+        d.toLocaleTimeString(),
+        c.type || "",
+        c.contactName || "",
+        c.phoneNumber || "",
+        Number(c.duration || 0),
+        resolvedDevice,
+      ];
+    });
+
+    const smsCsv = [smsHeader, ...smsRows].map((r) => r.map(csvEscape).join(",")).join("\n");
+    const callsCsv = [callsHeader, ...callsRows].map((r) => r.map(csvEscape).join(",")).join("\n");
+
+    downloadCSV(smsCsv, `iRopit-Insights-SMS${suffix}_${stamp}.csv`);
+    downloadCSV(callsCsv, `iRopit-Insights-Calls${suffix}_${stamp}.csv`);
+  };
+
+  const handleExportSpending = () => {
+    if (filteredSms.length === 0) return;
+
+    const suffix = appliedFrom && appliedTo ? `_${appliedFrom}_to_${appliedTo}` : "";
+    const stamp = localStampNow();
+    const header = ["Date", "Time", "Currency", "Type", "Amount", "Sender", "Device", "Message"];
+    const rows: Array<Array<string | number>> = [];
+    const seenBodyKeys = new Set<string>();
+
+    for (const msg of filteredSms) {
+      const body = (msg.body || "").trim();
+      if (!body || !isBankingSMS(body)) continue;
+
+      const txns = extractTransactions(body);
+      if (txns.length === 0) continue;
+
+      const timeWindow = Math.floor((msg.timestamp || 0) / 300000);
+      const bodyKey = `${timeWindow}_${body}`;
+      if (seenBodyKeys.has(bodyKey)) continue;
+      seenBodyKeys.add(bodyKey);
+
+      const d = new Date(msg.timestamp || 0);
+      const resolvedDevice = deviceNameById.get(msg.deviceId) || msg.deviceName || msg.deviceId || "";
+      for (const txn of txns) {
+        rows.push([
+          d.toLocaleDateString("en-GB"),
+          d.toLocaleTimeString(),
+          txn.currency,
+          txn.type === "debit" ? "Spent" : "Received",
+          txn.amount,
+          msg.contactName || msg.phoneNumber || "",
+          resolvedDevice,
+          body.replace(/\n/g, " "),
+        ]);
+      }
+    }
+
+    if (rows.length === 0) return;
+    const csv = [header, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n");
+    downloadCSV(csv, `iRopit-Spending${suffix}_${stamp}.csv`);
   };
 
   return (
@@ -362,7 +482,8 @@ export default function DashboardOverviewTab({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 flex-1">
         <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
             <MessageSquare className="w-5 h-5 text-secondary" />
@@ -385,24 +506,19 @@ export default function DashboardOverviewTab({
             <p className="text-xs text-txt-secondary">{t("overview.calls")}</p>
           </div>
         </div>
-        <div className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center shrink-0">
-            <Bell className="w-5 h-5 text-error" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-txt">
-              {filteredStats.notifsCount}
-            </p>
-            <p className="text-xs text-txt-secondary">
-              {t("overview.notifications")}
-            </p>
-          </div>
         </div>
+        <button
+          onClick={handleExportSummary}
+          disabled={filteredSms.length === 0 && filteredCalls.length === 0}
+          title={t("overview.exportSummary")}
+          className="h-[76px] sm:h-auto sm:min-w-[44px] px-3 bg-surface border border-border rounded-lg text-txt-secondary hover:text-txt hover:bg-surface-secondary disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center justify-center"
+        >
+          <Download className="w-4 h-4" />
+        </button>
       </div>
 
       {/* SMS Spending Insights — per-currency cards + spending by date */}
-      {spendingInsights && (
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <svg
               width="16"
@@ -419,7 +535,17 @@ export default function DashboardOverviewTab({
             <h3 className="text-xs font-bold uppercase tracking-wider text-txt">
               {t("overview.spendingInsights")}
             </h3>
+            <button
+              onClick={handleExportSpending}
+              disabled={filteredSms.length === 0}
+              title={t("overview.exportSpending")}
+              className="ms-auto px-2.5 py-1.5 bg-surface-secondary border border-border rounded-md text-txt-secondary hover:text-txt hover:bg-surface-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition inline-flex items-center justify-center"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
           </div>
+          {spendingInsights ? (
+            <>
           <div className="p-4 flex flex-wrap gap-3">
             {Object.entries(spendingInsights).map(([cur, { debit, credit }]) => {
               const net = credit - debit;
@@ -483,8 +609,15 @@ export default function DashboardOverviewTab({
               </div>
             </>
           )}
+            </>
+          ) : (
+            <div className="p-4">
+              <div className="text-xs text-txt-secondary bg-surface-secondary border border-border rounded-lg p-3">
+                {filteredSms.length > 0 ? t("overview.noFinancialSms") : t("overview.spendingEmpty")}
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
       {/* Per-date Activity Breakdown */}
       {dateBreakdown.length > 0 ? (
@@ -509,12 +642,12 @@ export default function DashboardOverviewTab({
                       )}
                       {callsCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-semibold">
-                          {callsCount} calls
+                          {callsCount} {t("overview.calls")}
                         </span>
                       )}
                       {notifsCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-error/10 text-error text-[10px] font-semibold">
-                          {notifsCount} notifs
+                          {notifsCount} {t("overview.notifications")}
                         </span>
                       )}
                     </div>
@@ -537,7 +670,7 @@ export default function DashboardOverviewTab({
                       ))}
                       {notifsCount > 3 && (
                         <p className="text-[10px] text-txt-tertiary">
-                          +{notifsCount - 3} more
+                          +{notifsCount - 3} {t("overview.more")}
                         </p>
                       )}
                     </div>

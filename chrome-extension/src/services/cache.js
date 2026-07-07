@@ -181,6 +181,31 @@ export async function flushSMSCache() {
  * @param {Array} allCalls - All merged calls
  */
 export async function cacheCallsData(callsByDevice, allCalls, options = {}) {
+  // Destructive operations (explicit delete/clear flows) should persist promptly.
+  if (options?.allowShrink) {
+    await _writeCallsCacheNow(callsByDevice, allCalls, options);
+    return;
+  }
+
+  callsCachePending = { callsByDevice, allCalls, options };
+  if (callsCacheWriteTimer) clearTimeout(callsCacheWriteTimer);
+  callsCacheWriteTimer = setTimeout(async () => {
+    callsCacheWriteTimer = null;
+    const payload = callsCachePending;
+    callsCachePending = null;
+    if (!payload) return;
+    await _writeCallsCacheNow(
+      payload.callsByDevice,
+      payload.allCalls,
+      payload.options,
+    );
+  }, 3000);
+}
+
+let callsCacheWriteTimer = null;
+let callsCachePending = null;
+
+async function _writeCallsCacheNow(callsByDevice, allCalls, options = {}) {
   try {
     if (await shouldSkipCacheWrite(CACHE_KEYS.CALLS, allCalls?.length || 0, options)) return;
     const cacheData = {
@@ -188,17 +213,28 @@ export async function cacheCallsData(callsByDevice, allCalls, options = {}) {
       allCalls: stripNonSerializable(allCalls).slice(0, CALLS_CACHE_CAP),
     };
 
-    for (const [deviceId, calls] of Object.entries(callsByDevice)) {
+    for (const [deviceId, calls] of Object.entries(callsByDevice || {})) {
       cacheData.byDevice[deviceId] = stripNonSerializable(calls).slice(0, CALLS_CACHE_CAP);
     }
 
     await chrome.storage.local.set({
       [CACHE_KEYS.CALLS]: cacheData,
     });
-    console.log(`[Cache] ✅ Saved ${allCalls.length} calls to cache`);
+    console.log(`[Cache] ✅ Saved ${(allCalls || []).length} calls to cache`);
   } catch (error) {
     console.warn("[Cache] Failed to save calls cache:", error);
   }
+}
+
+export async function flushCallsCache() {
+  if (callsCacheWriteTimer) {
+    clearTimeout(callsCacheWriteTimer);
+    callsCacheWriteTimer = null;
+  }
+  const payload = callsCachePending;
+  callsCachePending = null;
+  if (!payload) return;
+  await _writeCallsCacheNow(payload.callsByDevice, payload.allCalls, payload.options);
 }
 
 /**
