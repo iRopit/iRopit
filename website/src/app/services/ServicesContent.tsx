@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   MessageSquare,
   Phone,
@@ -44,6 +45,7 @@ const services = [
     bg: "bg-primary-soft",
     gradient: "from-primary/10 to-primary/5",
     icons: [ImageIcon, Video, FileText],
+    screenshot: "/screenshots/1.Chat messages.jpg",
   },
   {
     icon: MessageSquare,
@@ -61,6 +63,7 @@ const services = [
     color: "text-info",
     bg: "bg-info-light",
     gradient: "from-info/10 to-info/5",
+    screenshot: "/screenshots/2.SMS Screen.jpg",
   },
   {
     icon: Phone,
@@ -79,6 +82,7 @@ const services = [
     bg: "bg-success-light",
     gradient: "from-success/10 to-success/5",
     icons: [PhoneIncoming, PhoneOutgoing, PhoneMissed],
+    screenshot: "/screenshots/3.Call screen.jpg",
   },
   {
     icon: Bell,
@@ -96,6 +100,7 @@ const services = [
     color: "text-warning",
     bg: "bg-warning-light",
     gradient: "from-warning/10 to-warning/5",
+    screenshot: "/screenshots/4.Notification Screen.jpg",
   },
   {
     icon: BarChart3,
@@ -113,6 +118,7 @@ const services = [
     color: "text-primary-dark",
     bg: "bg-primary-soft",
     gradient: "from-primary/10 to-primary/5",
+    screenshot: "/screenshots/5.Insights Data.jpg",
   },
   {
     icon: MonitorSmartphone,
@@ -130,6 +136,7 @@ const services = [
     color: "text-secondary",
     bg: "bg-success-light",
     gradient: "from-secondary/10 to-secondary/5",
+    screenshot: "/screenshots/7.Devices.jpg",
   },
   {
     icon: Shield,
@@ -147,6 +154,7 @@ const services = [
     color: "text-error",
     bg: "bg-error-light",
     gradient: "from-error/10 to-error/5",
+    screenshot: "/screenshots/desktop.png",
   },
 ];
 
@@ -224,53 +232,16 @@ export default function ServicesContent() {
                     <div
                       className={`bg-gradient-to-br ${service.gradient} rounded-[var(--radius-xl)] p-8 lg:p-12 border border-border`}
                     >
-                      <div className="bg-surface rounded-[var(--radius-lg)] p-6 shadow-lg border border-border-light">
-                        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border-light">
-                          <div
-                            className={`w-10 h-10 ${service.bg} rounded-[var(--radius)] flex items-center justify-center`}
-                          >
-                            <service.icon
-                              className={`w-5 h-5 ${service.color}`}
-                            />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-txt text-sm">
-                              {service.title}
-                            </div>
-                            <div className="text-xs text-txt-tertiary">
-                              Active & Syncing
-                            </div>
-                          </div>
-                          <div className="ml-auto">
-                            <RefreshCw
-                              className="w-4 h-4 text-success animate-spin"
-                              style={{ animationDuration: "3s" }}
-                            />
-                          </div>
-                        </div>
-                        {/* Mock items */}
-                        <div className="space-y-3">
-                          {[1, 2, 3].map((item) => (
-                            <div
-                              key={item}
-                              className="flex items-center gap-3 p-3 bg-bg dark:bg-surface-secondary rounded-[var(--radius)] hover:bg-surface-tertiary dark:hover:bg-surface-tertiary transition-colors"
-                            >
-                              <div
-                                className={`w-8 h-8 rounded-full ${service.bg} flex items-center justify-center`}
-                              >
-                                <service.icon
-                                  className={`w-4 h-4 ${service.color}`}
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <div className="h-2.5 bg-border rounded w-24" />
-                                <div className="h-2 bg-border-light rounded w-36 mt-1.5" />
-                              </div>
-                              <div className="text-[10px] text-txt-tertiary">
-                                {item}m ago
-                              </div>
-                            </div>
-                          ))}
+                      <div className="bg-surface rounded-[var(--radius-lg)] p-3 shadow-lg border border-border-light">
+                        <div className="relative overflow-hidden rounded-[var(--radius)] border border-border-light bg-bg">
+                          <Image
+                            src={service.screenshot}
+                            alt={`${service.title} screenshot`}
+                            width={1200}
+                            height={700}
+                            className="w-full h-auto object-cover"
+                            sizes="(min-width: 1024px) 46vw, 100vw"
+                          />
                         </div>
                       </div>
                     </div>
