@@ -8,8 +8,8 @@ import {
   MessageSquare,
   Phone,
   Bell,
+  BarChart3,
   Send,
-  Shield,
   Smartphone,
   Monitor,
   ArrowRight,
@@ -18,9 +18,11 @@ import {
   Globe,
   RefreshCw,
   MonitorSmartphone,
+  Shield,
   ChevronDown,
   MessagesSquare,
   HelpCircle,
+  CheckCircle2,
   Plus,
   Minus,
   X,
@@ -28,37 +30,30 @@ import {
 import AnimatedSection from "@/components/AnimatedSection";
 import DownloadButtons from "@/components/DownloadButtons";
 
-function InsightsIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-    </svg>
-  );
-}
-
 const features = [
   {
     icon: MessagesSquare,
     title: "Device-to-Device Chat",
     description:
       "A full-featured chat system between your registered devices. Share files, images, videos — communicate seamlessly across all your devices.",
+    points: [
+      "Text messaging between devices",
+      "File sharing (images, videos, PDFs, archives)",
+      "Real-time typing indicators",
+    ],
     color: "text-primary-dark",
     bg: "bg-primary-soft",
   },
   {
     icon: MessageSquare,
-    title: "SMS Sync",
+    title: "SMS Synchronization",
     description:
-      "Synchronize SMS messages between your Android phone and Chrome browser in real time. Receive and export text messages from your computer without picking up your phone.",
+      "All your SMS messages are synced in real-time between your phone and Chrome Extension. Read, organize, and respond to texts from your computer.",
+    points: [
+      "Real-time SMS sync to Chrome Extension",
+      "Send SMS from your browser via your phone",
+      "Threaded conversation view",
+    ],
     color: "text-info",
     bg: "bg-info-light",
   },
@@ -67,6 +62,11 @@ const features = [
     title: "Call History Sync",
     description:
       "Never miss a call detail again. Your complete call history — incoming, outgoing, and missed calls — appears on your desktop instantly.",
+    points: [
+      "Incoming, outgoing & missed call logs",
+      "Call duration and timestamps",
+      "Contact name display",
+    ],
     color: "text-success",
     bg: "bg-success-light",
   },
@@ -75,14 +75,24 @@ const features = [
     title: "Notifications Sync",
     description:
       "Get notifications from WhatsApp, Telegram, and other apps directly on your desktop. Stay informed without reaching for your phone.",
+    points: [
+      "WhatsApp & Telegram notifications",
+      "App name and icon identification",
+      "Notification title and content",
+    ],
     color: "text-warning",
     bg: "bg-warning-light",
   },
   {
-    icon: InsightsIcon,
+    icon: BarChart3,
     title: "Insights",
     description:
       "Turn banking SMS data into clear financial visibility. Track spending, monitor income, and understand patterns across categories.",
+    points: [
+      "Automatic income and expense detection",
+      "Category-wise spending breakdown",
+      "Monthly trend analysis",
+    ],
     color: "text-primary-dark",
     bg: "bg-primary-soft",
   },
@@ -91,14 +101,24 @@ const features = [
     title: "Multi-Device Management",
     description:
       "Register and manage multiple devices with ease. See which devices are online, set nicknames, and control your sync preferences.",
+    points: [
+      "Register multiple devices",
+      "Device online/offline status",
+      "Custom device nicknames",
+    ],
     color: "text-secondary",
     bg: "bg-success-light",
   },
   {
-    icon: Lock,
+    icon: Shield,
     title: "Security & Encryption",
     description:
       "Your data is protected with end-to-end encryption. All SMS and call data is encrypted before transmission, ensuring complete privacy.",
+    points: [
+      "End-to-end data encryption",
+      "Encrypted data storage",
+      "Secure Firebase authentication",
+    ],
     color: "text-error",
     bg: "bg-error-light",
   },
@@ -107,6 +127,11 @@ const features = [
     title: "Multi-Language",
     description:
       "Full support for English and Arabic with RTL layout. Use the app in your preferred language.",
+    points: [
+      "English and Arabic support",
+      "Full RTL layout",
+      "Language switch inside the app",
+    ],
     color: "text-secondary",
     bg: "bg-success-light",
   },
@@ -761,6 +786,14 @@ export default function HomePage() {
                   <p className="text-sm text-txt-secondary leading-relaxed">
                     {feature.description}
                   </p>
+                  <ul className="mt-4 space-y-2">
+                    {feature.points.map((point) => (
+                      <li key={point} className="flex items-start gap-2 text-sm text-txt-secondary">
+                        <CheckCircle2 className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </AnimatedSection>
             ))}
