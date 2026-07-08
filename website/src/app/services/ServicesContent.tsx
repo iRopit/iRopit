@@ -230,20 +230,16 @@ export default function ServicesContent() {
                   {/* Visual */}
                   <div className={i % 2 !== 0 ? "lg:order-1" : ""}>
                     <div
-                      className={`bg-gradient-to-br ${service.gradient} rounded-[var(--radius-xl)] p-8 lg:p-12 border border-border`}
+                      className={`bg-gradient-to-br ${service.gradient} rounded-[var(--radius-xl)] border border-border overflow-hidden`}
                     >
-                      <div className="bg-surface rounded-[var(--radius-lg)] shadow-lg border border-border-light">
-                        <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border-light bg-bg">
-                          <Image
-                            src={service.screenshot}
-                            alt={`${service.title} screenshot`}
-                            width={1200}
-                            height={700}
-                            className="block w-full h-auto object-cover"
-                            sizes="(min-width: 1024px) 46vw, 100vw"
-                          />
-                        </div>
-                      </div>
+                      <Image
+                        src={service.screenshot}
+                        alt={`${service.title} screenshot`}
+                        width={1200}
+                        height={700}
+                        className="block w-full h-auto object-cover"
+                        sizes="(min-width: 1024px) 46vw, 100vw"
+                      />
                     </div>
                   </div>
                 </div>
