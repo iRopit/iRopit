@@ -154,7 +154,7 @@ const services = [
     color: "text-error",
     bg: "bg-error-light",
     gradient: "from-error/10 to-error/5",
-    screenshot: "/screenshots/desktop.png",
+    screenshot: "/screenshots/09.Security.jpg",
   },
 ];
 
