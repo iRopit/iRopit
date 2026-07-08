@@ -17,6 +17,7 @@ import {
   Lock,
   Globe,
   RefreshCw,
+  MonitorSmartphone,
   ChevronDown,
   MessagesSquare,
   HelpCircle,
@@ -44,27 +45,15 @@ function InsightsIcon({ className }: { className?: string }) {
   );
 }
 
-function ShareDeviceIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
 const features = [
+  {
+    icon: MessagesSquare,
+    title: "Device-to-Device Chat",
+    description:
+      "A full-featured chat system between your registered devices. Share files, images, videos — communicate seamlessly across all your devices.",
+    color: "text-primary-dark",
+    bg: "bg-primary-soft",
+  },
   {
     icon: MessageSquare,
     title: "SMS Sync",
@@ -75,9 +64,9 @@ const features = [
   },
   {
     icon: Phone,
-    title: "Call History",
+    title: "Call History Sync",
     description:
-      "Access your complete call log — incoming, outgoing, and missed calls — right from your browser.",
+      "Never miss a call detail again. Your complete call history — incoming, outgoing, and missed calls — appears on your desktop instantly.",
     color: "text-success",
     bg: "bg-success-light",
   },
@@ -85,7 +74,7 @@ const features = [
     icon: Bell,
     title: "Notifications Sync",
     description:
-      "Get your WhatsApp, Telegram, and other app notifications synced directly to your desktop.",
+      "Get notifications from WhatsApp, Telegram, and other apps directly on your desktop. Stay informed without reaching for your phone.",
     color: "text-warning",
     bg: "bg-warning-light",
   },
@@ -93,31 +82,23 @@ const features = [
     icon: InsightsIcon,
     title: "Insights",
     description:
-      "Turn your bank SMS messages into meaningful financial insights. Track income, expenses, and spending trends in one place.",
+      "Turn banking SMS data into clear financial visibility. Track spending, monitor income, and understand patterns across categories.",
     color: "text-primary-dark",
     bg: "bg-primary-soft",
   },
   {
-    icon: MessagesSquare,
-    title: "Device Chat",
+    icon: MonitorSmartphone,
+    title: "Multi-Device Management",
     description:
-      "Chat between your devices with file sharing — send images, videos, PDFs, and more.",
-    color: "text-primary-dark",
-    bg: "bg-primary-soft",
-  },
-  {
-    icon: ShareDeviceIcon,
-    title: "Share Device",
-    description:
-      "Share your device securely with trusted users and let them access SMS, calls, and notifications from anywhere.",
-    color: "text-primary-dark",
-    bg: "bg-primary-soft",
+      "Register and manage multiple devices with ease. See which devices are online, set nicknames, and control your sync preferences.",
+    color: "text-secondary",
+    bg: "bg-success-light",
   },
   {
     icon: Lock,
-    title: "End-to-End Encryption",
+    title: "Security & Encryption",
     description:
-      "All your data is encrypted with advanced encryption. Your privacy is our top priority.",
+      "Your data is protected with end-to-end encryption. All SMS and call data is encrypted before transmission, ensuring complete privacy.",
     color: "text-error",
     bg: "bg-error-light",
   },
