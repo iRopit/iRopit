@@ -45,7 +45,7 @@ const services = [
     bg: "bg-primary-soft",
     gradient: "from-primary/10 to-primary/5",
     icons: [ImageIcon, Video, FileText],
-    screenshot: "/screenshots/1.Chat messages.jpg",
+    screenshot: "/screenshots/01.Chat messages.jpg",
   },
   {
     icon: MessageSquare,
@@ -63,7 +63,7 @@ const services = [
     color: "text-info",
     bg: "bg-info-light",
     gradient: "from-info/10 to-info/5",
-    screenshot: "/screenshots/2.SMS Screen.jpg",
+    screenshot: "/screenshots/02.SMS Screen.jpg",
   },
   {
     icon: Phone,
@@ -82,7 +82,7 @@ const services = [
     bg: "bg-success-light",
     gradient: "from-success/10 to-success/5",
     icons: [PhoneIncoming, PhoneOutgoing, PhoneMissed],
-    screenshot: "/screenshots/3.Call screen.jpg",
+    screenshot: "/screenshots/03.Call screen.jpg",
   },
   {
     icon: Bell,
@@ -100,7 +100,7 @@ const services = [
     color: "text-warning",
     bg: "bg-warning-light",
     gradient: "from-warning/10 to-warning/5",
-    screenshot: "/screenshots/4.Notification Screen.jpg",
+    screenshot: "/screenshots/04.Notification Screen.jpg",
   },
   {
     icon: BarChart3,
@@ -118,7 +118,7 @@ const services = [
     color: "text-primary-dark",
     bg: "bg-primary-soft",
     gradient: "from-primary/10 to-primary/5",
-    screenshot: "/screenshots/5.Insights Data.jpg",
+    screenshot: "/screenshots/05.Insights Data.jpg",
   },
   {
     icon: MonitorSmartphone,
@@ -136,7 +136,7 @@ const services = [
     color: "text-secondary",
     bg: "bg-success-light",
     gradient: "from-secondary/10 to-secondary/5",
-    screenshot: "/screenshots/7.Devices.jpg",
+    screenshot: "/screenshots/07.Devices.jpg",
   },
   {
     icon: Shield,
