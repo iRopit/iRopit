@@ -551,7 +551,7 @@ export default function HomePage() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-soft flex items-center justify-center">
-                          <InsightsIcon className="w-4 h-4 text-primary-dark" />
+                          <BarChart3 className="w-4 h-4 text-primary-dark" />
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-txt">
@@ -594,7 +594,7 @@ export default function HomePage() {
                     <MessageSquare className="w-4 h-4 text-txt-tertiary" />
                     <Phone className="w-4 h-4 text-txt-tertiary" />
                     <Bell className="w-4 h-4 text-txt-tertiary" />
-                    <InsightsIcon className="w-4 h-4 text-txt-tertiary" />
+                    <BarChart3 className="w-4 h-4 text-txt-tertiary" />
                     <Smartphone className="w-4 h-4 text-txt-tertiary" />
                   </div>
                 </div>
