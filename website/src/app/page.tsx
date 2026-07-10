@@ -322,7 +322,7 @@ export default function HomePage() {
                 transition={{ duration: 0.6 }}
               >
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-primary animate-gradient">
-                  Your Android Devices on Your Computer
+                  Connect Your Android Devices to Your Computer
                 </h1>
 
                 <p className="text-lg sm:text-xl text-txt-secondary leading-relaxed mb-8 max-w-lg">
