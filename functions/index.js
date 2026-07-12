@@ -19,7 +19,7 @@ const messaging = getMessaging();
 
 const FIRST_LOGIN_EMAIL_SUBJECT =
   "Complete Your iRopit Setup in Less Than 1 Minute";
-const FIRST_LOGIN_EMAIL_FROM = "info@iRopit.com";
+const FIRST_LOGIN_EMAIL_FROM = "welcome@iRopit.com";
 
 let cachedMailer = null;
 

@@ -115,6 +115,8 @@ let sharedNotifsDeferredListenerAttached = false;
 const processedIncomingShareReqIds = new Set();
 const incomingShareModalByKey = new Map();
 const acceptingShareRequestIds = new Set();
+const locallyResolvedIncomingShareReqIds = new Set();
+const locallyInitiatedSharedRemovalKeys = new Set();
 const handledIncomingShareKeys = new Map();
 let handledIncomingShareKeysLoaded = false;
 let handledIncomingShareKeysLoadPromise = null;
@@ -363,27 +365,20 @@ function scheduleSharedCallsLoad(shares) {
       };
 
       if (m.isCallsSyncing && m.isCallsSyncing()) {
+        // Start shared calls immediately so first-open does not stay on a tiny
+        // recent subset while own calls are still syncing.
+        runLatest();
+
         if (sharedCallsDeferredListenerAttached) return;
         sharedCallsDeferredListenerAttached = true;
-        let fallbackTimer = null;
         const onDone = () => {
           window.removeEventListener("iropit:calls-sync-done", onDone);
           sharedCallsDeferredListenerAttached = false;
-          if (fallbackTimer) {
-            clearTimeout(fallbackTimer);
-            fallbackTimer = null;
+          if (m.loadSharedDevicesCalls) {
+            m.loadSharedDevicesCalls(state.sharedWithMeDevices || []).catch(() => {});
           }
-          runLatest();
         };
         window.addEventListener("iropit:calls-sync-done", onDone, { once: true });
-
-        // Safety net: if the sync-done event is missed or a long sync stalls,
-        // still start shared listeners so shared Calls does not stay stale.
-        fallbackTimer = setTimeout(() => {
-          try { window.removeEventListener("iropit:calls-sync-done", onDone); } catch (_) {}
-          sharedCallsDeferredListenerAttached = false;
-          runLatest();
-        }, 8000);
         return;
       }
 
@@ -720,7 +715,50 @@ export async function loadDevices() {
     where("sharedWithUid", "==", user.uid),
   );
 
+  const recentStoppedShareNoticeAtByKey = new Map();
+  const STOP_NOTICE_DEDUPE_WINDOW_MS = 5000;
+  let lastAppliedSharedByKey = null;
+
+  const maybeNotifyOwnerStoppedSharing = (share) => {
+    if (!share) return;
+    const key = getSharedWithMeKey(share);
+    if (locallyInitiatedSharedRemovalKeys.has(key)) {
+      locallyInitiatedSharedRemovalKeys.delete(key);
+      return;
+    }
+
+    const now = Date.now();
+    const lastNoticeAt = Number(recentStoppedShareNoticeAtByKey.get(key) || 0);
+    if (lastNoticeAt > 0 && now - lastNoticeAt < STOP_NOTICE_DEDUPE_WINDOW_MS) return;
+    recentStoppedShareNoticeAtByKey.set(key, now);
+
+    const isAr = getCurrentLanguage() === "ar";
+    const ownerEmail = String(share.ownerEmail || "").trim();
+    const deviceLabel = String(share.deviceName || share.deviceId || "").trim();
+    const who = ownerEmail || (isAr ? "المالك" : "Owner");
+    const what = deviceLabel || (isAr ? "الجهاز" : "the device");
+
+    showToast(
+      isAr
+        ? `أوقف ${who} مشاركة ${what} معك`
+        : `${who} stopped sharing ${what} with you`,
+      "error",
+    );
+  };
+
   const applySharedWithMeShares = (shares) => {
+    const nextByKey = new Map((shares || []).map((s) => [getSharedWithMeKey(s), s]));
+
+    if (lastAppliedSharedByKey && lastAppliedSharedByKey.size > 0) {
+      lastAppliedSharedByKey.forEach((prevShare, key) => {
+        if (!nextByKey.has(key)) {
+          maybeNotifyOwnerStoppedSharing(prevShare);
+        }
+      });
+    }
+
+    lastAppliedSharedByKey = nextByKey;
+
     state.setSharedWithMeDevices(shares);
     renderDevices();
     updateDeviceSelects();
@@ -745,7 +783,13 @@ export async function loadDevices() {
     const enriched = dedupeSharedWithMeShares(enrichedRaw);
     state.setSharedWithMeDevices(enriched);
     renderDevices();
+    updateDeviceSelects();
     cacheSharedDevices(enriched).catch(() => {});
+    Promise.all([
+      Promise.resolve().then(() => scheduleSharedSmsLoad(enriched)),
+      Promise.resolve().then(() => scheduleSharedCallsLoad(enriched)),
+      Promise.resolve().then(() => scheduleSharedNotificationsLoad(enriched)),
+    ]);
   };
 
   let sharedServerReconcileInFlight = false;
@@ -794,6 +838,11 @@ export async function loadDevices() {
   const sharesUnsub = onSnapshot(
     sharesQ,
     async (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== "removed") return;
+        maybeNotifyOwnerStoppedSharing({ shareId: change.doc.id, ...change.doc.data() });
+      });
+
       // Build shares immediately from snapshot docs — each doc already contains
       // deviceName, deviceId, ownerUid and permissions, which is everything needed
       // to render the tab and load SMS/calls data. Don't await getDoc here.
@@ -842,22 +891,77 @@ export async function loadDevices() {
   // Immediate authoritative shared-with-me pass on startup.
   reconcileSharedWithMeFromServer("initial-load", true).catch(() => {});
 
+  // Reliability heartbeat: re-trigger shared loaders periodically so newly
+  // arriving owner SMS/calls are pulled even when realtime listeners miss an
+  // update due transient network/cache races.
+  const SHARED_REFRESH_INTERVAL_MS = 25000;
+  const sharedRefreshTimer = setInterval(() => {
+    const shares = state.sharedWithMeDevices || [];
+    if (!Array.isArray(shares) || shares.length === 0) return;
+    Promise.resolve().then(() => scheduleSharedSmsLoad(shares));
+    Promise.resolve().then(() => scheduleSharedCallsLoad(shares));
+    Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares));
+  }, SHARED_REFRESH_INTERVAL_MS);
+  state.addUnsubscriber(() => {
+    try { clearInterval(sharedRefreshTimer); } catch (_) {}
+  });
+
   // ── Own-device shares listener (to show "(Shared)" badge on device list) ──
   const mySharesQ = query(
     collection(db, "deviceShares"),
     where("ownerUid", "==", user.uid),
   );
-  const mySharesUnsub = onSnapshot(mySharesQ, (snapshot) => {
+  const applyMySharesSnapshot = (snapshot) => {
     const map = {};
     snapshot.docs.forEach((d) => {
       const data = d.data();
+      if (!data?.deviceId) return;
+      if (!data?.sharedWithUid && !data?.sharedWithEmail) return;
       if (!map[data.deviceId]) map[data.deviceId] = [];
       map[data.deviceId].push({ shareId: d.id, ...data });
     });
     state.setMyDeviceShares(map);
     renderDevices();
+  };
+
+  let mySharesServerReconcileInFlight = false;
+  let lastMySharesServerReconcileAt = 0;
+  const MY_SHARES_SERVER_RECONCILE_MIN_INTERVAL_MS = 2500;
+
+  const reconcileMySharesFromServer = async (reason, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastMySharesServerReconcileAt < MY_SHARES_SERVER_RECONCILE_MIN_INTERVAL_MS) {
+      return;
+    }
+    if (mySharesServerReconcileInFlight) return;
+    mySharesServerReconcileInFlight = true;
+
+    try {
+      const serverSnap = await getDocsFromServer(mySharesQ);
+      applyMySharesSnapshot(serverSnap);
+    } catch (err) {
+      if (isUnavailableError(err)) {
+        logDeviceUnavailableOnce(
+          `my-shares-reconcile:${reason}`,
+          `[Device] my-shares server reconcile skipped (${reason}) - backend unavailable`,
+        );
+      }
+    } finally {
+      lastMySharesServerReconcileAt = Date.now();
+      mySharesServerReconcileInFlight = false;
+    }
+  };
+
+  const mySharesUnsub = onSnapshot(mySharesQ, (snapshot) => {
+    applyMySharesSnapshot(snapshot);
+    if (snapshot.metadata?.fromCache) {
+      reconcileMySharesFromServer("cache-snapshot").catch(() => {});
+    }
   }, () => {});
   state.addUnsubscriber(mySharesUnsub);
+
+  // Immediate authoritative pass prevents stale cache-only "(Shared)" badge.
+  reconcileMySharesFromServer("initial-load", true).catch(() => {});
 
   // ── Own pending share requests (to show "(Pending)" badge on device list) ─
   const myPendingReqQ = query(
@@ -865,12 +969,49 @@ export async function loadDevices() {
     where("ownerUid", "==", user.uid),
     where("status", "==", "pending"),
   );
-  const myPendingReqUnsub = onSnapshot(myPendingReqQ, (snapshot) => {
+  const applyMyPendingReqSnapshot = (snapshot) => {
     const pendingIds = new Set(snapshot.docs.map((d) => d.data().deviceId));
     state.setMyPendingShareDeviceIds(pendingIds);
     renderDevices();
+  };
+
+  let myPendingServerReconcileInFlight = false;
+  let lastMyPendingServerReconcileAt = 0;
+  const MY_PENDING_SERVER_RECONCILE_MIN_INTERVAL_MS = 2500;
+
+  const reconcileMyPendingFromServer = async (reason, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastMyPendingServerReconcileAt < MY_PENDING_SERVER_RECONCILE_MIN_INTERVAL_MS) {
+      return;
+    }
+    if (myPendingServerReconcileInFlight) return;
+    myPendingServerReconcileInFlight = true;
+
+    try {
+      const serverSnap = await getDocsFromServer(myPendingReqQ);
+      applyMyPendingReqSnapshot(serverSnap);
+    } catch (err) {
+      if (isUnavailableError(err)) {
+        logDeviceUnavailableOnce(
+          `my-pending-reconcile:${reason}`,
+          `[Device] my-pending server reconcile skipped (${reason}) - backend unavailable`,
+        );
+      }
+    } finally {
+      lastMyPendingServerReconcileAt = Date.now();
+      myPendingServerReconcileInFlight = false;
+    }
+  };
+
+  const myPendingReqUnsub = onSnapshot(myPendingReqQ, (snapshot) => {
+    applyMyPendingReqSnapshot(snapshot);
+    if (snapshot.metadata?.fromCache) {
+      reconcileMyPendingFromServer("cache-snapshot").catch(() => {});
+    }
   }, () => {});
   state.addUnsubscriber(myPendingReqUnsub);
+
+  reconcileMyPendingFromServer("initial-load", true).catch(() => {});
 
   // ── Incoming share requests listener (recipient side) ─────────────────────
   const incomingReqQ = query(
@@ -888,6 +1029,30 @@ export async function loadDevices() {
         const existingReqId = incomingShareModalByKey.get(incomingKey);
         if (existingReqId && existingReqId !== incomingReq.requestId) return;
         _showIncomingShareRequestModal(incomingReq);
+        return;
+      }
+
+      if (change.type === "removed") {
+        const incomingReq = { requestId: change.doc.id, ...change.doc.data() };
+
+        // Request left the pending query because recipient accepted/rejected it.
+        if (locallyResolvedIncomingShareReqIds.has(incomingReq.requestId)) {
+          locallyResolvedIncomingShareReqIds.delete(incomingReq.requestId);
+          return;
+        }
+
+        const isAr = getCurrentLanguage() === "ar";
+        const ownerEmail = String(incomingReq.ownerEmail || "").trim();
+        const deviceLabel = String(incomingReq.deviceName || incomingReq.deviceId || "").trim();
+        const who = ownerEmail || (isAr ? "المالك" : "Owner");
+        const what = deviceLabel || (isAr ? "الجهاز" : "the device");
+
+        showToast(
+          isAr
+            ? `ألغى ${who} طلب مشاركة ${what}`
+            : `${who} canceled the sharing request for ${what}`,
+          "error",
+        );
       }
     });
   }, () => {});
@@ -998,9 +1163,21 @@ export function renderDevices() {
         <div class="list-item-title device-name-display">
           <span class="device-nickname">${escapeHtml(getFriendlyDeviceName(device))}</span>
           ${(state.myDeviceShares || {})[device.id]?.length > 0
-            ? `<span class="device-owned-shared-badge">${t("device_shared_badge")}</span>`
+            ? `<span
+                class="device-owned-shared-badge open-share-modal-badge"
+                data-device-id="${escapeHtml(device.id)}"
+                data-device-doc-id="${escapeHtml(device.docId)}"
+                role="button"
+                tabindex="0"
+                title="${t("device_share")}">${t("device_shared_badge")}</span>`
             : (state.myPendingShareDeviceIds || new Set()).has(device.id)
-              ? `<span class="device-pending-badge">${t("device_pending_badge")}</span>`
+              ? `<span
+                  class="device-pending-badge open-share-modal-badge"
+                  data-device-id="${escapeHtml(device.id)}"
+                  data-device-doc-id="${escapeHtml(device.docId)}"
+                  role="button"
+                  tabindex="0"
+                  title="${t("device_share")}">${t("device_pending_badge")}</span>`
               : ""}
           <button class="edit-name-btn" data-device-doc-id="${escapeHtml(
             device.docId,
@@ -1159,6 +1336,27 @@ export function renderDevices() {
     });
   });
 
+  // Clicking the "(Shared)" badge reopens share modal for that device.
+  document.querySelectorAll(".open-share-modal-badge").forEach((badge) => {
+    const openShareModal = (e) => {
+      e.stopPropagation();
+      const deviceId = badge.dataset.deviceId;
+      const docId = badge.dataset.deviceDocId;
+      const device = state.devices.find(
+        (d) => (docId && d.docId === docId) || (deviceId && d.id === deviceId),
+      );
+      if (device) showShareDeviceModal(device);
+    };
+
+    badge.addEventListener("click", openShareModal);
+    badge.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openShareModal(e);
+      }
+    });
+  });
+
   // Add stop-sharing handlers (recipient side — remove share from their list)
   document.querySelectorAll(".remove-shared-device-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
@@ -1179,6 +1377,9 @@ export function renderDevices() {
         const previousSharedWithMe = [...(state.sharedWithMeDevices || [])];
         const incomingKey = getIncomingShareReqKey({ ownerUid, deviceId, sharedWithUid });
         markIncomingShareKeyHandled(incomingKey);
+        const localRemovalKey = getSharedWithMeKey({ ownerUid, deviceId, sharedWithUid, shareId });
+        locallyInitiatedSharedRemovalKeys.add(localRemovalKey);
+        setTimeout(() => locallyInitiatedSharedRemovalKeys.delete(localRemovalKey), 15000);
         removeSharedWithMeOptimistic({
           shareIds: [shareId, ...shareIdsFromUi],
           ownerUid,
@@ -1987,6 +2188,7 @@ export async function showShareDeviceModal(device) {
   const deviceName = getFriendlyDeviceName(device);
   let existingShares = [];
   let pendingRequests = [];
+  let sharesLoadDone = false;
 
   const renderExistingSharesHtml = () => {
     if (existingShares.length === 0 && pendingRequests.length === 0) return "";
@@ -2033,10 +2235,6 @@ export async function showShareDeviceModal(device) {
   };
 
   // Show modal immediately, then populate share history asynchronously.
-  let resolveSharesLoaded;
-  const sharesLoaded = new Promise((resolve) => {
-    resolveSharesLoaded = resolve;
-  });
 
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
@@ -2091,38 +2289,63 @@ export async function showShareDeviceModal(device) {
   document.getElementById("shareEmail").focus();
 
   const existingContainer = document.getElementById("shareExistingContainer");
-  (async () => {
-    try {
-      const sharesSnap = await getDocs(
-        query(
-          collection(db, "deviceShares"),
-          where("ownerUid", "==", user.uid),
-          where("deviceId", "==", device.id),
-        ),
-      );
-      existingShares = sharesSnap.docs.map((d) => ({ shareId: d.id, ...d.data() }));
-    } catch (_) {
-      existingShares = [];
-    }
 
-    try {
-      const pendingSnap = await getDocs(
-        query(
-          collection(db, "deviceShareRequests"),
-          where("ownerUid", "==", user.uid),
-          where("deviceId", "==", device.id),
-          where("status", "==", "pending"),
-        ),
-      );
-      pendingRequests = pendingSnap.docs.map((d) => ({ requestId: d.id, ...d.data() }));
-    } catch (_) {
-      pendingRequests = [];
+  // Instant render from in-memory snapshot so user sees current recipients right away.
+  const memoryShares = ((state.myDeviceShares || {})[device.id] || []).map((s) => ({ ...s }));
+  if (memoryShares.length > 0) {
+    existingShares = memoryShares;
+    if (existingContainer) {
+      existingContainer.innerHTML = renderExistingSharesHtml();
+    }
+  }
+
+  (async () => {
+    const sharesQ = query(
+      collection(db, "deviceShares"),
+      where("ownerUid", "==", user.uid),
+      where("deviceId", "==", device.id),
+    );
+    const pendingQ = query(
+      collection(db, "deviceShareRequests"),
+      where("ownerUid", "==", user.uid),
+      where("deviceId", "==", device.id),
+      where("status", "==", "pending"),
+    );
+
+    // Fast local-cache pass first (usually returns in milliseconds).
+    const [localSharesRes, localPendingRes] = await Promise.allSettled([
+      withTimeout(getDocs(sharesQ), 1200, "load cached shares"),
+      withTimeout(getDocs(pendingQ), 1200, "load cached pending shares"),
+    ]);
+
+    if (localSharesRes.status === "fulfilled") {
+      existingShares = localSharesRes.value.docs.map((d) => ({ shareId: d.id, ...d.data() }));
+    }
+    if (localPendingRes.status === "fulfilled") {
+      pendingRequests = localPendingRes.value.docs.map((d) => ({ requestId: d.id, ...d.data() }));
     }
 
     if (existingContainer) {
       existingContainer.innerHTML = renderExistingSharesHtml();
     }
-    resolveSharesLoaded();
+
+    const [sharesRes, pendingRes] = await Promise.allSettled([
+      withTimeout(getDocsFromServer(sharesQ), 3500, "load current shares").catch(() => getDocs(sharesQ)),
+      withTimeout(getDocsFromServer(pendingQ), 3500, "load pending shares").catch(() => getDocs(pendingQ)),
+    ]);
+
+    existingShares = sharesRes.status === "fulfilled"
+      ? sharesRes.value.docs.map((d) => ({ shareId: d.id, ...d.data() }))
+      : [];
+    pendingRequests = pendingRes.status === "fulfilled"
+      ? pendingRes.value.docs.map((d) => ({ requestId: d.id, ...d.data() }))
+      : [];
+
+    sharesLoadDone = true;
+
+    if (existingContainer) {
+      existingContainer.innerHTML = renderExistingSharesHtml();
+    }
   })();
 
   // Close handlers
@@ -2242,6 +2465,36 @@ export async function showShareDeviceModal(device) {
               ...duplicateShareIds,
             ]));
 
+            // Authoritative cleanup: include all matching active share docs from server.
+            // Local modal state can be stale during racey share/unshare flows.
+            try {
+              const serverActiveQ = sharedUid
+                ? query(
+                    collection(db, "deviceShares"),
+                    where("ownerUid", "==", user.uid),
+                    where("deviceId", "==", deviceId),
+                    where("sharedWithUid", "==", sharedUid),
+                  )
+                : query(
+                    collection(db, "deviceShares"),
+                    where("ownerUid", "==", user.uid),
+                    where("deviceId", "==", deviceId),
+                    where("sharedWithEmail", "==", emailKey),
+                  );
+
+              const serverActiveSnap = await withTimeout(
+                getDocsFromServer(serverActiveQ).catch(() => getDocs(serverActiveQ)),
+                5000,
+                "query active shares",
+              );
+
+              serverActiveSnap.docs.forEach((d) => {
+                if (d?.id) uniqueDeleteIds.push(d.id);
+              });
+            } catch (_) {}
+
+            const finalDeleteIds = Array.from(new Set(uniqueDeleteIds.filter(Boolean)));
+
             if (sharedUid) {
               existingShares = existingShares.filter((s) => s.sharedWithUid !== sharedUid);
             } else {
@@ -2249,14 +2502,14 @@ export async function showShareDeviceModal(device) {
                 (s) => String(s.sharedWithEmail || "").trim().toLowerCase() !== emailKey,
               );
             }
-            uniqueDeleteIds.forEach((id) => optimisticRemovedIds.add(id));
+            finalDeleteIds.forEach((id) => optimisticRemovedIds.add(id));
             if (existingContainer) {
               existingContainer.innerHTML = renderExistingSharesHtml();
             }
 
-            if (uniqueDeleteIds.length > 0) {
+            if (finalDeleteIds.length > 0) {
               const deleteResults = await Promise.allSettled(
-                uniqueDeleteIds.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5000, `delete share ${id}`)),
+                finalDeleteIds.map((id) => withTimeout(deleteDoc(doc(db, "deviceShares", id)), 5000, `delete share ${id}`)),
               );
               const deletedCount = deleteResults.filter((r) => r.status === "fulfilled").length;
               const rejectedReasons = deleteResults
@@ -2341,7 +2594,17 @@ export async function showShareDeviceModal(device) {
     }
 
     const confirmBtn = document.getElementById("confirmShare");
+    if (confirmBtn.dataset.busy === "1") return;
+    const confirmBtnLabel = confirmBtn.innerHTML;
+    confirmBtn.dataset.busy = "1";
     confirmBtn.disabled = true;
+    confirmBtn.innerHTML = isAr ? "جارٍ الإرسال..." : "Sending...";
+
+    const resetConfirmBtn = () => {
+      confirmBtn.disabled = false;
+      confirmBtn.dataset.busy = "0";
+      confirmBtn.innerHTML = confirmBtnLabel;
+    };
 
     try {
       // Look up recipient by email
@@ -2350,31 +2613,63 @@ export async function showShareDeviceModal(device) {
       );
       if (usersSnap.empty) {
         showError(isAr ? "لم يتم العثور على مستخدم بهذا البريد الإلكتروني." : "No iRopit user found with this email.");
-        confirmBtn.disabled = false;
+        resetConfirmBtn();
         return;
       }
 
       const recipientDoc = usersSnap.docs[0];
       const recipientUid = recipientDoc.data().uid || recipientDoc.id;
 
-      // Ensure duplicate checks include the latest asynchronously loaded lists.
-      await sharesLoaded;
-
       // Check if already shared or has pending request for this user
-      const existing = existingShares.find((s) => s.sharedWithEmail === email);
-      const pending = pendingRequests.find((r) => r.sharedWithEmail === email);
+      let existing = existingShares.find((s) => String(s.sharedWithEmail || "").trim().toLowerCase() === email);
+      let pending = pendingRequests.find((r) => String(r.sharedWithEmail || "").trim().toLowerCase() === email);
+
+      // Do not block on "Loading current shares...". If that async load is still in
+      // flight, run direct targeted duplicate checks for this email.
+      if (!sharesLoadDone) {
+        const existingQ = query(
+          collection(db, "deviceShares"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id),
+          where("sharedWithEmail", "==", email),
+        );
+        const pendingQ = query(
+          collection(db, "deviceShareRequests"),
+          where("ownerUid", "==", user.uid),
+          where("deviceId", "==", device.id),
+          where("sharedWithEmail", "==", email),
+          where("status", "==", "pending"),
+        );
+
+        const [existingTargetRes, pendingTargetRes] = await Promise.allSettled([
+          withTimeout(getDocsFromServer(existingQ), 3500, "check existing share").catch(() => getDocs(existingQ)),
+          withTimeout(getDocsFromServer(pendingQ), 3500, "check pending share").catch(() => getDocs(pendingQ)),
+        ]);
+
+        existing = existing || (
+          existingTargetRes.status === "fulfilled" && !existingTargetRes.value.empty
+            ? { shareId: existingTargetRes.value.docs[0].id, ...existingTargetRes.value.docs[0].data() }
+            : null
+        );
+        pending = pending || (
+          pendingTargetRes.status === "fulfilled" && !pendingTargetRes.value.empty
+            ? { requestId: pendingTargetRes.value.docs[0].id, ...pendingTargetRes.value.docs[0].data() }
+            : null
+        );
+      }
+
       if (existing) {
         showError(isAr ? "الجهاز مشارك بالفعل مع هذا المستخدم." : "Device is already shared with this user.");
-        confirmBtn.disabled = false;
+        resetConfirmBtn();
         return;
       }
       if (pending) {
         showError(isAr ? "تم إرسال طلب مشاركة بالفعل لهذا المستخدم." : "A share request is already pending for this user.");
-        confirmBtn.disabled = false;
+        resetConfirmBtn();
         return;
       }
 
-      await addDoc(collection(db, "deviceShareRequests"), {
+      await withTimeout(addDoc(collection(db, "deviceShareRequests"), {
         ownerUid: user.uid,
         ownerEmail: user.email,
         ownerDisplayName: user.displayName || user.email,
@@ -2386,45 +2681,19 @@ export async function showShareDeviceModal(device) {
         permissions: { sms: shareSms, calls: shareCalls, notifications: shareNotifs },
         status: "pending",
         createdAt: Date.now(),
-      });
+      }), 7000, "send share request");
 
-      // Replace modal content with a success confirmation the user must dismiss
-      const modalContent = modal.querySelector(".modal-content");
-      modalContent.innerHTML = `
-        <div class="modal-header">
-          <h3>${isAr ? "تم إرسال الطلب" : "Request Sent"}</h3>
-        </div>
-        <div class="modal-body" style="text-align:center;padding:24px 20px 16px;">
-          <div style="font-size:40px;margin-bottom:12px;">📤</div>
-          <p style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;">
-            ${isAr
-              ? `تم إرسال طلب مشاركة جهاز <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong>`
-              : `A share request for <strong>${escapeHtml(getFriendlyDeviceName(device))}</strong> has been sent`}
-          </p>
-          <p style="font-size:13px;color:var(--text-secondary);">
-            ${isAr
-              ? `إلى الحساب: <strong>${escapeHtml(email)}</strong>`
-              : `to account: <strong>${escapeHtml(email)}</strong>`}
-          </p>
-          <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;opacity:0.8;">
-            ${isAr
-              ? "سيتمكنون من قبول أو رفض الطلب."
-              : "They can accept or decline the request."}
-          </p>
-        </div>
-        <div class="modal-footer" style="justify-content:center;">
-          <button class="btn btn-primary" id="shareSuccessOkBtn" style="min-width:100px;">
-            ${isAr ? "حسناً" : "OK"}
-          </button>
-        </div>
-      `;
-      document.getElementById("shareSuccessOkBtn").addEventListener("click", () => {
-        modal.remove();
-      });
+      showToast(
+        isAr
+          ? `تم إرسال طلب المشاركة إلى ${email}`
+          : `Share request sent to ${email}`,
+        "success",
+      );
+      modal.remove();
     } catch (err) {
       console.error("[Share] share device error:", err);
       showError(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
-      confirmBtn.disabled = false;
+      resetConfirmBtn();
     }
   });
 }
@@ -2527,6 +2796,7 @@ async function _showIncomingShareRequestModal(req) {
   acceptBtn.addEventListener("click", async () => {
     if (acceptingShareRequestIds.has(req.requestId)) return;
     acceptingShareRequestIds.add(req.requestId);
+    locallyResolvedIncomingShareReqIds.add(req.requestId);
     setAcceptWorking(true);
     setStatus(isAr ? "جاري قبول الطلب..." : "Accepting request...", false);
 
@@ -2642,6 +2912,7 @@ async function _showIncomingShareRequestModal(req) {
       })();
     } catch (err) {
       console.error("[ShareReq] accept error:", err);
+      locallyResolvedIncomingShareReqIds.delete(req.requestId);
 
       // Roll back optimistic recipient state if acceptance failed.
       state.setSharedWithMeDevices(previousSharedWithMe);
@@ -2666,6 +2937,7 @@ async function _showIncomingShareRequestModal(req) {
   });
 
   rejectBtn.addEventListener("click", async () => {
+    locallyResolvedIncomingShareReqIds.add(req.requestId);
     acceptBtn.disabled = true;
     rejectBtn.disabled = true;
     try {
@@ -2676,8 +2948,19 @@ async function _showIncomingShareRequestModal(req) {
         where("deviceId", "==", req.deviceId),
         where("status", "==", "pending"),
       );
-      const duplicatePendingSnap = await withTimeout(getDocs(duplicatePendingQ), 4000, "query duplicate pending requests");
-      if (duplicatePendingSnap.empty) {
+      let duplicatePendingSnap = null;
+      try {
+        duplicatePendingSnap = await withTimeout(
+          getDocs(duplicatePendingQ),
+          4000,
+          "query duplicate pending requests",
+        );
+      } catch (queryErr) {
+        // Query timeout/unavailable is non-fatal: fall back to rejecting current request.
+        logShareDebug("[ShareReq] duplicate pending query fallback:", queryErr?.message || queryErr);
+      }
+
+      if (!duplicatePendingSnap || duplicatePendingSnap.empty) {
         await withTimeout(updateDoc(doc(db, "deviceShareRequests", req.requestId), {
           status: "rejected",
           resolvedAt: Date.now(),
@@ -2697,7 +2980,8 @@ async function _showIncomingShareRequestModal(req) {
       setStatus(isAr ? "تم رفض الطلب" : "Request declined.", false);
       setTimeout(closeModal, 1000);
     } catch (err) {
-      console.error("[ShareReq] reject error:", err);
+      console.warn("[ShareReq] reject failed:", err?.message || err);
+      locallyResolvedIncomingShareReqIds.delete(req.requestId);
       acceptBtn.disabled = false;
       rejectBtn.disabled = false;
       setStatus(isAr ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.", true);

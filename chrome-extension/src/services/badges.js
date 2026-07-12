@@ -219,7 +219,12 @@ function getCallsCount(deviceId) {
     return calls.filter((c) => {
       if (!isUnreadMissed(c)) return false
       if (!c.deviceId) return false
-      if (sharedCallsDeviceIds.has(c.deviceId)) return true
+      // While shared calls hydration is still pending, do not hide already-known
+      // unread calls. We still count own calls immediately and include shared calls
+      // that are already present in merged state.
+      if (sharedCallsDeviceIds.has(c.deviceId)) {
+        return true
+      }
       return ownCallsDeviceIds.has(c.deviceId)
     }).length
   }

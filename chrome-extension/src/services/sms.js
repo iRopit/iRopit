@@ -110,6 +110,8 @@ let smsUnsubscribeFunctions = [];
 let sharedSmsUnsubscribeByKey = new Map();
 let sharedSmsSourceDataByKey = new Map();
 let sharedSmsServerProbeTsByKey = new Map();
+let sharedSmsListenerBoundAtByKey = new Map();
+let sharedSmsListenerMetaByKey = new Map();
 let smsListReturnState = { conversationKey: null, scrollTop: 0 };
 
 function rememberSmsListPosition(conversationKey) {
@@ -155,7 +157,48 @@ function stopSharedSMSListeners(keepKeys = null) {
     sharedSmsUnsubscribeByKey.delete(key);
     sharedSmsSourceDataByKey.delete(key);
     sharedSmsServerProbeTsByKey.delete(key);
+    sharedSmsListenerBoundAtByKey.delete(key);
+    sharedSmsListenerMetaByKey.delete(key);
   }
+}
+
+function stopSharedSMSListenerByKey(key) {
+  if (!key || !sharedSmsUnsubscribeByKey.has(key)) return;
+  const unsubs = sharedSmsUnsubscribeByKey.get(key);
+  if (Array.isArray(unsubs)) {
+    unsubs.forEach((unsub) => {
+      try { unsub(); } catch (_) {}
+    });
+  } else {
+    try { unsubs(); } catch (_) {}
+  }
+  sharedSmsUnsubscribeByKey.delete(key);
+  sharedSmsSourceDataByKey.delete(key);
+  sharedSmsServerProbeTsByKey.delete(key);
+  sharedSmsListenerBoundAtByKey.delete(key);
+  sharedSmsListenerMetaByKey.delete(key);
+}
+
+function getSharedSmsSourceCount(listenerKey) {
+  const source = sharedSmsSourceDataByKey.get(listenerKey);
+  if (!source) return 0;
+  const lists = [
+    source.strict,
+    source.strictReceivedAt,
+    source.altStrict,
+    source.altStrictReceivedAt,
+    source.relaxed,
+    source.legacy,
+    source.legacyWide,
+  ];
+  const byId = new Set();
+  lists.forEach((list) => {
+    (list || []).forEach((m) => {
+      const k = m?.docId || m?.id;
+      if (k) byId.add(k);
+    });
+  });
+  return byId.size;
 }
 
 function isLikelySMSPayload(data) {
@@ -603,12 +646,21 @@ export function stopSMSListener() {
 /**
  * Load SMS from all user devices using real-time listeners
  */
-export async function loadSMS() {
+export async function loadSMS(options = {}) {
   console.log("[SMS] loadSMS called");
   const user = state.currentUser;
   if (!user) {
     console.warn("[WARN] No current user - cannot load SMS");
     logger.warn("No current user");
+    return;
+  }
+
+  const forceFullRequested = options?.forceFull === true;
+
+  const hasLiveListeners = smsUnsubscribeFunctions.length > 0;
+  const hasInMemorySms = Array.isArray(state.allSMSMessages) && state.allSMSMessages.length > 0;
+  if (!forceFullRequested && hasLiveListeners && hasInMemorySms) {
+    console.log("[SMS] Skipping loadSMS restart (listeners already active with in-memory data)");
     return;
   }
 
@@ -637,7 +689,7 @@ export async function loadSMS() {
 
   // === STEP 1: Show cached data instantly ===
   let hasCachedData = false;
-  let forceFullFetch = false;
+  let forceFullFetch = forceFullRequested;
   let hadSuccessfulFullOwnServerFetch = false;
   // Track newest cached timestamp per device for delta loading
   const cachedNewestTimestamps = {};
@@ -1507,11 +1559,15 @@ export function updateSMSList(deviceId, newMessages) {
     // Pass 1: Deduplicate by document ID (consistent between cache and Firebase)
     // Use docId/id first (same in both cached and fresh data)
     // docRef.path differs between cache (stripped) and fresh (full path)
-    const uniqueId =
+    const docScopedId =
       msg.docId ||
       msg.id ||
+      msg.docRef?.id ||
       msg.docRef?.path ||
       `${msg.timestamp}_${msg.phoneNumber}`;
+    const ownerScope = String(msg.ownerUid || state.currentUser?.uid || "");
+    const deviceScope = String(msg.deviceId || "");
+    const uniqueId = `${ownerScope}::${deviceScope}::${docScopedId}`;
 
     if (seenIds.has(uniqueId)) continue;
     seenIds.add(uniqueId);
@@ -1528,7 +1584,11 @@ export function updateSMSList(deviceId, newMessages) {
     const deviceKey = String(msg.deviceId || "");
 
     // Skip content dedupe for very short/empty bodies to avoid false positives.
-    if (phone && body.length >= 8) {
+    const isSharedMsg =
+      !!msg.ownerUid &&
+      String(msg.ownerUid) !== String(state.currentUser?.uid || "");
+
+    if (phone && body.length >= 8 && !msg._syntheticTs && !isSharedMsg) {
       const contentKey = `${deviceKey}_${simKey}_${direction}_${phone}_${body}`;
       const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
       const seenTs = seenContentTs.get(contentKey);
@@ -1755,9 +1815,10 @@ export function renderSMS(messages) {
     }
 
     // ØªØ¬Ù†Ø¨ Ø¥Ø¶Ø§ÙØ© Ù†ÙØ³ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø±ØªÙŠÙ†
-    if (!grouped[key].messageIds.has(msg.id)) {
+    const groupedMsgKey = `${msg.deviceId || ""}::${msg.id || msg.docId || msg.timestamp || index}`;
+    if (!grouped[key].messageIds.has(groupedMsgKey)) {
       grouped[key].messages.push(msg);
-      grouped[key].messageIds.add(msg.id);
+      grouped[key].messageIds.add(groupedMsgKey);
 
       if (!msg.read) grouped[key].unreadCount++;
       if (msg.timestamp > (grouped[key].lastMessage.timestamp || 0)) {
@@ -3589,12 +3650,43 @@ export async function loadSharedDevicesSMS(shares) {
     return;
   }
 
-  // Always reattach shared listeners from scratch. Reusing old handles can
-  // leave stale/no-op listeners after auth/network churn in MV3 popup sessions.
-  stopSharedSMSListeners();
+  // Keep listeners for unchanged shares to avoid reloading large shared SMS
+  // snapshots from scratch on every shared metadata refresh.
+  const activeShareKeys = new Set(
+    smsShares.map((s) => `${s.ownerUid}::${s.deviceId}`),
+  );
+  stopSharedSMSListeners(activeShareKeys);
 
   for (const share of smsShares) {
     const listenerKey = `${share.ownerUid}::${share.deviceId}`;
+
+    const shareMeta = JSON.stringify({
+      ownerUid: share.ownerUid || "",
+      deviceId: share.deviceId || "",
+      deviceDocId: share.deviceDocId || "",
+      permissions: share.permissions || null,
+      shareSms: typeof share.shareSms === "boolean" ? share.shareSms : null,
+    });
+
+    const existingMeta = sharedSmsListenerMetaByKey.get(listenerKey) || "";
+    const existingBoundAt = Number(sharedSmsListenerBoundAtByKey.get(listenerKey) || 0);
+    const existingCount = getSharedSmsSourceCount(listenerKey);
+    const listenerAgeMs = existingBoundAt > 0 ? Date.now() - existingBoundAt : Number.MAX_SAFE_INTEGER;
+    const shouldRebindExisting =
+      sharedSmsUnsubscribeByKey.has(listenerKey) &&
+      (
+        existingMeta !== shareMeta ||
+        (existingCount <= 1 && listenerAgeMs > 45000) ||
+        listenerAgeMs > 4 * 60 * 1000
+      );
+
+    if (shouldRebindExisting) {
+      stopSharedSMSListenerByKey(listenerKey);
+    }
+
+    if (sharedSmsUnsubscribeByKey.has(listenerKey)) {
+      continue;
+    }
 
     try {
       const sharedSourceData = {
@@ -3608,6 +3700,8 @@ export async function loadSharedDevicesSMS(shares) {
         strictHeadProbeAt: 0,
       };
       sharedSmsSourceDataByKey.set(listenerKey, sharedSourceData);
+      sharedSmsListenerBoundAtByKey.set(listenerKey, Date.now());
+      sharedSmsListenerMetaByKey.set(listenerKey, shareMeta);
 
       // ── One-shot RAW diagnostic ───────────────────────────────────────────
       // Dump the absolute newest docs in the shared device's notifications
@@ -3705,6 +3799,17 @@ export async function loadSharedDevicesSMS(shares) {
 
       const resolveSharedCandidateDeviceIds = async () => {
         const ids = new Set([share.deviceId]);
+
+        // Resolve live device ID from device doc when available so shared
+        // listeners follow owner device ID changes without requiring re-share.
+        if (share?.deviceDocId) {
+          try {
+            const deviceSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+            const liveDeviceId = deviceSnap.exists() ? deviceSnap.data()?.id : null;
+            if (liveDeviceId) ids.add(String(liveDeviceId));
+          } catch (_) {}
+        }
+
         try {
           const idxQ = query(
             collection(db, "deviceShareIndex"),
@@ -3774,9 +3879,15 @@ export async function loadSharedDevicesSMS(shares) {
         const hasBody = !!String(msg.body || "").trim();
         const hasParty = !!String(msg.phoneNumber || "").trim();
         const appLooksSms = appName === "sms" || appName.includes("message") || appName.includes("messaging");
+        const hasLegacyShape = hasBody && hasParty;
+        const hasModernHints = !!rawType || !!rawSmsType || !!appName || !!direction;
 
         if (appLooksSms && (hasBody || hasParty)) return true;
         if ((direction === "incoming" || direction === "outgoing") && (hasBody || hasParty)) return true;
+        // Legacy shared rows can miss type/app metadata but still contain
+        // canonical SMS payload (phone + body). Keep them to avoid dropping
+        // historical messages on shared devices.
+        if (!hasModernHints && hasLegacyShape) return true;
         return false;
       };
 
@@ -3785,10 +3896,11 @@ export async function loadSharedDevicesSMS(shares) {
       // permanently block the list from updating (every snapshot that contains
       // it rejects, freezing the shared view at older data).
       const mapSharedSmsDoc = async (docSnap) => {
-        const rawTs =
+        const nativeTs =
           toSmsTimestampMs(docSnap.data()?.timestamp) ||
           toSmsTimestampMs(docSnap.data()?.receivedAt) ||
-          Date.now();
+          0;
+        const rawTs = nativeTs || Date.now();
         try {
           let data = docSnap.data();
           try {
@@ -3820,7 +3932,8 @@ export async function loadSharedDevicesSMS(shares) {
             contactName: resolvedContact || "",
             title: stripEnc(data.title),
             body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
-            timestamp: toSmsTimestampMs(data.timestamp) || toSmsTimestampMs(data.receivedAt) || rawTs,
+            timestamp: nativeTs || rawTs,
+            _syntheticTs: !nativeTs,
             read: data.read === true,
             type: "sms",
           };
@@ -3848,6 +3961,7 @@ export async function loadSharedDevicesSMS(shares) {
             title: "",
             body: "",
             timestamp: rawTs,
+            _syntheticTs: true,
             read: raw.read === true,
             type: "sms",
           };

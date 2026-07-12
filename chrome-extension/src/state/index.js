@@ -26,6 +26,9 @@ export let allCallsByDevice = {};
 export let currentCallConversation = null;
 // True once first Firestore calls update arrives; prevents stale-cache badge flash
 export let callsDataConfirmed = false;
+// True once shared-calls initial hydration completes; prevents transient
+// undercount (e.g. 7 -> 99+) while shared data is still warming up.
+export let sharedCallsDataConfirmed = true;
 
 // Notifications Data
 export let allNotifications = {};
@@ -129,6 +132,10 @@ export function setCallsDataConfirmed(confirmed) {
   callsDataConfirmed = confirmed;
 }
 
+export function setSharedCallsDataConfirmed(confirmed) {
+  sharedCallsDataConfirmed = confirmed;
+}
+
 export function setCurrentCallConversation(conversation) {
   currentCallConversation = conversation;
 }
@@ -167,6 +174,10 @@ export function setDeviceSyncPrefs(prefs) {
 
 export function setSharedWithMeDevices(list) {
   sharedWithMeDevices = list || [];
+  const hasSharedCalls = sharedWithMeDevices.some(
+    (s) => s?.deviceId && s?.permissions?.calls !== false,
+  );
+  sharedCallsDataConfirmed = !hasSharedCalls;
 }
 
 export function setMyDeviceShares(map) {
@@ -198,6 +209,9 @@ export function resetState() {
   allSMSMessages = [];
   currentConversation = null;
   allCallsData = [];
+  allCallsByDevice = {};
+  callsDataConfirmed = false;
+  sharedCallsDataConfirmed = true;
   currentCallConversation = null;
   allNotifications = {};
   allNotificationsMessages = [];

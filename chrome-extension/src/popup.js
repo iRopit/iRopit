@@ -503,7 +503,12 @@ function init() {
         console.error("[Popup] registerDevice error:", err),
       );
       const sameUidSessionReload = initialDataLoadedForUid === user.uid;
-      if (!sameUidSessionReload) {
+      // Some re-auth flows (token races / quick sign-out+sign-in) can emit a
+      // same-UID login while no popup listeners are active. In that case,
+      // bootstrap again so shared SMS/calls history does not wait for manual refresh.
+      const hasActiveSubscriptions =
+        Array.isArray(state.unsubscribers) && state.unsubscribers.length > 0;
+      if (!sameUidSessionReload || !hasActiveSubscriptions) {
         loadData();
         initialDataLoadedForUid = user.uid;
       }

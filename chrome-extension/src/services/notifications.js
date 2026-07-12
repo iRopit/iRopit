@@ -149,6 +149,48 @@ function resolveNotificationOwnerUid(deviceId, ownerUidHint = null) {
   return state.currentUser?.uid || null;
 }
 
+function getNotificationIdentityKey(notif, fallbackDeviceId = "") {
+  const ownerScope = String(
+    notif?.ownerUid || resolveNotificationOwnerUid(notif?.deviceId, notif?.ownerUid) || "",
+  );
+  const rootDeviceScope = String(notif?.deviceId || fallbackDeviceId || "");
+  const sourceDeviceScope = String(
+    notif?.sharedSourceDeviceId || notif?.deviceId || fallbackDeviceId || "",
+  );
+  const idScope = String(notif?.id || "");
+  return `${ownerScope}::${rootDeviceScope}::${sourceDeviceScope}::${idScope}`;
+}
+
+async function resolveSharedNotificationCandidateDeviceIds(share, sharedWithUid) {
+  const ids = new Set([share?.deviceId]);
+  if (!share?.ownerUid || !sharedWithUid) {
+    return Array.from(ids).filter(Boolean);
+  }
+
+  try {
+    const idxQ = query(
+      collection(db, "deviceShareIndex"),
+      where("ownerUid", "==", share.ownerUid),
+      where("sharedWithUid", "==", sharedWithUid),
+      limit(50),
+    );
+    const idxSnap = await getDocsFromServer(idxQ);
+    idxSnap.docs.forEach((d) => {
+      const data = d.data() || {};
+      if (data.deviceId) {
+        ids.add(String(data.deviceId));
+        return;
+      }
+      const suffix = `_${sharedWithUid}`;
+      if (d.id && d.id.endsWith(suffix)) {
+        ids.add(d.id.slice(0, -suffix.length));
+      }
+    });
+  } catch (_) {}
+
+  return Array.from(ids).filter(Boolean);
+}
+
 function applyOptimisticNotificationsRead(targets) {
   if (!Array.isArray(targets) || targets.length === 0) return;
 
@@ -236,7 +278,7 @@ function markNotificationsAsReadBulk(notifications) {
   const seen = new Set();
   notifications.forEach((n) => {
     if (!n?.id) return;
-    const key = `${n.deviceId || ""}:${n.id}`;
+    const key = getNotificationIdentityKey(n, n.deviceId || "");
     if (seen.has(key)) return;
     seen.add(key);
     deduped.push(n);
@@ -1047,7 +1089,7 @@ function getMergedNotifications() {
   Object.entries(state.allNotifications).forEach(([, notifs]) => {
     notifs.forEach((n) => {
       if (!realDeviceIds.has(n.deviceId)) return;
-      const key = `${n.deviceId}:${n.id}`;
+      const key = getNotificationIdentityKey(n, n.deviceId);
       if (!byKey.has(key)) {
         byKey.set(key, n);
         realIds.add(n.id);
@@ -1481,10 +1523,10 @@ function updateNotificationsList(deviceId, newNotifications) {
   // can re-fire with stale read:false before the Firestore write is confirmed.
   // Keep read:true for any notification already marked read in current state.
   const existingById = new Map(
-    (state.allNotifications[deviceId] || []).map((n) => [n.id, n]),
+    (state.allNotifications[deviceId] || []).map((n) => [getNotificationIdentityKey(n, deviceId), n]),
   );
   const preserved = newNotifications.map((n) => {
-    const existing = existingById.get(n.id);
+    const existing = existingById.get(getNotificationIdentityKey(n, deviceId));
     return (existing && existing.read === true && !n.read) ? { ...n, read: true } : n;
   });
   state.setNotificationsData(deviceId, preserved);
@@ -1917,7 +1959,8 @@ function dedupeUnreadTargets(items) {
   (items || []).forEach((n) => {
     if (!n?.id) return;
     const deviceId = n.actualDeviceId || n.deviceId || "user";
-    const key = `${deviceId}:${n.id}`;
+    const ownerUid = n.ownerUid || resolveNotificationOwnerUid(deviceId, n.ownerUid) || "";
+    const key = `${ownerUid}:${deviceId}:${n.id}`;
     if (seen.has(key)) return;
     seen.add(key);
     out.push({ ...n, actualDeviceId: deviceId });
@@ -1976,7 +2019,22 @@ async function collectUnreadNotificationsForMarkAll(userUid, activeDevice) {
     paths.push({ ownerUid: share.ownerUid, deviceId: share.deviceId });
   });
 
+  for (const share of (state.sharedWithMeDevices || [])) {
+    if (!hasSharedNotificationsPermission(share)) continue;
+    if (!share?.ownerUid || !share?.deviceId) continue;
+    try {
+      const sourceDeviceIds = await resolveSharedNotificationCandidateDeviceIds(share, userUid);
+      sourceDeviceIds.forEach((sourceDeviceId) => {
+        paths.push({ ownerUid: share.ownerUid, deviceId: sourceDeviceId });
+      });
+    } catch (_) {}
+  }
+
+  const seenPathKeys = new Set();
   for (const p of paths) {
+    const pathKey = `${p.ownerUid || ""}:${p.deviceId || "user"}`;
+    if (seenPathKeys.has(pathKey)) continue;
+    seenPathKeys.add(pathKey);
     try {
       await collectFromPath(p);
     } catch (err) {
@@ -2257,47 +2315,129 @@ export async function loadSharedDevicesNotifications(shares) {
 
   for (const share of notifShares) {
     try {
-      const q = query(
-        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
-        orderBy("timestamp", "desc"),
-        limit(200),
-      );
+      const sourceDeviceIds = await resolveSharedNotificationCandidateDeviceIds(share, user.uid);
+      const notifsBySource = new Map();
 
-      const unsub = onSnapshot(
-        q,
-        async (snapshot) => {
-          const notifs = await Promise.all(
-            snapshot.docs.map(async (docSnap) => {
-              let data = docSnap.data();
-              data = await decryptNotification(data, share.ownerUid);
-              return {
-                ...data,
-                id: docSnap.id,
-                deviceId: share.deviceId,
-                deviceName: share.deviceName || "",
-                ownerUid: share.ownerUid,
-                receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
-              };
-            }),
+      const mapNotifForShare = async (docSnap, sourceDeviceId = null) => {
+        let data = docSnap.data();
+        data = await decryptNotification(data, share.ownerUid);
+        return {
+          ...data,
+          id: docSnap.id,
+          deviceId: share.deviceId,
+          deviceName: share.deviceName || "",
+          ownerUid: share.ownerUid,
+          sharedRootDeviceId: share.deviceId,
+          sharedSourceDeviceId: sourceDeviceId,
+          receivedAt: tsMs(data.timestamp) || tsMs(data.createdAt) || Date.now(),
+        };
+      };
+
+      const publishSharedNotifs = () => {
+        const mergedByKey = new Map();
+        notifsBySource.forEach((list) => {
+          (list || []).forEach((n) => {
+            if (!n?.id) return;
+            const key = getNotificationIdentityKey(n, share.deviceId);
+            const prev = mergedByKey.get(key);
+            const nTs = normalizeNotifTsMs(n);
+            const prevTs = prev ? normalizeNotifTsMs(prev) : 0;
+            if (!prev || nTs >= prevTs) {
+              mergedByKey.set(key, n);
+            }
+          });
+        });
+
+        const merged = Array.from(mergedByKey.values()).sort(
+          (a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a),
+        );
+        updateNotificationsList(share.deviceId, merged);
+      };
+
+      for (const sourceDeviceId of sourceDeviceIds) {
+        try {
+          const initialQ = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("timestamp", "desc"),
+            limit(NOTIF_INITIAL_LIMIT),
           );
-          updateNotificationsList(share.deviceId, notifs);
-        },
-        (err) => {
-          if (err?.code === "permission-denied") return;
-          if (isUnavailableError(err)) {
-            logNotifUnavailableOnce(
-              `shared-listener:${share.deviceId}`,
-              `[Notifs] Shared listener unavailable for ${share.deviceId}`,
-              err?.message || err?.code,
-            );
-            return;
-          }
-          console.warn(`[Notifs] Shared listener failed for ${share.deviceId}:`, err?.code);
-        },
-      );
 
-      sharedNotifListenerUnsubs.push(unsub);
-      state.addUnsubscriber(unsub);
+          let initialSnap;
+          try {
+            initialSnap = await getServerNotifDocsWithAuthRetry(initialQ);
+          } catch (serverErr) {
+            if (!isUnavailableError(serverErr)) throw serverErr;
+            logNotifUnavailableOnce(
+              `shared-initial:${share.deviceId}:${sourceDeviceId}`,
+              `[Notifs] Shared initial unavailable for ${share.deviceId}/${sourceDeviceId}, using local cache fallback`,
+            );
+            initialSnap = await getDocs(initialQ);
+          }
+
+          const initialNotifs = await Promise.all(
+            initialSnap.docs.map(async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId)),
+          );
+          notifsBySource.set(sourceDeviceId, initialNotifs);
+          publishSharedNotifs();
+
+          const q = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("timestamp", "desc"),
+            limit(200),
+          );
+
+          const unsub = onSnapshot(
+            q,
+            async (snapshot) => {
+              if (snapshot.metadata.fromCache && snapshot.empty) return;
+
+              const current = notifsBySource.get(sourceDeviceId) || [];
+              const byKey = new Map(
+                current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n]),
+              );
+
+              for (const change of snapshot.docChanges()) {
+                if (change.type !== "added" && change.type !== "modified") continue;
+                const notif = await mapNotifForShare(change.doc, sourceDeviceId);
+                const identityKey = getNotificationIdentityKey(notif, share.deviceId);
+                const existing = byKey.get(identityKey);
+                const preserved = existing && existing.read === true && !notif.read
+                  ? { ...notif, read: true }
+                  : notif;
+                byKey.set(identityKey, preserved);
+              }
+
+              notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
+              publishSharedNotifs();
+            },
+            (err) => {
+              if (err?.code === "permission-denied") return;
+              if (isUnavailableError(err)) {
+                logNotifUnavailableOnce(
+                  `shared-listener:${share.deviceId}:${sourceDeviceId}`,
+                  `[Notifs] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
+                  err?.message || err?.code,
+                );
+                return;
+              }
+              console.warn(
+                `[Notifs] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
+                err?.code,
+              );
+            },
+          );
+
+          sharedNotifListenerUnsubs.push(unsub);
+          state.addUnsubscriber(unsub);
+        } catch (sourceErr) {
+          if (sourceErr?.code !== "permission-denied") {
+            console.warn(
+              `[Notifs] Failed shared source ${share.deviceId}/${sourceDeviceId}:`,
+              sourceErr?.code || sourceErr?.message,
+            );
+          }
+        }
+      }
     } catch (err) {
       console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
     }
