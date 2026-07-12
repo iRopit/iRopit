@@ -2159,7 +2159,11 @@ export async function loadSharedDevicesCalls(shares) {
       const mapCallForShare = async (docSnap, sourceDeviceId = null) => {
         try {
           let data = docSnap.data();
-          data = await decryptCall(data, share.ownerUid);
+          data = await decryptCallCached(
+            data,
+            share.ownerUid,
+            `shared:${share.ownerUid}:${docSnap.id}`,
+          );
           const call = processCallDoc(
             data,
             docSnap.id,
@@ -2308,7 +2312,7 @@ export async function loadSharedDevicesCalls(shares) {
       state.addUnsubscriber(unsubOwnerMissedTs);
       state.addUnsubscriber(unsubOwnerMissedReceivedAt);
 
-      for (const sourceDeviceId of orderedSourceDeviceIds) {
+      await Promise.allSettled(orderedSourceDeviceIds.map(async (sourceDeviceId) => {
         try {
           const qMissedNotifTs = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
@@ -2568,21 +2572,21 @@ export async function loadSharedDevicesCalls(shares) {
 
           state.addUnsubscriber(unsub);
         } catch (sourceErr) {
-          if (sourceErr?.code === "permission-denied") continue;
+          if (sourceErr?.code === "permission-denied") return;
           if (isUnavailableError(sourceErr)) {
             logCallsUnavailableOnce(
               `shared-source-load:${share.deviceId}:${sourceDeviceId}`,
               `[Calls] Shared source unavailable for ${share.deviceId}/${sourceDeviceId}`,
               sourceErr?.message || sourceErr?.code,
             );
-            continue;
+            return;
           }
           warnWithOptionalError(
             `[Calls] Shared source load failed for ${share.deviceId}/${sourceDeviceId}:`,
             sourceErr,
           );
         }
-      }
+      }));
     } catch (err) {
       if (err?.code !== "permission-denied") {
         warnWithOptionalError(`[Calls] Failed to load shared device ${share.deviceId}:`, err);
