@@ -24908,6 +24908,11 @@ ${this.customData.serverResponse}`;
           orderBy("receivedAt", "desc"),
           limit(120)
         );
+        const qOwnerMissedNotifCreatedAt = query(
+          collection(db, "users", share.ownerUid, "notifications"),
+          orderBy("createdAt", "desc"),
+          limit(120)
+        );
         const applyOwnerMissedSnapshot = async (snapshot) => {
           if (snapshot.metadata.fromCache && snapshot.empty) return;
           const currentCalls = callsBySource.get(ownerMissedSourceKey) || [];
@@ -24953,6 +24958,10 @@ ${this.customData.serverResponse}`;
           getCallsSnapshotWithFallback(
             qOwnerMissedNotifReceivedAt,
             `shared-owner-missed-notif-receivedAt:${share.deviceId}`
+          ),
+          getCallsSnapshotWithFallback(
+            qOwnerMissedNotifCreatedAt,
+            `shared-owner-missed-notif-createdAt:${share.deviceId}`
           )
         ]);
         const ownerMissedDocsById = /* @__PURE__ */ new Map();
@@ -24989,10 +24998,17 @@ ${this.customData.serverResponse}`;
           applyOwnerMissedSnapshot,
           handleOwnerMissedError
         );
+        const unsubOwnerMissedCreatedAt = onSnapshot(
+          qOwnerMissedNotifCreatedAt,
+          applyOwnerMissedSnapshot,
+          handleOwnerMissedError
+        );
         localUnsubs.push(unsubOwnerMissedTs);
         localUnsubs.push(unsubOwnerMissedReceivedAt);
+        localUnsubs.push(unsubOwnerMissedCreatedAt);
         addUnsubscriber(unsubOwnerMissedTs);
         addUnsubscriber(unsubOwnerMissedReceivedAt);
+        addUnsubscriber(unsubOwnerMissedCreatedAt);
         await Promise.allSettled(orderedSourceDeviceIds.map(async (sourceDeviceId) => {
           try {
             const qMissedNotifTs = query(
@@ -25003,6 +25019,11 @@ ${this.customData.serverResponse}`;
             const qMissedNotifReceivedAt = query(
               collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
               orderBy("receivedAt", "desc"),
+              limit(120)
+            );
+            const qMissedNotifCreatedAt = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+              orderBy("createdAt", "desc"),
               limit(120)
             );
             const seenSharedDocIds = /* @__PURE__ */ new Set();
@@ -25084,6 +25105,10 @@ ${this.customData.serverResponse}`;
               getCallsSnapshotWithFallback(
                 qMissedNotifReceivedAt,
                 `shared-missed-notif-receivedAt:${share.deviceId}:${sourceDeviceId}`
+              ),
+              getCallsSnapshotWithFallback(
+                qMissedNotifCreatedAt,
+                `shared-missed-notif-createdAt:${share.deviceId}:${sourceDeviceId}`
               )
             ]);
             const missedInitialDocsById = /* @__PURE__ */ new Map();
@@ -25158,10 +25183,17 @@ ${this.customData.serverResponse}`;
               applyMissedNotifSnapshot,
               handleMissedNotifError
             );
+            const unsubMissedNotifCreatedAt = onSnapshot(
+              qMissedNotifCreatedAt,
+              applyMissedNotifSnapshot,
+              handleMissedNotifError
+            );
             localUnsubs.push(unsubMissedNotifTs);
             localUnsubs.push(unsubMissedNotifReceivedAt);
+            localUnsubs.push(unsubMissedNotifCreatedAt);
             addUnsubscriber(unsubMissedNotifTs);
             addUnsubscriber(unsubMissedNotifReceivedAt);
+            addUnsubscriber(unsubMissedNotifCreatedAt);
             fetchAllCallsDocsPaged(
               share.ownerUid,
               sourceDeviceId,

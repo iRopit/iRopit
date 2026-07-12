@@ -2211,6 +2211,12 @@ export async function loadSharedDevicesCalls(shares) {
         limit(120),
       );
 
+      const qOwnerMissedNotifCreatedAt = query(
+        collection(db, "users", share.ownerUid, "notifications"),
+        orderBy("createdAt", "desc"),
+        limit(120),
+      );
+
       const applyOwnerMissedSnapshot = async (snapshot) => {
         if (snapshot.metadata.fromCache && snapshot.empty) return;
 
@@ -2266,6 +2272,10 @@ export async function loadSharedDevicesCalls(shares) {
           qOwnerMissedNotifReceivedAt,
           `shared-owner-missed-notif-receivedAt:${share.deviceId}`,
         ),
+        getCallsSnapshotWithFallback(
+          qOwnerMissedNotifCreatedAt,
+          `shared-owner-missed-notif-createdAt:${share.deviceId}`,
+        ),
       ]);
       const ownerMissedDocsById = new Map();
       ownerMissedInitialSnaps
@@ -2307,10 +2317,17 @@ export async function loadSharedDevicesCalls(shares) {
         applyOwnerMissedSnapshot,
         handleOwnerMissedError,
       );
+      const unsubOwnerMissedCreatedAt = onSnapshot(
+        qOwnerMissedNotifCreatedAt,
+        applyOwnerMissedSnapshot,
+        handleOwnerMissedError,
+      );
       localUnsubs.push(unsubOwnerMissedTs);
       localUnsubs.push(unsubOwnerMissedReceivedAt);
+      localUnsubs.push(unsubOwnerMissedCreatedAt);
       state.addUnsubscriber(unsubOwnerMissedTs);
       state.addUnsubscriber(unsubOwnerMissedReceivedAt);
+      state.addUnsubscriber(unsubOwnerMissedCreatedAt);
 
       await Promise.allSettled(orderedSourceDeviceIds.map(async (sourceDeviceId) => {
         try {
@@ -2323,6 +2340,12 @@ export async function loadSharedDevicesCalls(shares) {
           const qMissedNotifReceivedAt = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
             orderBy("receivedAt", "desc"),
+            limit(120),
+          );
+
+          const qMissedNotifCreatedAt = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("createdAt", "desc"),
             limit(120),
           );
 
@@ -2425,6 +2448,10 @@ export async function loadSharedDevicesCalls(shares) {
                         qMissedNotifReceivedAt,
                         `shared-missed-notif-receivedAt:${share.deviceId}:${sourceDeviceId}`,
                       ),
+                      getCallsSnapshotWithFallback(
+                        qMissedNotifCreatedAt,
+                        `shared-missed-notif-createdAt:${share.deviceId}:${sourceDeviceId}`,
+                      ),
                     ]);
                     const missedInitialDocsById = new Map();
                     missedInitialSnaps
@@ -2518,10 +2545,18 @@ export async function loadSharedDevicesCalls(shares) {
                       handleMissedNotifError,
                     );
 
+                    const unsubMissedNotifCreatedAt = onSnapshot(
+                      qMissedNotifCreatedAt,
+                      applyMissedNotifSnapshot,
+                      handleMissedNotifError,
+                    );
+
                     localUnsubs.push(unsubMissedNotifTs);
                     localUnsubs.push(unsubMissedNotifReceivedAt);
+                    localUnsubs.push(unsubMissedNotifCreatedAt);
                     state.addUnsubscriber(unsubMissedNotifTs);
                     state.addUnsubscriber(unsubMissedNotifReceivedAt);
+                    state.addUnsubscriber(unsubMissedNotifCreatedAt);
 
           // Run full historical fetch in background so realtime listeners are
           // already active and can capture newest calls immediately.
