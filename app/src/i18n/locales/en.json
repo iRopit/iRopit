@@ -48,7 +48,7 @@
   },
   "onboarding": {
     "welcome": "Welcome",
-    "welcomeSubtitle": "Sync your devices seamlessly,\nRope it",
+    "welcomeSubtitle": "Connect You Android Device to Your Computer,\nRope it.",
     "getStarted": "Get Started",
     "skip": "Skip",
     "theme": {
@@ -279,7 +279,7 @@
   },
   "login": {
     "title": "Login",
-    "appTagline": "Sync your devices seamlessly",
+    "appTagline": "Connect Your Android Device to Your Computer,\nRope it.",
     "welcomeBack": "Welcome Back",
     "signInToContinue": "Sign in to continue",
     "emailPlaceholder": "Email Address",

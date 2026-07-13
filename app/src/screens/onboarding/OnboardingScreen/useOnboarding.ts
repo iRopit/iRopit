@@ -94,7 +94,7 @@ export const useOnboarding = () => {
   const [permissionsAlreadyHandled, setPermissionsAlreadyHandled] =
     useState(false);
 
-  const totalSteps = 7; // Language, Welcome, Theme, PrivacyPolicy, Permissions, Overview, Security
+  const totalSteps = 3; // Welcome, PrivacyPolicy, Permissions
 
   // Update actual theme when selection or system changes
   useEffect(() => {
@@ -127,11 +127,15 @@ export const useOnboarding = () => {
     const loadStep = async () => {
       const savedStep = await AsyncStorage.getItem(ONBOARDING_STEP_KEY);
       if (savedStep) {
-        setCurrentStep(parseInt(savedStep, 10));
+        const parsed = parseInt(savedStep, 10);
+        const safeStep = Number.isFinite(parsed)
+          ? Math.max(0, Math.min(parsed, totalSteps - 1))
+          : 0;
+        setCurrentStep(safeStep);
       }
     };
     loadStep();
-  }, []);
+  }, [totalSteps]);
 
   // Check already granted permissions on mount
   useEffect(() => {

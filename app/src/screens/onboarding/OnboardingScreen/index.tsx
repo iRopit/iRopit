@@ -8,12 +8,8 @@ import { APP_VERSION } from '../../../constants';
 import { Button } from '../../../components/common';
 import {
   WelcomeStep,
-  ThemeSelectionStep,
-  LanguageSelectionStep,
   PrivacyPolicyStep,
   PermissionsStep,
-  OverviewStep,
-  SecurityStep,
   ProgressBar,
   OnboardingHeader,
 } from './components';
@@ -26,7 +22,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const {
     currentStep,
     totalSteps,
-    selectedTheme,
     actualTheme,
     selectedLanguage,
     permissions,
@@ -38,7 +33,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     setPrivacyAccepted,
     goNext,
     goBack,
-    skip,
     requestPermission,
     requestAllPermissions,
     completeOnboarding,
@@ -73,30 +67,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const renderContent = () => {
     switch (currentStep) {
       case 0:
-        return (
-          <LanguageSelectionStep
-            selectedLanguage={selectedLanguage}
-            isRTL={isRTL}
-            colors={colors}
-            translate={translate}
-            onSelectLanguage={setSelectedLanguage}
-          />
-        );
-      case 1:
         return <WelcomeStep colors={colors} translate={translate} />;
-      case 2:
-        return (
-          <ThemeSelectionStep
-            selectedTheme={selectedTheme}
-            actualTheme={actualTheme}
-            isRTL={isRTL}
-            colors={colors}
-            translate={translate}
-            onSelectTheme={setSelectedTheme}
-            triggerHaptic={triggerHaptic}
-          />
-        );
-      case 3:
+      case 1:
         return (
           <PrivacyPolicyStep
             isRTL={isRTL}
@@ -105,7 +77,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             onAccept={setPrivacyAccepted}
           />
         );
-      case 4:
+      case 2:
         return (
           <PermissionsStep
             permissions={permissions}
@@ -117,12 +89,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             onRequestAllPermissions={requestAllPermissions}
           />
         );
-      case 5:
-        return <OverviewStep colors={colors} translate={translate} />;
-      case 6:
-        return (
-          <SecurityStep colors={colors} translate={translate} isRTL={isRTL} />
-        );
       default:
         return null;
     }
@@ -131,12 +97,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   // Get button text based on current step
   const getButtonText = () => {
     const isLastStep = currentStep === totalSteps - 1;
-    if (currentStep === 0) return translate('onboarding.language.confirmLanguage');
-    if (currentStep === 1) return translate('onboarding.getStarted');
-    if (currentStep === 2) return translate('onboarding.theme.setAppearance');
-    if (currentStep === 3) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
-    if (currentStep === 4) return translate('onboarding.permissions.continue');
-    if (currentStep === 5) return translate('common.next');
+    if (currentStep === 0) return translate('onboarding.getStarted');
+    if (currentStep === 1) return isRTL ? 'أوافق وأستمر' : 'Agree & Continue';
     if (isLastStep) return translate('onboarding.overview.letsGo');
     return translate('common.next');
   };
@@ -148,8 +110,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     .filter(p => p.required)
     .every(p => p.granted);
   const isNextDisabled =
-    (currentStep === 3 && !privacyAccepted) ||
-    (currentStep === 4 && !allRequiredPermissionsGranted);
+    (currentStep === 1 && !privacyAccepted) ||
+    (currentStep === 2 && !allRequiredPermissionsGranted);
 
   const isLastStep = currentStep === totalSteps - 1;
 
@@ -162,15 +124,20 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
 
       <SafeAreaView style={[styles.safeArea, { direction: isRTL ? 'rtl' : 'ltr' }]}>
         {/* Header */}
-        {/* <OnboardingHeader
+        <OnboardingHeader
           isRTL={isRTL}
           selectedLanguage={selectedLanguage}
+          actualTheme={actualTheme}
           colors={colors}
           onToggleLanguage={() => {
             triggerHaptic('selection');
             setSelectedLanguage(selectedLanguage === 'ar' ? 'en' : 'ar');
           }}
-        /> */}
+          onToggleTheme={() => {
+            triggerHaptic('selection');
+            setSelectedTheme(actualTheme === 'dark' ? 'light' : 'dark');
+          }}
+        />
 
         {/* Content */}
         {renderContent()}
@@ -196,7 +163,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
 
           {currentStep > 0 &&
             currentStep < totalSteps - 1 &&
-            currentStep !== 3 && (
+            currentStep !== 1 && (
               <View style={{ marginTop: 12 }}>
                 <Button
                   title={translate('common.previous')}
@@ -210,7 +177,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             )}
 
           {/* Privacy Policy step - back only, no skip */}
-          {currentStep === 3 && (
+          {currentStep === 1 && (
             <View style={{ marginTop: 12 }}>
               <Button
                 title={translate('common.previous')}

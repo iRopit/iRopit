@@ -306,7 +306,7 @@ const EN_TRANSLATIONS = {
   everyHour: 'Every hour',
 
   // Login Screen
-  appTagline: 'Sync your devices seamlessly,\nRope it',
+  appTagline: 'Connect Your Android Device to Your Computer,\nRope it.',
   welcomeBack: 'Welcome to iRopit',
   signInToContinue: 'Sign in to continue',
   emailPlaceholder: 'Email Address',

@@ -57,6 +57,25 @@ export const createStyles = (colors: ColorTheme) =>
     languageFlag: {
       fontSize: 18,
     },
+    headerControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    headerControlBtn: {
+      minWidth: 46,
+      height: 40,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+    },
+    headerControlText: {
+      fontSize: 15,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
 
     // Content
     content: {
@@ -507,6 +526,10 @@ export const createStyles = (colors: ColorTheme) =>
     },
 
     // Welcome specific - Hero style
+    welcomeTopContent: {
+      justifyContent: 'flex-start',
+      paddingTop: 80,
+    },
     welcomeIconContainer: {
       marginBottom: 36,
       alignItems: 'center',
@@ -525,6 +548,31 @@ export const createStyles = (colors: ColorTheme) =>
       textAlign: 'center',
       lineHeight: 28,
       opacity: 0.8,
+    },
+    welcomeFeaturesGrid: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      marginTop: 6,
+      rowGap: 10,
+    },
+    welcomeFeatureCard: {
+      width: '48.5%',
+      minHeight: 52,
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    welcomeFeatureTitle: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '700',
+      lineHeight: 16,
     },
 
     // Decorative elements
