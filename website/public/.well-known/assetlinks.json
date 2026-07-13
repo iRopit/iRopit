@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.IRopit",
+      "sha256_cert_fingerprints": [
+        "C1:B7:EA:8B:73:90:43:2A:FA:CC:37:0E:A1:F8:57:6B:95:94:C4:E6:0E:94:13:39:77:43:AE:5B:98:12:31:B4"
+      ]
+    }
+  }
+]
