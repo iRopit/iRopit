@@ -212,24 +212,49 @@ function getCallsCount(deviceId) {
 
   const isUnreadMissed = (c) => c.type === "missed" && !c.viewed && isVisibleCall(c)
 
+  const getCallBadgeKey = (c) => {
+    const owner = String(c?.ownerUid || state.currentUser?.uid || "")
+    const root = String(c?.sharedRootDeviceId || c?.deviceId || "")
+    const docId = String(c?.id || "")
+    if (docId) return `${owner}::${root}::${docId}`
+
+    // Fallback for rare rows lacking doc id.
+    const ts = Number(c?.timestamp || 0) || 0
+    const normalizedPhone = normalizePhone(String(c?.phoneNumber || ""))
+    const duration = Number(c?.duration || 0) || 0
+    const callType = String(c?.type || "")
+    return `${owner}::${root}::${callType}::${normalizedPhone}::${ts}::${duration}`
+  }
+
+  const countDistinctUnreadMissed = (rows) => {
+    const seen = new Set()
+    let count = 0
+    ;(rows || []).forEach((c) => {
+      if (!isUnreadMissed(c)) return
+      const key = getCallBadgeKey(c)
+      if (seen.has(key)) return
+      seen.add(key)
+      count += 1
+    })
+    return count
+  }
+
   // Count from the merged render source so the badge matches what's visible,
   // including shared devices that may not exist in state.devices.
   if (deviceId === "all") {
     if (!hasAnyLinkedCallsDevice) return 0
-    return calls.filter((c) => {
-      if (!isUnreadMissed(c)) return false
+    const visibleUnread = calls.filter((c) => {
       if (!c.deviceId) return false
       // While shared calls hydration is still pending, do not hide already-known
       // unread calls. We still count own calls immediately and include shared calls
       // that are already present in merged state.
-      if (sharedCallsDeviceIds.has(c.deviceId)) {
-        return true
-      }
+      if (sharedCallsDeviceIds.has(c.deviceId)) return true
       return ownCallsDeviceIds.has(c.deviceId)
-    }).length
+    })
+    return countDistinctUnreadMissed(visibleUnread)
   }
 
-  return calls.filter(c => c.deviceId === deviceId && isUnreadMissed(c)).length
+  return countDistinctUnreadMissed(calls.filter(c => c.deviceId === deviceId))
 }
 
 function getNotifsCount(deviceId) {

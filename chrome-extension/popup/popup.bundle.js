@@ -21625,18 +21625,39 @@ ${this.customData.serverResponse}`;
       return !isPhantomVoIP;
     };
     const isUnreadMissed = (c) => c.type === "missed" && !c.viewed && isVisibleCall(c);
+    const getCallBadgeKey = (c) => {
+      const owner = String(c?.ownerUid || currentUser?.uid || "");
+      const root = String(c?.sharedRootDeviceId || c?.deviceId || "");
+      const docId = String(c?.id || "");
+      if (docId) return `${owner}::${root}::${docId}`;
+      const ts = Number(c?.timestamp || 0) || 0;
+      const normalizedPhone = normalizePhone(String(c?.phoneNumber || ""));
+      const duration = Number(c?.duration || 0) || 0;
+      const callType = String(c?.type || "");
+      return `${owner}::${root}::${callType}::${normalizedPhone}::${ts}::${duration}`;
+    };
+    const countDistinctUnreadMissed = (rows) => {
+      const seen = /* @__PURE__ */ new Set();
+      let count = 0;
+      (rows || []).forEach((c) => {
+        if (!isUnreadMissed(c)) return;
+        const key = getCallBadgeKey(c);
+        if (seen.has(key)) return;
+        seen.add(key);
+        count += 1;
+      });
+      return count;
+    };
     if (deviceId === "all") {
       if (!hasAnyLinkedCallsDevice) return 0;
-      return calls.filter((c) => {
-        if (!isUnreadMissed(c)) return false;
+      const visibleUnread = calls.filter((c) => {
         if (!c.deviceId) return false;
-        if (sharedCallsDeviceIds.has(c.deviceId)) {
-          return true;
-        }
+        if (sharedCallsDeviceIds.has(c.deviceId)) return true;
         return ownCallsDeviceIds.has(c.deviceId);
-      }).length;
+      });
+      return countDistinctUnreadMissed(visibleUnread);
     }
-    return calls.filter((c) => c.deviceId === deviceId && isUnreadMissed(c)).length;
+    return countDistinctUnreadMissed(calls.filter((c) => c.deviceId === deviceId));
   }
   function getNotifsCount(deviceId) {
     const ownNotifDeviceIds = new Set(
