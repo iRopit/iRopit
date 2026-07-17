@@ -294,6 +294,31 @@ export const useSMSStore = create<SMSState>()(
             syncedAt: data.syncedAt || Date.now(),
           } as SMS);
 
+        // Some SMS writers may miss type='sms' but still carry SMS-specific fields.
+        const isLikelySMSPayload = (data: any): boolean => {
+          if (!data || typeof data !== 'object') return false;
+          if (data.type === 'sms' || !!data.smsType) return true;
+          if (data.type && data.type !== 'sms') return false;
+          if (data.callType || data.duration != null) return false;
+
+          const appName = String(data.appName || '').toLowerCase();
+          const packageName = String(data.packageName || '').toLowerCase();
+          const hasText = !!(data.text || data.content || data.body);
+          const hasParty = !!(data.phoneNumber || data.sender || data.address || data.number);
+          const direction = String(data.direction || '').toLowerCase();
+
+          if ((appName === 'sms' || appName.includes('message')) && (hasText || hasParty)) {
+            return true;
+          }
+          if (packageName === 'com.android.mms' && (hasText || hasParty)) {
+            return true;
+          }
+          if ((direction === 'incoming' || direction === 'outgoing') && hasText && hasParty) {
+            return true;
+          }
+          return false;
+        };
+
         // Never let one stuck decrypt call block initial SMS rendering.
         const decryptWithTimeout = async (msg: any, timeoutMs = 300): Promise<any> => {
           try {
@@ -429,7 +454,6 @@ export const useSMSStore = create<SMSState>()(
             .collection(COLLECTIONS.DEVICES)
             .doc(targetDeviceId)
             .collection(COLLECTIONS.NOTIFICATIONS)
-            .where('type', '==', 'sms')
             .orderBy('timestamp', 'desc')
             .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
             .onSnapshot(
@@ -440,7 +464,10 @@ export const useSMSStore = create<SMSState>()(
                   try {
                     const rawMessages: any[] = [];
                     snapshot.forEach(doc => {
-                      rawMessages.push({ ...doc.data(), id: doc.id });
+                      const data = doc.data() || {};
+                      if (isLikelySMSPayload(data)) {
+                        rawMessages.push({ ...data, id: doc.id });
+                      }
                     });
                     set(state => ({
                       smsDebug: {
@@ -629,11 +656,14 @@ export const useSMSStore = create<SMSState>()(
 
                 const changes = snapshot
                   .docChanges()
-                  .filter(c => c.type === 'added' || c.type === 'modified');
+                  .filter(c => c.type === 'added' || c.type === 'modified')
+                  .filter(c => isLikelySMSPayload(c.doc.data()));
                 if (changes.length === 0) return;
 
                 const rawNew = changes.map(c => ({ ...c.doc.data(), id: c.doc.id }));
-                const decrypted = await Promise.all(rawNew.map(msg => decryptSMS(msg, user.uid)));
+                const decrypted = await Promise.all(
+                  rawNew.map(msg => decryptWithTimeout(msg)),
+                );
                 const newMessages: SMS[] = decrypted.map(toSMS);
 
                 const existing = messagesByDevice.get(targetDeviceId) || [];

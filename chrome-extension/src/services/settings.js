@@ -31,6 +31,12 @@ import { reRenderNotifications } from "./notifications.js"
 import { renderCalls } from "./calls.js"
 import { renderSMS } from "./sms.js"
 
+function isUnavailableError(error) {
+  const code = String(error?.code || "").toLowerCase()
+  const msg = String(error?.message || "").toLowerCase()
+  return code.includes("unavailable") || msg.includes("client is offline")
+}
+
 /**
  * Load user settings from Firebase
  */
@@ -92,7 +98,7 @@ export async function loadUserSettings() {
       })
     }
   } catch (e) {
-    if (e?.code !== "permission-denied") {
+    if (e?.code !== "permission-denied" && !isUnavailableError(e)) {
       console.warn("[Settings] Failed to load user profile from Firestore:", e)
     }
   }

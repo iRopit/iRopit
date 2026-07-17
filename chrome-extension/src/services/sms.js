@@ -66,6 +66,7 @@ function isUnavailableError(error) {
 }
 
 const smsUnavailableLogKeys = new Set();
+const smsTransientEmptyFetchLogKeys = new Set();
 function logSMSUnavailableOnce(key, message, details) {
   if (smsUnavailableLogKeys.has(key)) return;
   smsUnavailableLogKeys.add(key);
@@ -309,9 +310,17 @@ function pruneSMSForAllowedDevices(allowedDeviceIds) {
   // when allowed scope is temporarily unresolved.
   if (allowed.size === 0) return false;
   let changed = false;
+  const currentUid = String(state.currentUser?.uid || "");
 
   Object.keys(state.allSMS || {}).forEach((deviceId) => {
     if (!allowed.has(deviceId)) {
+      const bucket = state.allSMS[deviceId] || [];
+      const hasSharedOwnedRows = bucket.some(
+        (m) => m?.ownerUid && String(m.ownerUid) !== currentUid,
+      );
+      // Shared buckets can be temporarily missing from resolved scope during
+      // metadata/auth churn. Never prune them from the own-SMS refresh path.
+      if (hasSharedOwnedRows) return;
       delete state.allSMS[deviceId];
       changed = true;
     }
@@ -355,8 +364,27 @@ function renderSMSDeviceTag(msg) {
 }
 // Track processed message IDs to avoid duplicates
 let processedMessageIds = new Set();
+// Track meaningful payload changes so metadata-only doc modifications
+// (e.g. syncedAt merge writes) do not trigger visible list churn.
+let realtimeMessageFingerprintById = new Map();
 // Decryption cache - avoid re-decrypting same messages
 const decryptionCache = new Map();
+
+function buildRealtimeSMSFingerprint(message) {
+  const body = String(message?.body || message?.text || message?.content || "");
+  return [
+    String(message?.id || ""),
+    String(message?.timestamp || message?.receivedAt || 0),
+    message?.read === true ? "1" : "0",
+    String(message?.smsType || ""),
+    String(message?.type || ""),
+    String(message?.direction || ""),
+    String(message?.phoneNumber || ""),
+    String(message?.contactName || ""),
+    String(message?.title || ""),
+    body,
+  ].join("|");
+}
 
 // Pagination state
 const PAGE_SIZE = 10000;
@@ -631,12 +659,14 @@ function resolveContactName(data, phoneNumber) {
 /**
  * Stop all SMS listeners
  */
-export function stopSMSListener() {
+export function stopSMSListener(options = {}) {
+  const includeShared = options?.includeShared !== false;
   smsUnsubscribeFunctions.forEach((unsub) => unsub());
   smsUnsubscribeFunctions = [];
-  stopSharedSMSListeners();
+  if (includeShared) stopSharedSMSListeners();
   // Clear processed IDs, cache, and pagination state when stopping listeners
   processedMessageIds.clear();
+  realtimeMessageFingerprintById.clear();
   decryptionCache.clear();
   paginationState = {};
   isLoadingMore = false;
@@ -667,7 +697,9 @@ export async function loadSMS(options = {}) {
   await hydrateSmsPinnedConversations();
 
   // Stop any previous listeners first
-  stopSMSListener();
+  // Keep shared listeners running while reloading own SMS to avoid shared
+  // conversations disappearing during own-device refresh cycles.
+  stopSMSListener({ includeShared: false });
 
   // Only show the loading spinner if the list is genuinely empty.
   // The pre-auth cache path (popup.js → displayPreAuthCache) may have already
@@ -883,13 +915,15 @@ export async function loadSMS(options = {}) {
     const devicesList = [];
     devicesSnapshot.forEach((doc) => {
       const data = doc.data();
+      const resolvedDeviceId = data?.id || doc.id;
       if (
         data.platform !== "chrome-extension" &&
         data.platform !== "chrome" &&
-        !data.id?.startsWith("ext_")
+        !String(resolvedDeviceId || "").startsWith("ext_")
       ) {
+        if (!resolvedDeviceId) return;
         devicesList.push({
-          id: data.id,
+          id: resolvedDeviceId,
           name: getFriendlyDeviceName(data),
         });
       }
@@ -1189,6 +1223,21 @@ export async function loadSMS(options = {}) {
           devicePagState.hasMore = !!snapshot.hitPageCap;
           if (paginationState[device.id])
             paginationState[device.id].hasMore = !!snapshot.hitPageCap;
+
+          // Guard: transient empty full-fetch result must not wipe an already
+          // populated device list while backend/cache is churning.
+          const existingDeviceMessages = state.getSMSData(device.id) || [];
+          if (messages.length === 0 && existingDeviceMessages.length > 0) {
+            const emptyKey = `full-empty:${device.id}`;
+            if (!smsTransientEmptyFetchLogKeys.has(emptyKey)) {
+              smsTransientEmptyFetchLogKeys.add(emptyKey);
+              console.debug(
+                `[SMS] Ignoring transient empty full-fetch for ${device.id}; preserving ${existingDeviceMessages.length} cached/live messages`,
+              );
+            }
+            return;
+          }
+
           updateSMSList(device.id, messages);
         }
       } catch (error) {
@@ -1268,6 +1317,24 @@ function startSMSRealtimeListeners(userId, devicesList) {
               const resolvedPhone = resolvePhoneNumber(data);
               const resolvedContact = resolveContactName(data, resolvedPhone);
               processedMessageIds.add(messageId);
+              realtimeMessageFingerprintById.set(
+                messageId,
+                buildRealtimeSMSFingerprint({
+                  ...data,
+                  id: messageId,
+                  phoneNumber: resolvedPhone,
+                  contactName: resolvedContact,
+                  title: stripEnc(data.title),
+                  body:
+                    stripEnc(data.text) ||
+                    stripEnc(data.content) ||
+                    stripEnc(data.body) ||
+                    "",
+                  read: data.read === true,
+                  type: data.type || "sms",
+                  timestamp: data.timestamp || data.receivedAt || Date.now(),
+                }),
+              );
               return {
                 ...data,
                 id: messageId,
@@ -1327,7 +1394,14 @@ function startSMSRealtimeListeners(userId, devicesList) {
               type: data.type || "sms",
             };
 
+            const nextFingerprint = buildRealtimeSMSFingerprint(message);
+            const prevFingerprint = realtimeMessageFingerprintById.get(messageId);
+            if (change.type === "modified" && prevFingerprint === nextFingerprint) {
+              continue;
+            }
+
             processedMessageIds.add(messageId);
+            realtimeMessageFingerprintById.set(messageId, nextFingerprint);
             const currentSMS = state.getSMSData(device.id) || [];
             const existingIdx = currentSMS.findIndex((m) => m.id === messageId);
             if (existingIdx >= 0) {
@@ -1626,6 +1700,24 @@ export function renderSMS(messages) {
     return;
   }
 
+  // Defensive guard against transient "disappeared then reloaded" flashes:
+  // if we were handed an empty list but the authoritative per-device state map
+  // (state.allSMS) still holds messages, re-derive from it instead of blanking
+  // the UI. A momentary empty array from any caller must never wipe a populated
+  // list while the underlying data still exists.
+  if ((!Array.isArray(messages) || messages.length === 0)) {
+    const rebuilt = [];
+    Object.values(state.allSMS || {}).forEach((arr) => {
+      if (Array.isArray(arr) && arr.length > 0) rebuilt.push(...arr);
+    });
+    if (rebuilt.length > 0) {
+      rebuilt.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      messages = rebuilt;
+    } else {
+      messages = Array.isArray(messages) ? messages : [];
+    }
+  }
+
   // Filter by selected device tab
   const selectedTab =
     document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset
@@ -1634,6 +1726,16 @@ export function renderSMS(messages) {
   let filteredMessages = messages;
   if (selectedTab !== "all") {
     filteredMessages = messages.filter((msg) => msg.deviceId === selectedTab);
+    // If the selected device tab momentarily yields nothing but that device
+    // still has messages in state, use them (prevents transient empty flash).
+    if (filteredMessages.length === 0) {
+      const deviceMsgs = state.getSMSData(selectedTab);
+      if (Array.isArray(deviceMsgs) && deviceMsgs.length > 0) {
+        filteredMessages = [...deviceMsgs].sort(
+          (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+        );
+      }
+    }
   } else {
     // Exclude stale messages from unknown/removed devices. Keep user-level
     // messages (no deviceId), own devices with SMS enabled, and active shared devices.
@@ -1701,6 +1803,7 @@ export function renderSMS(messages) {
           <p>${syncingMsg}</p>
         </div>
       `;
+      updateSMSCountIndicator(0, selectedTab);
       updateTabBadges();
       return;
     }
@@ -1713,6 +1816,7 @@ export function renderSMS(messages) {
         <span>Messages from your phone will appear here</span>
       </div>
     `;
+    updateSMSCountIndicator(0, selectedTab);
     updateTabBadges();
     return;
   }
@@ -1871,6 +1975,7 @@ export function renderSMS(messages) {
         <span>${emptySub}</span>
       </div>
     `;
+    updateSMSCountIndicator(0, selectedTab);
     updateTabBadges();
     return;
   }
@@ -2062,6 +2167,7 @@ export function renderSMS(messages) {
   // Attach infinite scroll handler ONCE (not on every render)
   attachSMSScrollHandler();
 
+  updateSMSCountIndicator(conversations.length, selectedTab);
   updateTabBadges();
 }
 
@@ -2116,9 +2222,23 @@ function hideSMSScrollLoader() {
 /**
  * Update the message count indicator below SMS list
  */
-function updateSMSCountIndicator() {
-  const total = state.allSMSMessages?.length || 0;
-  const moreAvailable = hasMoreSMS();
+function updateSMSCountIndicator(totalOverride = null, selectedTabOverride = null) {
+  const selectedTab =
+    selectedTabOverride ||
+    document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset?.device ||
+    "all";
+
+  const total =
+    Number.isFinite(totalOverride) && totalOverride >= 0
+      ? totalOverride
+      : selectedTab === "all"
+        ? state.allSMSMessages?.length || 0
+        : (state.getSMSData(selectedTab) || []).length;
+
+  const moreAvailable =
+    selectedTab === "all"
+      ? hasMoreSMS()
+      : !!paginationState[selectedTab]?.hasMore;
   let indicator = document.getElementById("smsCountIndicator");
 
   if (total === 0) {
@@ -2139,7 +2259,7 @@ function updateSMSCountIndicator() {
   indicator.classList.remove("indicator-top");
   smsContainer.appendChild(indicator);
 
-  const syncBadge = isSyncing
+  const syncBadge = isSyncing && selectedTab === "all"
     ? `<span class="sync-badge"><span class="sync-spinner"></span> Syncing...</span>`
     : "";
 
@@ -2152,7 +2272,7 @@ function updateSMSCountIndicator() {
         loadMoreSMS().then(() => hideSMSScrollLoader());
       });
   } else {
-    indicator.innerHTML = isSyncing
+    indicator.innerHTML = isSyncing && selectedTab === "all"
       ? `<span>${total} messages</span>${syncBadge}`
       : `<span>${total} messages · All loaded</span>`;
   }
@@ -3635,14 +3755,9 @@ export async function loadSharedDevicesSMS(shares) {
   console.log("[SMS][shared] loader called, shares:", Array.isArray(shares) ? shares.length : 0);
   const smsShares = (shares || []).filter((s) => hasSharedSmsPermission(s));
 
-  const allowedSmsDeviceIds = new Set([
-    ...(state.devices || []).map((d) => d?.id).filter(Boolean),
-    ...smsShares.map((s) => s?.deviceId).filter(Boolean),
-  ]);
-  if (pruneSMSForAllowedDevices(allowedSmsDeviceIds)) {
-    updateTabBadges();
-    renderSMS(state.allSMSMessages || []);
-  }
+  // IMPORTANT: shared refresh runs periodically. Never prune global SMS state
+  // from this path, otherwise transient device/share metadata churn can wipe
+  // visible own/shared history and force a full re-fill.
 
   if (smsShares.length === 0) {
     console.log("[SMS][shared] no shares with SMS permission");
@@ -3672,12 +3787,14 @@ export async function loadSharedDevicesSMS(shares) {
     const existingBoundAt = Number(sharedSmsListenerBoundAtByKey.get(listenerKey) || 0);
     const existingCount = getSharedSmsSourceCount(listenerKey);
     const listenerAgeMs = existingBoundAt > 0 ? Date.now() - existingBoundAt : Number.MAX_SAFE_INTEGER;
+    const existingSharedRows = (state.getSMSData(share.deviceId) || []).length;
     const shouldRebindExisting =
       sharedSmsUnsubscribeByKey.has(listenerKey) &&
       (
         existingMeta !== shareMeta ||
-        (existingCount <= 1 && listenerAgeMs > 45000) ||
-        listenerAgeMs > 4 * 60 * 1000
+        // Self-heal only when a listener appears truly stalled for a while
+        // and there is no visible shared data to preserve.
+        (existingCount === 0 && existingSharedRows === 0 && listenerAgeMs > 3 * 60 * 1000)
       );
 
     if (shouldRebindExisting) {
@@ -3830,6 +3947,35 @@ export async function loadSharedDevicesSMS(shares) {
             }
           });
         } catch (_) {}
+
+        // Fallback: if share/index points to an old device ID, pull owner's
+        // current device IDs directly from top-level devices collection.
+        // Devices docs are readable to authenticated users by rules.
+        try {
+          const ownerDevicesQ = query(
+            collection(db, "devices"),
+            where("userId", "==", share.ownerUid),
+          );
+          let ownerSnap;
+          try {
+            ownerSnap = await getDocsFromServer(ownerDevicesQ);
+          } catch (_) {
+            ownerSnap = await getDocs(ownerDevicesQ);
+          }
+          ownerSnap.docs.forEach((d) => {
+            const data = d.data() || {};
+            if (
+              data.platform === "chrome-extension" ||
+              data.platform === "chrome" ||
+              String(data.id || d.id || "").startsWith("ext_")
+            ) {
+              return;
+            }
+            const did = data.id || d.id;
+            if (did) ids.add(String(did));
+          });
+        } catch (_) {}
+
         return Array.from(ids).filter(Boolean);
       };
 

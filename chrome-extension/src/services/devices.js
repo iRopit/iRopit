@@ -112,6 +112,7 @@ let pendingSharedCallsShares = null;
 let sharedCallsDeferredListenerAttached = false;
 let pendingSharedNotifsShares = null;
 let sharedNotifsDeferredListenerAttached = false;
+const ensuredShareIndexKeys = new Set();
 const processedIncomingShareReqIds = new Set();
 const incomingShareModalByKey = new Map();
 const acceptingShareRequestIds = new Set();
@@ -202,13 +203,62 @@ function shouldSuppressIncomingShareRequest(req) {
 }
 
 function getSharedWithMeKey(share) {
-  const ownerUid = share?.ownerUid || "";
-  const deviceId = share?.deviceId || "";
-  const sharedWithUid = share?.sharedWithUid || "";
+  const normalized = normalizeSharedWithMeShare(share, auth.currentUser?.uid || "");
+  const ownerUid = normalized?.ownerUid || "";
+  const deviceId = normalized?.deviceId || "";
+  const sharedWithUid = normalized?.sharedWithUid || "";
   if (!ownerUid || !deviceId || !sharedWithUid) {
-    return `shareId::${share?.shareId || ""}`;
+    return `shareId::${normalized?.shareId || share?.shareId || ""}`;
   }
   return `${ownerUid}::${deviceId}::${sharedWithUid}`;
+}
+
+function normalizeSharedWithMeShare(share, currentUserUid = "") {
+  if (!share || typeof share !== "object") return share;
+
+  const ownerUid =
+    share.ownerUid ||
+    share.ownerId ||
+    share.userId ||
+    share.fromUid ||
+    "";
+
+  const deviceId =
+    share.deviceId ||
+    share.device?.id ||
+    share.device?.deviceId ||
+    "";
+
+  const sharedWithUid =
+    share.sharedWithUid ||
+    share.targetUid ||
+    share.recipientUid ||
+    currentUserUid ||
+    "";
+
+  let permissions = share.permissions;
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+    const hasLegacyFlags =
+      typeof share.shareSms === "boolean" ||
+      typeof share.shareCalls === "boolean" ||
+      typeof share.shareNotifications === "boolean" ||
+      typeof share.shareNotifs === "boolean";
+    if (hasLegacyFlags) {
+      permissions = {
+        sms: share.shareSms !== false,
+        calls: share.shareCalls !== false,
+        notifications: (share.shareNotifications ?? share.shareNotifs) !== false,
+      };
+    }
+  }
+
+  return {
+    ...share,
+    ownerUid,
+    deviceId,
+    sharedWithUid,
+    permissions: permissions || share.permissions,
+  };
 }
 
 function toEpochMs(value) {
@@ -223,7 +273,8 @@ function toEpochMs(value) {
 function dedupeSharedWithMeShares(rawShares) {
   const byKey = new Map();
 
-  (rawShares || []).forEach((share) => {
+  (rawShares || []).forEach((rawShare) => {
+    const share = normalizeSharedWithMeShare(rawShare, auth.currentUser?.uid || "");
     const key = getSharedWithMeKey(share);
     const current = byKey.get(key);
     const nextShareId = share?.shareId;
@@ -263,6 +314,251 @@ function dedupeSharedWithMeShares(rawShares) {
   });
 
   return Array.from(byKey.values());
+}
+
+async function ensureRecipientShareAccessIndex(shares) {
+  const currentUid = auth.currentUser?.uid || "";
+  if (!currentUid || !Array.isArray(shares) || shares.length === 0) return;
+
+  for (const rawShare of shares) {
+    const share = normalizeSharedWithMeShare(rawShare, currentUid);
+    const ownerUid = String(share?.ownerUid || "").trim();
+    const deviceId = String(share?.deviceId || "").trim();
+    if (!ownerUid || !deviceId) continue;
+
+    const indexId = `${deviceId}_${currentUid}`;
+    if (ensuredShareIndexKeys.has(indexId)) continue;
+
+    try {
+      await setDoc(
+        doc(db, "deviceShareIndex", indexId),
+        {
+          ownerUid,
+          sharedWithUid: currentUid,
+          deviceId,
+          ownerEmail: share?.ownerEmail || "",
+          sharedWithEmail: share?.sharedWithEmail || auth.currentUser?.email || "",
+          updatedAt: Date.now(),
+        },
+        { merge: true },
+      );
+      ensuredShareIndexKeys.add(indexId);
+    } catch (err) {
+      // Best-effort only: loading continues and fallback queries may still work.
+      if (!isPermissionDeniedError(err) && !isUnavailableError(err)) {
+        console.debug("[Device] share index ensure failed:", err?.code || err?.message || err);
+      }
+    }
+  }
+}
+
+/**
+ * Self-heal share access when the owner's device ID rotated (e.g. app
+ * reinstall/update or factory reset). New SMS/calls/notifications are written
+ * under a NEW device ID, but the recipient's deviceShareIndex only authorizes
+ * the ORIGINAL shared device ID, so reads of the new device silently fail with
+ * permission-denied and the shared tab appears frozen at the rotation date.
+ *
+ * Fix: create a deviceShareIndex entry for the successor device. Because
+ * granting an index entry authorizes reads, we only do it when the successor is
+ * confidently the SAME physical phone the owner already shared — never for
+ * unrelated owner devices. Two safe signals are used:
+ *   A. Name/model match: an owner mobile device (id != sharedDeviceId) whose
+ *      friendly name matches the shared device's friendly name. Handles the
+ *      common case where the old + new device docs coexist for one phone.
+ *      Skipped when the shared name is generic (e.g. "Android") to avoid
+ *      collisions across different phones.
+ *   B. Single-successor fallback: the shared device is gone from the owner's
+ *      current devices AND the owner has exactly one mobile device.
+ *
+ * Returns true if at least one successor index entry was created.
+ */
+const GENERIC_DEVICE_NAMES = new Set([
+  "", "android", "android device", "phone", "mobile", "device", "unknown",
+  "ios", "iphone",
+]);
+
+async function ensureSuccessorShareAccessIndex(shares) {
+  const currentUid = auth.currentUser?.uid || "";
+  if (!currentUid || !Array.isArray(shares) || shares.length === 0) return false;
+
+  const hasCallsPermission = (s) => {
+    const perms = s?.permissions;
+    if (perms == null) return true;
+    if (typeof perms === "object" && !Array.isArray(perms)) return perms.calls !== false;
+    if (Array.isArray(perms)) return perms.includes("calls") || perms.includes("all");
+    if (typeof perms === "string") {
+      const p = perms.toLowerCase();
+      return p === "calls" || p === "all" || p.includes("calls");
+    }
+    return false;
+  };
+
+  const ownerMobileDevicesCache = new Map();
+  const getOwnerMobileDevices = async (ownerUid) => {
+    if (ownerMobileDevicesCache.has(ownerUid)) return ownerMobileDevicesCache.get(ownerUid);
+    let list = [];
+    try {
+      const ownerDevicesQ = query(collection(db, "devices"), where("userId", "==", ownerUid));
+      let snap;
+      try {
+        snap = await getDocsFromServer(ownerDevicesQ);
+      } catch (_) {
+        snap = await getDocs(ownerDevicesQ);
+      }
+      const byId = new Map();
+      snap.docs
+        .map((d) => d.data() || {})
+        .filter(
+          (data) =>
+            data.platform !== "chrome-extension" &&
+            data.platform !== "chrome" &&
+            !String(data.id || "").startsWith("ext_"),
+        )
+        .forEach((data) => {
+          const id = String(data.id || "");
+          if (!id) return;
+          byId.set(id, {
+            id,
+            name: getFriendlyDeviceName(data),
+            model: String(data.model || ""),
+            lastActive: Number(data.lastActiveAt || data.lastSeen || 0) || 0,
+          });
+        });
+      list = Array.from(byId.values());
+    } catch (_) {}
+    ownerMobileDevicesCache.set(ownerUid, list);
+    return list;
+  };
+
+  const normalizeName = (name) => String(name || "").trim().toLowerCase();
+
+  let createdAny = false;
+
+  const createSuccessorIndex = async (share, ownerUid, sharedDeviceId, successorId) => {
+    const indexId = `${successorId}_${currentUid}`;
+    if (ensuredShareIndexKeys.has(indexId)) return false;
+    try {
+      await setDoc(
+        doc(db, "deviceShareIndex", indexId),
+        {
+          ownerUid,
+          sharedWithUid: currentUid,
+          deviceId: successorId,
+          ownerEmail: share?.ownerEmail || "",
+          sharedWithEmail: share?.sharedWithEmail || auth.currentUser?.email || "",
+          rotatedFromDeviceId: sharedDeviceId,
+          updatedAt: Date.now(),
+        },
+        { merge: true },
+      );
+      ensuredShareIndexKeys.add(indexId);
+      console.info(
+        `[Device] Self-healed share access: ${sharedDeviceId} → ${successorId} (owner device rotated)`,
+      );
+      return true;
+    } catch (err) {
+      if (!isPermissionDeniedError(err) && !isUnavailableError(err)) {
+        console.debug("[Device] successor share index ensure failed:", err?.code || err?.message || err);
+      }
+      return false;
+    }
+  };
+
+  for (const rawShare of shares) {
+    const share = normalizeSharedWithMeShare(rawShare, currentUid);
+    const ownerUid = String(share?.ownerUid || "").trim();
+    const sharedDeviceId = String(share?.deviceId || "").trim();
+    if (!ownerUid || !sharedDeviceId) continue;
+
+    const ownerDevices = await getOwnerMobileDevices(ownerUid);
+    if (ownerDevices.length === 0) continue;
+
+    const sharedName = normalizeName(
+      share?.deviceName || share?.device?.name || getFriendlyDeviceName(share?.device || {}),
+    );
+    const oldDev = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
+
+    let healed = false;
+
+    // Signal A: raw hardware model match against the still-present old device.
+    // Model is stable across reinstall/rename for the same physical phone, so
+    // this reliably links old→new when both device docs coexist (rotation).
+    const oldModel = normalizeName(oldDev?.model);
+    if (oldDev && oldModel && !GENERIC_DEVICE_NAMES.has(oldModel)) {
+      const modelMatches = ownerDevices.filter(
+        (d) => d.id !== sharedDeviceId && normalizeName(d.model) === oldModel,
+      );
+      for (const successor of modelMatches) {
+        const created = await createSuccessorIndex(share, ownerUid, sharedDeviceId, successor.id);
+        if (created) { createdAny = true; healed = true; }
+      }
+    }
+    if (healed) continue;
+
+    // Signal B: friendly-name match (handles rename-free rotation / no old doc).
+    if (sharedName && !GENERIC_DEVICE_NAMES.has(sharedName)) {
+      const nameMatches = ownerDevices.filter(
+        (d) => d.id !== sharedDeviceId && normalizeName(d.name) === sharedName,
+      );
+      for (const successor of nameMatches) {
+        const created = await createSuccessorIndex(share, ownerUid, sharedDeviceId, successor.id);
+        if (created) { createdAny = true; healed = true; }
+      }
+    }
+    if (healed) continue;
+
+    // Signal D (targeted fallback): when recipient has exactly ONE calls-shared
+    // device from this owner, prefer the owner's most recently active mobile
+    // device as successor. This handles persistent "stuck at old ~30 calls"
+    // when old+new device docs coexist but model/name signals are missing.
+    const ownerCallShares = (shares || [])
+      .map((s) => normalizeSharedWithMeShare(s, currentUid))
+      .filter((s) => String(s?.ownerUid || "") === ownerUid && hasCallsPermission(s));
+    if (ownerCallShares.length === 0) continue;
+
+    const sortedByActivity = [...ownerDevices].sort(
+      (a, b) => Number(b.lastActive || 0) - Number(a.lastActive || 0),
+    );
+    const mostRecent = sortedByActivity[0];
+    if (!mostRecent?.id || mostRecent.id === sharedDeviceId) continue;
+
+    // If recipient already has a calls share that points to this active device,
+    // no fallback index is needed.
+    if (ownerCallShares.some((s) => String(s?.deviceId || "") === String(mostRecent.id))) {
+      continue;
+    }
+
+    const sharedDeviceEntry = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
+    const sharedLast = Number(sharedDeviceEntry?.lastActive || 0);
+    const recentLast = Number(mostRecent.lastActive || 0);
+    // Require a meaningful activity lead to avoid cross-device overreach.
+    if (recentLast <= 0 || recentLast <= sharedLast + 60 * 60 * 1000) continue;
+
+    const createdRecent = await createSuccessorIndex(
+      share,
+      ownerUid,
+      sharedDeviceId,
+      mostRecent.id,
+    );
+    if (createdRecent) {
+      createdAny = true;
+      continue;
+    }
+
+    // Signal C: shared device gone AND exactly one current mobile device.
+    const ownerIds = ownerDevices.map((d) => d.id);
+    if (ownerIds.includes(sharedDeviceId)) continue;
+    if (ownerDevices.length !== 1) continue;
+
+    const successorId = ownerDevices[0].id;
+    if (!successorId || successorId === sharedDeviceId) continue;
+
+    const created = await createSuccessorIndex(share, ownerUid, sharedDeviceId, successorId);
+    if (created) createdAny = true;
+  }
+
+  return createdAny;
 }
 
 function withTimeout(promise, ms, label) {
@@ -660,6 +956,19 @@ export async function loadDevices() {
       });
       if (cacheUpdated) _saveVersionCache();
 
+      // Firestore local cache can occasionally emit a transient empty snapshot
+      // during network/cache churn. Do not replace a populated device list with
+      // that cache-only empty set, or SMS/calls can appear to vanish until reload.
+      if (
+        snapshot?.metadata?.fromCache &&
+        newDevices.length === 0 &&
+        Array.isArray(state.devices) &&
+        state.devices.length > 0
+      ) {
+        reconcileOwnDevicesFromServer("cache-empty-snapshot").catch(() => {});
+        return;
+      }
+
       applyOwnDevices(dedupeOwnDevices(newDevices));
 
       // When snapshot is cache-sourced, force a near-term server reconcile to
@@ -698,14 +1007,15 @@ export async function loadDevices() {
   // Restore cached shared devices instantly so the tab appears before the snapshot fires.
   getCachedSharedDevices().then((cached) => {
     if (cached && cached.length > 0) {
-      state.setSharedWithMeDevices(cached);
+      const normalizedCached = dedupeSharedWithMeShares(cached);
+      state.setSharedWithMeDevices(normalizedCached);
       renderDevices();
       updateDeviceSelects();
       // Pre-load SMS/calls/notifs from shared devices using cached share info
       Promise.all([
-        Promise.resolve().then(() => scheduleSharedSmsLoad(cached)),
-        Promise.resolve().then(() => scheduleSharedCallsLoad(cached)),
-        Promise.resolve().then(() => scheduleSharedNotificationsLoad(cached)),
+        Promise.resolve().then(() => scheduleSharedSmsLoad(normalizedCached)),
+        Promise.resolve().then(() => scheduleSharedCallsLoad(normalizedCached)),
+        Promise.resolve().then(() => scheduleSharedNotificationsLoad(normalizedCached)),
       ]);
     }
   }).catch(() => {});
@@ -758,6 +1068,26 @@ export async function loadDevices() {
     }
 
     lastAppliedSharedByKey = nextByKey;
+
+    // Rules gate shared SMS/calls reads on deviceShareIndex/{deviceId}_{uid}.
+    // Legacy or partially-migrated share flows can leave index missing even when
+    // deviceShares row exists, which makes shared tabs visible but data unreadable.
+    ensureRecipientShareAccessIndex(shares).catch(() => {});
+
+    // Self-heal when the owner's device ID rotated (reinstall/update). New calls
+    // land under a new device ID the recipient isn't authorized for; create the
+    // successor index then force shared listeners to rebind so the new device's
+    // history/live updates surface without waiting for a popup reopen.
+    ensureSuccessorShareAccessIndex(shares)
+      .then((created) => {
+        if (!created) return;
+        import("./calls.js")
+          .then((m) => m.forceReloadSharedCalls && m.forceReloadSharedCalls(shares))
+          .catch(() => {});
+        Promise.resolve().then(() => scheduleSharedSmsLoad(shares));
+        Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares));
+      })
+      .catch(() => {});
 
     state.setSharedWithMeDevices(shares);
     renderDevices();
@@ -838,6 +1168,18 @@ export async function loadDevices() {
   const sharesUnsub = onSnapshot(
     sharesQ,
     async (snapshot) => {
+      // Same protection for shared devices: ignore transient cache-empty
+      // snapshots while we already have shared entries in memory.
+      if (
+        snapshot?.metadata?.fromCache &&
+        snapshot.empty &&
+        Array.isArray(state.sharedWithMeDevices) &&
+        state.sharedWithMeDevices.length > 0
+      ) {
+        reconcileSharedWithMeFromServer("cache-empty-snapshot").catch(() => {});
+        return;
+      }
+
       snapshot.docChanges().forEach((change) => {
         if (change.type !== "removed") return;
         maybeNotifyOwnerStoppedSharing({ shareId: change.doc.id, ...change.doc.data() });

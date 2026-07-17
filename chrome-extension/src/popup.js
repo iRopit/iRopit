@@ -532,16 +532,27 @@ function init() {
     },
     // On logout
     (info) => {
+      const explicit = info?.explicit === true;
       hadAuthenticatedSession = false;
-      initialDataLoadedForUid = null;
+
+      // Always detach live Firestore listeners to avoid permission-denied noise
+      // while auth is null.
       cleanupSubscriptions();
-      state.resetState();
-      // Only wipe the local cache on an EXPLICIT, user-initiated (or forced
-      // account-removal) sign-out. Transient auth-null events during an active
-      // session (token refresh, MV3 service-worker restarts, network blips)
-      // must NOT clear the cache, otherwise SMS/Calls history disappears and
-      // reloads from scratch on the next auth tick.
-      if (info?.explicit === true) clearCache();
+
+      // CRITICAL: Only wipe in-memory state AND the local cache on an EXPLICIT,
+      // user-initiated (or forced account-removal) sign-out.
+      //
+      // Transient auth-null events during an active session (Firebase token
+      // refresh, MV3 service-worker restarts, network blips) previously called
+      // state.resetState() here, which cleared allSMS/allSMSMessages/allCallsData.
+      // That made the SMS/Calls lists visibly DISAPPEAR, and then RELOAD from
+      // scratch the instant auth returned — the exact "stayed a while → wiped →
+      // reloaded" symptom. Keeping the data through a transient flap avoids it.
+      if (explicit) {
+        initialDataLoadedForUid = null;
+        state.resetState();
+        clearCache();
+      }
     },
   );
 

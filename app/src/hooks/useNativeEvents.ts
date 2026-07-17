@@ -46,6 +46,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   const deviceDeleteListenerUnsubscribe = useRef<(() => void) | null>(null);
   const lastContactSyncRef = useRef<number>(0);
   const initialSyncInFlightRef = useRef(false);
+  const initialSyncCompletedRef = useRef(false);
 
   // Re-sync contacts when app comes to foreground (max once per 5 minutes)
   useEffect(() => {
@@ -116,6 +117,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   useEffect(() => {
     if (!user || !currentDevice || Platform.OS !== 'android') return;
     if (initialSyncInFlightRef.current) return;
+    initialSyncCompletedRef.current = false;
     initialSyncInFlightRef.current = true;
 
     let isMounted = true;
@@ -135,6 +137,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
         if (syncState.callsSynced && syncState.smsSynced) {
           console.log('[InitialSync] Already done, skipping');
+          initialSyncCompletedRef.current = true;
           return;
         }
 
@@ -221,6 +224,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
         if (syncState.callsSynced && syncState.smsSynced) {
           console.log('[InitialSync] Complete');
+          initialSyncCompletedRef.current = true;
         } else {
           console.log('[InitialSync] Partial complete, waiting for remaining permission/data path', syncState);
         }
@@ -244,7 +248,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     // If user grants READ_SMS later during onboarding/settings, retry on foreground.
     const syncRetryOnActive = AppState.addEventListener('change', nextState => {
-      if (nextState === 'active') {
+      if (nextState === 'active' && !initialSyncCompletedRef.current) {
         doInitialSync();
       }
     });

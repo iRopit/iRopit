@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
 import { Platform, Alert, InteractionManager } from 'react-native';
 import { useSMSStore } from '../../../store/smsStore';
-import { SMS } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import smsService from '../../../services/smsService';
 import { Conversation } from './types';
@@ -13,8 +12,7 @@ export const useSMSScreen = () => {
   const isLoadingMore = useSMSStore(state => state.isLoadingMore);
   const hasMoreMessages = useSMSStore(state => state.hasMoreMessages);
   const loadMoreMessages = useSMSStore(state => state.loadMoreMessages);
-  const addMessage = useSMSStore(state => state.addMessage);
-  const syncMessages = useSMSStore(state => state.syncMessages);
+  const loadMessages = useSMSStore(state => state.loadMessages);
   const markAllAsRead = useSMSStore(state => state.markAllAsRead);
   const deleteAllMessages = useSMSStore(state => state.deleteAllMessages);
 
@@ -72,26 +70,9 @@ export const useSMSScreen = () => {
         const hasPermissions = await smsService.requestPermissions();
         setPermissionGranted(hasPermissions);
 
-        if (hasPermissions) {
-          const deviceMessages = await smsService.getAllSms();
-          if (deviceMessages && deviceMessages.length > 0) {
-            const formattedMessages: SMS[] = deviceMessages.map((msg: any) => ({
-              id: String(msg._id || msg.id || Date.now()),
-              threadId: msg.thread_id || '',
-              userId: '',
-              phoneNumber: msg.address || '',
-              contactName: undefined,
-              body: msg.body || '',
-              timestamp: Number(msg.date) || Date.now(),
-              type: msg.type === 1 ? 'inbox' : 'sent',
-              read: msg.read === 1,
-              deviceId: 'android',
-              syncedAt: Date.now(),
-            }));
-            formattedMessages.forEach(msg => addMessage(msg));
-            await syncMessages(deviceMessages);
-          }
-        }
+        // Re-attach Firestore listener only; avoid re-uploading full native SMS
+        // history on pull-to-refresh, which can trigger extension-side full reloads.
+        if (hasPermissions) loadMessages();
       } catch (_error) {
         // Handle error silently
       }
@@ -102,7 +83,7 @@ export const useSMSScreen = () => {
     // empty, so clearing here would show "No SMS yet" during that window.
     // It's cleared by the effect below once messages arrive (or after a
     // generous timeout so a genuinely empty inbox eventually shows empty).
-  }, [addMessage, syncMessages]);
+  }, [loadMessages]);
 
   useEffect(() => {
     // Defer heavy native SMS read until after navigation animation completes

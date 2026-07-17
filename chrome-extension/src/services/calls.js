@@ -46,6 +46,9 @@ import { wireHoverPreview } from "../utils/hoverPreview.js";
 
 const CALLS_FETCH_LIMIT = 2000;
 const CALLS_FULL_FETCH_MAX_PAGES = 25;
+// Shared listeners should keep a wider warm window than 30 so history does
+// not appear capped when full-history pagination is delayed by network/rules.
+const SHARED_CALLS_REALTIME_LIMIT = 500;
 
 function isUnavailableError(error) {
   const code = String(error?.code || "").toLowerCase();
@@ -71,6 +74,7 @@ function warnWithOptionalError(message, error) {
 }
 
 const callsUnavailableLogKeys = new Set();
+const callsTransientEmptyFetchLogKeys = new Set();
 function logCallsUnavailableOnce(key, message, details) {
   if (callsUnavailableLogKeys.has(key)) return;
   callsUnavailableLogKeys.add(key);
@@ -152,6 +156,20 @@ async function fetchAllCallsDocsPaged(uid, deviceId, keyPrefix, onPage = null) {
   }
 
   return docs;
+}
+
+async function fetchCallsDocsFullCollectionFallback(uid, deviceId, keyPrefix) {
+  const colRef = collection(db, "users", uid, "devices", deviceId, "calls");
+  try {
+    return await getServerCallsDocsWithAuthRetry(colRef);
+  } catch (serverErr) {
+    if (!isUnavailableError(serverErr)) throw serverErr;
+    logCallsUnavailableOnce(
+      `${keyPrefix}:full-collection-fallback`,
+      `[Calls] Server unavailable for ${keyPrefix}, using local full-collection fallback`,
+    );
+    return await getDocs(colRef);
+  }
 }
 
 // ── Call type label (i18n) ──────────────────────────────────────────────────
@@ -490,15 +508,36 @@ function rebuildMergedCallsFromState() {
   return merged;
 }
 
+function getActiveSharedCallDeviceIds() {
+  const ids = new Set();
+  for (const key of sharedCallListenerUnsubsByKey.keys()) {
+    const parts = String(key).split("::");
+    const deviceId = parts[1] || "";
+    if (deviceId) ids.add(deviceId);
+  }
+  return ids;
+}
+
 function pruneCallsForAllowedDevices(allowedDeviceIds) {
-  const allowed = allowedDeviceIds instanceof Set ? allowedDeviceIds : new Set();
+  const allowed = allowedDeviceIds instanceof Set ? new Set(allowedDeviceIds) : new Set();
+  // Keep devices with active shared listeners even if shared metadata briefly
+  // drops during reconcile/network churn.
+  const activeShared = getActiveSharedCallDeviceIds();
+  activeShared.forEach((id) => allowed.add(id));
   // Guard against transient empty device snapshots: avoid clearing all calls
   // while device scope is temporarily unavailable.
   if (allowed.size === 0) return false;
   let changed = false;
+  const currentUid = String(state.currentUser?.uid || "");
 
   Object.keys(state.allCallsByDevice || {}).forEach((deviceId) => {
     if (!allowed.has(deviceId)) {
+      const bucket = state.allCallsByDevice[deviceId] || [];
+      const hasSharedOwnedRows = bucket.some(
+        (c) => c?.ownerUid && String(c.ownerUid) !== currentUid,
+      );
+      // Shared buckets can be temporarily missing from resolved scope.
+      if (hasSharedOwnedRows) return;
       delete state.allCallsByDevice[deviceId];
       changed = true;
     }
@@ -880,6 +919,20 @@ export async function loadCalls() {
         }),
       );
 
+      // Guard: transient empty full-fetch result must not wipe an already
+      // populated device list while backend/cache is churning.
+      const existingDeviceCalls = state.allCallsByDevice?.[device.id] || [];
+      if (calls.length === 0 && existingDeviceCalls.length > 0) {
+        const emptyKey = `full-empty:${device.id}`;
+        if (!callsTransientEmptyFetchLogKeys.has(emptyKey)) {
+          callsTransientEmptyFetchLogKeys.add(emptyKey);
+          console.debug(
+            `[Calls] Ignoring transient empty full-fetch for ${device.id}; preserving ${existingDeviceCalls.length} cached/live calls`,
+          );
+        }
+        return;
+      }
+
       updateCallsList(device.id, calls);
     } catch (error) {
       if (error?.code !== "permission-denied") {
@@ -1120,6 +1173,31 @@ function updateCallsCountIndicator(totalOverride = null, selectedTab = "all") {
  * @param {Array} calls - Array of call records
  */
 export function renderCalls(calls) {
+  // Defensive guard against transient "disappeared then reloaded" flashes:
+  // if handed an empty list but the authoritative per-device state map
+  // (state.allCallsByDevice) still holds calls, re-derive from it instead of
+  // blanking the UI. A momentary empty array must never wipe a populated list
+  // while the underlying data still exists.
+  if (!Array.isArray(calls) || calls.length === 0) {
+    const rebuilt = [];
+    Object.values(state.allCallsByDevice || {}).forEach((arr) => {
+      if (Array.isArray(arr) && arr.length > 0) rebuilt.push(...arr);
+    });
+    if (rebuilt.length > 0) {
+      const seen = new Set();
+      const deduped = rebuilt.filter((c) => {
+        const key = getCallIdentityKey(c);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      deduped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      calls = deduped;
+    } else {
+      calls = Array.isArray(calls) ? calls : [];
+    }
+  }
+
   // Normalize calls to ensure viewed flag exists
   const normalizedCalls = calls.map((call) => ({
     ...call,
@@ -1995,6 +2073,16 @@ export function exportCallsToCSV() {
 }
 
 /**
+ * Force a full rebind of all shared-call listeners, then reload. Used after the
+ * recipient self-heals deviceShareIndex for a rotated owner device so the newly
+ * authorized device's calls surface immediately (without a popup reopen).
+ */
+export async function forceReloadSharedCalls(shares) {
+  stopSharedCallsListeners();
+  return loadSharedDevicesCalls(shares);
+}
+
+/**
  * Load call logs for all shared devices and merge them into the calls list.
  */
 export async function loadSharedDevicesCalls(shares) {
@@ -2010,14 +2098,9 @@ export async function loadSharedDevicesCalls(shares) {
     updateTabBadges();
   }
 
-  const allowedCallsDeviceIds = new Set([
-    ...(state.devices || []).map((d) => d?.id).filter(Boolean),
-    ...callShares.map((s) => s?.deviceId).filter(Boolean),
-  ]);
-  if (pruneCallsForAllowedDevices(allowedCallsDeviceIds)) {
-    updateTabBadges();
-    renderCalls(state.allCallsData);
-  }
+  // IMPORTANT: shared refresh runs periodically. Never prune global calls state
+  // from this path, otherwise transient device/share metadata churn can wipe
+  // visible own/shared history and force a full re-fill.
 
   const activeShareKeys = new Set(
     callShares.map((s) => `${s.ownerUid}::${s.deviceId}`),
@@ -2061,6 +2144,34 @@ export async function loadSharedDevicesCalls(shares) {
           }
         });
       } catch (_) {}
+
+      // Fallback: shared record/index can lag behind owner's current device ID.
+      // Read owner's current devices and include their IDs as candidate sources.
+      try {
+        const ownerDevicesQ = query(
+          collection(db, "devices"),
+          where("userId", "==", share.ownerUid),
+        );
+        let ownerSnap;
+        try {
+          ownerSnap = await getDocsFromServer(ownerDevicesQ);
+        } catch (_) {
+          ownerSnap = await getDocs(ownerDevicesQ);
+        }
+        ownerSnap.docs.forEach((d) => {
+          const data = d.data() || {};
+          if (
+            data.platform === "chrome-extension" ||
+            data.platform === "chrome" ||
+            String(data.id || d.id || "").startsWith("ext_")
+          ) {
+            return;
+          }
+          const did = data.id || d.id;
+          if (did) ids.add(String(did));
+        });
+      } catch (_) {}
+
       return Array.from(ids).filter(Boolean);
     };
 
@@ -2084,12 +2195,14 @@ export async function loadSharedDevicesCalls(shares) {
     const existingSourceSignature = sharedCallSourceSignatureByKey.get(listenerKey) || "";
     const boundAt = Number(sharedCallListenerBoundAtByKey.get(listenerKey) || 0);
     const listenerAgeMs = boundAt > 0 ? Date.now() - boundAt : Number.MAX_SAFE_INTEGER;
+    const existingSharedRows = (state.allCallsByDevice?.[share.deviceId] || []).length;
     const shouldRebindExisting =
       sharedCallListenerUnsubsByKey.has(listenerKey) &&
       (
         existingMeta !== shareMeta ||
         existingSourceSignature !== sourceSignature ||
-        listenerAgeMs > 4 * 60 * 1000
+        // Self-heal only when listener is old AND no shared rows are present.
+        (existingSharedRows === 0 && listenerAgeMs > 10 * 60 * 1000)
       );
 
     if (shouldRebindExisting) {
@@ -2118,6 +2231,26 @@ export async function loadSharedDevicesCalls(shares) {
         const merged = Array.from(mergedById.values()).sort(
           (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
         );
+
+        const existingShared = state.allCallsByDevice?.[share.deviceId] || [];
+        const hadSharedRows = existingShared.some((c) => {
+          const ownerMatches =
+            String(c?.ownerUid || "") === String(share.ownerUid || "");
+          const deviceMatches =
+            String(c?.deviceId || "") === String(share.deviceId || "");
+          return ownerMatches || deviceMatches;
+        });
+
+        // Guard against transient empty shared snapshots during listener
+        // rebind/cache churn. Do not wipe an already-loaded shared call bucket
+        // with a temporary empty publish.
+        if (merged.length === 0 && hadSharedRows) {
+          console.debug(
+            `[Calls][shared:${share.deviceId}] ignoring transient empty publish to preserve existing calls`,
+          );
+          return;
+        }
+
         updateCallsList(share.deviceId, merged);
       };
 
@@ -2355,7 +2488,7 @@ export async function loadSharedDevicesCalls(shares) {
           const q = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "calls"),
             orderBy("timestamp", "desc"),
-            limit(30),
+            limit(SHARED_CALLS_REALTIME_LIMIT),
           );
 
           const unsub = onSnapshot(
@@ -2597,7 +2730,64 @@ export async function loadSharedDevicesCalls(shares) {
               callsBySource.set(sourceDeviceId, merged);
               publishSharedCalls();
             },
-          ).catch((err) => {
+          ).then(async (pagedDocs) => {
+            // Schema fallback: older call docs may miss `timestamp`, so they are
+            // excluded by orderBy("timestamp") pagination and the list looks stuck
+            // around recent rows only (historically observed as "30 only").
+            if ((pagedDocs || []).length > 60) return;
+
+            let fullSnap;
+            try {
+              fullSnap = await fetchCallsDocsFullCollectionFallback(
+                share.ownerUid,
+                sourceDeviceId,
+                `shared-full-scan:${share.deviceId}:${sourceDeviceId}`,
+              );
+            } catch (scanErr) {
+              if (scanErr?.code !== "permission-denied" && !isUnavailableError(scanErr)) {
+                warnWithOptionalError(
+                  `[Calls] Shared full-collection scan failed for ${share.deviceId}/${sourceDeviceId}:`,
+                  scanErr,
+                );
+              }
+              return;
+            }
+
+            const fullDocs = fullSnap?.docs || [];
+            if (fullDocs.length <= (pagedDocs || []).length) return;
+
+            const freshFullDocs = fullDocs.filter((d) => {
+              if (!d?.id || seenSharedDocIds.has(d.id)) return false;
+              seenSharedDocIds.add(d.id);
+              return true;
+            });
+            if (freshFullDocs.length === 0) return;
+
+            const mappedFull = await Promise.allSettled(
+              freshFullDocs.map(async (docSnap) => mapCallForShare(docSnap, sourceDeviceId)),
+            );
+            const fullCalls = mappedFull
+              .filter((r) => r.status === "fulfilled" && r.value)
+              .map((r) => r.value);
+            if (fullCalls.length === 0) return;
+
+            const current = callsBySource.get(sourceDeviceId) || [];
+            const byKey = new Map(
+              current.map((c) => [getCallIdentityKey(c, share.deviceId), c]),
+            );
+            fullCalls.forEach((call) => {
+              const key = getCallIdentityKey(call, share.deviceId);
+              const prev = byKey.get(key);
+              if (!prev || Number(call.timestamp || 0) >= Number(prev.timestamp || 0)) {
+                byKey.set(key, call);
+              }
+            });
+            const merged = Array.from(byKey.values()).sort(
+              (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+            );
+            callsBySource.set(sourceDeviceId, merged);
+            publishSharedCalls();
+          }).catch((err) => {
             if (err?.code === "permission-denied" || isUnavailableError(err)) return;
             warnWithOptionalError(
               `[Calls] Shared full-history fetch failed for ${share.deviceId}/${sourceDeviceId}:`,

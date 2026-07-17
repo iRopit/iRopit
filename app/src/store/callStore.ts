@@ -172,6 +172,46 @@ export const useCallStore = create<CallState>()(
 
         set({ isLoading: true });
 
+        const isLikelyCallPayload = (data: any): boolean => {
+          if (!data || typeof data !== 'object') return false;
+
+          const t = String(data.type || data.callType || '').toLowerCase();
+          if (
+            t.includes('incoming') ||
+            t.includes('outgoing') ||
+            t.includes('missed') ||
+            t.includes('rejected') ||
+            t === 'call' ||
+            t === 'whatsapp_call'
+          ) {
+            return true;
+          }
+
+          const hasDuration = Number.isFinite(Number(data.duration));
+          const hasPhone = !!(data.phoneNumber || data.number || data.address);
+          if (hasDuration && hasPhone) return true;
+
+          return false;
+        };
+
+        const decryptCallWithTimeout = async (
+          call: any,
+          timeoutMs = 300,
+        ): Promise<CallLog> => {
+          try {
+            const timeoutPromise = new Promise<CallLog>(resolve => {
+              setTimeout(() => resolve(call as CallLog), timeoutMs);
+            });
+
+            return (await Promise.race([
+              decryptCall(call, user.uid),
+              timeoutPromise,
+            ])) as CallLog;
+          } catch (_) {
+            return call as CallLog;
+          }
+        };
+
         // Track whether the initial full snapshot has been processed.
         // Subsequent snapshots only carry changed documents (docChanges),
         // so we can merge them incrementally without re-decrypting everything.
@@ -193,7 +233,10 @@ export const useCallStore = create<CallState>()(
                 // Initial load: process all documents with chunked decryption
                 const rawCalls: CallLog[] = [];
                 snapshot.forEach(doc => {
-                  rawCalls.push({ id: doc.id, ...doc.data() } as CallLog);
+                  const data = doc.data() || {};
+                  if (isLikelyCallPayload(data)) {
+                    rawCalls.push({ id: doc.id, ...data } as CallLog);
+                  }
                 });
                 // Decrypt in chunks with yields so large initial loads don't
                 // freeze the JS thread and cause navigation lag.
@@ -202,7 +245,7 @@ export const useCallStore = create<CallState>()(
                 for (let i = 0; i < rawCalls.length; i += DECRYPT_CHUNK) {
                   const chunk = rawCalls.slice(i, i + DECRYPT_CHUNK);
                   const decryptedChunk = (await Promise.all(
-                    chunk.map(call => decryptCall(call, user.uid)),
+                    chunk.map(call => decryptCallWithTimeout(call)),
                   )) as CallLog[];
                   calls.push(...decryptedChunk);
                   await new Promise(resolve => setTimeout(resolve, 0));
@@ -215,24 +258,56 @@ export const useCallStore = create<CallState>()(
               // a new call appears immediately without re-decrypting everything.
               const changes = snapshot
                 .docChanges()
-                .filter(c => c.type === 'added' || c.type === 'modified');
-              if (changes.length === 0) return;
+                .filter(c => c.type === 'added' || c.type === 'modified')
+                .filter(c => isLikelyCallPayload(c.doc.data()));
+              if (changes.length > 0) {
+                const rawNew = changes.map(
+                  c => ({ id: c.doc.id, ...c.doc.data() } as CallLog),
+                );
+                const newCalls = (await Promise.all(
+                  rawNew.map(call => decryptCallWithTimeout(call)),
+                )) as CallLog[];
 
-              const rawNew = changes.map(
-                c => ({ id: c.doc.id, ...c.doc.data() } as CallLog),
-              );
-              const newCalls = (await Promise.all(
-                rawNew.map(call => decryptCall(call, user.uid)),
-              )) as CallLog[];
-
-              const { calls: currentCalls } = get();
-              const callsMap = new Map(currentCalls.map(c => [c.id, c]));
-              for (const call of newCalls) {
-                callsMap.set(call.id, call);
+                const { calls: currentCalls } = get();
+                const callsMap = new Map(currentCalls.map(c => [c.id, c]));
+                for (const call of newCalls) {
+                  callsMap.set(call.id, call);
+                }
+                const merged = Array.from(callsMap.values());
+                merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                set({ calls: merged });
+                return;
               }
-              const merged = Array.from(callsMap.values());
-              merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-              set({ calls: merged });
+
+              // Firestore can emit snapshots with documents but no docChanges
+              // after cache/metadata churn. Keep calls aligned by merging top docs.
+              if (snapshot.docs.length > 0) {
+                const mapped = await Promise.allSettled(
+                  snapshot.docs.map(async docSnap => {
+                    const data = docSnap.data() || {};
+                    if (!isLikelyCallPayload(data)) return null;
+                    return await decryptCallWithTimeout({
+                      id: docSnap.id,
+                      ...data,
+                    } as CallLog);
+                  }),
+                );
+
+                const fromSnapshot = mapped
+                  .filter(r => r.status === 'fulfilled' && !!r.value)
+                  .map((r: any) => r.value as CallLog);
+
+                if (fromSnapshot.length > 0) {
+                  const { calls: currentCalls } = get();
+                  const snapshotMap = new Map(currentCalls.map(c => [c.id, c]));
+                  for (const call of fromSnapshot) {
+                    snapshotMap.set(call.id, call);
+                  }
+                  const snapshotMerged = Array.from(snapshotMap.values());
+                  snapshotMerged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                  set({ calls: snapshotMerged });
+                }
+              }
             },
             error => {
               set({ error: error.message, isLoading: false });
