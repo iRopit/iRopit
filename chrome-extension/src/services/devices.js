@@ -105,6 +105,7 @@ import { reRenderNotifications } from "./notifications.js";
 import { renderCalls } from "./calls.js";
 import { renderSMS } from "./sms.js";
 import { cacheSharedDevices, getCachedSharedDevices, cacheOwnDevices, getCachedOwnDevices } from "./cache.js";
+import { markExplicitSignOutInProgress } from "./auth.js";
 
 let pendingSharedSmsShares = null;
 let sharedSmsDeferredListenerAttached = false;
@@ -112,6 +113,8 @@ let pendingSharedCallsShares = null;
 let sharedCallsDeferredListenerAttached = false;
 let pendingSharedNotifsShares = null;
 let sharedNotifsDeferredListenerAttached = false;
+let sharedWarmupTimerShort = null;
+let sharedWarmupTimerLong = null;
 const ensuredShareIndexKeys = new Set();
 const processedIncomingShareReqIds = new Set();
 const incomingShareModalByKey = new Map();
@@ -715,6 +718,39 @@ function scheduleSharedNotificationsLoad(shares) {
     .catch(() => {});
 }
 
+function scheduleSharedWarmupReconcile(shares) {
+  const safeShares = Array.isArray(shares) ? shares : [];
+  if (sharedWarmupTimerShort) {
+    clearTimeout(sharedWarmupTimerShort);
+    sharedWarmupTimerShort = null;
+  }
+  if (sharedWarmupTimerLong) {
+    clearTimeout(sharedWarmupTimerLong);
+    sharedWarmupTimerLong = null;
+  }
+
+  const runWarmup = () => {
+    if (safeShares.length === 0) return;
+    Promise.resolve().then(() => scheduleSharedSmsLoad(safeShares));
+    Promise.resolve().then(() => scheduleSharedNotificationsLoad(safeShares));
+    import("./calls.js")
+      .then((m) => {
+        if (m.forceReloadSharedCalls) {
+          return m.forceReloadSharedCalls(safeShares);
+        }
+        if (m.loadSharedDevicesCalls) {
+          return m.loadSharedDevicesCalls(safeShares);
+        }
+      })
+      .catch(() => {});
+  };
+
+  // Startup convergence: avoid waiting for the 25s heartbeat before shared
+  // unread counts settle to their final totals.
+  sharedWarmupTimerShort = setTimeout(runWarmup, 2500);
+  sharedWarmupTimerLong = setTimeout(runWarmup, 7000);
+}
+
 /**
  * Register this extension as a device
  */
@@ -726,10 +762,24 @@ export async function registerDevice() {
     // Pass user.uid so each account gets its own persistent device ID
     const deviceId = await getDeviceId(user.uid);
 
+    const isBrave = await (async () => {
+      try {
+        const braveApi = globalThis?.navigator?.brave;
+        if (braveApi?.isBrave) {
+          return !!(await braveApi.isBrave());
+        }
+      } catch (_) {
+        // Ignore detection failures and fall back to Chrome label.
+      }
+      return false;
+    })();
+
+    const extensionName = isBrave ? "Brave Extension" : "Chrome Extension";
+
     const deviceData = {
       id: deviceId,
       userId: user.uid,
-      name: "Chrome Extension",
+      name: extensionName,
       type: "chrome-extension",
       platform: "chrome-extension",
       model: navigator.userAgent,
@@ -748,7 +798,7 @@ export async function registerDevice() {
       await setDoc(existingDeviceRef, deviceData);
     }
 
-    console.log(`[Device] Registered/updated Chrome extension device: ${deviceId}`);
+    console.log(`[Device] Registered/updated ${extensionName} device: ${deviceId}`);
 
     // Clean up duplicates fire-and-forget — never block or throw here
     cleanupDuplicateExtensions(user.uid, deviceId).catch((e) =>
@@ -1098,6 +1148,7 @@ export async function loadDevices() {
       Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
       Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares)),
     ]);
+    scheduleSharedWarmupReconcile(shares);
   };
 
   const enrichSharedWithMeShares = async (shares) => {
@@ -2323,9 +2374,10 @@ export async function deleteDevice(docId, deviceId) {
   const user = state.currentUser;
   if (!user || !docId) return;
 
-  // Check if this is the current Chrome extension device
+  // Check if this is the current extension device. Compare both Firestore docId
+  // and data.id for compatibility with legacy/stale rows.
   const currentDeviceId = await getDeviceId(user.uid);
-  const isOwnDevice = deviceId === currentDeviceId;
+  const isOwnDevice = docId === currentDeviceId || deviceId === currentDeviceId;
 
   showLoadingOverlay();
   try {
@@ -2333,10 +2385,19 @@ export async function deleteDevice(docId, deviceId) {
     await deleteDoc(doc(db, "devices", docId));
 
     if (isOwnDevice) {
+      // Tell auth observer this is an intentional logout path.
+      markExplicitSignOutInProgress();
+
       // Revoke Chrome identity token and sign out
       if (typeof chrome !== "undefined" && chrome.identity) {
         chrome.identity.getAuthToken({ interactive: false }, (token) => {
-          if (token) chrome.identity.removeCachedAuthToken({ token });
+          const err = chrome.runtime.lastError;
+          if (err) return;
+          if (token) {
+            chrome.identity.removeCachedAuthToken({ token }, () => {
+              void chrome.runtime.lastError;
+            });
+          }
         });
       }
       await signOut(auth);

@@ -87,6 +87,30 @@ function logCallsUnavailableOnce(key, message, details) {
 
 const _callsSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function getCallsDocsFastPreferServer(q, keyPrefix, timeoutMs = 1500) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+  });
+
+  try {
+    const snap = await Promise.race([
+      getServerCallsDocsWithAuthRetry(q),
+      timeoutPromise,
+    ]);
+    if (timer) clearTimeout(timer);
+    return snap;
+  } catch (serverErr) {
+    if (timer) clearTimeout(timer);
+    logCallsUnavailableOnce(
+      `${keyPrefix}:fast-fallback`,
+      `[Calls] Fast server query fallback for ${keyPrefix}, using local snapshot`,
+      serverErr?.message || serverErr?.code,
+    );
+    return await getDocs(q);
+  }
+}
+
 /**
  * Server fetch that retries on transient `permission-denied` (auth token not yet
  * ready after an extension update / MV3 SW restart / token refresh). Without this,
@@ -2131,7 +2155,11 @@ export async function loadSharedDevicesCalls(shares) {
           where("sharedWithUid", "==", user.uid),
           limit(50),
         );
-        const idxSnap = await getDocsFromServer(idxQ);
+        const idxSnap = await getCallsDocsFastPreferServer(
+          idxQ,
+          `shared-idx:${share.deviceId}`,
+          1500,
+        );
         idxSnap.docs.forEach((d) => {
           const data = d.data() || {};
           if (data.deviceId) {
@@ -2152,12 +2180,11 @@ export async function loadSharedDevicesCalls(shares) {
           collection(db, "devices"),
           where("userId", "==", share.ownerUid),
         );
-        let ownerSnap;
-        try {
-          ownerSnap = await getDocsFromServer(ownerDevicesQ);
-        } catch (_) {
-          ownerSnap = await getDocs(ownerDevicesQ);
-        }
+        const ownerSnap = await getCallsDocsFastPreferServer(
+          ownerDevicesQ,
+          `shared-owner-devices:${share.deviceId}`,
+          1500,
+        );
         ownerSnap.docs.forEach((d) => {
           const data = d.data() || {};
           if (

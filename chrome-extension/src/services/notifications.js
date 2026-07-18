@@ -72,6 +72,30 @@ function logNotifUnavailableOnce(key, message, details) {
 
 const _notifSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function getNotifDocsFastPreferServer(q, keyPrefix, timeoutMs = 1500) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+  });
+
+  try {
+    const snap = await Promise.race([
+      getServerNotifDocsWithAuthRetry(q),
+      timeoutPromise,
+    ]);
+    if (timer) clearTimeout(timer);
+    return snap;
+  } catch (serverErr) {
+    if (timer) clearTimeout(timer);
+    logNotifUnavailableOnce(
+      `${keyPrefix}:fast-fallback`,
+      `[Notifs] Fast server query fallback for ${keyPrefix}, using local snapshot`,
+      serverErr?.message || serverErr?.code,
+    );
+    return await getDocs(q);
+  }
+}
+
 /**
  * Server fetch that retries on transient `permission-denied` (auth token not yet
  * ready after an extension update / MV3 SW restart / token refresh). Without this,
@@ -174,7 +198,11 @@ async function resolveSharedNotificationCandidateDeviceIds(share, sharedWithUid)
       where("sharedWithUid", "==", sharedWithUid),
       limit(50),
     );
-    const idxSnap = await getDocsFromServer(idxQ);
+    const idxSnap = await getNotifDocsFastPreferServer(
+      idxQ,
+      `shared-idx:${share?.deviceId || "unknown"}`,
+      1500,
+    );
     idxSnap.docs.forEach((d) => {
       const data = d.data() || {};
       if (data.deviceId) {
@@ -185,6 +213,32 @@ async function resolveSharedNotificationCandidateDeviceIds(share, sharedWithUid)
       if (d.id && d.id.endsWith(suffix)) {
         ids.add(d.id.slice(0, -suffix.length));
       }
+    });
+  } catch (_) {}
+
+  // Fallback: include owner's current devices so shared notifications don't
+  // wait for index propagation to discover rotated source IDs.
+  try {
+    const ownerDevicesQ = query(
+      collection(db, "devices"),
+      where("userId", "==", share.ownerUid),
+    );
+    const ownerSnap = await getNotifDocsFastPreferServer(
+      ownerDevicesQ,
+      `shared-owner-devices:${share?.deviceId || "unknown"}`,
+      1500,
+    );
+    ownerSnap.docs.forEach((d) => {
+      const data = d.data() || {};
+      if (
+        data.platform === "chrome-extension" ||
+        data.platform === "chrome" ||
+        String(data.id || d.id || "").startsWith("ext_")
+      ) {
+        return;
+      }
+      const did = data.id || d.id;
+      if (did) ids.add(String(did));
     });
   } catch (_) {}
 

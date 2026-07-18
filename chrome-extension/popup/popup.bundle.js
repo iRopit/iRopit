@@ -21425,8 +21425,34 @@ ${this.customData.serverResponse}`;
     }
     return name5.substring(0, 2).toUpperCase();
   }
+  function buildDeterministicExtensionDeviceId(userId) {
+    const input = String(userId || "");
+    const fnv1a = (text, seed) => {
+      let hash = seed >>> 0;
+      for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+      }
+      return hash >>> 0;
+    };
+    const h1 = fnv1a(input, 2166136261).toString(36);
+    const h2 = fnv1a(input.split("").reverse().join(""), 2246822507).toString(36);
+    return `ext_${h1}${h2}`;
+  }
   async function getDeviceId(userId) {
-    const storageKey = userId ? `deviceId_${userId}` : "deviceId";
+    const resolvedUserId = String(userId || auth?.currentUser?.uid || "");
+    if (resolvedUserId) {
+      const deterministicId = buildDeterministicExtensionDeviceId(resolvedUserId);
+      try {
+        await chrome.storage.local.set({
+          [`deviceId_${resolvedUserId}`]: deterministicId,
+          deviceId: deterministicId
+        });
+      } catch (_) {
+      }
+      return deterministicId;
+    }
+    const storageKey = "deviceId";
     return new Promise((resolve) => {
       chrome.storage.local.get([storageKey], (result) => {
         if (result[storageKey]) {
@@ -21485,6 +21511,7 @@ ${this.customData.serverResponse}`;
   var init_helpers = __esm({
     "src/utils/helpers.js"() {
       init_i18n();
+      init_firebase();
     }
   });
 
@@ -21898,6 +21925,11 @@ ${this.customData.serverResponse}`;
     }
     return 0;
   }
+  function isExpectedChatPermissionTransitionError(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("permission-denied") || msg.includes("missing or insufficient permissions");
+  }
   function autoResizeChatInput() {
     if (!chatInput) return;
     const style = window.getComputedStyle(chatInput);
@@ -21986,6 +22018,10 @@ ${this.customData.serverResponse}`;
         }
       },
       (error) => {
+        if (isExpectedChatPermissionTransitionError(error)) {
+          console.info("[Chat] Realtime listener stopped after permission transition");
+          return;
+        }
         console.error("[Chat] Realtime listener error:", error);
         showToast("Chat sync error", "error");
       }
@@ -23345,6 +23381,28 @@ ${this.customData.serverResponse}`;
       console.info(message, details);
     } else {
       console.info(message);
+    }
+  }
+  async function getCallsDocsFastPreferServer(q2, keyPrefix, timeoutMs = 1500) {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+    });
+    try {
+      const snap = await Promise.race([
+        getServerCallsDocsWithAuthRetry(q2),
+        timeoutPromise
+      ]);
+      if (timer) clearTimeout(timer);
+      return snap;
+    } catch (serverErr) {
+      if (timer) clearTimeout(timer);
+      logCallsUnavailableOnce(
+        `${keyPrefix}:fast-fallback`,
+        `[Calls] Fast server query fallback for ${keyPrefix}, using local snapshot`,
+        serverErr?.message || serverErr?.code
+      );
+      return await getDocs(q2);
     }
   }
   async function getServerCallsDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
@@ -24841,7 +24899,11 @@ ${this.customData.serverResponse}`;
             where("sharedWithUid", "==", user.uid),
             limit(50)
           );
-          const idxSnap = await getDocsFromServer(idxQ);
+          const idxSnap = await getCallsDocsFastPreferServer(
+            idxQ,
+            `shared-idx:${share.deviceId}`,
+            1500
+          );
           idxSnap.docs.forEach((d) => {
             const data = d.data() || {};
             if (data.deviceId) {
@@ -24860,12 +24922,11 @@ ${this.customData.serverResponse}`;
             collection(db, "devices"),
             where("userId", "==", share.ownerUid)
           );
-          let ownerSnap;
-          try {
-            ownerSnap = await getDocsFromServer(ownerDevicesQ);
-          } catch (_) {
-            ownerSnap = await getDocs(ownerDevicesQ);
-          }
+          const ownerSnap = await getCallsDocsFastPreferServer(
+            ownerDevicesQ,
+            `shared-owner-devices:${share.deviceId}`,
+            1500
+          );
           ownerSnap.docs.forEach((d) => {
             const data = d.data() || {};
             if (data.platform === "chrome-extension" || data.platform === "chrome" || String(data.id || d.id || "").startsWith("ext_")) {
@@ -29159,6 +29220,28 @@ ${this.customData.serverResponse}`;
       console.info(message);
     }
   }
+  async function getNotifDocsFastPreferServer(q2, keyPrefix, timeoutMs = 1500) {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+    });
+    try {
+      const snap = await Promise.race([
+        getServerNotifDocsWithAuthRetry(q2),
+        timeoutPromise
+      ]);
+      if (timer) clearTimeout(timer);
+      return snap;
+    } catch (serverErr) {
+      if (timer) clearTimeout(timer);
+      logNotifUnavailableOnce(
+        `${keyPrefix}:fast-fallback`,
+        `[Notifs] Fast server query fallback for ${keyPrefix}, using local snapshot`,
+        serverErr?.message || serverErr?.code
+      );
+      return await getDocs(q2);
+    }
+  }
   async function getServerNotifDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
     let lastErr;
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -29243,7 +29326,11 @@ ${this.customData.serverResponse}`;
         where("sharedWithUid", "==", sharedWithUid),
         limit(50)
       );
-      const idxSnap = await getDocsFromServer(idxQ);
+      const idxSnap = await getNotifDocsFastPreferServer(
+        idxQ,
+        `shared-idx:${share?.deviceId || "unknown"}`,
+        1500
+      );
       idxSnap.docs.forEach((d) => {
         const data = d.data() || {};
         if (data.deviceId) {
@@ -29254,6 +29341,26 @@ ${this.customData.serverResponse}`;
         if (d.id && d.id.endsWith(suffix)) {
           ids.add(d.id.slice(0, -suffix.length));
         }
+      });
+    } catch (_) {
+    }
+    try {
+      const ownerDevicesQ = query(
+        collection(db, "devices"),
+        where("userId", "==", share.ownerUid)
+      );
+      const ownerSnap = await getNotifDocsFastPreferServer(
+        ownerDevicesQ,
+        `shared-owner-devices:${share?.deviceId || "unknown"}`,
+        1500
+      );
+      ownerSnap.docs.forEach((d) => {
+        const data = d.data() || {};
+        if (data.platform === "chrome-extension" || data.platform === "chrome" || String(data.id || d.id || "").startsWith("ext_")) {
+          return;
+        }
+        const did = data.id || d.id;
+        if (did) ids.add(String(did));
       });
     } catch (_) {
     }
@@ -34187,7 +34294,11 @@ ${this.customData.serverResponse}`;
   var isInitialAuthCheckDone = false;
   var stopAccountDocWatcher = null;
   var transientLogoutTimer = null;
+  var AUTH_SESSION_HINT_KEY = "authSessionHint";
   var explicitSignOutInProgress = false;
+  function markExplicitSignOutInProgress() {
+    explicitSignOutInProgress = true;
+  }
   function teardownAccountDocWatcher() {
     if (typeof stopAccountDocWatcher === "function") {
       try {
@@ -34456,7 +34567,18 @@ ${this.customData.serverResponse}`;
           resolve("");
         }
       });
-      if (platform === "mac") {
+      const isBrave = await new Promise((resolve) => {
+        try {
+          const braveApi = globalThis?.navigator?.brave;
+          if (braveApi?.isBrave) {
+            Promise.resolve(braveApi.isBrave()).then((v) => resolve(!!v)).catch(() => resolve(false));
+            return;
+          }
+        } catch (_) {
+        }
+        resolve(false);
+      });
+      if (platform === "mac" || isBrave) {
         const response = await chrome.runtime.sendMessage({ type: "googleSignIn" });
         if (!response?.success) {
           throw new Error(response?.error || "Sign-in failed");
@@ -34519,6 +34641,10 @@ ${this.customData.serverResponse}`;
           clearTimeout(transientLogoutTimer);
           transientLogoutTimer = null;
         }
+        try {
+          await chrome.storage.local.set({ [AUTH_SESSION_HINT_KEY]: user.uid || true });
+        } catch (_) {
+        }
         setCurrentUser(user);
         showMainUI();
         setupAccountDocWatcher(user);
@@ -34532,6 +34658,12 @@ ${this.customData.serverResponse}`;
         teardownAccountDocWatcher();
         const wasExplicit = explicitSignOutInProgress;
         explicitSignOutInProgress = false;
+        if (wasExplicit) {
+          try {
+            await chrome.storage.local.remove([AUTH_SESSION_HINT_KEY]);
+          } catch (_) {
+          }
+        }
         if (!wasExplicit && currentUser) {
           if (!transientLogoutTimer) {
             transientLogoutTimer = setTimeout(() => {
@@ -34660,6 +34792,8 @@ ${this.customData.serverResponse}`;
   var sharedCallsDeferredListenerAttached = false;
   var pendingSharedNotifsShares = null;
   var sharedNotifsDeferredListenerAttached = false;
+  var sharedWarmupTimerShort = null;
+  var sharedWarmupTimerLong = null;
   var ensuredShareIndexKeys = /* @__PURE__ */ new Set();
   var processedIncomingShareReqIds = /* @__PURE__ */ new Set();
   var incomingShareModalByKey = /* @__PURE__ */ new Map();
@@ -35141,15 +35275,53 @@ ${this.customData.serverResponse}`;
     }).catch(() => {
     });
   }
+  function scheduleSharedWarmupReconcile(shares) {
+    const safeShares = Array.isArray(shares) ? shares : [];
+    if (sharedWarmupTimerShort) {
+      clearTimeout(sharedWarmupTimerShort);
+      sharedWarmupTimerShort = null;
+    }
+    if (sharedWarmupTimerLong) {
+      clearTimeout(sharedWarmupTimerLong);
+      sharedWarmupTimerLong = null;
+    }
+    const runWarmup = () => {
+      if (safeShares.length === 0) return;
+      Promise.resolve().then(() => scheduleSharedSmsLoad(safeShares));
+      Promise.resolve().then(() => scheduleSharedNotificationsLoad(safeShares));
+      Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => {
+        if (m.forceReloadSharedCalls) {
+          return m.forceReloadSharedCalls(safeShares);
+        }
+        if (m.loadSharedDevicesCalls) {
+          return m.loadSharedDevicesCalls(safeShares);
+        }
+      }).catch(() => {
+      });
+    };
+    sharedWarmupTimerShort = setTimeout(runWarmup, 2500);
+    sharedWarmupTimerLong = setTimeout(runWarmup, 7e3);
+  }
   async function registerDevice() {
     const user = currentUser;
     if (!user) return;
     try {
       const deviceId = await getDeviceId(user.uid);
+      const isBrave = await (async () => {
+        try {
+          const braveApi = globalThis?.navigator?.brave;
+          if (braveApi?.isBrave) {
+            return !!await braveApi.isBrave();
+          }
+        } catch (_) {
+        }
+        return false;
+      })();
+      const extensionName = isBrave ? "Brave Extension" : "Chrome Extension";
       const deviceData = {
         id: deviceId,
         userId: user.uid,
-        name: "Chrome Extension",
+        name: extensionName,
         type: "chrome-extension",
         platform: "chrome-extension",
         model: navigator.userAgent,
@@ -35163,7 +35335,7 @@ ${this.customData.serverResponse}`;
         console.warn("[Device] merge write failed, overwriting:", mergeError?.code);
         await setDoc(existingDeviceRef, deviceData);
       }
-      console.log(`[Device] Registered/updated Chrome extension device: ${deviceId}`);
+      console.log(`[Device] Registered/updated ${extensionName} device: ${deviceId}`);
       cleanupDuplicateExtensions(user.uid, deviceId).catch(
         (e) => console.warn("[Device] cleanup duplicates failed (non-critical):", e?.code)
       );
@@ -35433,6 +35605,7 @@ ${this.customData.serverResponse}`;
         Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
         Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares))
       ]);
+      scheduleSharedWarmupReconcile(shares);
     };
     const enrichSharedWithMeShares = async (shares) => {
       const enrichedRaw = await Promise.all(shares.map(async (share) => {
@@ -36382,14 +36555,21 @@ ${this.customData.serverResponse}`;
     const user = currentUser;
     if (!user || !docId) return;
     const currentDeviceId = await getDeviceId(user.uid);
-    const isOwnDevice = deviceId === currentDeviceId;
+    const isOwnDevice = docId === currentDeviceId || deviceId === currentDeviceId;
     showLoadingOverlay();
     try {
       await deleteDoc(doc(db, "devices", docId));
       if (isOwnDevice) {
+        markExplicitSignOutInProgress();
         if (typeof chrome !== "undefined" && chrome.identity) {
           chrome.identity.getAuthToken({ interactive: false }, (token) => {
-            if (token) chrome.identity.removeCachedAuthToken({ token });
+            const err = chrome.runtime.lastError;
+            if (err) return;
+            if (token) {
+              chrome.identity.removeCachedAuthToken({ token }, () => {
+                void chrome.runtime.lastError;
+              });
+            }
           });
         }
         await signOut(auth);
@@ -37308,7 +37488,13 @@ ${this.customData.serverResponse}`;
       await auth.currentUser.delete();
       if (typeof chrome !== "undefined" && chrome.identity) {
         chrome.identity.getAuthToken({ interactive: false }, (token) => {
-          if (token) chrome.identity.removeCachedAuthToken({ token });
+          const err = chrome.runtime.lastError;
+          if (err) return;
+          if (token) {
+            chrome.identity.removeCachedAuthToken({ token }, () => {
+              void chrome.runtime.lastError;
+            });
+          }
         });
       }
       await signOut(auth);
@@ -37594,6 +37780,8 @@ ${this.customData.serverResponse}`;
   }
   async function showCachedDataBeforeAuth() {
     try {
+      const authHint = await chrome.storage.local.get(["authSessionHint"]);
+      if (!authHint?.authSessionHint) return;
       await hydrateCachedContactsMap();
       const [smsCache, callsCache, notifCache] = await Promise.all([
         getCachedSMS(),

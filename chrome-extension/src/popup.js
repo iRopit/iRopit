@@ -258,6 +258,9 @@ async function loadDevicesAndContacts() {
  */
 async function showCachedDataBeforeAuth() {
   try {
+    const authHint = await chrome.storage.local.get(["authSessionHint"]);
+    if (!authHint?.authSessionHint) return;
+
     await hydrateCachedContactsMap();
 
     const [smsCache, callsCache, notifCache] = await Promise.all([

@@ -58,6 +58,12 @@ function toTimestampMs(ts) {
   return 0;
 }
 
+function isExpectedChatPermissionTransitionError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return code.includes("permission-denied") || msg.includes("missing or insufficient permissions");
+}
+
 /**
  * Auto-resize chat input so it grows upward smoothly until max height.
  */
@@ -174,6 +180,12 @@ export function subscribeToChat() {
       }
     },
     (error) => {
+      if (isExpectedChatPermissionTransitionError(error)) {
+        // Expected when the current extension device is removed and auth/session
+        // is transitioning to sign-out. Avoid noisy error toasts in that path.
+        console.info("[Chat] Realtime listener stopped after permission transition");
+        return;
+      }
       console.error("[Chat] Realtime listener error:", error);
       showToast("Chat sync error", "error");
     },

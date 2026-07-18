@@ -252,7 +252,13 @@ async function deleteAccount() {
     // 4. Revoke Chrome identity token & sign out
     if (typeof chrome !== "undefined" && chrome.identity) {
       chrome.identity.getAuthToken({ interactive: false }, (token) => {
-        if (token) chrome.identity.removeCachedAuthToken({ token })
+        const err = chrome.runtime.lastError
+        if (err) return
+        if (token) {
+          chrome.identity.removeCachedAuthToken({ token }, () => {
+            void chrome.runtime.lastError
+          })
+        }
       })
     }
     await signOut(auth)

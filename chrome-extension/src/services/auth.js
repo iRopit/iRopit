@@ -52,6 +52,7 @@ import * as state from "../state/index.js";
 let isInitialAuthCheckDone = false;
 let stopAccountDocWatcher = null;
 let transientLogoutTimer = null;
+const AUTH_SESSION_HINT_KEY = "authSessionHint";
 
 // True only while an EXPLICIT sign-out is in progress (user pressed logout, or
 // the account was deleted/revoked). Transient auth-null events (token refresh,
@@ -67,6 +68,14 @@ let explicitSignOutInProgress = false;
  */
 export function isExplicitSignOut() {
   return explicitSignOutInProgress;
+}
+
+/**
+ * Mark that an explicit sign-out flow is underway (used by non-auth modules
+ * that intentionally terminate the current session, such as device deletion).
+ */
+export function markExplicitSignOutInProgress() {
+  explicitSignOutInProgress = true;
 }
 
 function teardownAccountDocWatcher() {
@@ -442,7 +451,22 @@ async function handleGoogleSignIn() {
       }
     });
 
-    if (platform === "mac") {
+    const isBrave = await new Promise((resolve) => {
+      try {
+        const braveApi = globalThis?.navigator?.brave;
+        if (braveApi?.isBrave) {
+          Promise.resolve(braveApi.isBrave())
+            .then((v) => resolve(!!v))
+            .catch(() => resolve(false));
+          return;
+        }
+      } catch (_) {
+        // Fall through to default false.
+      }
+      resolve(false);
+    });
+
+    if (platform === "mac" || isBrave) {
       // Delegate to the service worker. If the popup is destroyed while the
       // chooser is open, this promise is lost but the worker still completes
       // the sign-in; the auth observer shows the main UI on next popup open.
@@ -552,6 +576,9 @@ export function initAuthObserver(onLogin, onLogout) {
         clearTimeout(transientLogoutTimer);
         transientLogoutTimer = null;
       }
+      try {
+        await chrome.storage.local.set({ [AUTH_SESSION_HINT_KEY]: user.uid || true });
+      } catch (_) {}
       state.setCurrentUser(user);
       showMainUI();
       setupAccountDocWatcher(user);
@@ -569,6 +596,12 @@ export function initAuthObserver(onLogin, onLogout) {
       // auth-null event is not mistaken for a real sign-out.
       const wasExplicit = explicitSignOutInProgress;
       explicitSignOutInProgress = false;
+
+      if (wasExplicit) {
+        try {
+          await chrome.storage.local.remove([AUTH_SESSION_HINT_KEY]);
+        } catch (_) {}
+      }
 
       // If we previously had an authenticated session and this wasn't explicit,
       // treat auth-null as potentially transient (token refresh / MV3 wake race).

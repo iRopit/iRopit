@@ -2,6 +2,7 @@
  * Utility helper functions
  */
 import { getCurrentLanguage, translations } from "./i18n.js";
+import { auth } from "../config/firebase.js";
 
 /**
  * Escape HTML special characters to prevent XSS
@@ -122,12 +123,55 @@ export function getInitials(name) {
 }
 
 /**
- * Generate unique device ID for this extension
+ * Build a deterministic extension device ID for a user ID.
+ * Using a stable ID keeps one desktop-extension device entry even when
+ * the same account is used from multiple Chromium browsers (Chrome/Brave).
+ * @param {string} userId - Firebase user ID
+ * @returns {string} Deterministic extension device ID
+ */
+function buildDeterministicExtensionDeviceId(userId) {
+  const input = String(userId || "");
+
+  // Two lightweight FNV-1a passes to reduce collision risk for short IDs.
+  const fnv1a = (text, seed) => {
+    let hash = seed >>> 0;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+  };
+
+  const h1 = fnv1a(input, 2166136261).toString(36);
+  const h2 = fnv1a(input.split("").reverse().join(""), 2246822507).toString(36);
+  return `ext_${h1}${h2}`;
+}
+
+/**
+ * Generate extension device ID
  * @returns {Promise<string>} Device ID
  */
 export async function getDeviceId(userId) {
-  // Use a per-user key so different accounts don't share a device ID
-  const storageKey = userId ? `deviceId_${userId}` : "deviceId";
+  // Prefer explicit userId, otherwise read from current auth user.
+  const resolvedUserId = String(userId || auth?.currentUser?.uid || "");
+
+  // When authenticated, always use deterministic per-account ID so the same
+  // account maps to one extension device across Chrome/Brave profiles.
+  if (resolvedUserId) {
+    const deterministicId = buildDeterministicExtensionDeviceId(resolvedUserId);
+    try {
+      await chrome.storage.local.set({
+        [`deviceId_${resolvedUserId}`]: deterministicId,
+        deviceId: deterministicId,
+      });
+    } catch (_) {
+      // Best-effort cache only.
+    }
+    return deterministicId;
+  }
+
+  // Fallback for unauthenticated paths.
+  const storageKey = "deviceId";
   return new Promise((resolve) => {
     chrome.storage.local.get([storageKey], (result) => {
       if (result[storageKey]) {
