@@ -11,6 +11,7 @@ import { useSMSStore } from '../../../store/smsStore';
 import { useCallStore } from '../../../store/callStore';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
+import { useDeviceFilterStore } from '../../../store/deviceFilterStore';
 import { useContactStore } from '../../../store/contactStore';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AlertService } from '../../../components/shared';
@@ -44,11 +45,36 @@ export const useNotificationsScreen = (
   const { addCallAndSync } = useCallStore();
   const { user } = useAuthStore();
   const { currentDevice, devices, loadDevices } = useDeviceStore();
+  const persistedSmsDeviceId = useDeviceFilterStore(state => state.smsDeviceId);
+  const persistedNotificationsDeviceId = useDeviceFilterStore(
+    state => state.notificationsDeviceId,
+  );
+  const setPersistedSmsDeviceId = useDeviceFilterStore(
+    state => state.setSmsDeviceId,
+  );
+  const setPersistedNotificationsDeviceId = useDeviceFilterStore(
+    state => state.setNotificationsDeviceId,
+  );
   const { contacts } = useContactStore();
   const { isRTL, colors, isDarkMode } = useTheme();
 
-  // Device filter state - default to current device
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  // Persist selected device so filter survives tab/screen navigation.
+  const selectedDeviceId =
+    filterType === 'sms' ? persistedSmsDeviceId : persistedNotificationsDeviceId;
+  const setSelectedDeviceId = useCallback(
+    (deviceId: string | null) => {
+      if (filterType === 'sms') {
+        setPersistedSmsDeviceId(deviceId);
+        return;
+      }
+      setPersistedNotificationsDeviceId(deviceId);
+    },
+    [
+      filterType,
+      setPersistedSmsDeviceId,
+      setPersistedNotificationsDeviceId,
+    ],
+  );
   const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
   const smsDeviceId =
     filterType === 'sms'
@@ -67,11 +93,13 @@ export const useNotificationsScreen = (
     [],
   );
   const lastSmsLoadKeyRef = useRef<string>('');
+  const notificationsListenerGenerationRef = useRef(0);
 
   useEffect(() => {
     // Force a clean fetch path when the device filter changes.
     // Without this, a transient empty snapshot can leave stale data visible.
     lastSmsLoadKeyRef.current = '';
+    notificationsListenerGenerationRef.current += 1;
     setInitialLoading(true);
 
     if (filterType === 'sms') {
@@ -523,6 +551,10 @@ export const useNotificationsScreen = (
   useEffect(() => {
     if (!user || !currentDevice || !activeDeviceId) return;
 
+    const listenerGeneration = ++notificationsListenerGenerationRef.current;
+    const isStaleListener =
+      () => listenerGeneration !== notificationsListenerGenerationRef.current;
+
     const unsubscribe = firestore()
       .collection('users')
       .doc(user.uid)
@@ -533,6 +565,8 @@ export const useNotificationsScreen = (
       .limit(10000)
       .onSnapshot(
         snapshot => {
+          if (isStaleListener()) return;
+
           const mapped: AppNotification[] = [];
           snapshot.forEach(doc => {
             const data = doc.data();
@@ -570,12 +604,18 @@ export const useNotificationsScreen = (
         _error => {},
       );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      notificationsListenerGenerationRef.current += 1;
+    };
   }, [user, currentDevice, setNotifications, activeDeviceId]);
 
   // Listen for new notifications
   useEffect(() => {
     if (!hasPermission) return;
+
+    const shouldProjectLiveToCurrentView =
+      !selectedDeviceId || selectedDeviceId === currentDevice?.id;
 
     const unsubscribe = notificationService.onNotificationReceived(
       notification => {
@@ -635,7 +675,9 @@ export const useNotificationsScreen = (
           return;
         }
 
-        addNotification(notification);
+        if (shouldProjectLiveToCurrentView) {
+          addNotification(notification);
+        }
         saveToFirebase(notification);
       },
     );
@@ -647,6 +689,7 @@ export const useNotificationsScreen = (
     addCallAndSync,
     user,
     currentDevice,
+    selectedDeviceId,
   ]);
 
   return {

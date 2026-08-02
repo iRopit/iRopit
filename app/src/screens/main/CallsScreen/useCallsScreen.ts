@@ -8,6 +8,7 @@ import { AlertService } from '../../../components/shared';
 import { GroupedCall } from './types';
 import { useCallStore } from '../../../store';
 import { useDeviceStore } from '../../../store/deviceStore';
+import { useDeviceFilterStore } from '../../../store/deviceFilterStore';
 import useNativeEvents from '../../../hooks';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -30,8 +31,9 @@ export const useCallsScreen = () => {
   const { currentDevice, devices, loadDevices } = useDeviceStore();
   const { isRTL, isDarkMode, colors } = useTheme();
 
-  // Device filter state - default to current device
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  // Persist selected device so leaving/returning to the tab keeps the same filter.
+  const selectedDeviceId = useDeviceFilterStore(state => state.callsDeviceId);
+  const setSelectedDeviceId = useDeviceFilterStore(state => state.setCallsDeviceId);
   const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
 
   // Local state
@@ -57,34 +59,45 @@ export const useCallsScreen = () => {
 
   // Initialize call listener
   const initializeCallListener = useCallback(async () => {
+    // Attach the Firestore listener first so selected-device calls appear
+    // immediately; do not block on native top-up sync.
+    loadCalls(activeDeviceId || undefined);
+
     if (Platform.OS === 'android') {
       await requestPermissions();
 
       // Lightweight top-up sync to avoid stale Calls tab when a realtime
       // write/event is missed while app was backgrounded.
       try {
-        const { CallLogModule } = NativeModules;
-        const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
-        if (recentNativeCalls.length > 0) {
-          await syncCalls(recentNativeCalls);
+        // Native call log is only for the current physical device; skip this
+        // when viewing another selected device to avoid unrelated delay.
+        if (!activeDeviceId || activeDeviceId === currentDevice?.id) {
+          const { CallLogModule } = NativeModules;
+          const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
+          if (recentNativeCalls.length > 0) {
+            await syncCalls(recentNativeCalls);
+          }
         }
       } catch (_) {}
     }
-    loadCalls(activeDeviceId || undefined);
-  }, [requestPermissions, loadCalls, activeDeviceId, syncCalls]);
+  }, [requestPermissions, loadCalls, activeDeviceId, syncCalls, currentDevice?.id]);
 
   const refreshCalls = useCallback(async () => {
+    // Refresh selected-device listener immediately.
+    loadCalls(activeDeviceId || undefined);
+
     if (Platform.OS === 'android') {
       try {
-        const { CallLogModule } = NativeModules;
-        const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
-        if (recentNativeCalls.length > 0) {
-          await syncCalls(recentNativeCalls);
+        if (!activeDeviceId || activeDeviceId === currentDevice?.id) {
+          const { CallLogModule } = NativeModules;
+          const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
+          if (recentNativeCalls.length > 0) {
+            await syncCalls(recentNativeCalls);
+          }
         }
       } catch (_) {}
     }
-    loadCalls(activeDeviceId || undefined);
-  }, [loadCalls, activeDeviceId, syncCalls]);
+  }, [loadCalls, activeDeviceId, syncCalls, currentDevice?.id]);
 
   useEffect(() => {
     initializeCallListener();

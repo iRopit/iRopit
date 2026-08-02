@@ -8,8 +8,11 @@ import { useAuthStore } from './authStore';
 import { useDeviceStore } from './deviceStore';
 import { encryptCall, decryptCall } from '../services/cryptoService';
 
+let callListenerGeneration = 0;
+
 interface CallState {
   calls: CallLog[];
+  activeDeviceId: string | null;
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
@@ -31,6 +34,7 @@ export const useCallStore = create<CallState>()(
   persist(
     (set, get) => ({
       calls: [],
+      activeDeviceId: null,
       isLoading: false,
       isSyncing: false,
       error: null,
@@ -41,7 +45,12 @@ export const useCallStore = create<CallState>()(
       },
 
       addCall: (call: CallLog) => {
-        const { calls } = get();
+        const { calls, activeDeviceId } = get();
+        const callDeviceId = (call as any).deviceId;
+        if (activeDeviceId && callDeviceId && callDeviceId !== activeDeviceId) {
+          return;
+        }
+
         // تجنب التكرار
         if (!calls.find(c => c.id === call.id)) {
           set({ calls: [call, ...calls] });
@@ -50,11 +59,14 @@ export const useCallStore = create<CallState>()(
 
       // إضافة مكالمة وحفظها في Firebase مباشرة
       addCallAndSync: async (call: CallLog, userId: string) => {
-        const { calls } = get();
+        const { calls, activeDeviceId } = get();
         const { currentDevice } = useDeviceStore.getState();
+        const callDeviceId = (call as any).deviceId || currentDevice?.id;
+        const shouldProjectInCurrentView =
+          !activeDeviceId || !callDeviceId || callDeviceId === activeDeviceId;
 
         // تجنب التكرار
-        if (!calls.find(c => c.id === call.id)) {
+        if (shouldProjectInCurrentView && !calls.find(c => c.id === call.id)) {
           set({ calls: [call, ...calls] });
         }
 
@@ -163,6 +175,11 @@ export const useCallStore = create<CallState>()(
         if (!user || !currentDevice) return;
 
         const deviceId = deviceIdParam || currentDevice.id;
+        const previousDeviceId = get().activeDeviceId;
+        const isSwitchingDevice =
+          !!previousDeviceId && previousDeviceId !== deviceId;
+        const listenerGeneration = ++callListenerGeneration;
+        const isStaleListener = () => listenerGeneration !== callListenerGeneration;
 
         // Unsubscribe from previous listener
         const { unsubscribe: prevUnsubscribe } = get();
@@ -170,7 +187,11 @@ export const useCallStore = create<CallState>()(
           prevUnsubscribe();
         }
 
-        set({ isLoading: true });
+        set({
+          isLoading: true,
+          activeDeviceId: deviceId,
+          calls: isSwitchingDevice ? [] : get().calls,
+        });
 
         const isLikelyCallPayload = (data: any): boolean => {
           if (!data || typeof data !== 'object') return false;
@@ -227,6 +248,8 @@ export const useCallStore = create<CallState>()(
           .limit(CALL_PAGE_SIZE)
           .onSnapshot(
             async snapshot => {
+              if (isStaleListener()) return;
+
               if (isInitialSnapshot) {
                 isInitialSnapshot = false;
 
@@ -250,14 +273,29 @@ export const useCallStore = create<CallState>()(
                 // freeze the JS thread and cause navigation lag.
                 const DECRYPT_CHUNK = 100;
                 const calls: CallLog[] = [];
+                let hasRenderedProgressive = false;
                 for (let i = 0; i < rawCalls.length; i += DECRYPT_CHUNK) {
                   const chunk = rawCalls.slice(i, i + DECRYPT_CHUNK);
                   const decryptedChunk = (await Promise.all(
                     chunk.map(call => decryptCallWithTimeout(call)),
                   )) as CallLog[];
                   calls.push(...decryptedChunk);
+
+                  // Render the first chunks progressively so selected-device
+                  // lists don't stay blank while the whole history decrypts.
+                  if (!hasRenderedProgressive || i % (DECRYPT_CHUNK * 3) === 0) {
+                    const progressive = [...calls];
+                    progressive.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    if (isStaleListener()) return;
+                    set({ calls: progressive, isLoading: false });
+                    hasRenderedProgressive = true;
+                  }
+
                   await new Promise(resolve => setTimeout(resolve, 0));
+                  if (isStaleListener()) return;
                 }
+                if (isStaleListener()) return;
+                calls.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 set({ calls, isLoading: false });
                 return;
               }
@@ -286,6 +324,7 @@ export const useCallStore = create<CallState>()(
                 const newCalls = (await Promise.all(
                   rawNew.map(call => decryptCallWithTimeout(call)),
                 )) as CallLog[];
+                if (isStaleListener()) return;
 
                 const { calls: currentCalls } = get();
                 const callsMap = new Map(currentCalls.map(c => [c.id, c]));
@@ -294,6 +333,7 @@ export const useCallStore = create<CallState>()(
                 }
                 const merged = Array.from(callsMap.values());
                 merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if (isStaleListener()) return;
                 set({ calls: merged });
                 return;
               }
@@ -323,6 +363,7 @@ export const useCallStore = create<CallState>()(
                 const fromSnapshot = mapped
                   .filter(r => r.status === 'fulfilled' && !!r.value)
                   .map((r: any) => r.value as CallLog);
+                if (isStaleListener()) return;
 
                 if (fromSnapshot.length > 0) {
                   const { calls: currentCalls } = get();
@@ -332,11 +373,13 @@ export const useCallStore = create<CallState>()(
                   }
                   const snapshotMerged = Array.from(snapshotMap.values());
                   snapshotMerged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                  if (isStaleListener()) return;
                   set({ calls: snapshotMerged });
                 }
               }
             },
             error => {
+              if (isStaleListener()) return;
               set({ error: error.message, isLoading: false });
             },
           );
@@ -493,10 +536,11 @@ export const useCallStore = create<CallState>()(
       },
 
       cleanup: () => {
+        callListenerGeneration++;
         const { unsubscribe } = get();
         if (unsubscribe) {
           unsubscribe();
-          set({ unsubscribe: null });
+          set({ unsubscribe: null, activeDeviceId: null });
         }
       },
     }),

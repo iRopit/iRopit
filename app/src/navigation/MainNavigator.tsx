@@ -11,6 +11,7 @@ import { useDeviceStore } from '../store/deviceStore';
 import { useCallStore } from '../store/callStore';
 import { useSMSStore } from '../store/smsStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useDeviceFilterStore } from '../store/deviceFilterStore';
 import { LIGHT_COLORS, DARK_COLORS } from '../theme/colors';
 import { navigationRef } from './navigationRef';
 // ServiceStatusBanner removed - permissions are handled in onboarding
@@ -30,6 +31,8 @@ const MainNavigator = () => {
   const insets = useSafeAreaInsets();
   const user = useAuthStore(s => s.user);
   const currentDevice = useDeviceStore(s => s.currentDevice);
+  const selectedCallsDeviceId = useDeviceFilterStore(s => s.callsDeviceId);
+  const selectedSmsDeviceId = useDeviceFilterStore(s => s.smsDeviceId);
   const prefetched = useRef(false);
 
   // Back button: only exit the app when on a top-level tab (nothing to go back to).
@@ -53,10 +56,10 @@ const MainNavigator = () => {
   useEffect(() => {
     if (prefetched.current || !user || !currentDevice) return;
     prefetched.current = true;
-    useCallStore.getState().loadCalls();
-    useSMSStore.getState().loadMessages();
+    useCallStore.getState().loadCalls(selectedCallsDeviceId || undefined);
+    useSMSStore.getState().loadMessages(selectedSmsDeviceId || undefined);
     useNotificationStore.getState().syncFromFirebase(user.uid);
-  }, [user, currentDevice]);
+  }, [user, currentDevice, selectedCallsDeviceId, selectedSmsDeviceId]);
 
   // Re-establish Firestore listeners when app comes back to foreground.
   // Firestore connections can go stale when the OS throttles background
@@ -71,14 +74,14 @@ const MainNavigator = () => {
           appStateRef.current !== 'active' &&
           nextState === 'active'
         ) {
-          useCallStore.getState().loadCalls();
-          useSMSStore.getState().loadMessages();
+          useCallStore.getState().loadCalls(selectedCallsDeviceId || undefined);
+          useSMSStore.getState().loadMessages(selectedSmsDeviceId || undefined);
         }
         appStateRef.current = nextState;
       },
     );
     return () => subscription.remove();
-  }, [user, currentDevice]);
+  }, [user, currentDevice, selectedCallsDeviceId, selectedSmsDeviceId]);
 
   // Define tabs in order - will be reversed for LTR
   const tabs = [

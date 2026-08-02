@@ -27,6 +27,7 @@ const SMS_INITIAL_LOAD_LIMIT = 2000;
 
 // Track if SMS requests listener is already active
 let smsRequestsUnsubscribe: (() => void) | null = null;
+let smsListenerGeneration = 0;
 
 // Normalize phone number for comparison (remove +, spaces, dashes, etc.)
 const normalizePhoneNumber = (phone: string): string => {
@@ -121,7 +122,13 @@ export const useSMSStore = create<SMSState>()(
       },
 
       addMessage: (message: SMS) => {
-        const { messages } = get();
+        const { messages, smsDebug } = get();
+        const activeDeviceId = smsDebug.deviceId;
+        const messageDeviceId = (message as any).deviceId;
+        if (activeDeviceId && messageDeviceId && messageDeviceId !== activeDeviceId) {
+          return;
+        }
+
         // تجنب التكرار
         if (!messages.find(m => m.id === message.id)) {
           set({ messages: [message, ...messages] });
@@ -130,11 +137,16 @@ export const useSMSStore = create<SMSState>()(
 
       // إضافة رسالة وحفظها في Firebase مباشرة
       addMessageAndSync: async (message: SMS, userId: string) => {
-        const { messages } = get();
+        const { messages, smsDebug } = get();
         let { currentDevice } = useDeviceStore.getState();
+        const activeDeviceId = smsDebug.deviceId;
+        const messageDeviceId =
+          (message as any).deviceId || currentDevice?.id || null;
+        const shouldProjectInCurrentView =
+          !activeDeviceId || !messageDeviceId || messageDeviceId === activeDeviceId;
 
         // تجنب التكرار
-        if (!messages.find(m => m.id === message.id)) {
+        if (shouldProjectInCurrentView && !messages.find(m => m.id === message.id)) {
           set({ messages: [message, ...messages] });
         } else {
         }
@@ -254,6 +266,13 @@ export const useSMSStore = create<SMSState>()(
           return;
         }
 
+        const listenerGeneration = ++smsListenerGeneration;
+        const isStaleListener = () => listenerGeneration !== smsListenerGeneration;
+        const setIfCurrent = (updater: any) => {
+          if (isStaleListener()) return;
+          set(updater);
+        };
+
         const targetDeviceIds = [deviceIdParam || currentDevice.id];
         const targetDeviceId = targetDeviceIds[0] || null;
         const previousDeviceId = get().smsDebug.deviceId;
@@ -267,7 +286,7 @@ export const useSMSStore = create<SMSState>()(
           prevUnsubscribe();
         }
 
-        set({
+        setIfCurrent({
           messages: isSwitchingDevice ? [] : get().messages,
           oldestMessageTimestamp: isSwitchingDevice ? null : get().oldestMessageTimestamp,
           isLoading: true,
@@ -350,6 +369,7 @@ export const useSMSStore = create<SMSState>()(
         let attemptedNativeFallback = false;
 
         const tryNativeFallbackIfEmpty = async () => {
+          if (isStaleListener()) return;
           if (attemptedNativeFallback) return;
           attemptedNativeFallback = true;
 
@@ -366,7 +386,7 @@ export const useSMSStore = create<SMSState>()(
             );
             if (!hasSmsPermission) return;
 
-            set(state => ({
+            setIfCurrent((state: SMSState) => ({
               smsDebug: { ...state.smsDebug, source: 'native-fallback-check' },
             }));
 
@@ -396,7 +416,8 @@ export const useSMSStore = create<SMSState>()(
             const merged = mergeByIdKeepNewest(existing, nativeMessages);
             merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            set({
+            if (isStaleListener()) return;
+            setIfCurrent({
               messages: merged,
               oldestMessageTimestamp:
                 merged.length > 0
@@ -418,6 +439,7 @@ export const useSMSStore = create<SMSState>()(
         };
 
         const mergeAllDevices = () => {
+          if (isStaleListener()) return;
           let merged: SMS[] = [];
           messagesByDevice.forEach(deviceMsgs => {
             merged = merged.concat(deviceMsgs);
@@ -429,7 +451,7 @@ export const useSMSStore = create<SMSState>()(
           // instead of flashing to an empty screen.
           const { messages: existingMessages } = get();
           if (!isSwitchingDevice && merged.length === 0 && existingMessages.length > 0) {
-            set({
+            setIfCurrent({
               isLoading: pendingInitial > 0,
               hasMoreMessages: Array.from(hasMoreByDevice.values()).some(Boolean),
               smsDebug: {
@@ -446,7 +468,7 @@ export const useSMSStore = create<SMSState>()(
               ? Math.min(...merged.map(m => m.timestamp || Infinity))
               : null;
 
-          set({
+          setIfCurrent({
             messages: merged,
             oldestMessageTimestamp: oldestTs,
             hasMoreMessages: Array.from(hasMoreByDevice.values()).some(Boolean),
@@ -471,6 +493,8 @@ export const useSMSStore = create<SMSState>()(
             .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
             .onSnapshot(
               async snapshot => {
+                if (isStaleListener()) return;
+
                 if (isInitialSnapshot) {
                   isInitialSnapshot = false;
 
@@ -482,7 +506,7 @@ export const useSMSStore = create<SMSState>()(
                         rawMessages.push({ ...data, id: doc.id });
                       }
                     });
-                    set(state => ({
+                    setIfCurrent((state: SMSState) => ({
                       smsDebug: {
                         ...state.smsDebug,
                         strictDocs: rawMessages.length,
@@ -517,7 +541,7 @@ export const useSMSStore = create<SMSState>()(
                           relaxedCount++;
                         }
                       });
-                      set(state => ({
+                      setIfCurrent((state: SMSState) => ({
                         smsDebug: {
                           ...state.smsDebug,
                           relaxedDocs: relaxedCount,
@@ -542,7 +566,7 @@ export const useSMSStore = create<SMSState>()(
                         rawMessages.push({ ...doc.data(), id: doc.id });
                         legacyCount++;
                       });
-                      set(state => ({
+                      setIfCurrent((state: SMSState) => ({
                         smsDebug: {
                           ...state.smsDebug,
                           legacyDocs: legacyCount,
@@ -552,6 +576,7 @@ export const useSMSStore = create<SMSState>()(
                     } catch (_) {}
                   }
 
+                      if (isStaleListener()) return;
                     const DECRYPT_CHUNK = 50;
                     const mergedMessages: any[] = [...rawMessages];
                     let successfulDecrypts = 0;
@@ -590,6 +615,7 @@ export const useSMSStore = create<SMSState>()(
                       // Progressive render so user sees SMS quickly instead of waiting
                       // for full decryption of a huge initial dataset.
                       if (mergedMessages.length > 0 && (i === 0 || i % (DECRYPT_CHUNK * 5) === 0)) {
+                          if (isStaleListener()) return;
                         const progressiveSms: SMS[] = mergedMessages.map(toSMS);
                         const seenProgressive = new Set<string>();
                         const progressiveDeduped = progressiveSms.filter(m => {
@@ -604,7 +630,7 @@ export const useSMSStore = create<SMSState>()(
                         progressiveDeduped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                         messagesByDevice.set(targetDeviceId, progressiveDeduped);
                         mergeAllDevices();
-                        set(state => ({
+                        setIfCurrent((state: SMSState) => ({
                           smsDebug: {
                             ...state.smsDebug,
                             decryptedDocs: successfulDecrypts,
@@ -614,8 +640,9 @@ export const useSMSStore = create<SMSState>()(
                       }
 
                       await new Promise(resolve => setTimeout(resolve, 0));
+                      if (isStaleListener()) return;
                     }
-                    set(state => ({
+                    setIfCurrent((state: SMSState) => ({
                       smsDebug: {
                         ...state.smsDebug,
                         decryptedDocs: successfulDecrypts,
@@ -652,7 +679,8 @@ export const useSMSStore = create<SMSState>()(
                     return;
                   } catch (e: any) {
                     pendingInitial = Math.max(0, pendingInitial - 1);
-                    set(state => ({
+                    if (isStaleListener()) return;
+                    setIfCurrent((state: SMSState) => ({
                       isLoading: pendingInitial > 0,
                       smsDebug: {
                         ...state.smsDebug,
@@ -677,6 +705,7 @@ export const useSMSStore = create<SMSState>()(
                 const decrypted = await Promise.all(
                   rawNew.map(msg => decryptWithTimeout(msg)),
                 );
+                if (isStaleListener()) return;
                 const newMessages: SMS[] = decrypted.map(toSMS);
 
                 const existing = messagesByDevice.get(targetDeviceId) || [];
@@ -686,6 +715,7 @@ export const useSMSStore = create<SMSState>()(
                 mergeAllDevices();
               },
               error => {
+                if (isStaleListener()) return;
                 pendingInitial = Math.max(0, pendingInitial - 1);
                 set({
                   error: error.message,
@@ -1175,6 +1205,7 @@ export const useSMSStore = create<SMSState>()(
       },
 
       cleanup: () => {
+        smsListenerGeneration++;
         const { unsubscribe } = get();
         if (unsubscribe) {
           unsubscribe();
