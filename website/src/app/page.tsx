@@ -168,6 +168,54 @@ const stats = [
   { value: "100%", label: "Free to Use", icon: Globe },
 ];
 
+const comparisonRows = [
+  {
+    feature: "Notifications Sync",
+    iRopit: true,
+    pushbullet: true,
+  },
+  {
+    feature: "SMS Sync",
+    iRopit: true,
+    pushbullet: true,
+  },
+  {
+    feature: "Call Notifications",
+    iRopit: true,
+    pushbullet: true,
+  },
+  {
+    feature: "Browser Support (Chrome, Brave, Edge, Opera)",
+    iRopit: true,
+    pushbullet: true,
+  },
+  {
+    feature: "Device Sharing",
+    iRopit: true,
+    pushbullet: false,
+  },
+  {
+    feature: "Financial Insights from Bank SMS",
+    iRopit: true,
+    pushbullet: false,
+  },
+  {
+    feature: "Copy OTP from SMS",
+    iRopit: true,
+    pushbullet: false,
+  },
+  {
+    feature: "Auto-open Received Links",
+    iRopit: true,
+    pushbullet: false,
+  },
+  {
+    feature: "Multiple Android Devices",
+    iRopit: true,
+    pushbullet: "Limited",
+  },
+] as const;
+
 const faqs = [
   {
     q: "What is iRopit?",
@@ -752,6 +800,138 @@ export default function HomePage() {
               <span className="text-sm font-medium">Privacy First</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ====== COMPARISON SECTION ====== */}
+      <section className="py-20 lg:py-24 bg-surface-secondary/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <AnimatedSection className="mb-10 sm:mb-12">
+            <div className="max-w-3xl">
+              <span className="inline-block text-sm font-semibold text-primary-dark bg-primary-soft px-4 py-1.5 rounded-full mb-4">
+                Why Choose iRopit?
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-bold text-txt mb-4">
+                More Than a Pushbullet Alternative
+              </h2>
+              <p className="text-lg text-txt-secondary leading-relaxed">
+                iRopit includes all the core sync capabilities you expect, then
+                goes further with practical tools for daily productivity.
+              </p>
+            </div>
+          </AnimatedSection>
+
+          <AnimatedSection delay={0.1}>
+            <div className="hidden md:block rounded-[var(--radius-xl)] border border-border bg-surface overflow-hidden shadow-sm">
+              <table className="w-full">
+                <thead className="bg-bg border-b border-border">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-txt">
+                      Feature
+                    </th>
+                    <th className="text-center px-6 py-4 text-sm font-semibold text-primary-dark">
+                      iRopit
+                    </th>
+                    <th className="text-center px-6 py-4 text-sm font-semibold text-txt-secondary">
+                      Pushbullet
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonRows.map((row, index) => (
+                    <tr
+                      key={row.feature}
+                      className={
+                        index !== comparisonRows.length - 1
+                          ? "border-b border-border"
+                          : ""
+                      }
+                    >
+                      <td className="px-6 py-4 text-sm text-txt">{row.feature}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center">
+                          {row.iRopit === true ? (
+                            <CheckCircle2 className="w-5 h-5 text-success" />
+                          ) : (
+                            <X className="w-5 h-5 text-error" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center">
+                          {row.pushbullet === "Limited" ? (
+                            <span className="inline-flex rounded-full border border-border-dark bg-bg px-3 py-1 text-xs font-semibold text-txt-secondary">
+                              Limited
+                            </span>
+                          ) : row.pushbullet === true ? (
+                            <CheckCircle2 className="w-5 h-5 text-success" />
+                          ) : (
+                            <X className="w-5 h-5 text-error" />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden space-y-4">
+              {comparisonRows.map((row) => (
+                <div
+                  key={row.feature}
+                  className="rounded-[var(--radius-lg)] border border-border bg-surface p-4"
+                >
+                  <p className="text-sm font-semibold text-txt mb-3">{row.feature}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-[var(--radius)] border border-primary-light bg-primary-soft/60 p-3">
+                      <div className="text-xs font-semibold text-primary-dark mb-2">
+                        iRopit
+                      </div>
+                      <div className="flex items-center">
+                        {row.iRopit === true ? (
+                          <CheckCircle2 className="w-5 h-5 text-success" />
+                        ) : (
+                          <X className="w-5 h-5 text-error" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-[var(--radius)] border border-border bg-bg p-3">
+                      <div className="text-xs font-semibold text-txt-secondary mb-2">
+                        Pushbullet
+                      </div>
+                      <div className="flex items-center">
+                        {row.pushbullet === "Limited" ? (
+                          <span className="inline-flex rounded-full border border-border-dark bg-surface px-2.5 py-1 text-xs font-semibold text-txt-secondary">
+                            Limited
+                          </span>
+                        ) : row.pushbullet === true ? (
+                          <CheckCircle2 className="w-5 h-5 text-success" />
+                        ) : (
+                          <X className="w-5 h-5 text-error" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </AnimatedSection>
+
+          <AnimatedSection delay={0.2} className="mt-10">
+            <div className="rounded-[var(--radius-xl)] border border-primary-light bg-primary-soft/50 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <p className="text-xl sm:text-2xl font-semibold text-txt">
+                Ready to experience more than basic notification syncing?
+              </p>
+              <Link
+                href="#download"
+                className="inline-flex items-center gap-2 text-primary-dark font-semibold hover:text-primary transition-colors"
+              >
+                Download iRopit
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 

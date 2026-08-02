@@ -255,6 +255,12 @@ export const useSMSStore = create<SMSState>()(
         }
 
         const targetDeviceIds = [deviceIdParam || currentDevice.id];
+        const targetDeviceId = targetDeviceIds[0] || null;
+        const previousDeviceId = get().smsDebug.deviceId;
+        const isSwitchingDevice =
+          !!targetDeviceId &&
+          !!previousDeviceId &&
+          previousDeviceId !== targetDeviceId;
 
         const { unsubscribe: prevUnsubscribe } = get();
         if (prevUnsubscribe) {
@@ -262,9 +268,11 @@ export const useSMSStore = create<SMSState>()(
         }
 
         set({
+          messages: isSwitchingDevice ? [] : get().messages,
+          oldestMessageTimestamp: isSwitchingDevice ? null : get().oldestMessageTimestamp,
           isLoading: true,
           smsDebug: {
-            deviceId: targetDeviceIds[0] || null,
+            deviceId: targetDeviceId,
             strictDocs: 0,
             relaxedDocs: 0,
             legacyDocs: 0,
@@ -288,7 +296,12 @@ export const useSMSStore = create<SMSState>()(
             phoneNumber: data.phoneNumber || '',
             sender: data.phoneNumber || '',
             contactName: data.contactName || '',
-            timestamp: data.timestamp || data.receivedAt || Date.now(),
+            timestamp:
+              data.timestamp ||
+              data.receivedAt ||
+              data.createdAt?.toMillis?.() ||
+              data.syncedAt ||
+              Date.now(),
             read: data.read || false,
             type: data.smsType || 'inbox',
             syncedAt: data.syncedAt || Date.now(),
@@ -415,7 +428,7 @@ export const useSMSStore = create<SMSState>()(
           // If backend query is temporarily empty, keep already-visible SMS
           // instead of flashing to an empty screen.
           const { messages: existingMessages } = get();
-          if (merged.length === 0 && existingMessages.length > 0) {
+          if (!isSwitchingDevice && merged.length === 0 && existingMessages.length > 0) {
             set({
               isLoading: pendingInitial > 0,
               hasMoreMessages: Array.from(hasMoreByDevice.values()).some(Boolean),

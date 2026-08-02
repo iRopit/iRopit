@@ -385,6 +385,8 @@ async function ensureSuccessorShareAccessIndex(shares) {
   const currentUid = auth.currentUser?.uid || "";
   if (!currentUid || !Array.isArray(shares) || shares.length === 0) return false;
 
+  const liveDeviceIdByDocId = new Map();
+
   const hasCallsPermission = (s) => {
     const perms = s?.permissions;
     if (perms == null) return true;
@@ -473,6 +475,35 @@ async function ensureSuccessorShareAccessIndex(shares) {
     const ownerUid = String(share?.ownerUid || "").trim();
     const sharedDeviceId = String(share?.deviceId || "").trim();
     if (!ownerUid || !sharedDeviceId) continue;
+
+    // Signal 0 (high confidence): deviceDocId points to the live owner device doc.
+    // When owner reinstalls/rotates device ID, share.deviceId can lag, but the
+    // referenced device doc usually carries the current `id`.
+    if (share?.deviceDocId) {
+      let liveDeviceId = liveDeviceIdByDocId.get(share.deviceDocId);
+      if (!liveDeviceId) {
+        try {
+          const liveSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+          liveDeviceId = liveSnap.exists() ? String(liveSnap.data()?.id || "") : "";
+        } catch (_) {
+          liveDeviceId = "";
+        }
+        liveDeviceIdByDocId.set(share.deviceDocId, liveDeviceId || "");
+      }
+
+      if (liveDeviceId && liveDeviceId !== sharedDeviceId) {
+        const created = await createSuccessorIndex(
+          share,
+          ownerUid,
+          sharedDeviceId,
+          liveDeviceId,
+        );
+        if (created) {
+          createdAny = true;
+          continue;
+        }
+      }
+    }
 
     const ownerDevices = await getOwnerMobileDevices(ownerUid);
     if (ownerDevices.length === 0) continue;
@@ -747,8 +778,8 @@ function scheduleSharedWarmupReconcile(shares) {
 
   // Startup convergence: avoid waiting for the 25s heartbeat before shared
   // unread counts settle to their final totals.
-  sharedWarmupTimerShort = setTimeout(runWarmup, 2500);
-  sharedWarmupTimerLong = setTimeout(runWarmup, 7000);
+  sharedWarmupTimerShort = setTimeout(runWarmup, 1200);
+  sharedWarmupTimerLong = setTimeout(runWarmup, 3500);
 }
 
 /**
@@ -1119,10 +1150,25 @@ export async function loadDevices() {
 
     lastAppliedSharedByKey = nextByKey;
 
+    const triggerSharedLoads = (targetShares) => {
+      Promise.all([
+        Promise.resolve().then(() => scheduleSharedSmsLoad(targetShares)),
+        Promise.resolve().then(() => scheduleSharedCallsLoad(targetShares)),
+        Promise.resolve().then(() => scheduleSharedNotificationsLoad(targetShares)),
+      ]);
+    };
+
     // Rules gate shared SMS/calls reads on deviceShareIndex/{deviceId}_{uid}.
-    // Legacy or partially-migrated share flows can leave index missing even when
-    // deviceShares row exists, which makes shared tabs visible but data unreadable.
-    ensureRecipientShareAccessIndex(shares).catch(() => {});
+    // After reinstall, this index can be temporarily missing; if loaders run
+    // before the index is recreated and propagated, shared tabs stay empty.
+    // Run an explicit retry shortly after ensuring indices.
+    ensureRecipientShareAccessIndex(shares)
+      .then(() => {
+        setTimeout(() => {
+          triggerSharedLoads(shares);
+        }, 350);
+      })
+      .catch(() => {});
 
     // Self-heal when the owner's device ID rotated (reinstall/update). New calls
     // land under a new device ID the recipient isn't authorized for; create the
@@ -1134,8 +1180,7 @@ export async function loadDevices() {
         import("./calls.js")
           .then((m) => m.forceReloadSharedCalls && m.forceReloadSharedCalls(shares))
           .catch(() => {});
-        Promise.resolve().then(() => scheduleSharedSmsLoad(shares));
-        Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares));
+        triggerSharedLoads(shares);
       })
       .catch(() => {});
 
@@ -1143,11 +1188,7 @@ export async function loadDevices() {
     renderDevices();
     updateDeviceSelects();
     cacheSharedDevices(shares).catch(() => {});
-    Promise.all([
-      Promise.resolve().then(() => scheduleSharedSmsLoad(shares)),
-      Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
-      Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares)),
-    ]);
+    triggerSharedLoads(shares);
     scheduleSharedWarmupReconcile(shares);
   };
 
@@ -2258,6 +2299,7 @@ export function updateCallsDeviceTabs() {
         .querySelectorAll(".device-tab")
         .forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
+
       // Re-render calls to apply device filter
       const callsModule = await import("./calls.js");
       if (state.allCallsData && state.allCallsData.length > 0) {

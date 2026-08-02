@@ -23405,7 +23405,7 @@ ${this.customData.serverResponse}`;
       return await getDocs(q2);
     }
   }
-  async function getServerCallsDocsWithAuthRetry(q2, { retries = 3, delayMs = 1500 } = {}) {
+  async function getServerCallsDocsWithAuthRetry(q2, { retries = 2, delayMs = 700 } = {}) {
     let lastErr;
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
@@ -27404,6 +27404,38 @@ ${this.customData.serverResponse}`;
     document.addEventListener("click", (e) => {
       if (e.target.closest("#backToSMS")) {
         _goBackFromConversation();
+        return;
+      }
+      const historyLink = e.target.closest("#smsConversationNameLink");
+      if (historyLink) {
+        e.preventDefault();
+        const convKey = historyLink.dataset.conversationKey || currentConversation;
+        const convContact = historyLink.dataset.contactName || "";
+        const convPhone = historyLink.dataset.phone || "";
+        if (!convKey) return;
+        const normalizedInput = convKey.startsWith("contact_") || convKey.startsWith("sender_") ? convKey : normalizePhoneNumber3(convKey) || `sender_${convKey.trim().toLowerCase()}`;
+        const normalizedContactInput = normalizedInput.startsWith("contact_") ? stripBidi(normalizedInput.slice("contact_".length)).trim().toLowerCase() : "";
+        const fullConversation = allSMSMessages.filter((msg) => {
+          const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
+          let msgNormalized = normalizePhoneNumber3(rawPhone);
+          if (!msgNormalized && rawPhone.trim()) {
+            msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
+          }
+          const mappedContact = msgNormalized ? phoneToContactMap && phoneToContactMap[msgNormalized] || getContactName(rawPhone) : "";
+          const contactName = stripBidi(
+            msg.contactName || msg.title || mappedContact || ""
+          );
+          const contactKey = contactName && !isPhoneNumberLike2(contactName) ? "contact_" + contactName.trim() : "";
+          const matchesContactName = !!normalizedContactInput && contactName.trim().toLowerCase() === normalizedContactInput;
+          return msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
+        }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+        const scopedConversation = activeDevice === "all" ? fullConversation : fullConversation.filter((msg) => msg.deviceId === activeDevice);
+        openSMSHistoryWindow(
+          convPhone || convKey,
+          convContact || convKey,
+          scopedConversation
+        );
       }
     });
   }
@@ -27497,7 +27529,13 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <div class="conversation-name">${escapeHtml(contactName)}</div>
+          <a class="conversation-name conversation-name-link" id="smsConversationNameLink" href="#" role="button" tabindex="0" style="text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px; border-bottom:1px solid currentColor; cursor:pointer !important; color:var(--primary);" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "\u0639\u0631\u0636 \u0643\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Show full SMS history"}">${escapeHtml(contactName)}<span style="font-size:9px;opacity:0.6;margin-inline-start:6px;font-weight:400;vertical-align:middle;">${(() => {
+      try {
+        return "b" + chrome.runtime.getManifest().version;
+      } catch (_) {
+        return "";
+      }
+    })()}</span></a>
           <div class="conversation-phone">${displayPhone ? escapeHtml(displayPhone) : phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
         </div>
         ${(() => {
@@ -27701,6 +27739,20 @@ ${this.customData.serverResponse}`;
         window.open(`https://wa.me/${clean}`, "_blank");
       }
     });
+    const nameLink = document.getElementById("smsConversationNameLink");
+    const openHistory = () => {
+      openSMSHistoryWindow(displayPhone || phoneNumber, contactName, fullConversation);
+    };
+    nameLink?.addEventListener("click", (e) => {
+      e.preventDefault();
+      openHistory();
+    });
+    nameLink?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openHistory();
+      }
+    });
     const convSearch = document.getElementById("smsSearchInput");
     if (convSearch) {
       convSearch.value = "";
@@ -27795,6 +27847,54 @@ ${this.customData.serverResponse}`;
         }
       });
     });
+  }
+  function openSMSHistoryWindow(phoneNumber, contactName, messages) {
+    const payload = (messages || []).map((m) => ({
+      ...m,
+      body: m.body || m.text || m.content || ""
+    }));
+    const token = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const urlBase = chrome.runtime?.getURL?.("popup/sms-window.html") || "popup/sms-window.html";
+    const url = `${urlBase}?token=${encodeURIComponent(token)}`;
+    const payloadKey = `smsWindowData_${token}`;
+    const openWindow = () => {
+      if (chrome.windows?.create) {
+        chrome.windows.create({
+          url,
+          type: "popup",
+          width: 980,
+          height: 760
+        });
+        return;
+      }
+      window.open(url, "_blank", "width=980,height=760");
+    };
+    try {
+      chrome.storage.local.set(
+        {
+          smsWindowLatestToken: token,
+          smsWindowCurrentPayload: {
+            token,
+            phone: phoneNumber,
+            contactName,
+            messages: payload
+          },
+          // Keep legacy keys in sync as a safe fallback for any open path
+          // that loses the URL token.
+          smsWindowPhone: phoneNumber,
+          smsWindowContact: contactName,
+          smsWindowMessages: payload,
+          [payloadKey]: {
+            phone: phoneNumber,
+            contactName,
+            messages: payload
+          }
+        },
+        openWindow
+      );
+    } catch {
+      openWindow();
+    }
   }
   async function sendConversationMessage(phoneNumber, inputElement) {
     showToast(getCurrentLanguage() === "ar" ? "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0646\u0635\u064A\u0629 \u0645\u0639\u0637\u0644" : "SMS sending is disabled", "error");
@@ -31062,69 +31162,113 @@ ${this.customData.serverResponse}`;
         };
         for (const sourceDeviceId of sourceDeviceIds) {
           try {
-            const initialQ = query(
+            const initialQTs = query(
               collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
               orderBy("timestamp", "desc"),
               limit(NOTIF_INITIAL_LIMIT)
             );
-            let initialSnap;
-            try {
-              initialSnap = await getServerNotifDocsWithAuthRetry(initialQ);
-            } catch (serverErr) {
-              if (!isUnavailableError3(serverErr)) throw serverErr;
-              logNotifUnavailableOnce(
-                `shared-initial:${share.deviceId}:${sourceDeviceId}`,
-                `[Notifs] Shared initial unavailable for ${share.deviceId}/${sourceDeviceId}, using local cache fallback`
-              );
-              initialSnap = await getDocs(initialQ);
-            }
+            const initialQReceivedAt = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+              orderBy("receivedAt", "desc"),
+              limit(NOTIF_INITIAL_LIMIT)
+            );
+            const initialQCreatedAt = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+              orderBy("createdAt", "desc"),
+              limit(NOTIF_INITIAL_LIMIT)
+            );
+            const fetchInitialWithFallback = async (q2, key) => {
+              try {
+                return await getServerNotifDocsWithAuthRetry(q2);
+              } catch (serverErr) {
+                if (!isUnavailableError3(serverErr)) throw serverErr;
+                logNotifUnavailableOnce(
+                  `shared-initial:${share.deviceId}:${sourceDeviceId}:${key}`,
+                  `[Notifs] Shared initial unavailable for ${share.deviceId}/${sourceDeviceId}/${key}, using local cache fallback`
+                );
+                return await getDocs(q2);
+              }
+            };
+            const initialSnaps = await Promise.allSettled([
+              fetchInitialWithFallback(initialQTs, "timestamp"),
+              fetchInitialWithFallback(initialQReceivedAt, "receivedAt"),
+              fetchInitialWithFallback(initialQCreatedAt, "createdAt")
+            ]);
+            const initialDocsById = /* @__PURE__ */ new Map();
+            initialSnaps.filter((r) => r.status === "fulfilled" && r.value?.docs).forEach((r) => {
+              r.value.docs.forEach((d) => {
+                if (!initialDocsById.has(d.id)) initialDocsById.set(d.id, d);
+              });
+            });
             const initialNotifs = await Promise.all(
-              initialSnap.docs.map(async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId))
+              Array.from(initialDocsById.values()).map(
+                async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId)
+              )
             );
             notifsBySource.set(sourceDeviceId, initialNotifs);
             publishSharedNotifs();
-            const q2 = query(
+            const qTs = query(
               collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
               orderBy("timestamp", "desc"),
               limit(200)
             );
-            const unsub = onSnapshot(
-              q2,
-              async (snapshot) => {
-                if (snapshot.metadata.fromCache && snapshot.empty) return;
-                const current = notifsBySource.get(sourceDeviceId) || [];
-                const byKey = new Map(
-                  current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n])
-                );
-                for (const change of snapshot.docChanges()) {
-                  if (change.type !== "added" && change.type !== "modified") continue;
-                  const notif = await mapNotifForShare(change.doc, sourceDeviceId);
-                  const identityKey = getNotificationIdentityKey(notif, share.deviceId);
-                  const existing = byKey.get(identityKey);
-                  const preserved = existing && existing.read === true && !notif.read ? { ...notif, read: true } : notif;
-                  byKey.set(identityKey, preserved);
-                }
-                notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
-                publishSharedNotifs();
-              },
-              (err) => {
-                if (err?.code === "permission-denied") return;
-                if (isUnavailableError3(err)) {
-                  logNotifUnavailableOnce(
-                    `shared-listener:${share.deviceId}:${sourceDeviceId}`,
-                    `[Notifs] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
-                    err?.message || err?.code
-                  );
-                  return;
-                }
-                console.warn(
-                  `[Notifs] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
-                  err?.code
-                );
-              }
+            const qReceivedAt = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+              orderBy("receivedAt", "desc"),
+              limit(200)
             );
-            sharedNotifListenerUnsubs.push(unsub);
-            addUnsubscriber(unsub);
+            const qCreatedAt = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+              orderBy("createdAt", "desc"),
+              limit(200)
+            );
+            const applySharedSnapshot = async (snapshot) => {
+              if (snapshot.metadata.fromCache && snapshot.empty) return;
+              const current = notifsBySource.get(sourceDeviceId) || [];
+              const byKey = new Map(
+                current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n])
+              );
+              for (const change of snapshot.docChanges()) {
+                if (change.type !== "added" && change.type !== "modified") continue;
+                const notif = await mapNotifForShare(change.doc, sourceDeviceId);
+                const identityKey = getNotificationIdentityKey(notif, share.deviceId);
+                const existing = byKey.get(identityKey);
+                const preserved = existing && existing.read === true && !notif.read ? { ...notif, read: true } : notif;
+                byKey.set(identityKey, preserved);
+              }
+              notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
+              publishSharedNotifs();
+            };
+            const handleSharedSnapshotError = (err) => {
+              if (err?.code === "permission-denied") return;
+              if (isUnavailableError3(err)) {
+                logNotifUnavailableOnce(
+                  `shared-listener:${share.deviceId}:${sourceDeviceId}`,
+                  `[Notifs] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
+                  err?.message || err?.code
+                );
+                return;
+              }
+              console.warn(
+                `[Notifs] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
+                err?.code
+              );
+            };
+            const unsubTs = onSnapshot(qTs, applySharedSnapshot, handleSharedSnapshotError);
+            const unsubReceivedAt = onSnapshot(
+              qReceivedAt,
+              applySharedSnapshot,
+              handleSharedSnapshotError
+            );
+            const unsubCreatedAt = onSnapshot(
+              qCreatedAt,
+              applySharedSnapshot,
+              handleSharedSnapshotError
+            );
+            sharedNotifListenerUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
+            addUnsubscriber(unsubTs);
+            addUnsubscriber(unsubReceivedAt);
+            addUnsubscriber(unsubCreatedAt);
           } catch (sourceErr) {
             if (sourceErr?.code !== "permission-denied") {
               console.warn(
@@ -34995,6 +35139,7 @@ ${this.customData.serverResponse}`;
   async function ensureSuccessorShareAccessIndex(shares) {
     const currentUid = auth.currentUser?.uid || "";
     if (!currentUid || !Array.isArray(shares) || shares.length === 0) return false;
+    const liveDeviceIdByDocId = /* @__PURE__ */ new Map();
     const hasCallsPermission = (s) => {
       const perms = s?.permissions;
       if (perms == null) return true;
@@ -35073,6 +35218,30 @@ ${this.customData.serverResponse}`;
       const ownerUid = String(share?.ownerUid || "").trim();
       const sharedDeviceId = String(share?.deviceId || "").trim();
       if (!ownerUid || !sharedDeviceId) continue;
+      if (share?.deviceDocId) {
+        let liveDeviceId = liveDeviceIdByDocId.get(share.deviceDocId);
+        if (!liveDeviceId) {
+          try {
+            const liveSnap = await getDoc(doc(db, "devices", share.deviceDocId));
+            liveDeviceId = liveSnap.exists() ? String(liveSnap.data()?.id || "") : "";
+          } catch (_) {
+            liveDeviceId = "";
+          }
+          liveDeviceIdByDocId.set(share.deviceDocId, liveDeviceId || "");
+        }
+        if (liveDeviceId && liveDeviceId !== sharedDeviceId) {
+          const created2 = await createSuccessorIndex(
+            share,
+            ownerUid,
+            sharedDeviceId,
+            liveDeviceId
+          );
+          if (created2) {
+            createdAny = true;
+            continue;
+          }
+        }
+      }
       const ownerDevices = await getOwnerMobileDevices(ownerUid);
       if (ownerDevices.length === 0) continue;
       const sharedName = normalizeName(
@@ -35299,8 +35468,8 @@ ${this.customData.serverResponse}`;
       }).catch(() => {
       });
     };
-    sharedWarmupTimerShort = setTimeout(runWarmup, 2500);
-    sharedWarmupTimerLong = setTimeout(runWarmup, 7e3);
+    sharedWarmupTimerShort = setTimeout(runWarmup, 1200);
+    sharedWarmupTimerLong = setTimeout(runWarmup, 3500);
   }
   async function registerDevice() {
     const user = currentUser;
@@ -35585,14 +35754,24 @@ ${this.customData.serverResponse}`;
         });
       }
       lastAppliedSharedByKey = nextByKey;
-      ensureRecipientShareAccessIndex(shares).catch(() => {
+      const triggerSharedLoads = (targetShares) => {
+        Promise.all([
+          Promise.resolve().then(() => scheduleSharedSmsLoad(targetShares)),
+          Promise.resolve().then(() => scheduleSharedCallsLoad(targetShares)),
+          Promise.resolve().then(() => scheduleSharedNotificationsLoad(targetShares))
+        ]);
+      };
+      ensureRecipientShareAccessIndex(shares).then(() => {
+        setTimeout(() => {
+          triggerSharedLoads(shares);
+        }, 350);
+      }).catch(() => {
       });
       ensureSuccessorShareAccessIndex(shares).then((created) => {
         if (!created) return;
         Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.forceReloadSharedCalls && m.forceReloadSharedCalls(shares)).catch(() => {
         });
-        Promise.resolve().then(() => scheduleSharedSmsLoad(shares));
-        Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares));
+        triggerSharedLoads(shares);
       }).catch(() => {
       });
       setSharedWithMeDevices(shares);
@@ -35600,11 +35779,7 @@ ${this.customData.serverResponse}`;
       updateDeviceSelects();
       cacheSharedDevices(shares).catch(() => {
       });
-      Promise.all([
-        Promise.resolve().then(() => scheduleSharedSmsLoad(shares)),
-        Promise.resolve().then(() => scheduleSharedCallsLoad(shares)),
-        Promise.resolve().then(() => scheduleSharedNotificationsLoad(shares))
-      ]);
+      triggerSharedLoads(shares);
       scheduleSharedWarmupReconcile(shares);
     };
     const enrichSharedWithMeShares = async (shares) => {

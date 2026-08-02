@@ -59,9 +59,32 @@ export const useCallsScreen = () => {
   const initializeCallListener = useCallback(async () => {
     if (Platform.OS === 'android') {
       await requestPermissions();
+
+      // Lightweight top-up sync to avoid stale Calls tab when a realtime
+      // write/event is missed while app was backgrounded.
+      try {
+        const { CallLogModule } = NativeModules;
+        const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
+        if (recentNativeCalls.length > 0) {
+          await syncCalls(recentNativeCalls);
+        }
+      } catch (_) {}
     }
     loadCalls(activeDeviceId || undefined);
-  }, [requestPermissions, loadCalls, activeDeviceId]);
+  }, [requestPermissions, loadCalls, activeDeviceId, syncCalls]);
+
+  const refreshCalls = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const { CallLogModule } = NativeModules;
+        const recentNativeCalls = (await CallLogModule?.getCallLog?.(300)) || [];
+        if (recentNativeCalls.length > 0) {
+          await syncCalls(recentNativeCalls);
+        }
+      } catch (_) {}
+    }
+    loadCalls(activeDeviceId || undefined);
+  }, [loadCalls, activeDeviceId, syncCalls]);
 
   useEffect(() => {
     initializeCallListener();
@@ -295,7 +318,7 @@ export const useCallsScreen = () => {
     handleDeleteAllCalls,
     cancelSelectMode,
     enterSelectMode,
-    loadCalls,
+    loadCalls: refreshCalls,
 
     // Delete sheet state
     showDeleteSheet,

@@ -37,6 +37,7 @@ export const useNotificationsScreen = (
     smsDebug,
     markMessagesAsReadBySender,
     loadMessages: loadSmsMessages,
+    setMessages: setSmsMessages,
     deleteMessagesBySender,
   } = useSMSStore();
 
@@ -66,6 +67,19 @@ export const useNotificationsScreen = (
     [],
   );
   const lastSmsLoadKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    // Force a clean fetch path when the device filter changes.
+    // Without this, a transient empty snapshot can leave stale data visible.
+    lastSmsLoadKeyRef.current = '';
+    setInitialLoading(true);
+
+    if (filterType === 'sms') {
+      setSmsMessages([]);
+    } else {
+      setNotifications([]);
+    }
+  }, [activeDeviceId, filterType, setNotifications, setSmsMessages]);
 
   // Theme colors
   const bgColor = colors.background;
@@ -515,7 +529,7 @@ export const useNotificationsScreen = (
       .collection('devices')
       .doc(activeDeviceId)
       .collection('notifications')
-      .orderBy('timestamp', 'desc')
+      .orderBy('createdAt', 'desc')
       .limit(10000)
       .onSnapshot(
         snapshot => {
@@ -540,7 +554,11 @@ export const useNotificationsScreen = (
               title: data.title || '',
               text: data.text || '',
               type: type,
-              timestamp: data.timestamp || Date.now(),
+              timestamp:
+                data.timestamp ||
+                data.createdAt?.toMillis?.() ||
+                data.syncedAt ||
+                Date.now(),
               appName: data.appName || '',
               read: data.read ?? false,
             };

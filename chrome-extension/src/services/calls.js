@@ -117,7 +117,7 @@ async function getCallsDocsFastPreferServer(q, keyPrefix, timeoutMs = 1500) {
  * the full call history returns nothing on that transient error, leaving only the
  * realtime listener's few latest calls ("fresh install / only new" symptom).
  */
-async function getServerCallsDocsWithAuthRetry(q, { retries = 3, delayMs = 1500 } = {}) {
+async function getServerCallsDocsWithAuthRetry(q, { retries = 2, delayMs = 700 } = {}) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {

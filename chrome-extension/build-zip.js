@@ -4,7 +4,7 @@ const fs = require("fs");
 
 const extDir = path.resolve(__dirname);
 const pkg = require("./package.json");
-const zipName = `IRopit-Extension-v${pkg.version}.zip`;
+const zipName = `IRopit-Extension-C${pkg.version}.zip`;
 const zipPath = path.join(extDir, zipName);
 
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text, Image, ScrollView, useWindowDimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { styles } from '../styles';
 
@@ -18,6 +18,9 @@ interface WelcomeStepProps {
 }
 
 const WelcomeStep: React.FC<WelcomeStepProps> = ({ colors, translate }) => {
+  const { height } = useWindowDimensions();
+  const isCompactHeight = height < 760;
+
   const features = [
     { icon: 'chatbubbles-outline', title: 'Device-to-Device Chat' },
     { icon: 'chatbox-ellipses-outline', title: 'SMS Synchronization' },
@@ -39,12 +42,12 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ colors, translate }) => {
       >
         <Image
           source={logoImage}
-          style={{ width: 120, height: 120 }}
+          style={styles.welcomeLogoImage}
           resizeMode="contain"
         />
       </View>
 
-      <View style={styles.titleSection}>
+      <View style={[styles.titleSection, styles.welcomeTitleSection]}>
         <Text style={[styles.appName, { color: colors.text }]}>
           iRopit
         </Text>
@@ -53,22 +56,46 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ colors, translate }) => {
         </Text>
       </View>
 
-      <View style={styles.welcomeFeaturesGrid}>
-        {features.map((feature) => (
-          <View
-            key={feature.title}
-            style={[
-              styles.welcomeFeatureCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Icon name={feature.icon} size={16} color={colors.primary} />
-            <Text style={[styles.welcomeFeatureTitle, { color: colors.text }]}>
-              {feature.title}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {isCompactHeight ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.welcomeFeaturesCarousel}
+        >
+          {features.map((feature) => (
+            <View
+              key={feature.title}
+              style={[
+                styles.welcomeFeatureCard,
+                styles.welcomeFeatureCardCompact,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Icon name={feature.icon} size={14} color={colors.primary} />
+              <Text style={[styles.welcomeFeatureTitle, { color: colors.text }]}>
+                {feature.title}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.welcomeFeaturesGrid}>
+          {features.map((feature) => (
+            <View
+              key={feature.title}
+              style={[
+                styles.welcomeFeatureCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Icon name={feature.icon} size={14} color={colors.primary} />
+              <Text style={[styles.welcomeFeatureTitle, { color: colors.text }]}>
+                {feature.title}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };

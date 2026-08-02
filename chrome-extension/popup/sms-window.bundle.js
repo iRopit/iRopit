@@ -33,33 +33,77 @@
       '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
     );
   }
-  chrome.storage.local.get(
-    ["smsWindowPhone", "smsWindowContact", "smsWindowMessages"],
-    (result) => {
-      const phone = result.smsWindowPhone || "";
-      const contactName = result.smsWindowContact || phone;
-      const messages = result.smsWindowMessages || [];
-      document.getElementById("winAvatar").textContent = getInitials(contactName);
-      document.getElementById("winName").textContent = contactName;
-      if (phone && phone !== contactName && !phone.startsWith("contact_") && !phone.startsWith("sender_")) {
-        document.getElementById("winPhone").textContent = phone;
-      }
-      document.getElementById("winCount").textContent = messages.length + " message" + (messages.length !== 1 ? "s" : "");
-      const area = document.getElementById("messagesArea");
-      const empty = document.getElementById("emptyState");
-      if (messages.length === 0) {
-        empty.textContent = "No messages found.";
+  function bootstrapFromStorage(retries = 12) {
+    const params = new URLSearchParams(window.location.search || "");
+    const tokenFromUrl = params.get("token") || "";
+    chrome.storage.local.get(["smsWindowLatestToken", "smsWindowCurrentPayload", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
+      const token = tokenFromUrl || base.smsWindowLatestToken || "";
+      const renderData = (phone, contactName, messages) => {
+        if (!phone && !contactName && messages.length === 0 && retries > 0) {
+          setTimeout(() => bootstrapFromStorage(retries - 1), 120);
+          return;
+        }
+        document.getElementById("winAvatar").textContent = getInitials(contactName);
+        document.getElementById("winName").textContent = contactName;
+        if (phone && phone !== contactName && !phone.startsWith("contact_") && !phone.startsWith("sender_")) {
+          document.getElementById("winPhone").textContent = phone;
+        }
+        document.getElementById("winCount").textContent = messages.length + " message" + (messages.length !== 1 ? "s" : "");
+        const area = document.getElementById("messagesArea");
+        const empty = document.getElementById("emptyState");
+        if (messages.length === 0) {
+          empty.textContent = "No messages found.";
+          return;
+        }
+        empty.remove();
+        messages.forEach((msg) => {
+          const isSent = msg.direction === "outgoing" || msg.type === "sent";
+          const bubble = document.createElement("div");
+          bubble.className = "message-bubble " + (isSent ? "sent" : "received");
+          bubble.innerHTML = `<div class="message-text">${linkifyText(msg.body || msg.text || msg.content || "")}</div><div class="message-footer"><span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` + (msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : "") + `</div>`;
+          area.appendChild(bubble);
+        });
+        area.scrollTop = area.scrollHeight;
+      };
+      if (token) {
+        const tokenKey = `smsWindowData_${token}`;
+        chrome.storage.local.get([tokenKey, "smsWindowCurrentPayload"], (result) => {
+          const tokenData = result[tokenKey];
+          const currentPayload2 = result.smsWindowCurrentPayload;
+          if (tokenData) {
+            renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
+            return;
+          }
+          if (currentPayload2 && currentPayload2.token === token) {
+            renderData(
+              currentPayload2.phone || "",
+              currentPayload2.contactName || currentPayload2.phone || "",
+              currentPayload2.messages || []
+            );
+            return;
+          }
+          if (!tokenData) {
+            if (retries > 0) {
+              setTimeout(() => bootstrapFromStorage(retries - 1), 120);
+              return;
+            }
+            renderData("", "", []);
+            return;
+          }
+        });
         return;
       }
-      empty.remove();
-      messages.forEach((msg) => {
-        const isSent = msg.direction === "outgoing" || msg.type === "sent";
-        const bubble = document.createElement("div");
-        bubble.className = "message-bubble " + (isSent ? "sent" : "received");
-        bubble.innerHTML = `<div class="message-text">${linkifyText(msg.body)}</div><div class="message-footer"><span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` + (msg.deviceName ? `<span class="message-device">\u{1F4F1} ${escapeHtml(msg.deviceName)}</span>` : "") + `</div>`;
-        area.appendChild(bubble);
-      });
-      area.scrollTop = area.scrollHeight;
-    }
-  );
+      const currentPayload = base.smsWindowCurrentPayload;
+      if (currentPayload) {
+        renderData(
+          currentPayload.phone || "",
+          currentPayload.contactName || currentPayload.phone || "",
+          currentPayload.messages || []
+        );
+        return;
+      }
+      renderData(base.smsWindowPhone || "", base.smsWindowContact || base.smsWindowPhone || "", base.smsWindowMessages || []);
+    });
+  }
+  bootstrapFromStorage();
 })();

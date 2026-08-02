@@ -2774,12 +2774,34 @@ function createNotificationIfNotSnoozed(notifId, options, callback) {
     recentNotificationFingerprints = pruneRecentNotificationFingerprints(merged, now);
     chrome.storage.local.set({ recentNotificationFingerprints });
 
-    chrome.notifications.create(notifId, options, (createdId) => {
-      // Do not increment badge here. This function is used for many toast types
-      // (notifications, calls, OTP, etc.), and incrementing per toast causes the
-      // action badge to drift far above the true unread notifications count.
-      if (callback) callback(createdId);
-    });
+    const createWithFallback = (opts, hasRetried = false) => {
+      chrome.notifications.create(notifId, opts, (createdId) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          const msg = String(err.message || "");
+          const isImageDownloadError = /unable to download all specified images/i.test(msg);
+          if (isImageDownloadError && !hasRetried) {
+            const retryOptions = {
+              ...opts,
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("assets/icon128.png"),
+            };
+            // Drop optional image payloads in retry path.
+            delete retryOptions.imageUrl;
+            createWithFallback(retryOptions, true);
+            return;
+          }
+          return;
+        }
+
+        // Do not increment badge here. This function is used for many toast types
+        // (notifications, calls, OTP, etc.), and incrementing per toast causes the
+        // action badge to drift far above the true unread notifications count.
+        if (callback) callback(createdId);
+      });
+    };
+
+    createWithFallback(options, false);
   });
 }
 

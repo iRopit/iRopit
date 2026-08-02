@@ -233,9 +233,17 @@ export const useCallStore = create<CallState>()(
                 // Initial load: process all documents with chunked decryption
                 const rawCalls: CallLog[] = [];
                 snapshot.forEach(doc => {
-                  const data = doc.data() || {};
-                  if (isLikelyCallPayload(data)) {
-                    rawCalls.push({ id: doc.id, ...data } as CallLog);
+                  const data: any = doc.data() || {};
+                  const normalizedData = {
+                    ...data,
+                    timestamp:
+                      data.timestamp ||
+                      data.createdAt?.toMillis?.() ||
+                      data.syncedAt ||
+                      Date.now(),
+                  };
+                  if (isLikelyCallPayload(normalizedData)) {
+                    rawCalls.push({ id: doc.id, ...normalizedData } as CallLog);
                   }
                 });
                 // Decrypt in chunks with yields so large initial loads don't
@@ -262,7 +270,18 @@ export const useCallStore = create<CallState>()(
                 .filter(c => isLikelyCallPayload(c.doc.data()));
               if (changes.length > 0) {
                 const rawNew = changes.map(
-                  c => ({ id: c.doc.id, ...c.doc.data() } as CallLog),
+                  c => {
+                    const data: any = c.doc.data() || {};
+                    return {
+                      id: c.doc.id,
+                      ...data,
+                      timestamp:
+                        data.timestamp ||
+                        data.createdAt?.toMillis?.() ||
+                        data.syncedAt ||
+                        Date.now(),
+                    } as CallLog;
+                  },
                 );
                 const newCalls = (await Promise.all(
                   rawNew.map(call => decryptCallWithTimeout(call)),
@@ -284,11 +303,19 @@ export const useCallStore = create<CallState>()(
               if (snapshot.docs.length > 0) {
                 const mapped = await Promise.allSettled(
                   snapshot.docs.map(async docSnap => {
-                    const data = docSnap.data() || {};
-                    if (!isLikelyCallPayload(data)) return null;
+                    const data: any = docSnap.data() || {};
+                    const normalizedData = {
+                      ...data,
+                      timestamp:
+                        data.timestamp ||
+                        data.createdAt?.toMillis?.() ||
+                        data.syncedAt ||
+                        Date.now(),
+                    };
+                    if (!isLikelyCallPayload(normalizedData)) return null;
                     return await decryptCallWithTimeout({
                       id: docSnap.id,
-                      ...data,
+                      ...normalizedData,
                     } as CallLog);
                   }),
                 );

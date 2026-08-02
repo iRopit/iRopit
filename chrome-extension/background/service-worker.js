@@ -20912,9 +20912,28 @@ function createNotificationIfNotSnoozed(notifId, options, callback) {
     };
     recentNotificationFingerprints = pruneRecentNotificationFingerprints(merged, now);
     chrome.storage.local.set({ recentNotificationFingerprints });
-    chrome.notifications.create(notifId, options, (createdId) => {
-      if (callback) callback(createdId);
-    });
+    const createWithFallback = (opts, hasRetried = false) => {
+      chrome.notifications.create(notifId, opts, (createdId) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          const msg = String(err.message || "");
+          const isImageDownloadError = /unable to download all specified images/i.test(msg);
+          if (isImageDownloadError && !hasRetried) {
+            const retryOptions = {
+              ...opts,
+              type: "basic",
+              iconUrl: chrome.runtime.getURL("assets/icon128.png")
+            };
+            delete retryOptions.imageUrl;
+            createWithFallback(retryOptions, true);
+            return;
+          }
+          return;
+        }
+        if (callback) callback(createdId);
+      });
+    };
+    createWithFallback(options, false);
   });
 }
 function buildContextMenus() {

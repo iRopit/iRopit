@@ -2338,6 +2338,76 @@ export function initSMSNavigation() {
   document.addEventListener("click", (e) => {
     if (e.target.closest("#backToSMS")) {
       _goBackFromConversation();
+      return;
+    }
+
+    const historyLink = e.target.closest("#smsConversationNameLink");
+    if (historyLink) {
+      e.preventDefault();
+
+      const convKey = historyLink.dataset.conversationKey || state.currentConversation;
+      const convContact = historyLink.dataset.contactName || "";
+      const convPhone = historyLink.dataset.phone || "";
+
+      if (!convKey) return;
+
+      // Re-resolve from state at click time so the window always gets the
+      // complete current history, not only the currently rendered subset.
+      const normalizedInput =
+        convKey.startsWith("contact_") || convKey.startsWith("sender_")
+          ? convKey
+          : normalizePhoneNumber(convKey) || `sender_${convKey.trim().toLowerCase()}`;
+
+      const normalizedContactInput =
+        normalizedInput.startsWith("contact_")
+          ? stripBidi(normalizedInput.slice("contact_".length)).trim().toLowerCase()
+          : "";
+
+      const fullConversation = state.allSMSMessages
+        .filter((msg) => {
+          const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
+          let msgNormalized = normalizePhoneNumber(rawPhone);
+          if (!msgNormalized && rawPhone.trim()) {
+            msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
+          }
+
+          const mappedContact = msgNormalized
+            ? (state.phoneToContactMap && state.phoneToContactMap[msgNormalized]) ||
+              getContactName(rawPhone)
+            : "";
+          const contactName = stripBidi(
+            msg.contactName || msg.title || mappedContact || "",
+          );
+          const contactKey =
+            contactName && !isPhoneNumberLike(contactName)
+              ? "contact_" + contactName.trim()
+              : "";
+
+          const matchesContactName =
+            !!normalizedContactInput &&
+            contactName.trim().toLowerCase() === normalizedContactInput;
+
+          return (
+            msgNormalized === normalizedInput ||
+            contactKey === normalizedInput ||
+            matchesContactName
+          );
+        })
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+      const activeDevice =
+        document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset
+          .device || "all";
+      const scopedConversation =
+        activeDevice === "all"
+          ? fullConversation
+          : fullConversation.filter((msg) => msg.deviceId === activeDevice);
+
+      openSMSHistoryWindow(
+        convPhone || convKey,
+        convContact || convKey,
+        scopedConversation,
+      );
     }
   });
 }
@@ -2493,7 +2563,7 @@ export function showConversation(phoneNumber) {
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <div class="conversation-name">${escapeHtml(contactName)}</div>
+          <a class="conversation-name conversation-name-link" id="smsConversationNameLink" href="#" role="button" tabindex="0" style="text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px; border-bottom:1px solid currentColor; cursor:pointer !important; color:var(--primary);" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "عرض كل الرسائل" : "Show full SMS history"}">${escapeHtml(contactName)}<span style="font-size:9px;opacity:0.6;margin-inline-start:6px;font-weight:400;vertical-align:middle;">${(() => { try { return "b" + chrome.runtime.getManifest().version; } catch (_) { return ""; } })()}</span></a>
           <div class="conversation-phone">${
             displayPhone
               ? escapeHtml(displayPhone)
@@ -2776,6 +2846,22 @@ export function showConversation(phoneNumber) {
     }
   });
 
+  // Contact name click: open full history in the dedicated popup window.
+  const nameLink = document.getElementById("smsConversationNameLink");
+  const openHistory = () => {
+    openSMSHistoryWindow(displayPhone || phoneNumber, contactName, fullConversation);
+  };
+  nameLink?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openHistory();
+  });
+  nameLink?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openHistory();
+    }
+  });
+
   // Wire search box to filter within this conversation
   const convSearch = document.getElementById("smsSearchInput");
   if (convSearch) {
@@ -2888,6 +2974,59 @@ export function showConversation(phoneNumber) {
       }
     });
   });
+}
+
+function openSMSHistoryWindow(phoneNumber, contactName, messages) {
+  const payload = (messages || []).map((m) => ({
+    ...m,
+    body: m.body || m.text || m.content || "",
+  }));
+
+  const token = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const urlBase = chrome.runtime?.getURL?.("popup/sms-window.html") || "popup/sms-window.html";
+  const url = `${urlBase}?token=${encodeURIComponent(token)}`;
+  const payloadKey = `smsWindowData_${token}`;
+
+  const openWindow = () => {
+    if (chrome.windows?.create) {
+      chrome.windows.create({
+        url,
+        type: "popup",
+        width: 980,
+        height: 760,
+      });
+      return;
+    }
+    window.open(url, "_blank", "width=980,height=760");
+  };
+
+  try {
+    chrome.storage.local.set(
+      {
+        smsWindowLatestToken: token,
+        smsWindowCurrentPayload: {
+          token,
+          phone: phoneNumber,
+          contactName,
+          messages: payload,
+        },
+        // Keep legacy keys in sync as a safe fallback for any open path
+        // that loses the URL token.
+        smsWindowPhone: phoneNumber,
+        smsWindowContact: contactName,
+        smsWindowMessages: payload,
+        [payloadKey]: {
+          phone: phoneNumber,
+          contactName,
+          messages: payload,
+        },
+      },
+      openWindow,
+    );
+  } catch {
+    // If storage write fails, still open the history window.
+    openWindow();
+  }
 }
 
 /**

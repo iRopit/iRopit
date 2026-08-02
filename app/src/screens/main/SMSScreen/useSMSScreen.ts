@@ -1,9 +1,12 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
-import { Platform, Alert, InteractionManager } from 'react-native';
+import { Platform, Alert, InteractionManager, NativeModules } from 'react-native';
 import { useSMSStore } from '../../../store/smsStore';
+import { useAuthStore } from '../../../store/authStore';
 import { useTheme } from '../../../contexts/ThemeContext';
 import smsService from '../../../services/smsService';
 import { Conversation } from './types';
+
+const { SmsModule } = NativeModules;
 
 export const useSMSScreen = () => {
   const messages = useSMSStore(state => state.messages);
@@ -13,8 +16,10 @@ export const useSMSScreen = () => {
   const hasMoreMessages = useSMSStore(state => state.hasMoreMessages);
   const loadMoreMessages = useSMSStore(state => state.loadMoreMessages);
   const loadMessages = useSMSStore(state => state.loadMessages);
+  const batchSyncNativeSMS = useSMSStore(state => state.batchSyncNativeSMS);
   const markAllAsRead = useSMSStore(state => state.markAllAsRead);
   const deleteAllMessages = useSMSStore(state => state.deleteAllMessages);
+  const { user } = useAuthStore();
 
   const [showActions, setShowActions] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -70,6 +75,17 @@ export const useSMSScreen = () => {
         const hasPermissions = await smsService.requestPermissions();
         setPermissionGranted(hasPermissions);
 
+        // Lightweight top-up sync: fetch only newest native SMS so missed
+        // background writes don't leave this tab stale.
+        if (hasPermissions && user?.uid && SmsModule?.getAllSms) {
+          try {
+            const recentNativeSms = (await SmsModule.getAllSms(300)) || [];
+            if (recentNativeSms.length > 0) {
+              await batchSyncNativeSMS(recentNativeSms, user.uid);
+            }
+          } catch (_) {}
+        }
+
         // Re-attach Firestore listener only; avoid re-uploading full native SMS
         // history on pull-to-refresh, which can trigger extension-side full reloads.
         if (hasPermissions) loadMessages();
@@ -83,7 +99,7 @@ export const useSMSScreen = () => {
     // empty, so clearing here would show "No SMS yet" during that window.
     // It's cleared by the effect below once messages arrive (or after a
     // generous timeout so a genuinely empty inbox eventually shows empty).
-  }, [loadMessages]);
+  }, [loadMessages, batchSyncNativeSMS, user?.uid]);
 
   useEffect(() => {
     // Defer heavy native SMS read until after navigation animation completes

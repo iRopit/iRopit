@@ -2742,6 +2742,44 @@ html.dark #dashInsightsDeviceTabs {
   text-overflow: ellipsis;
 }
 
+.conversation-name-link {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  color: var(--primary) !important;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  text-decoration-line: underline !important;
+  text-decoration-color: currentColor !important;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  border-bottom: 1px solid currentColor;
+}
+
+.conversation-name-link:hover {
+  background: transparent !important;
+  color: var(--primary) !important;
+  opacity: 0.9;
+}
+
+.conversation-name-link:focus {
+  background: transparent !important;
+  outline: none;
+}
+
+.conversation-name-link:focus-visible {
+  outline: 1px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .conversation-phone {
   font-size: 12px;
   color: var(--text-secondary);

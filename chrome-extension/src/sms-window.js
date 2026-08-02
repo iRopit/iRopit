@@ -49,50 +49,107 @@ function linkifyText(text) {
   );
 }
 
-chrome.storage.local.get(
-  ["smsWindowPhone", "smsWindowContact", "smsWindowMessages"],
-  (result) => {
-    const phone = result.smsWindowPhone || "";
-    const contactName = result.smsWindowContact || phone;
-    const messages = result.smsWindowMessages || [];
+function bootstrapFromStorage(retries = 12) {
+  const params = new URLSearchParams(window.location.search || "");
+  const tokenFromUrl = params.get("token") || "";
+  chrome.storage.local.get(["smsWindowLatestToken", "smsWindowCurrentPayload", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
+    const token = tokenFromUrl || base.smsWindowLatestToken || "";
 
-    // Header
-    document.getElementById("winAvatar").textContent = getInitials(contactName);
-    document.getElementById("winName").textContent = contactName;
+    const renderData = (phone, contactName, messages) => {
+      // If the popup window opened before storage write settles, retry briefly.
+      if (!phone && !contactName && messages.length === 0 && retries > 0) {
+        setTimeout(() => bootstrapFromStorage(retries - 1), 120);
+        return;
+      }
 
-    if (phone && phone !== contactName && !phone.startsWith("contact_") && !phone.startsWith("sender_")) {
-      document.getElementById("winPhone").textContent = phone;
-    }
+      // Header
+      document.getElementById("winAvatar").textContent = getInitials(contactName);
+      document.getElementById("winName").textContent = contactName;
 
-    document.getElementById("winCount").textContent =
-      messages.length + " message" + (messages.length !== 1 ? "s" : "");
+      if (phone && phone !== contactName && !phone.startsWith("contact_") && !phone.startsWith("sender_")) {
+        document.getElementById("winPhone").textContent = phone;
+      }
 
-    const area = document.getElementById("messagesArea");
-    const empty = document.getElementById("emptyState");
+      document.getElementById("winCount").textContent =
+        messages.length + " message" + (messages.length !== 1 ? "s" : "");
 
-    if (messages.length === 0) {
-      empty.textContent = "No messages found.";
+      const area = document.getElementById("messagesArea");
+      const empty = document.getElementById("emptyState");
+
+      if (messages.length === 0) {
+        empty.textContent = "No messages found.";
+        return;
+      }
+
+      empty.remove();
+
+      messages.forEach((msg) => {
+        const isSent = msg.direction === "outgoing" || msg.type === "sent";
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble " + (isSent ? "sent" : "received");
+        bubble.innerHTML =
+          `<div class="message-text">${linkifyText(msg.body || msg.text || msg.content || "")}</div>` +
+          `<div class="message-footer">` +
+          `<span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` +
+          (msg.deviceName
+            ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
+            : "") +
+          `</div>`;
+        area.appendChild(bubble);
+      });
+
+      // Scroll to bottom
+      area.scrollTop = area.scrollHeight;
+    };
+
+    if (token) {
+      const tokenKey = `smsWindowData_${token}`;
+      chrome.storage.local.get([tokenKey, "smsWindowCurrentPayload"], (result) => {
+        const tokenData = result[tokenKey];
+        const currentPayload = result.smsWindowCurrentPayload;
+
+        if (tokenData) {
+          renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
+          return;
+        }
+
+        if (currentPayload && currentPayload.token === token) {
+          renderData(
+            currentPayload.phone || "",
+            currentPayload.contactName || currentPayload.phone || "",
+            currentPayload.messages || [],
+          );
+          return;
+        }
+
+        if (!tokenData) {
+          if (retries > 0) {
+            setTimeout(() => bootstrapFromStorage(retries - 1), 120);
+            return;
+          }
+          // If URL includes a token but payload is still missing, do not fall
+          // back to stale legacy keys from a previous conversation.
+          renderData("", "", []);
+          return;
+        }
+      });
       return;
     }
 
-    empty.remove();
+    // Prefer latest explicit payload when opened without token.
+    const currentPayload = base.smsWindowCurrentPayload;
+    if (currentPayload) {
+      renderData(
+        currentPayload.phone || "",
+        currentPayload.contactName || currentPayload.phone || "",
+        currentPayload.messages || [],
+      );
+      return;
+    }
 
-    messages.forEach((msg) => {
-      const isSent = msg.direction === "outgoing" || msg.type === "sent";
-      const bubble = document.createElement("div");
-      bubble.className = "message-bubble " + (isSent ? "sent" : "received");
-      bubble.innerHTML =
-        `<div class="message-text">${linkifyText(msg.body)}</div>` +
-        `<div class="message-footer">` +
-        `<span class="message-time">${escapeHtml(formatTime(msg.timestamp))}</span>` +
-        (msg.deviceName
-          ? `<span class="message-device">📱 ${escapeHtml(msg.deviceName)}</span>`
-          : "") +
-        `</div>`;
-      area.appendChild(bubble);
-    });
+    // Legacy fallback when opened manually without token.
+    renderData(base.smsWindowPhone || "", base.smsWindowContact || base.smsWindowPhone || "", base.smsWindowMessages || []);
+  });
+}
 
-    // Scroll to bottom
-    area.scrollTop = area.scrollHeight;
-  }
-);
+bootstrapFromStorage();

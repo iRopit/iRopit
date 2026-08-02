@@ -2410,79 +2410,133 @@ export async function loadSharedDevicesNotifications(shares) {
 
       for (const sourceDeviceId of sourceDeviceIds) {
         try {
-          const initialQ = query(
+          const initialQTs = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
             orderBy("timestamp", "desc"),
             limit(NOTIF_INITIAL_LIMIT),
           );
 
-          let initialSnap;
-          try {
-            initialSnap = await getServerNotifDocsWithAuthRetry(initialQ);
-          } catch (serverErr) {
-            if (!isUnavailableError(serverErr)) throw serverErr;
-            logNotifUnavailableOnce(
-              `shared-initial:${share.deviceId}:${sourceDeviceId}`,
-              `[Notifs] Shared initial unavailable for ${share.deviceId}/${sourceDeviceId}, using local cache fallback`,
-            );
-            initialSnap = await getDocs(initialQ);
-          }
+          const initialQReceivedAt = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("receivedAt", "desc"),
+            limit(NOTIF_INITIAL_LIMIT),
+          );
+
+          const initialQCreatedAt = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("createdAt", "desc"),
+            limit(NOTIF_INITIAL_LIMIT),
+          );
+
+          const fetchInitialWithFallback = async (q, key) => {
+            try {
+              return await getServerNotifDocsWithAuthRetry(q);
+            } catch (serverErr) {
+              if (!isUnavailableError(serverErr)) throw serverErr;
+              logNotifUnavailableOnce(
+                `shared-initial:${share.deviceId}:${sourceDeviceId}:${key}`,
+                `[Notifs] Shared initial unavailable for ${share.deviceId}/${sourceDeviceId}/${key}, using local cache fallback`,
+              );
+              return await getDocs(q);
+            }
+          };
+
+          const initialSnaps = await Promise.allSettled([
+            fetchInitialWithFallback(initialQTs, "timestamp"),
+            fetchInitialWithFallback(initialQReceivedAt, "receivedAt"),
+            fetchInitialWithFallback(initialQCreatedAt, "createdAt"),
+          ]);
+
+          const initialDocsById = new Map();
+          initialSnaps
+            .filter((r) => r.status === "fulfilled" && r.value?.docs)
+            .forEach((r) => {
+              r.value.docs.forEach((d) => {
+                if (!initialDocsById.has(d.id)) initialDocsById.set(d.id, d);
+              });
+            });
 
           const initialNotifs = await Promise.all(
-            initialSnap.docs.map(async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId)),
+            Array.from(initialDocsById.values()).map(
+              async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId),
+            ),
           );
           notifsBySource.set(sourceDeviceId, initialNotifs);
           publishSharedNotifs();
 
-          const q = query(
+          const qTs = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
             orderBy("timestamp", "desc"),
             limit(200),
           );
 
-          const unsub = onSnapshot(
-            q,
-            async (snapshot) => {
-              if (snapshot.metadata.fromCache && snapshot.empty) return;
-
-              const current = notifsBySource.get(sourceDeviceId) || [];
-              const byKey = new Map(
-                current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n]),
-              );
-
-              for (const change of snapshot.docChanges()) {
-                if (change.type !== "added" && change.type !== "modified") continue;
-                const notif = await mapNotifForShare(change.doc, sourceDeviceId);
-                const identityKey = getNotificationIdentityKey(notif, share.deviceId);
-                const existing = byKey.get(identityKey);
-                const preserved = existing && existing.read === true && !notif.read
-                  ? { ...notif, read: true }
-                  : notif;
-                byKey.set(identityKey, preserved);
-              }
-
-              notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
-              publishSharedNotifs();
-            },
-            (err) => {
-              if (err?.code === "permission-denied") return;
-              if (isUnavailableError(err)) {
-                logNotifUnavailableOnce(
-                  `shared-listener:${share.deviceId}:${sourceDeviceId}`,
-                  `[Notifs] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
-                  err?.message || err?.code,
-                );
-                return;
-              }
-              console.warn(
-                `[Notifs] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
-                err?.code,
-              );
-            },
+          const qReceivedAt = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("receivedAt", "desc"),
+            limit(200),
           );
 
-          sharedNotifListenerUnsubs.push(unsub);
-          state.addUnsubscriber(unsub);
+          const qCreatedAt = query(
+            collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
+            orderBy("createdAt", "desc"),
+            limit(200),
+          );
+
+          const applySharedSnapshot = async (snapshot) => {
+            if (snapshot.metadata.fromCache && snapshot.empty) return;
+
+            const current = notifsBySource.get(sourceDeviceId) || [];
+            const byKey = new Map(
+              current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n]),
+            );
+
+            for (const change of snapshot.docChanges()) {
+              if (change.type !== "added" && change.type !== "modified") continue;
+              const notif = await mapNotifForShare(change.doc, sourceDeviceId);
+              const identityKey = getNotificationIdentityKey(notif, share.deviceId);
+              const existing = byKey.get(identityKey);
+              const preserved = existing && existing.read === true && !notif.read
+                ? { ...notif, read: true }
+                : notif;
+              byKey.set(identityKey, preserved);
+            }
+
+            notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
+            publishSharedNotifs();
+          };
+
+          const handleSharedSnapshotError = (err) => {
+            if (err?.code === "permission-denied") return;
+            if (isUnavailableError(err)) {
+              logNotifUnavailableOnce(
+                `shared-listener:${share.deviceId}:${sourceDeviceId}`,
+                `[Notifs] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
+                err?.message || err?.code,
+              );
+              return;
+            }
+            console.warn(
+              `[Notifs] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
+              err?.code,
+            );
+          };
+
+          const unsubTs = onSnapshot(qTs, applySharedSnapshot, handleSharedSnapshotError);
+          const unsubReceivedAt = onSnapshot(
+            qReceivedAt,
+            applySharedSnapshot,
+            handleSharedSnapshotError,
+          );
+          const unsubCreatedAt = onSnapshot(
+            qCreatedAt,
+            applySharedSnapshot,
+            handleSharedSnapshotError,
+          );
+
+          sharedNotifListenerUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
+          state.addUnsubscriber(unsubTs);
+          state.addUnsubscriber(unsubReceivedAt);
+          state.addUnsubscriber(unsubCreatedAt);
         } catch (sourceErr) {
           if (sourceErr?.code !== "permission-denied") {
             console.warn(
