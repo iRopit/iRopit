@@ -2752,21 +2752,31 @@ html.dark #dashInsightsDeviceTabs {
   padding: 0;
   margin: 0;
   text-align: left;
-  color: var(--primary) !important;
+  color: var(--text) !important;
   font: inherit;
   line-height: inherit;
-  cursor: pointer;
-  text-decoration-line: underline !important;
+  cursor: pointer !important;
+  text-decoration: underline dotted !important;
   text-decoration-color: currentColor !important;
   text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
   text-underline-offset: 3px;
-  border-bottom: 1px solid currentColor;
+  border-bottom: 0;
+}
+
+.conversation-name-link > #smsConversationNameText,
+.sms-expand-btn {
+  text-decoration: underline dotted !important;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer !important;
 }
 
 .conversation-name-link:hover {
   background: transparent !important;
-  color: var(--primary) !important;
+  color: var(--text) !important;
   opacity: 0.9;
+  cursor: pointer !important;
 }
 
 .conversation-name-link:focus {

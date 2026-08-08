@@ -965,7 +965,7 @@ export async function loadSMS(options = {}) {
           (msgs) => Array.isArray(msgs) && msgs.length > 0,
         );
       if (hasExistingSms) {
-        console.warn(
+        logger.info(
           "[SMS] Devices list temporarily empty; preserving existing SMS list",
         );
         isSyncing = false;
@@ -1009,6 +1009,8 @@ export async function loadSMS(options = {}) {
       // Guard against sparse/partial cache (e.g. fallback cache or first-run cache pollution).
       // With very small cache, delta mode makes it look like only a few messages exist.
       const MIN_CACHE_FOR_DELTA = 200;
+      const existingDeviceMessagesAtStart = state.getSMSData(device.id) || [];
+      const shouldPreserveExistingOnFullFallback = existingDeviceMessagesAtStart.length >= MIN_CACHE_FOR_DELTA;
       const isDelta =
         !!cachedNewestTs &&
         cachedDeviceCount >= MIN_CACHE_FOR_DELTA &&
@@ -1092,6 +1094,13 @@ export async function loadSMS(options = {}) {
               hadSuccessfulFullOwnServerFetch = true;
             } catch (serverErr) {
               if (!isUnavailableError(serverErr)) throw serverErr;
+              if (shouldPreserveExistingOnFullFallback) {
+                logSMSUnavailableOnce(
+                  `full-preserve:${device.id}`,
+                  `[SMS] Server unavailable for full page ${device.id}; preserving existing history instead of local fallback`,
+                );
+                throw serverErr;
+              }
               logSMSUnavailableOnce(
                 `full:${device.id}`,
                 `[SMS] Server unavailable for full page ${device.id}, using local cache fallback`,
@@ -2343,6 +2352,13 @@ export function initSMSNavigation() {
 
     const historyLink = e.target.closest("#smsConversationNameLink");
     if (historyLink) {
+      // The conversation view binds a direct click handler with the exact
+      // fullConversation context. If present, do not run delegated fallback,
+      // otherwise we can resolve to a different thread and open wrong history.
+      if (historyLink.dataset.directHistoryHandler === "1") {
+        return;
+      }
+
       e.preventDefault();
 
       const convKey = historyLink.dataset.conversationKey || state.currentConversation;
@@ -2563,7 +2579,7 @@ export function showConversation(phoneNumber) {
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <a class="conversation-name conversation-name-link" id="smsConversationNameLink" href="#" role="button" tabindex="0" style="text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px; border-bottom:1px solid currentColor; cursor:pointer !important; color:var(--primary);" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "عرض كل الرسائل" : "Show full SMS history"}">${escapeHtml(contactName)}<span style="font-size:9px;opacity:0.6;margin-inline-start:6px;font-weight:400;vertical-align:middle;">${(() => { try { return "b" + chrome.runtime.getManifest().version; } catch (_) { return ""; } })()}</span></a>
+          <a class="conversation-name conversation-name-link sms-expand-btn" id="smsConversationNameLink" href="#" role="button" tabindex="0" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "عرض كل الرسائل" : "Show full SMS history"}"><span id="smsConversationNameText">${escapeHtml(contactName)}</span></a>
           <div class="conversation-phone">${
             displayPhone
               ? escapeHtml(displayPhone)
@@ -2848,16 +2864,78 @@ export function showConversation(phoneNumber) {
 
   // Contact name click: open full history in the dedicated popup window.
   const nameLink = document.getElementById("smsConversationNameLink");
+  if (nameLink) {
+    // Keep old-style dotted affordance and make sure the link stays clickable.
+    nameLink.style.setProperty("display", "inline-flex");
+    nameLink.style.setProperty("align-items", "center");
+    nameLink.style.setProperty("position", "relative");
+    nameLink.style.setProperty("z-index", "2");
+    nameLink.style.setProperty("pointer-events", "auto", "important");
+    nameLink.style.setProperty("cursor", "pointer", "important");
+    const nameText = document.getElementById("smsConversationNameText");
+    if (nameText) {
+      nameText.style.setProperty("cursor", "pointer", "important");
+    }
+    const infoWrap = nameLink.closest(".conversation-info");
+    if (infoWrap) {
+      infoWrap.style.setProperty("cursor", "pointer", "important");
+    }
+    nameLink.dataset.directHistoryHandler = "1";
+  }
   const openHistory = () => {
-    openSMSHistoryWindow(displayPhone || phoneNumber, contactName, fullConversation);
+    // Re-resolve from latest state so history window includes newly loaded
+    // older messages, not only the initial snapshot when detail opened.
+    const latestConversation = state.allSMSMessages
+      .filter((msg) => {
+        const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
+        let msgNormalized = normalizePhoneNumber(rawPhone);
+        if (!msgNormalized && rawPhone.trim()) {
+          msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
+        }
+
+        const mappedContact = msgNormalized
+          ? (state.phoneToContactMap && state.phoneToContactMap[msgNormalized]) ||
+            getContactName(rawPhone)
+          : "";
+        const mappedContactName = stripBidi(
+          msg.contactName || msg.title || mappedContact || "",
+        );
+        const contactKey =
+          mappedContactName && !isPhoneNumberLike(mappedContactName)
+            ? "contact_" + mappedContactName.trim()
+            : "";
+
+        const matchesContactName =
+          !!normalizedContactInput &&
+          mappedContactName.trim().toLowerCase() === normalizedContactInput;
+
+        return (
+          msgNormalized === normalizedInput ||
+          contactKey === normalizedInput ||
+          matchesContactName
+        );
+      })
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    const activeDeviceNow =
+      document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset
+        .device || "all";
+    const scopedConversation =
+      activeDeviceNow === "all"
+        ? latestConversation
+        : latestConversation.filter((msg) => msg.deviceId === activeDeviceNow);
+
+    openSMSHistoryWindow(displayPhone || phoneNumber, contactName, scopedConversation);
   };
   nameLink?.addEventListener("click", (e) => {
     e.preventDefault();
+    e.stopPropagation();
     openHistory();
   });
   nameLink?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
+      e.stopPropagation();
       openHistory();
     }
   });

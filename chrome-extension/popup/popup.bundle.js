@@ -23575,9 +23575,140 @@ ${this.customData.serverResponse}`;
     }
     return normalized;
   }
+  function isEncryptedCallValue(value) {
+    return typeof value === "string" && value.trim().toUpperCase().startsWith("ENC:");
+  }
+  function sanitizeCallDisplayValue(value) {
+    if (typeof value !== "string") return "";
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (isEncryptedCallValue(trimmed)) return "";
+    return trimmed;
+  }
+  function isUnknownLikeCallText(value) {
+    if (typeof value !== "string") return true;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return true;
+    return normalized === "unknown" || normalized === "private" || normalized === "blocked" || normalized === "withheld" || normalized === "\u0645\u062C\u0647\u0648\u0644";
+  }
+  function getBestPhoneCandidate(call = {}) {
+    return sanitizeCallDisplayValue(
+      call.phoneNumber || call.number || call.address || call.caller || call.from || call.sender || ""
+    );
+  }
+  function hasUsablePhoneCandidate(value) {
+    if (!value) return false;
+    if (isUnknownLikeCallText(value)) return false;
+    return !!normalizePhoneNumber(value);
+  }
+  function getBestContactCandidate(call = {}) {
+    return sanitizeCallDisplayValue(call.contactName || call.displayName || call.name || "");
+  }
+  function hasUsableContactCandidate(value) {
+    if (!value) return false;
+    return !isUnknownLikeCallText(value);
+  }
+  function mergeCallRecords(existing, incoming) {
+    if (!existing) return incoming;
+    if (!incoming) return existing;
+    const merged = { ...incoming };
+    const incomingPhone = getBestPhoneCandidate(incoming);
+    const existingPhone = getBestPhoneCandidate(existing);
+    const incomingHasPhone = hasUsablePhoneCandidate(incomingPhone);
+    const existingHasPhone = hasUsablePhoneCandidate(existingPhone);
+    if (!incomingHasPhone && existingHasPhone) {
+      merged.phoneNumber = existing.phoneNumber || existing.number || existing.address || existingPhone;
+      if (!hasUsablePhoneCandidate(sanitizeCallDisplayValue(merged.number || ""))) {
+        merged.number = existing.number || existing.phoneNumber || existingPhone;
+      }
+      if (!hasUsablePhoneCandidate(sanitizeCallDisplayValue(merged.address || ""))) {
+        merged.address = existing.address || existing.phoneNumber || existingPhone;
+      }
+    }
+    const incomingContact = getBestContactCandidate(incoming);
+    const existingContact = getBestContactCandidate(existing);
+    const incomingHasContact = hasUsableContactCandidate(incomingContact);
+    const existingHasContact = hasUsableContactCandidate(existingContact);
+    if (!incomingHasContact && existingHasContact) {
+      merged.contactName = existing.contactName || existing.displayName || existing.name || existingContact;
+      if (!hasUsableContactCandidate(sanitizeCallDisplayValue(merged.displayName || ""))) {
+        merged.displayName = existing.displayName || existing.contactName || existingContact;
+      }
+      if (!hasUsableContactCandidate(sanitizeCallDisplayValue(merged.name || ""))) {
+        merged.name = existing.name || existing.contactName || existingContact;
+      }
+    }
+    if (!sanitizeCallDisplayValue(merged.appName || "") && sanitizeCallDisplayValue(existing.appName || "")) {
+      merged.appName = existing.appName;
+    }
+    if (existing.viewed === true && !merged.viewed) {
+      merged.viewed = true;
+    }
+    if (!merged.ownerUid && existing.ownerUid) merged.ownerUid = existing.ownerUid;
+    if (!merged.sharedRootDeviceId && existing.sharedRootDeviceId) merged.sharedRootDeviceId = existing.sharedRootDeviceId;
+    if (!merged.sharedSourceDeviceId && existing.sharedSourceDeviceId) merged.sharedSourceDeviceId = existing.sharedSourceDeviceId;
+    return merged;
+  }
+  function isSparseUnknownCall(call = {}) {
+    const phone = getBestPhoneCandidate(call);
+    const contact = getBestContactCandidate(call);
+    return !hasUsablePhoneCandidate(phone) && !hasUsableContactCandidate(contact);
+  }
+  function canCallsBeSameEvent(a, b, maxDeltaMs = 12e4) {
+    if (!a || !b) return false;
+    if (String(a.deviceId || "") !== String(b.deviceId || "")) return false;
+    if (String(a.type || "") !== String(b.type || "")) return false;
+    const aSim = Number.isFinite(Number(a.simSlot)) ? Number(a.simSlot) : -1;
+    const bSim = Number.isFinite(Number(b.simSlot)) ? Number(b.simSlot) : -1;
+    if (aSim >= 0 && bSim >= 0 && aSim !== bSim) return false;
+    const aTs = Number(a.timestamp || 0);
+    const bTs = Number(b.timestamp || 0);
+    if (!aTs || !bTs) return false;
+    return Math.abs(aTs - bTs) <= maxDeltaMs;
+  }
+  function findNearbyKnownCallContext(targetCall, candidates = []) {
+    if (!targetCall || !Array.isArray(candidates) || candidates.length === 0) return null;
+    let best = null;
+    let bestDelta = Number.MAX_SAFE_INTEGER;
+    const targetTs = Number(targetCall.timestamp || 0);
+    for (const candidate of candidates) {
+      if (!candidate || isSparseUnknownCall(candidate)) continue;
+      if (!canCallsBeSameEvent(targetCall, candidate)) continue;
+      const delta = Math.abs(Number(candidate.timestamp || 0) - targetTs);
+      if (delta < bestDelta) {
+        best = candidate;
+        bestDelta = delta;
+      }
+    }
+    return best;
+  }
+  function reconcileSparseUnknownCalls(newCalls = [], existingCalls = []) {
+    if (!Array.isArray(newCalls) || newCalls.length === 0) return [];
+    const enriched = newCalls.map((call) => {
+      if (!isSparseUnknownCall(call)) return call;
+      const nearby = findNearbyKnownCallContext(call, existingCalls);
+      if (!nearby) return call;
+      return mergeCallRecords(nearby, call);
+    });
+    const compacted = [];
+    for (const call of enriched) {
+      if (!isSparseUnknownCall(call)) {
+        compacted.push(call);
+        continue;
+      }
+      const duplicateKnown = compacted.find(
+        (existing) => !isSparseUnknownCall(existing) && canCallsBeSameEvent(call, existing, 9e4)
+      );
+      if (duplicateKnown) {
+        continue;
+      }
+      compacted.push(call);
+    }
+    return compacted;
+  }
   function getBaseCallGroupKey(call) {
-    const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-    const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+    const safePhone = sanitizeCallDisplayValue(call.phoneNumber || "");
+    const safeContact = sanitizeCallDisplayValue(call.contactName || "");
     const normalizedPhone = normalizePhoneNumber(safePhone);
     return normalizedPhone ? normalizedPhone : safeContact ? `contact_${safeContact}` : "unknown";
   }
@@ -23611,6 +23742,20 @@ ${this.customData.serverResponse}`;
     if (!value || !value.trim) return false;
     const digits = value.replace(/[\s\-().]/g, "");
     return /\d{3,}/.test(digits);
+  }
+  function extractPhoneFromText(value) {
+    if (!value || typeof value !== "string") return "";
+    if (value.startsWith("ENC:")) return "";
+    const match = value.match(/\+?\d[\d\s\-().]{4,}\d/);
+    if (!match) return "";
+    const candidate = match[0].trim();
+    return isPhoneNumberLike(candidate) ? candidate : "";
+  }
+  function extractPhoneFromDocId(docId) {
+    if (!docId || typeof docId !== "string") return "";
+    const m = docId.match(/^call_\d+_([0-9+]{6,})$/i);
+    if (!m || !m[1]) return "";
+    return m[1];
   }
   async function markAllCallsAsViewed() {
     const user = currentUser;
@@ -23717,6 +23862,12 @@ ${this.customData.serverResponse}`;
     );
     return shared?.ownerUid || currentUser?.uid || null;
   }
+  function getSharedCallsBucketKey(share) {
+    const owner = String(share?.ownerUid || "");
+    const device = String(share?.deviceId || "");
+    if (!owner || !device) return device || owner;
+    return `shared::${owner}::${device}`;
+  }
   function rebuildMergedCallsFromState() {
     let merged = [];
     Object.values(allCallsByDevice || {}).forEach((calls) => {
@@ -23808,8 +23959,23 @@ ${this.customData.serverResponse}`;
     const rawPhoneNumber = data.phoneNumber && typeof data.phoneNumber === "string" && data.phoneNumber.startsWith("ENC:") ? "" : data.phoneNumber || "";
     const rawNumber = data.number && typeof data.number === "string" && data.number.startsWith("ENC:") ? "" : data.number || "";
     const rawAddress = data.address && typeof data.address === "string" && data.address.startsWith("ENC:") ? "" : data.address || "";
-    const cleanPhone = (val) => typeof val === "string" && val.trim().toLowerCase() === "unknown" ? "" : val;
-    const resolvedPhone = cleanPhone(rawPhoneNumber) || cleanPhone(rawNumber) || cleanPhone(rawAddress) || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
+    const rawCaller = data.caller && typeof data.caller === "string" && data.caller.startsWith("ENC:") ? "" : data.caller || "";
+    const rawFrom = data.from && typeof data.from === "string" && data.from.startsWith("ENC:") ? "" : data.from || "";
+    const rawSender = data.sender && typeof data.sender === "string" && data.sender.startsWith("ENC:") ? "" : data.sender || "";
+    const docIdPhoneCandidate = extractPhoneFromDocId(firestoreId);
+    const bodyPhoneCandidate = extractPhoneFromText(data.body) || extractPhoneFromText(data.text) || extractPhoneFromText(data.content) || extractPhoneFromText(data.bigText) || extractPhoneFromText(data.subText) || extractPhoneFromText(data.ticker) || extractPhoneFromText(data.message) || "";
+    const cleanPhone = (val) => {
+      if (typeof val !== "string") return "";
+      const trimmed = val.trim();
+      const lowered = trimmed.toLowerCase();
+      if (!trimmed) return "";
+      if (trimmed.startsWith("ENC:")) return "";
+      if (lowered === "unknown" || lowered === "private" || lowered === "blocked" || lowered === "withheld") {
+        return "";
+      }
+      return trimmed;
+    };
+    const resolvedPhone = cleanPhone(rawPhoneNumber) || cleanPhone(rawNumber) || cleanPhone(rawAddress) || cleanPhone(rawCaller) || cleanPhone(rawFrom) || cleanPhone(rawSender) || cleanPhone(docIdPhoneCandidate) || cleanPhone(bodyPhoneCandidate) || (data.title && !isTitleCallDescription && isPhoneNumberLike(data.title) ? data.title : "") || "";
     const resolvedContact = rawContactName || (data.title && !isTitleCallDescription && !isPhoneNumberLike(data.title) ? data.title : "") || getContactName(resolvedPhone) || "";
     return {
       ...data,
@@ -23883,15 +24049,9 @@ ${this.customData.serverResponse}`;
             }
           }
           const sanitizeCall = (c) => {
-            const hasEnc = c.contactName && typeof c.contactName === "string" && c.contactName.startsWith("ENC:") || c.phoneNumber && typeof c.phoneNumber === "string" && c.phoneNumber.startsWith("ENC:") || c.displayName && typeof c.displayName === "string" && c.displayName.startsWith("ENC:") || c.name && typeof c.name === "string" && c.name.startsWith("ENC:");
+            const hasEnc = c.contactName && typeof c.contactName === "string" && c.contactName.startsWith("ENC:") || c.phoneNumber && typeof c.phoneNumber === "string" && c.phoneNumber.startsWith("ENC:") || c.displayName && typeof c.displayName === "string" && c.displayName.startsWith("ENC:") || c.name && typeof c.name === "string" && c.name.startsWith("ENC:") || c.number && typeof c.number === "string" && c.number.startsWith("ENC:") || c.address && typeof c.address === "string" && c.address.startsWith("ENC:");
             if (!hasEnc) return c;
-            return {
-              ...c,
-              contactName: c.contactName && c.contactName.startsWith("ENC:") ? "" : c.contactName || "",
-              phoneNumber: c.phoneNumber && c.phoneNumber.startsWith("ENC:") ? "" : c.phoneNumber || "",
-              displayName: c.displayName && c.displayName.startsWith("ENC:") ? "" : c.displayName || "",
-              name: c.name && c.name.startsWith("ENC:") ? "" : c.name || ""
-            };
+            return processCallDoc(c, c.id, c.deviceId || "", c.deviceName || "");
           };
           const sanitizedCachedCalls = cached.allCalls.map(sanitizeCall);
           setAllCallsData(sanitizedCachedCalls);
@@ -23976,22 +24136,51 @@ ${this.customData.serverResponse}`;
       }
       const loadPromises = devicesList2.map(async (device) => {
         try {
+          const existingDeviceCalls = allCallsByDevice?.[device.id] || [];
           const docsToProcess = await fetchAllCallsDocsPaged(
             user.uid,
             device.id,
             `full:${device.id}`
           );
+          let docsForProcessing = docsToProcess;
+          const shouldRunFullCollectionFallback = docsToProcess.length <= 60 || existingDeviceCalls.length > 0 && docsToProcess.length < existingDeviceCalls.length;
+          if (shouldRunFullCollectionFallback) {
+            try {
+              const fullSnap = await fetchCallsDocsFullCollectionFallback(
+                user.uid,
+                device.id,
+                `full-scan:${device.id}`
+              );
+              const fullDocs = fullSnap?.docs || [];
+              if (fullDocs.length > docsToProcess.length) {
+                const seenIds = new Set(docsToProcess.map((d) => d.id));
+                const extraDocs = fullDocs.filter((d) => d?.id && !seenIds.has(d.id));
+                if (extraDocs.length > 0) {
+                  docsForProcessing = docsToProcess.concat(extraDocs);
+                  console.log(
+                    `[Calls] Full-collection fallback added ${extraDocs.length} older/legacy docs for ${device.id}`
+                  );
+                }
+              }
+            } catch (scanErr) {
+              if (scanErr?.code !== "permission-denied" && !isUnavailableError(scanErr)) {
+                warnWithOptionalError(
+                  `[Calls] Full-collection fallback failed for ${device.id}:`,
+                  scanErr
+                );
+              }
+            }
+          }
           console.log(
-            `[Calls] \u{1F4E5} Full: ${docsToProcess.length} calls from device ${device.id}`
+            `[Calls] \u{1F4E5} Full: ${docsForProcessing.length} calls from device ${device.id}`
           );
           const calls = await Promise.all(
-            docsToProcess.map(async (docSnap) => {
+            docsForProcessing.map(async (docSnap) => {
               let data = docSnap.data();
               data = await decryptCallCached(data, user.uid, docSnap.id);
               return processCallDoc(data, docSnap.id, device.id, device.name);
             })
           );
-          const existingDeviceCalls = allCallsByDevice?.[device.id] || [];
           if (calls.length === 0 && existingDeviceCalls.length > 0) {
             const emptyKey = `full-empty:${device.id}`;
             if (!callsTransientEmptyFetchLogKeys.has(emptyKey)) {
@@ -24000,6 +24189,20 @@ ${this.customData.serverResponse}`;
                 `[Calls] Ignoring transient empty full-fetch for ${device.id}; preserving ${existingDeviceCalls.length} cached/live calls`
               );
             }
+            return;
+          }
+          if (existingDeviceCalls.length > 0 && calls.length > 0 && calls.length < existingDeviceCalls.length) {
+            const byKey = new Map(
+              existingDeviceCalls.map((c) => [getCallIdentityKey(c, device.id), c])
+            );
+            calls.forEach((call) => {
+              const key = getCallIdentityKey(call, device.id);
+              byKey.set(key, mergeCallRecords(byKey.get(key), call));
+            });
+            const mergedPreserved = Array.from(byKey.values()).sort(
+              (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+            );
+            updateCallsList(device.id, mergedPreserved);
             return;
           }
           updateCallsList(device.id, calls);
@@ -24050,8 +24253,7 @@ ${this.customData.serverResponse}`;
                 const existingIdx = currentCalls.findIndex((c) => c.id === call.id);
                 if (existingIdx >= 0) {
                   const existingCall = currentCalls[existingIdx];
-                  const preserved = existingCall.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-                  currentCalls[existingIdx] = preserved;
+                  currentCalls[existingIdx] = mergeCallRecords(existingCall, call);
                 } else {
                   currentCalls.unshift(call);
                 }
@@ -24076,10 +24278,7 @@ ${this.customData.serverResponse}`;
                 mappedCalls.forEach((call) => {
                   const key = getCallIdentityKey(call, device.id);
                   const prev = byKey.get(key);
-                  const merged = prev && prev.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-                  if (!prev || Number(merged.timestamp || 0) >= Number(prev.timestamp || 0)) {
-                    byKey.set(key, merged);
-                  }
+                  byKey.set(key, mergeCallRecords(prev, call));
                 });
                 updateCallsList(device.id, Array.from(byKey.values()));
               }
@@ -24122,12 +24321,13 @@ ${this.customData.serverResponse}`;
     );
     const preservedCalls = newCalls.map((call) => {
       const existing = existingById.get(getCallIdentityKey(call, deviceId));
-      if (existing && existing.viewed && !call.viewed) {
-        return { ...call, viewed: true };
-      }
-      return call;
+      return mergeCallRecords(existing, call);
     });
-    setCallsByDevice(deviceId, preservedCalls);
+    const reconciledCalls = reconcileSparseUnknownCalls(
+      preservedCalls,
+      allCallsByDevice[deviceId] || []
+    );
+    setCallsByDevice(deviceId, reconciledCalls);
     let merged = [];
     Object.values(allCallsByDevice).forEach((calls) => {
       merged = merged.concat(calls);
@@ -24306,8 +24506,8 @@ ${this.customData.serverResponse}`;
     }
     const grouped = {};
     filteredCalls.forEach((call) => {
-      const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-      const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+      const safePhone = sanitizeCallDisplayValue(call.phoneNumber || "");
+      const safeContact = sanitizeCallDisplayValue(call.contactName || "");
       const normalizedPhone = normalizePhoneNumber(safePhone);
       const key = buildScopedCallGroupKey(call, selectedTab);
       if (!grouped[key]) {
@@ -24528,8 +24728,8 @@ ${this.customData.serverResponse}`;
       if (scopedDeviceId && (call.deviceId || "_no_device") !== scopedDeviceId) {
         return false;
       }
-      const safePhone = call.phoneNumber && call.phoneNumber.startsWith("ENC:") ? "" : call.phoneNumber || "";
-      const safeContact = call.contactName && call.contactName.startsWith("ENC:") ? "" : call.contactName || "";
+      const safePhone = sanitizeCallDisplayValue(call.phoneNumber || "");
+      const safeContact = sanitizeCallDisplayValue(call.contactName || "");
       const normalizedPhone = normalizePhoneNumber(safePhone);
       if (baseKey === "unknown") {
         return !normalizedPhone && !safeContact;
@@ -24541,10 +24741,11 @@ ${this.customData.serverResponse}`;
     };
     const calls = allCallsData.filter(matchesByGroupKey).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     if (calls.length === 0) return;
-    const rawPhone = (calls[0].phoneNumber || "").toString().trim();
+    const rawPhone = sanitizeCallDisplayValue((calls[0].phoneNumber || "").toString());
+    const safeContactName = sanitizeCallDisplayValue(calls[0].contactName || "");
     const isVoIP = !rawPhone || rawPhone.toLowerCase() === "unknown" || !normalizePhoneNumber(rawPhone);
     const phoneNumber = isVoIP ? "" : rawPhone;
-    const contactName = calls[0].contactName || (isVoIP ? calls[0].appName || (getCurrentLanguage() === "ar" ? "\u0645\u062C\u0647\u0648\u0644" : "Unknown") : phoneNumber);
+    const contactName = safeContactName || (isVoIP ? calls[0].appName || (getCurrentLanguage() === "ar" ? "\u0645\u062C\u0647\u0648\u0644" : "Unknown") : phoneNumber);
     setCurrentCallConversation(groupKey);
     const missedToMark = calls.filter(
       (call) => call.type === "missed" && !call.viewed
@@ -24882,6 +25083,7 @@ ${this.customData.serverResponse}`;
     if (callShares.length === 0) return;
     for (const share of callShares) {
       const listenerKey = `${share.ownerUid}::${share.deviceId}`;
+      const sharedBucketKey = getSharedCallsBucketKey(share);
       const resolveSharedCandidateDeviceIds = async () => {
         const ids = /* @__PURE__ */ new Set([share.deviceId]);
         if (share?.deviceDocId) {
@@ -24957,7 +25159,7 @@ ${this.customData.serverResponse}`;
       const existingSourceSignature = sharedCallSourceSignatureByKey.get(listenerKey) || "";
       const boundAt = Number(sharedCallListenerBoundAtByKey.get(listenerKey) || 0);
       const listenerAgeMs = boundAt > 0 ? Date.now() - boundAt : Number.MAX_SAFE_INTEGER;
-      const existingSharedRows = (allCallsByDevice?.[share.deviceId] || []).length;
+      const existingSharedRows = (allCallsByDevice?.[sharedBucketKey] || []).length;
       const shouldRebindExisting = sharedCallListenerUnsubsByKey.has(listenerKey) && (existingMeta !== shareMeta || existingSourceSignature !== sourceSignature || // Self-heal only when listener is old AND no shared rows are present.
       existingSharedRows === 0 && listenerAgeMs > 10 * 60 * 1e3);
       if (shouldRebindExisting) {
@@ -24976,15 +25178,13 @@ ${this.customData.serverResponse}`;
               if (!call?.id) return;
               const mergeKey = getCallIdentityKey(call, share.deviceId);
               const prev = mergedById.get(mergeKey);
-              if (!prev || Number(call.timestamp || 0) >= Number(prev.timestamp || 0)) {
-                mergedById.set(mergeKey, call);
-              }
+              mergedById.set(mergeKey, mergeCallRecords(prev, call));
             });
           });
           const merged = Array.from(mergedById.values()).sort(
             (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
           );
-          const existingShared = allCallsByDevice?.[share.deviceId] || [];
+          const existingShared = allCallsByDevice?.[sharedBucketKey] || [];
           const hadSharedRows = existingShared.some((c) => {
             const ownerMatches = String(c?.ownerUid || "") === String(share.ownerUid || "");
             const deviceMatches = String(c?.deviceId || "") === String(share.deviceId || "");
@@ -24996,7 +25196,7 @@ ${this.customData.serverResponse}`;
             );
             return;
           }
-          updateCallsList(share.deviceId, merged);
+          updateCallsList(sharedBucketKey, merged);
         };
         const mapMissedNotifForShare = async (docSnap, sourceDeviceId = null) => {
           let data = docSnap.data() || {};
@@ -25105,8 +25305,7 @@ ${this.customData.serverResponse}`;
             if (!call) continue;
             const key = getCallIdentityKey(call, share.deviceId);
             const prev = callsMap.get(key);
-            const merged = prev && prev.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-            callsMap.set(key, merged);
+            callsMap.set(key, mergeCallRecords(prev, call));
             appliedAnyChange = true;
           }
           if (!appliedAnyChange && snapshot.docs.length > 0) {
@@ -25117,8 +25316,7 @@ ${this.customData.serverResponse}`;
               if (r.status !== "fulfilled" || !r.value) return;
               const key = getCallIdentityKey(r.value, share.deviceId);
               const prev = callsMap.get(key);
-              const merged = prev && prev.viewed === true && !r.value.viewed ? { ...r.value, viewed: true } : r.value;
-              callsMap.set(key, merged);
+              callsMap.set(key, mergeCallRecords(prev, r.value));
             });
           }
           callsBySource.set(ownerMissedSourceKey, Array.from(callsMap.values()));
@@ -25227,8 +25425,7 @@ ${this.customData.serverResponse}`;
                   if (!call) continue;
                   const identityKey = getCallIdentityKey(call, share.deviceId);
                   const existing = callsMap.get(identityKey);
-                  const preserved = existing && existing.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-                  callsMap.set(identityKey, preserved);
+                  callsMap.set(identityKey, mergeCallRecords(existing, call));
                   appliedAnyChange = true;
                 }
                 let mergedCalls = Array.from(callsMap.values()).sort(
@@ -25242,10 +25439,7 @@ ${this.customData.serverResponse}`;
                     if (r.status !== "fulfilled" || !r.value) return;
                     const key = getCallIdentityKey(r.value, share.deviceId);
                     const prev = callsMap.get(key);
-                    const merged = prev && prev.viewed === true && !r.value.viewed ? { ...r.value, viewed: true } : r.value;
-                    if (!prev || Number(merged.timestamp || 0) >= Number(prev.timestamp || 0)) {
-                      callsMap.set(key, merged);
-                    }
+                    callsMap.set(key, mergeCallRecords(prev, r.value));
                   });
                   mergedCalls = Array.from(callsMap.values()).sort(
                     (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
@@ -25320,8 +25514,7 @@ ${this.customData.serverResponse}`;
                 if (!call) continue;
                 const key = getCallIdentityKey(call, share.deviceId);
                 const prev = callsMap.get(key);
-                const merged = prev && prev.viewed === true && !call.viewed ? { ...call, viewed: true } : call;
-                callsMap.set(key, merged);
+                callsMap.set(key, mergeCallRecords(prev, call));
                 appliedAnyChange = true;
               }
               if (!appliedAnyChange && snapshot.docs.length > 0) {
@@ -25332,8 +25525,7 @@ ${this.customData.serverResponse}`;
                   if (r.status !== "fulfilled" || !r.value) return;
                   const key = getCallIdentityKey(r.value, share.deviceId);
                   const prev = callsMap.get(key);
-                  const merged = prev && prev.viewed === true && !r.value.viewed ? { ...r.value, viewed: true } : r.value;
-                  callsMap.set(key, merged);
+                  callsMap.set(key, mergeCallRecords(prev, r.value));
                 });
               }
               callsBySource.set(sourceDeviceId, Array.from(callsMap.values()));
@@ -25391,9 +25583,7 @@ ${this.customData.serverResponse}`;
                 pageCalls.forEach((call) => {
                   const key = getCallIdentityKey(call, share.deviceId);
                   const prev = byKey.get(key);
-                  if (!prev || Number(call.timestamp || 0) >= Number(prev.timestamp || 0)) {
-                    byKey.set(key, call);
-                  }
+                  byKey.set(key, mergeCallRecords(prev, call));
                 });
                 const merged = Array.from(byKey.values()).sort(
                   (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
@@ -25439,9 +25629,7 @@ ${this.customData.serverResponse}`;
               fullCalls.forEach((call) => {
                 const key = getCallIdentityKey(call, share.deviceId);
                 const prev = byKey.get(key);
-                if (!prev || Number(call.timestamp || 0) >= Number(prev.timestamp || 0)) {
-                  byKey.set(key, call);
-                }
+                byKey.set(key, mergeCallRecords(prev, call));
               });
               const merged = Array.from(byKey.values()).sort(
                 (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
@@ -26383,7 +26571,7 @@ ${this.customData.serverResponse}`;
           (msgs) => Array.isArray(msgs) && msgs.length > 0
         );
         if (hasExistingSms) {
-          console.warn(
+          smsLogger.info(
             "[SMS] Devices list temporarily empty; preserving existing SMS list"
           );
           isSyncing = false;
@@ -26417,6 +26605,8 @@ ${this.customData.serverResponse}`;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
         const MIN_CACHE_FOR_DELTA = 200;
+        const existingDeviceMessagesAtStart = getSMSData(device.id) || [];
+        const shouldPreserveExistingOnFullFallback = existingDeviceMessagesAtStart.length >= MIN_CACHE_FOR_DELTA;
         const isDelta = !!cachedNewestTs && cachedDeviceCount >= MIN_CACHE_FOR_DELTA && fullLoadRecent && !forceFullFetch;
         const DELTA_LOOKBACK_MS = 24 * 60 * 60 * 1e3;
         const deltaFromTs = isDelta ? Math.max(0, cachedNewestTs - DELTA_LOOKBACK_MS) : 0;
@@ -26475,6 +26665,13 @@ ${this.customData.serverResponse}`;
                 hadSuccessfulFullOwnServerFetch = true;
               } catch (serverErr) {
                 if (!isUnavailableError2(serverErr)) throw serverErr;
+                if (shouldPreserveExistingOnFullFallback) {
+                  logSMSUnavailableOnce(
+                    `full-preserve:${device.id}`,
+                    `[SMS] Server unavailable for full page ${device.id}; preserving existing history instead of local fallback`
+                  );
+                  throw serverErr;
+                }
                 logSMSUnavailableOnce(
                   `full:${device.id}`,
                   `[SMS] Server unavailable for full page ${device.id}, using local cache fallback`
@@ -27408,6 +27605,9 @@ ${this.customData.serverResponse}`;
       }
       const historyLink = e.target.closest("#smsConversationNameLink");
       if (historyLink) {
+        if (historyLink.dataset.directHistoryHandler === "1") {
+          return;
+        }
         e.preventDefault();
         const convKey = historyLink.dataset.conversationKey || currentConversation;
         const convContact = historyLink.dataset.contactName || "";
@@ -27529,13 +27729,7 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <a class="conversation-name conversation-name-link" id="smsConversationNameLink" href="#" role="button" tabindex="0" style="text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px; border-bottom:1px solid currentColor; cursor:pointer !important; color:var(--primary);" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "\u0639\u0631\u0636 \u0643\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Show full SMS history"}">${escapeHtml(contactName)}<span style="font-size:9px;opacity:0.6;margin-inline-start:6px;font-weight:400;vertical-align:middle;">${(() => {
-      try {
-        return "b" + chrome.runtime.getManifest().version;
-      } catch (_) {
-        return "";
-      }
-    })()}</span></a>
+          <a class="conversation-name conversation-name-link sms-expand-btn" id="smsConversationNameLink" href="#" role="button" tabindex="0" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "\u0639\u0631\u0636 \u0643\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Show full SMS history"}"><span id="smsConversationNameText">${escapeHtml(contactName)}</span></a>
           <div class="conversation-phone">${displayPhone ? escapeHtml(displayPhone) : phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
         </div>
         ${(() => {
@@ -27740,16 +27934,51 @@ ${this.customData.serverResponse}`;
       }
     });
     const nameLink = document.getElementById("smsConversationNameLink");
+    if (nameLink) {
+      nameLink.style.setProperty("display", "inline-flex");
+      nameLink.style.setProperty("align-items", "center");
+      nameLink.style.setProperty("position", "relative");
+      nameLink.style.setProperty("z-index", "2");
+      nameLink.style.setProperty("pointer-events", "auto", "important");
+      nameLink.style.setProperty("cursor", "pointer", "important");
+      const nameText = document.getElementById("smsConversationNameText");
+      if (nameText) {
+        nameText.style.setProperty("cursor", "pointer", "important");
+      }
+      const infoWrap = nameLink.closest(".conversation-info");
+      if (infoWrap) {
+        infoWrap.style.setProperty("cursor", "pointer", "important");
+      }
+      nameLink.dataset.directHistoryHandler = "1";
+    }
     const openHistory = () => {
-      openSMSHistoryWindow(displayPhone || phoneNumber, contactName, fullConversation);
+      const latestConversation = allSMSMessages.filter((msg) => {
+        const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
+        let msgNormalized = normalizePhoneNumber3(rawPhone);
+        if (!msgNormalized && rawPhone.trim()) {
+          msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
+        }
+        const mappedContact = msgNormalized ? phoneToContactMap && phoneToContactMap[msgNormalized] || getContactName(rawPhone) : "";
+        const mappedContactName = stripBidi(
+          msg.contactName || msg.title || mappedContact || ""
+        );
+        const contactKey = mappedContactName && !isPhoneNumberLike2(mappedContactName) ? "contact_" + mappedContactName.trim() : "";
+        const matchesContactName = !!normalizedContactInput && mappedContactName.trim().toLowerCase() === normalizedContactInput;
+        return msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
+      }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      const activeDeviceNow = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
+      const scopedConversation = activeDeviceNow === "all" ? latestConversation : latestConversation.filter((msg) => msg.deviceId === activeDeviceNow);
+      openSMSHistoryWindow(displayPhone || phoneNumber, contactName, scopedConversation);
     };
     nameLink?.addEventListener("click", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       openHistory();
     });
     nameLink?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
+        e.stopPropagation();
         openHistory();
       }
     });
