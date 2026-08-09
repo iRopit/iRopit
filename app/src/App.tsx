@@ -248,10 +248,7 @@ const AppContent = () => {
 
   return (
     <>
-      <StatusBar
-        barStyle={darkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={darkMode ? DARK_COLORS.surface : LIGHT_COLORS.primary}
-      />
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
       <NavigationContainer
         ref={navigationRef}
         theme={navigationTheme}

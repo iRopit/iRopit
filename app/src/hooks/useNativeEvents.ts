@@ -37,6 +37,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     currentDevice,
     registerDevice,
     startOnlineStatusTracking,
+    stopOnlineStatusTracking,
     startFcmTokenListener,
     startDeviceDeleteListener,
   } = useDeviceStore();
@@ -80,6 +81,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     }
 
     return () => {
+      stopOnlineStatusTracking();
       if (fcmTokenListenerUnsubscribe.current) {
         fcmTokenListenerUnsubscribe.current();
         fcmTokenListenerUnsubscribe.current = null;
@@ -90,6 +92,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     currentDevice,
     registerDevice,
     startOnlineStatusTracking,
+    stopOnlineStatusTracking,
     syncContactsToFirebase,
     startFcmTokenListener,
   ]);

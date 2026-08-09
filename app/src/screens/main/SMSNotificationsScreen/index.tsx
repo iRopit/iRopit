@@ -124,10 +124,7 @@ const SMSNotificationsScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={bgColor}
-      />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
       {/* Header with Select/Cancel buttons */}
       <SelectableHeader

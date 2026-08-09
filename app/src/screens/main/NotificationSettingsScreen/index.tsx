@@ -51,10 +51,7 @@ const NotificationSettingsScreen = ({
       style={[styles.container, { backgroundColor: bgColor }]}
       edges={['top', 'left', 'right']}
     >
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={bgColor}
-      />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
       {/* Header with back button */}
       <View style={styles.headerRow}>

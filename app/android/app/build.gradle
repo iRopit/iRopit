@@ -62,11 +62,6 @@ react {
 }
 
 /**
- * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
- */
-def enableProguardInReleaseBuilds = false
-
-/**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
  * For example, to use the international variant, you can use:
@@ -89,8 +84,8 @@ android {
         applicationId "com.IRopit"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1212
-        versionName "1.1.20"
+        versionCode 1216
+        versionName "1.1.24"
     }
     signingConfigs {
         debug {
@@ -112,8 +107,9 @@ android {
         }
         release {
             signingConfig signingConfigs.release
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 
@@ -149,7 +145,6 @@ dependencies {
     }
 }
 
-apply plugin: "com.google.gms.google-services"
 apply plugin: 'com.google.gms.google-services'
 
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

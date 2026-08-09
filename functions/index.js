@@ -6,6 +6,7 @@
 const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const functionsV1 = require("firebase-functions/v1");
+const { defineString } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -21,22 +22,61 @@ const FIRST_LOGIN_EMAIL_SUBJECT =
   "Complete Your iRopit Setup in Less Than 1 Minute";
 const FIRST_LOGIN_EMAIL_FROM = "welcome@iRopit.com";
 
+const SMTP_HOST_PARAM = defineString("SMTP_HOST", { default: "mail.privateemail.com" });
+const SMTP_PORT_PARAM = defineString("SMTP_PORT", { default: "465" });
+const SMTP_USER_PARAM = defineString("SMTP_USER", { default: "welcome@iRopit.com" });
+const SMTP_PASS_PARAM = defineString("SMTP_PASS", { default: "" });
+const SMTP_SECURE_PARAM = defineString("SMTP_SECURE", { default: "true" });
+const DKIM_DOMAIN_PARAM = defineString("DKIM_DOMAIN", { default: "" });
+const DKIM_SELECTOR_PARAM = defineString("DKIM_SELECTOR", { default: "" });
+const DKIM_PRIVATE_KEY_PARAM = defineString("DKIM_PRIVATE_KEY", { default: "" });
+
 let cachedMailer = null;
+
+function normalizeMultilineSecret(value) {
+  if (!value || typeof value !== "string") return "";
+  return value.replace(/\\n/g, "\n").trim();
+}
+
+function getDkimConfig() {
+  const domainName = process.env.DKIM_DOMAIN || DKIM_DOMAIN_PARAM.value();
+  const keySelector = process.env.DKIM_SELECTOR || DKIM_SELECTOR_PARAM.value();
+  const privateKeyRaw = process.env.DKIM_PRIVATE_KEY || DKIM_PRIVATE_KEY_PARAM.value();
+  const privateKey = normalizeMultilineSecret(privateKeyRaw);
+
+  if (!domainName && !keySelector && !privateKey) return null;
+
+  if (!domainName || !keySelector || !privateKey) {
+    const missing = [];
+    if (!domainName) missing.push("DKIM_DOMAIN");
+    if (!keySelector) missing.push("DKIM_SELECTOR");
+    if (!privateKey) missing.push("DKIM_PRIVATE_KEY");
+
+    // DKIM is optional; if partially configured, fall back to SMTP-only send.
+    console.warn(
+      `Incomplete DKIM config. Missing: ${missing.join(", ")}. Continuing without DKIM signing.`,
+    );
+    return null;
+  }
+
+  return {
+    domainName,
+    keySelector,
+    privateKey,
+  };
+}
 
 function getMailer() {
   if (cachedMailer) return cachedMailer;
 
-  const runtimeCfg =
-    typeof functionsV1.config === "function" ? functionsV1.config() : {};
-  const smtpCfg = runtimeCfg?.smtp || {};
-
-  const host = process.env.SMTP_HOST || smtpCfg.host;
-  const port = Number(process.env.SMTP_PORT || smtpCfg.port || 465);
-  const user = process.env.SMTP_USER || smtpCfg.user;
-  const pass = process.env.SMTP_PASS || smtpCfg.pass;
-  const secureEnv = process.env.SMTP_SECURE || smtpCfg.secure;
+  const host = process.env.SMTP_HOST || SMTP_HOST_PARAM.value();
+  const port = Number(process.env.SMTP_PORT || SMTP_PORT_PARAM.value() || 465);
+  const user = process.env.SMTP_USER || SMTP_USER_PARAM.value();
+  const pass = process.env.SMTP_PASS || SMTP_PASS_PARAM.value();
+  const secureEnv = process.env.SMTP_SECURE || SMTP_SECURE_PARAM.value();
   const secure =
     String(secureEnv || "").toLowerCase() === "true" || port === 465;
+  const dkim = getDkimConfig();
 
   if (!host || !user || !pass) {
     throw new Error(
@@ -49,6 +89,7 @@ function getMailer() {
     port,
     secure,
     auth: { user, pass },
+    ...(dkim ? { dkim } : {}),
   });
 
   return cachedMailer;

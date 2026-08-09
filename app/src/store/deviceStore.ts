@@ -41,6 +41,7 @@ interface DeviceState {
   updateOnlineStatus: (isOnline: boolean) => Promise<void>;
   updateFcmToken: (token: string) => Promise<void>;
   startOnlineStatusTracking: () => void;
+  stopOnlineStatusTracking: () => void;
   startFcmTokenListener: () => () => void;
   startDeviceDeleteListener: () => () => void;
   cleanup: () => void;
@@ -350,6 +351,7 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
   },
 
   cleanup: () => {
+    stopOnlineStatusTrackingInternal();
     set({ currentDevice: null, devices: [], error: null });
   },
 
@@ -390,22 +392,37 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
   startOnlineStatusTracking: () => {
     const { updateOnlineStatus } = get();
 
+    // Ensure we never keep duplicate listeners across re-register/login cycles
+    stopOnlineStatusTrackingInternal();
+
     // Set online when app becomes active
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'active') {
         updateOnlineStatus(true);
+        startBatteryPolling();
       } else if (nextAppState === 'background' || nextAppState === 'inactive') {
         updateOnlineStatus(false);
+        stopBatteryPolling();
       }
     };
 
-    AppState.addEventListener('change', handleAppStateChange);
+    onlineStatusAppStateSubscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
 
-    // Set online immediately
-    updateOnlineStatus(true);
+    // Respect current app state immediately
+    if (AppState.currentState === 'active') {
+      updateOnlineStatus(true);
+      startBatteryPolling();
+    } else {
+      updateOnlineStatus(false);
+      stopBatteryPolling();
+    }
+  },
 
-    // Start periodic battery polling every 10 minutes
-    startBatteryPolling();
+  stopOnlineStatusTracking: () => {
+    stopOnlineStatusTrackingInternal();
   },
 
   updateFcmToken: async (token: string) => {
@@ -503,15 +520,39 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
  * Periodic battery polling - updates every 10 minutes
  */
 let batteryPollingInterval: NodeJS.Timeout | null = null;
+let onlineStatusAppStateSubscription: { remove: () => void } | null = null;
 
-function startBatteryPolling() {
-  // Clear any existing interval
+function stopBatteryPolling() {
   if (batteryPollingInterval) {
     clearInterval(batteryPollingInterval);
+    batteryPollingInterval = null;
   }
+}
+
+function stopOnlineStatusTrackingInternal() {
+  if (onlineStatusAppStateSubscription) {
+    try {
+      onlineStatusAppStateSubscription.remove();
+    } catch (_) {}
+    onlineStatusAppStateSubscription = null;
+  }
+  stopBatteryPolling();
+}
+
+function startBatteryPolling() {
+  // Only poll while app is active to avoid unnecessary background wakeups.
+  if (AppState.currentState !== 'active') {
+    stopBatteryPolling();
+    return;
+  }
+
+  // Clear any existing interval
+  stopBatteryPolling();
 
   // Poll every 10 minutes (600000ms)
   batteryPollingInterval = setInterval(async () => {
+    if (AppState.currentState !== 'active') return;
+
     const { currentDevice } = useDeviceStore.getState();
     if (!currentDevice) return;
 

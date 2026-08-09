@@ -8,13 +8,13 @@ import {
   View,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   ViewStyle,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LIGHT_COLORS, DARK_COLORS } from '../../theme/colors';
 import { COMPONENT_SPACING } from '../../theme/spacing';
 
@@ -121,10 +121,7 @@ const Container: React.FC<ContainerProps> = ({
 
   return (
     <>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={bgColor}
-      />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {safeArea ? (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]}>
           {renderWithKeyboard()}
