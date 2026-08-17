@@ -44,7 +44,7 @@ public class SmsRequestService extends Service {
     private static final String SMS_COPY_CHANNEL_ID = "sms_copy_channel";
     private static final int NOTIFICATION_ID = 1001;
     private int smsCopyNotifCounter = 0;
-    private static final long WATCHDOG_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+    private static final long WATCHDOG_INTERVAL_MS = 60 * 1000; // 1 minute
 
     private FirebaseFirestore db;
     private ListenerRegistration smsRequestListener;
@@ -156,8 +156,8 @@ public class SmsRequestService extends Service {
             }
         };
         
-        // First check after 30 seconds, then every 5 minutes
-        watchdogHandler.postDelayed(watchdogRunnable, 30000);
+        // First check after 10 seconds, then every minute
+        watchdogHandler.postDelayed(watchdogRunnable, 10000);
         Log.i(TAG, "🔄 Notification service watchdog started (interval: " + (WATCHDOG_INTERVAL_MS / 1000) + "s)");
     }
 

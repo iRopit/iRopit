@@ -36,7 +36,7 @@
   function bootstrapFromStorage(retries = 12) {
     const params = new URLSearchParams(window.location.search || "");
     const tokenFromUrl = params.get("token") || "";
-    chrome.storage.local.get(["smsWindowLatestToken", "smsWindowCurrentPayload", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
+    chrome.storage.local.get(["smsWindowLatestToken", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
       const token = tokenFromUrl || base.smsWindowLatestToken || "";
       const renderData = (phone, contactName, messages) => {
         if (!phone && !contactName && messages.length === 0 && retries > 0) {
@@ -67,21 +67,8 @@
       };
       if (token) {
         const tokenKey = `smsWindowData_${token}`;
-        chrome.storage.local.get([tokenKey, "smsWindowCurrentPayload"], (result) => {
+        chrome.storage.local.get([tokenKey], (result) => {
           const tokenData = result[tokenKey];
-          const currentPayload2 = result.smsWindowCurrentPayload;
-          if (tokenData) {
-            renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
-            return;
-          }
-          if (currentPayload2 && currentPayload2.token === token) {
-            renderData(
-              currentPayload2.phone || "",
-              currentPayload2.contactName || currentPayload2.phone || "",
-              currentPayload2.messages || []
-            );
-            return;
-          }
           if (!tokenData) {
             if (retries > 0) {
               setTimeout(() => bootstrapFromStorage(retries - 1), 120);
@@ -90,16 +77,8 @@
             renderData("", "", []);
             return;
           }
+          renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
         });
-        return;
-      }
-      const currentPayload = base.smsWindowCurrentPayload;
-      if (currentPayload) {
-        renderData(
-          currentPayload.phone || "",
-          currentPayload.contactName || currentPayload.phone || "",
-          currentPayload.messages || []
-        );
         return;
       }
       renderData(base.smsWindowPhone || "", base.smsWindowContact || base.smsWindowPhone || "", base.smsWindowMessages || []);

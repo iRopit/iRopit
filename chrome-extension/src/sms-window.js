@@ -52,7 +52,7 @@ function linkifyText(text) {
 function bootstrapFromStorage(retries = 12) {
   const params = new URLSearchParams(window.location.search || "");
   const tokenFromUrl = params.get("token") || "";
-  chrome.storage.local.get(["smsWindowLatestToken", "smsWindowCurrentPayload", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
+  chrome.storage.local.get(["smsWindowLatestToken", "smsWindowPhone", "smsWindowContact", "smsWindowMessages"], (base) => {
     const token = tokenFromUrl || base.smsWindowLatestToken || "";
 
     const renderData = (phone, contactName, messages) => {
@@ -104,46 +104,18 @@ function bootstrapFromStorage(retries = 12) {
 
     if (token) {
       const tokenKey = `smsWindowData_${token}`;
-      chrome.storage.local.get([tokenKey, "smsWindowCurrentPayload"], (result) => {
+      chrome.storage.local.get([tokenKey], (result) => {
         const tokenData = result[tokenKey];
-        const currentPayload = result.smsWindowCurrentPayload;
-
-        if (tokenData) {
-          renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
-          return;
-        }
-
-        if (currentPayload && currentPayload.token === token) {
-          renderData(
-            currentPayload.phone || "",
-            currentPayload.contactName || currentPayload.phone || "",
-            currentPayload.messages || [],
-          );
-          return;
-        }
-
         if (!tokenData) {
           if (retries > 0) {
             setTimeout(() => bootstrapFromStorage(retries - 1), 120);
             return;
           }
-          // If URL includes a token but payload is still missing, do not fall
-          // back to stale legacy keys from a previous conversation.
           renderData("", "", []);
           return;
         }
+        renderData(tokenData.phone || "", tokenData.contactName || tokenData.phone || "", tokenData.messages || []);
       });
-      return;
-    }
-
-    // Prefer latest explicit payload when opened without token.
-    const currentPayload = base.smsWindowCurrentPayload;
-    if (currentPayload) {
-      renderData(
-        currentPayload.phone || "",
-        currentPayload.contactName || currentPayload.phone || "",
-        currentPayload.messages || [],
-      );
       return;
     }
 

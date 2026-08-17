@@ -90,6 +90,7 @@ const NOTIFICATION_DEDUPE_MAX_KEYS = 400;
 let recentNotificationFingerprints = {};
 let lastChatPollTimestamp = Date.now() - 2 * 60 * 1000; // 2 minutes ago
 let seenChatMessageIds = new Set(); // Track seen chat message IDs for smart actions
+let chatListenerHealthy = false;
 let isInitialLoad = true; // Flag to skip initial snapshot
 let serviceWorkerStartTime = Date.now(); // Track when SW started
 
@@ -426,6 +427,7 @@ async function startListening(forceRestart = false) {
     // Stop previous listeners
     unsubscribeNotifications.forEach((unsub) => unsub());
     unsubscribeNotifications = [];
+    chatListenerHealthy = false;
     unreadIdsBySource.clear();
     // Reset stale badge immediately; snapshot callbacks below will repopulate
     // with current unread counts from Firestore.
@@ -519,10 +521,11 @@ function listenToChatMessages() {
     collection(db, "chats"),
     where("participants", "array-contains", currentUser.uid),
     orderBy("timestamp", "desc"),
-    limit(50),
+    limit(200),
   );
 
   const unsub = onSnapshot(q, (snapshot) => {
+    chatListenerHealthy = true;
     if (isFirstChatSnapshot) {
       isFirstChatSnapshot = false;
       // On first load, process very recent messages that arrived while SW was inactive
@@ -564,8 +567,16 @@ function listenToChatMessages() {
     const seenArray = Array.from(seenChatMessageIds).slice(-500);
     chrome.storage.local.set({ seenChatMessageIds: seenArray });
   }, (error) => {
+    chatListenerHealthy = false;
+    unsubscribeNotifications = unsubscribeNotifications.filter((fn) => fn !== unsub);
     if (error?.code === "permission-denied") return;
     console.error("ZyncIT: Chat listener error:", error);
+    setTimeout(() => {
+      if (currentUser) {
+        console.log("ZyncIT: Restarting listeners after chat listener error...");
+        startListening(true);
+      }
+    }, 1500);
   });
 
   unsubscribeNotifications.push(unsub);
@@ -762,9 +773,9 @@ function listenToUserNotifications() {
           const uid = currentUser?.uid;
           Promise.all([
             decrypt(notification.title || notification.contactName || "", uid),
-            decrypt(notification.body || notification.text || notification.content || "", uid),
-          ]).then(([decTitle, decBody]) => {
-            const combined = `${decTitle} ${decBody}`;
+            buildNotificationOtpSource(notification, uid),
+          ]).then(([decTitle, otpSource]) => {
+            const combined = otpSource || decTitle || "";
 
             // Copy OTP
             if (smartActions.copyOtp) {
@@ -784,7 +795,7 @@ function listenToUserNotifications() {
                   message: `${otp} — Copied to clipboard`,
                   priority: 2,
                 });
-                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+                sendOTPToActiveTab(otp, appName || decTitle, combined);
               }
             }
           }).catch(() => {});
@@ -1018,9 +1029,9 @@ function listenToDevice(deviceId, deviceName) {
           const uid = currentUser?.uid;
           Promise.all([
             decrypt(notification.title || notification.contactName || "", uid),
-            decrypt(notification.body || notification.text || notification.content || "", uid),
-          ]).then(([decTitle, decBody]) => {
-            const combined = `${decTitle} ${decBody}`;
+            buildNotificationOtpSource(notification, uid),
+          ]).then(([decTitle, otpSource]) => {
+            const combined = otpSource || decTitle || "";
 
             // Copy OTP
             if (smartActions.copyOtp) {
@@ -1040,7 +1051,7 @@ function listenToDevice(deviceId, deviceName) {
                   message: `${otp} — Copied to clipboard`,
                   priority: 2,
                 });
-                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+                sendOTPToActiveTab(otp, appName || decTitle, combined);
               }
             }
           }).catch(() => {});
@@ -1689,7 +1700,8 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
 
-  // Strip HTML tags/entities (emails may be HTML), normalise whitespace
+  // Strip HTML tags/entities (emails may be HTML), normalise whitespace,
+  // and remove markdown emphasis wrappers (e.g. **123456**, __123456__).
   const clean = text
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;|&#160;/gi, " ")
@@ -1698,22 +1710,23 @@ function extractOTP(text) {
     .replace(/&gt;/gi, ">")
     .replace(/\s+/g, " ")
     .trim();
+  const normalized = clean.replace(/[\\*_`~]/g, "");
 
   // Must contain an OTP-related keyword (English or Arabic, including email patterns)
   const keywordRe =
     /(otp|verification.?code|one.?time.?pass(?:word|code)?|one.?time.?code|passcode|access.?code|security.?code|auth(?:entication)?.?code|login.?code|sign.?in.?code|activation.?code|reset.?code|password.?reset|temporary.?password|temp.?pass|2fa|two.?factor|2-factor|confirmation.?code|verify|verification|token|pin\b|\bcode\b|رمز|كود|تحقق|مفتاح|رمز المرور|كلمة السر المؤقتة)/i;
-  const kwMatch = clean.match(keywordRe);
+  const kwMatch = normalized.match(keywordRe);
   if (!kwMatch) return null;
 
   // Prefer a 4-8 digit code appearing within 40 chars after the keyword
   // (covers patterns like "Your OTP is 123456" / "Verification code: 987654")
   const kwIdx = kwMatch.index + kwMatch[0].length;
-  const window = clean.slice(kwIdx, kwIdx + 80);
+  const window = normalized.slice(kwIdx, kwIdx + 80);
   const nearby = window.match(/\b(\d{4,8})\b/);
   if (nearby) return nearby[1];
 
   // Also check 40 chars BEFORE the keyword (e.g. "123456 is your OTP")
-  const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
+  const before = normalized.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
   const beforeMatch = before.match(/\b(\d{4,8})\b/);
   if (beforeMatch) {
     // Exclude card/account masking numbers — e.g. "ending 7396", "last 4 digits 1234",
@@ -1725,13 +1738,62 @@ function extractOTP(text) {
   }
 
   // Fallback: first 4-8 digit number in the whole text, but not a masked card/account number
-  const anyMatch = clean.match(/\b(\d{4,8})\b/);
+  const anyMatch = normalized.match(/\b(\d{4,8})\b/);
   if (anyMatch) {
-    const precedingText = clean.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
+    const precedingText = normalized.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
     const maskedCardFallbackRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
     if (!maskedCardFallbackRe.test(precedingText)) return anyMatch[1];
   }
   return null;
+}
+
+/**
+ * Build a broad plain-text source for OTP extraction from notification payloads.
+ * Email apps can place codes in bigText/subText instead of text/body.
+ */
+async function buildNotificationOtpSource(notification, uid) {
+  if (!notification || typeof notification !== "object") return "";
+
+  const candidates = [
+    notification.title,
+    notification.contactName,
+    notification.body,
+    notification.text,
+    notification.content,
+    notification.bigText,
+    notification.subText,
+    notification.summaryText,
+    notification.message,
+    notification.messages,
+    notification.tickerText,
+  ];
+
+  const unique = [];
+  const seen = new Set();
+  for (const value of candidates) {
+    if (value === null || value === undefined) continue;
+    const str = String(value).trim();
+    if (!str || seen.has(str)) continue;
+    seen.add(str);
+    unique.push(str);
+  }
+
+  if (unique.length === 0) return "";
+
+  const resolved = await Promise.all(
+    unique.map(async (value) => {
+      try {
+        return await decrypt(value, uid);
+      } catch {
+        return value;
+      }
+    }),
+  );
+
+  return resolved
+    .map((value) => (value == null ? "" : String(value).trim()))
+    .filter(Boolean)
+    .join(" ");
 }
 
 /**
@@ -2009,7 +2071,7 @@ async function showNotification(data) {
   // same time as the header, rather than waiting for the title to finish first.
   const [title, message] = await Promise.all([
     decrypt(data.title || data.contactName || "New Notification", uid),
-    decrypt(data.body || data.text || data.content || "", uid),
+    decrypt(data.body || data.text || data.content || data.bigText || data.subText || "", uid),
   ]);
   const iconUrl = chrome.runtime.getURL("assets/icon128.png");
   const notificationType = data.type || "notification";
@@ -2173,7 +2235,7 @@ async function pollForChatSmartActions() {
   if (!currentUser || !auth.currentUser) return;
   // Read settings fresh — avoids stale defaults if SW just woke up and storage load hasn't completed
   const sa = await getSmartActionsFresh();
-  if (!sa.openUrls && !sa.openImages && !sa.universalCopy) return;
+  const hasSmartActionsEnabled = sa.openUrls || sa.openImages || sa.universalCopy;
 
   try {
     const uid = currentUser.uid;
@@ -2184,7 +2246,12 @@ async function pollForChatSmartActions() {
       orderBy("timestamp", "desc"),
       limit(20),
     );
-    const snapshot = await getDocs(q);
+    let snapshot;
+    try {
+      snapshot = await getDocsFromServer(q);
+    } catch (_) {
+      snapshot = await getDocs(q);
+    }
     if (snapshot.empty) return;
 
     console.log(`ZyncIT: 📬 Chat poll found ${snapshot.size} new message(s)`);
@@ -2210,7 +2277,9 @@ async function pollForChatSmartActions() {
       // Smart actions are only for messages received from other devices.
       if (msg.senderPlatform === "chrome-extension") continue;
       if ((msg.senderDeviceId || "").startsWith("ext_")) continue;
-      await processChatMessageSmartActions(msg, sa);
+      if (hasSmartActionsEnabled) {
+        await processChatMessageSmartActions(msg, sa);
+      }
     }
 
     // Persist updated state
@@ -2548,7 +2617,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "keepAlive") {
     console.log("ZyncIT: Keep-alive ping", new Date().toLocaleTimeString());
     // Re-establish listeners if they were lost
-    if (currentUser && unsubscribeNotifications.length === 0) {
+    if (currentUser && (unsubscribeNotifications.length === 0 || !chatListenerHealthy)) {
       console.log("ZyncIT: Listeners lost, restarting...");
       startListening();
     }
@@ -3217,7 +3286,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Heartbeat from the persistent offscreen document — keeps the SW alive every
   // 20s so Firestore onSnapshot listeners are never lost due to the MV3 30s idle kill.
   if (message.type === "offscreen-heartbeat") {
-    if (currentUser && unsubscribeNotifications.length === 0) {
+    if (currentUser && (unsubscribeNotifications.length === 0 || !chatListenerHealthy)) {
       console.log("ZyncIT: 💓 Heartbeat: listeners lost, restarting...");
       startListening();
     }

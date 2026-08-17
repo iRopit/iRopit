@@ -21969,6 +21969,15 @@ ${this.customData.serverResponse}`;
       limit(500)
     );
     let refreshInFlight = false;
+    let lastServerRefreshAt = 0;
+    const requestServerRefresh = () => {
+      if (typeof forceRefreshChats !== "function") return;
+      const now = Date.now();
+      if (now - lastServerRefreshAt < 4e3) return;
+      lastServerRefreshAt = now;
+      forceRefreshChats().catch(() => {
+      });
+    };
     const applySnapshot = async (snapshot) => {
       const rawMessages = [];
       snapshot.forEach((docSnap) => {
@@ -22006,9 +22015,13 @@ ${this.customData.serverResponse}`;
     };
     const unsub = onSnapshot(
       q2,
+      { includeMetadataChanges: true },
       async (snapshot) => {
         try {
           await applySnapshot(snapshot);
+          if (snapshot.metadata?.fromCache) {
+            requestServerRefresh();
+          }
         } catch (err) {
           console.warn("[Chat] Snapshot processing failed, falling back to full refresh:", err);
           try {
@@ -22046,9 +22059,26 @@ ${this.customData.serverResponse}`;
     };
     addUnsubscriber(() => {
       forceRefreshChats = null;
+      if (chatRefreshIntervalId) {
+        clearInterval(chatRefreshIntervalId);
+        chatRefreshIntervalId = null;
+      }
+      window.removeEventListener("focus", requestServerRefresh);
+      document.removeEventListener("visibilitychange", onVisibilityRefresh);
     });
     forceRefreshChats().catch(() => {
     });
+    if (chatRefreshIntervalId) clearInterval(chatRefreshIntervalId);
+    chatRefreshIntervalId = setInterval(() => {
+      requestServerRefresh();
+    }, 1e4);
+    const onVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        requestServerRefresh();
+      }
+    };
+    window.addEventListener("focus", requestServerRefresh);
+    document.addEventListener("visibilitychange", onVisibilityRefresh);
   }
   async function refreshChatNow() {
     if (typeof forceRefreshChats === "function") {
@@ -22719,7 +22749,7 @@ ${this.customData.serverResponse}`;
     window.setReplyTo = setReplyTo;
     window.clearReply = clearReply;
   }
-  var chatContentById, forceRefreshChats, pendingPushedById, PENDING_PUSH_TTL_MS, STARRED_LS_KEY, pendingFile;
+  var chatContentById, forceRefreshChats, pendingPushedById, PENDING_PUSH_TTL_MS, chatRefreshIntervalId, STARRED_LS_KEY, pendingFile;
   var init_chat = __esm({
     "src/services/chat.js"() {
       init_firebase();
@@ -22734,6 +22764,7 @@ ${this.customData.serverResponse}`;
       forceRefreshChats = null;
       pendingPushedById = /* @__PURE__ */ new Map();
       PENDING_PUSH_TTL_MS = 2 * 60 * 1e3;
+      chatRefreshIntervalId = null;
       STARRED_LS_KEY = "chatStarredMessages";
       pendingFile = null;
     }
@@ -26571,7 +26602,7 @@ ${this.customData.serverResponse}`;
           (msgs) => Array.isArray(msgs) && msgs.length > 0
         );
         if (hasExistingSms) {
-          smsLogger.info(
+          console.warn(
             "[SMS] Devices list temporarily empty; preserving existing SMS list"
           );
           isSyncing = false;
@@ -26605,8 +26636,6 @@ ${this.customData.serverResponse}`;
         const cachedNewestTs = cachedNewestTimestamps[device.id];
         const cachedDeviceCount = cachedSMSData?.byDevice?.[device.id]?.length || 0;
         const MIN_CACHE_FOR_DELTA = 200;
-        const existingDeviceMessagesAtStart = getSMSData(device.id) || [];
-        const shouldPreserveExistingOnFullFallback = existingDeviceMessagesAtStart.length >= MIN_CACHE_FOR_DELTA;
         const isDelta = !!cachedNewestTs && cachedDeviceCount >= MIN_CACHE_FOR_DELTA && fullLoadRecent && !forceFullFetch;
         const DELTA_LOOKBACK_MS = 24 * 60 * 60 * 1e3;
         const deltaFromTs = isDelta ? Math.max(0, cachedNewestTs - DELTA_LOOKBACK_MS) : 0;
@@ -26665,13 +26694,6 @@ ${this.customData.serverResponse}`;
                 hadSuccessfulFullOwnServerFetch = true;
               } catch (serverErr) {
                 if (!isUnavailableError2(serverErr)) throw serverErr;
-                if (shouldPreserveExistingOnFullFallback) {
-                  logSMSUnavailableOnce(
-                    `full-preserve:${device.id}`,
-                    `[SMS] Server unavailable for full page ${device.id}; preserving existing history instead of local fallback`
-                  );
-                  throw serverErr;
-                }
                 logSMSUnavailableOnce(
                   `full:${device.id}`,
                   `[SMS] Server unavailable for full page ${device.id}, using local cache fallback`
@@ -27601,41 +27623,6 @@ ${this.customData.serverResponse}`;
     document.addEventListener("click", (e) => {
       if (e.target.closest("#backToSMS")) {
         _goBackFromConversation();
-        return;
-      }
-      const historyLink = e.target.closest("#smsConversationNameLink");
-      if (historyLink) {
-        if (historyLink.dataset.directHistoryHandler === "1") {
-          return;
-        }
-        e.preventDefault();
-        const convKey = historyLink.dataset.conversationKey || currentConversation;
-        const convContact = historyLink.dataset.contactName || "";
-        const convPhone = historyLink.dataset.phone || "";
-        if (!convKey) return;
-        const normalizedInput = convKey.startsWith("contact_") || convKey.startsWith("sender_") ? convKey : normalizePhoneNumber3(convKey) || `sender_${convKey.trim().toLowerCase()}`;
-        const normalizedContactInput = normalizedInput.startsWith("contact_") ? stripBidi(normalizedInput.slice("contact_".length)).trim().toLowerCase() : "";
-        const fullConversation = allSMSMessages.filter((msg) => {
-          const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
-          let msgNormalized = normalizePhoneNumber3(rawPhone);
-          if (!msgNormalized && rawPhone.trim()) {
-            msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
-          }
-          const mappedContact = msgNormalized ? phoneToContactMap && phoneToContactMap[msgNormalized] || getContactName(rawPhone) : "";
-          const contactName = stripBidi(
-            msg.contactName || msg.title || mappedContact || ""
-          );
-          const contactKey = contactName && !isPhoneNumberLike2(contactName) ? "contact_" + contactName.trim() : "";
-          const matchesContactName = !!normalizedContactInput && contactName.trim().toLowerCase() === normalizedContactInput;
-          return msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
-        }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        const activeDevice = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
-        const scopedConversation = activeDevice === "all" ? fullConversation : fullConversation.filter((msg) => msg.deviceId === activeDevice);
-        openSMSHistoryWindow(
-          convPhone || convKey,
-          convContact || convKey,
-          scopedConversation
-        );
       }
     });
   }
@@ -27729,7 +27716,7 @@ ${this.customData.serverResponse}`;
           ${getInitials(contactName)}
         </div>
         <div class="conversation-info">
-          <a class="conversation-name conversation-name-link sms-expand-btn" id="smsConversationNameLink" href="#" role="button" tabindex="0" data-conversation-key="${escapeHtml(phoneNumber)}" data-contact-name="${escapeHtml(contactName)}" data-phone="${escapeHtml(displayPhone || phoneNumber)}" title="${getCurrentLanguage() === "ar" ? "\u0639\u0631\u0636 \u0643\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Show full SMS history"}"><span id="smsConversationNameText">${escapeHtml(contactName)}</span></a>
+          <span class="conversation-name conversation-name-link" id="smsConversationNameLink" role="button" tabindex="0" title="${getCurrentLanguage() === "ar" ? "\u0639\u0631\u0636 \u0643\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644" : "Show full SMS history"}">${escapeHtml(contactName)}</span>
           <div class="conversation-phone">${displayPhone ? escapeHtml(displayPhone) : phoneNumber !== contactName && !phoneNumber.startsWith("contact_") && !phoneNumber.startsWith("sender_") ? escapeHtml(phoneNumber) : ""}</div>
         </div>
         ${(() => {
@@ -27934,51 +27921,13 @@ ${this.customData.serverResponse}`;
       }
     });
     const nameLink = document.getElementById("smsConversationNameLink");
-    if (nameLink) {
-      nameLink.style.setProperty("display", "inline-flex");
-      nameLink.style.setProperty("align-items", "center");
-      nameLink.style.setProperty("position", "relative");
-      nameLink.style.setProperty("z-index", "2");
-      nameLink.style.setProperty("pointer-events", "auto", "important");
-      nameLink.style.setProperty("cursor", "pointer", "important");
-      const nameText = document.getElementById("smsConversationNameText");
-      if (nameText) {
-        nameText.style.setProperty("cursor", "pointer", "important");
-      }
-      const infoWrap = nameLink.closest(".conversation-info");
-      if (infoWrap) {
-        infoWrap.style.setProperty("cursor", "pointer", "important");
-      }
-      nameLink.dataset.directHistoryHandler = "1";
-    }
     const openHistory = () => {
-      const latestConversation = allSMSMessages.filter((msg) => {
-        const rawPhone = stripBidi(msg.phoneNumber || msg.sender || "");
-        let msgNormalized = normalizePhoneNumber3(rawPhone);
-        if (!msgNormalized && rawPhone.trim()) {
-          msgNormalized = "sender_" + rawPhone.trim().toLowerCase();
-        }
-        const mappedContact = msgNormalized ? phoneToContactMap && phoneToContactMap[msgNormalized] || getContactName(rawPhone) : "";
-        const mappedContactName = stripBidi(
-          msg.contactName || msg.title || mappedContact || ""
-        );
-        const contactKey = mappedContactName && !isPhoneNumberLike2(mappedContactName) ? "contact_" + mappedContactName.trim() : "";
-        const matchesContactName = !!normalizedContactInput && mappedContactName.trim().toLowerCase() === normalizedContactInput;
-        return msgNormalized === normalizedInput || contactKey === normalizedInput || matchesContactName;
-      }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      const activeDeviceNow = document.querySelector("#smsDeviceTabs .device-tab.active")?.dataset.device || "all";
-      const scopedConversation = activeDeviceNow === "all" ? latestConversation : latestConversation.filter((msg) => msg.deviceId === activeDeviceNow);
-      openSMSHistoryWindow(displayPhone || phoneNumber, contactName, scopedConversation);
+      openSMSHistoryWindow(displayPhone || phoneNumber, contactName, fullConversation);
     };
-    nameLink?.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openHistory();
-    });
+    nameLink?.addEventListener("click", openHistory);
     nameLink?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        e.stopPropagation();
         openHistory();
       }
     });
@@ -28102,17 +28051,6 @@ ${this.customData.serverResponse}`;
       chrome.storage.local.set(
         {
           smsWindowLatestToken: token,
-          smsWindowCurrentPayload: {
-            token,
-            phone: phoneNumber,
-            contactName,
-            messages: payload
-          },
-          // Keep legacy keys in sync as a safe fallback for any open path
-          // that loses the URL token.
-          smsWindowPhone: phoneNumber,
-          smsWindowContact: contactName,
-          smsWindowMessages: payload,
           [payloadKey]: {
             phone: phoneNumber,
             contactName,

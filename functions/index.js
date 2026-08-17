@@ -69,28 +69,49 @@ function getDkimConfig() {
 function getMailer() {
   if (cachedMailer) return cachedMailer;
 
-  const host = process.env.SMTP_HOST || SMTP_HOST_PARAM.value();
-  const port = Number(process.env.SMTP_PORT || SMTP_PORT_PARAM.value() || 465);
-  const user = process.env.SMTP_USER || SMTP_USER_PARAM.value();
-  const pass = process.env.SMTP_PASS || SMTP_PASS_PARAM.value();
-  const secureEnv = process.env.SMTP_SECURE || SMTP_SECURE_PARAM.value();
+  const runtimeCfg =
+    typeof functionsV1.config === "function" ? functionsV1.config() : {};
+  const smtpCfg = runtimeCfg?.smtp || {};
+
+  const host = process.env.SMTP_HOST || smtpCfg.host;
+  const port = Number(process.env.SMTP_PORT || smtpCfg.port || 465);
+  const user = process.env.SMTP_USER || smtpCfg.user;
+  const pass = process.env.SMTP_PASS || smtpCfg.pass;
+
+  const secureEnv = process.env.SMTP_SECURE || smtpCfg.secure;
   const secure =
     String(secureEnv || "").toLowerCase() === "true" || port === 465;
-  const dkim = getDkimConfig();
 
   if (!host || !user || !pass) {
     throw new Error(
-      "Missing SMTP config. Required env vars: SMTP_HOST, SMTP_USER, SMTP_PASS, optional SMTP_PORT, SMTP_SECURE",
+      "Missing SMTP config. Required env vars: SMTP_HOST, SMTP_USER, SMTP_PASS"
     );
   }
 
-  cachedMailer = nodemailer.createTransport({
+  const transportOptions = {
     host,
     port,
     secure,
-    auth: { user, pass },
-    ...(dkim ? { dkim } : {}),
-  });
+    auth: {
+      user,
+      pass,
+    },
+  };
+
+  // DKIM is optional
+  const dkimDomain = process.env.DKIM_DOMAIN;
+  const dkimSelector = process.env.DKIM_SELECTOR;
+  const dkimPrivateKey = process.env.DKIM_PRIVATE_KEY;
+
+  if (dkimDomain && dkimSelector && dkimPrivateKey) {
+    transportOptions.dkim = {
+      domainName: dkimDomain,
+      keySelector: dkimSelector,
+      privateKey: dkimPrivateKey,
+    };
+  }
+
+  cachedMailer = nodemailer.createTransport(transportOptions);
 
   return cachedMailer;
 }

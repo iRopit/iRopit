@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Alert, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
+import { Alert, AppState, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
@@ -43,6 +43,8 @@ export const useChatScreen = () => {
 
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const devicesRef = useRef<any[]>([]);
+  const hasSeenServerSnapshotRef = useRef(false);
 
   // Dynamic colors based on theme
   const bgColor = colors.background;
@@ -69,6 +71,23 @@ export const useChatScreen = () => {
       );
     return () => unsubscribe();
   }, [user?.uid]);
+
+  // Keep latest devices in a ref to avoid re-subscribing chat listener on every device change.
+  useEffect(() => {
+    devicesRef.current = devices;
+  }, [devices]);
+
+  // Current device should never be a selectable target in Chat.
+  useEffect(() => {
+    if (selectedDeviceId && currentDevice?.id && selectedDeviceId === currentDevice.id) {
+      setSelectedDeviceId(null);
+      return;
+    }
+
+    if (selectedDeviceId && !devices.some(d => d.id === selectedDeviceId)) {
+      setSelectedDeviceId(null);
+    }
+  }, [selectedDeviceId, currentDevice?.id, devices]);
 
   // Keyboard listener for Android
   useEffect(() => {
@@ -337,14 +356,17 @@ export const useChatScreen = () => {
     }
 
     isFirstSnapshotRef.current = true;
+    hasSeenServerSnapshotRef.current = false;
     setIsLoading(true);
 
-    const unsubscribe = firestore()
+    const chatsQuery = firestore()
       .collection('chats')
       .where('participants', 'array-contains', user.uid)
       .orderBy('timestamp', 'desc')
-      .limit(100)
-      .onSnapshot(
+      .limit(100);
+
+    const unsubscribe = chatsQuery.onSnapshot(
+        { includeMetadataChanges: true },
         async snapshot => {
           const rawMsgs: Message[] = [];
           snapshot.forEach(doc => {
@@ -353,49 +375,9 @@ export const useChatScreen = () => {
           });
           rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-          const selectedDevice = selectedDeviceId
-            ? devices.find(d => d.id === selectedDeviceId)
-            : null;
-          const selectedPlatform = String(
-            (selectedDevice as any)?.platform || selectedDevice?.type || '',
-          ).toLowerCase();
-          const isChromeDeviceSelected = selectedPlatform.includes('chrome');
-
-          // Filter by selected device tab; no specific selection = show all
-          const filteredMsgs = selectedDeviceId
-            ? rawMsgs.filter(msg => {
-                const senderDeviceId = String((msg as any).senderDeviceId || '');
-                const receiverDeviceId = String((msg as any).receiverDeviceId || '');
-
-                if (
-                  senderDeviceId === selectedDeviceId ||
-                  receiverDeviceId === selectedDeviceId
-                ) {
-                  return true;
-                }
-
-                if (isChromeDeviceSelected) {
-                  const senderPlatform = String(
-                    (msg as any).senderPlatform || '',
-                  ).toLowerCase();
-                  const senderName = String((msg as any).senderName || '').toLowerCase();
-
-                  // Accept legacy/fallback extension markers so Chrome tab
-                  // still shows extension-sent messages even if IDs differ.
-                  if (
-                    senderPlatform === 'chrome-extension' ||
-                    senderPlatform === 'chrome' ||
-                    senderDeviceId === 'ext_sw' ||
-                    senderDeviceId.startsWith('ext_') ||
-                    senderName.includes('chrome extension')
-                  ) {
-                    return true;
-                  }
-                }
-
-                return false;
-              })
-            : rawMsgs;
+          // The selector in this screen is "Send to" only.
+          // Keep chat history unfiltered so incoming messages never disappear.
+          const filteredMsgs = rawMsgs;
           // Decrypt messages
           const decryptedMsgs = await Promise.all(
             filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
@@ -460,15 +442,74 @@ export const useChatScreen = () => {
             merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
             return merged;
           });
-          setIsLoading(false);
+
+          if (!snapshot.metadata.fromCache) {
+            hasSeenServerSnapshotRef.current = true;
+          }
+
+          // If first snapshot is empty cache, keep loading until we receive server data.
+          if (hasSeenServerSnapshotRef.current || rawMsgs.length > 0) {
+            setIsLoading(false);
+          }
         },
         _error => {
           setIsLoading(false);
         },
       );
 
-    return () => unsubscribe();
-  }, [user?.uid, currentDevice, selectedDeviceId, devices]);
+    const appStateSub = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active') return;
+      chatsQuery
+        .get({ source: 'server' })
+        .then(async serverSnap => {
+          const rawMsgs: Message[] = [];
+          serverSnap.forEach(doc => {
+            const data = doc.data();
+            rawMsgs.push({ id: doc.id, ...data } as Message);
+          });
+          rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+          const filteredMsgs = rawMsgs;
+
+          const decryptedMsgs = await Promise.all(
+            filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
+          );
+
+          const seen = new Set<string>();
+          const dedupedMsgs = decryptedMsgs.filter(msg => {
+            const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
+          setMessages(prev => {
+            const optimistics = prev.filter((m: any) => m._optimistic);
+            const real = dedupedMsgs as Message[];
+            if (optimistics.length === 0) return real;
+            const merged = [...real];
+            optimistics.forEach((opt: any) => {
+              const confirmed = real.some(
+                r =>
+                  (r as any).senderDeviceId === opt.senderDeviceId &&
+                  (r as any).type === opt.type &&
+                  Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
+              );
+              if (!confirmed) merged.push(opt);
+            });
+            merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
+            return merged;
+          });
+          setIsLoading(false);
+        })
+        .catch(() => {});
+    });
+
+    return () => {
+      unsubscribe();
+      appStateSub.remove();
+    };
+  }, [user?.uid, currentDevice, selectedDeviceId]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {

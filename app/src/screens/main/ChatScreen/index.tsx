@@ -371,7 +371,7 @@ const ChatScreen = () => {
 
       {/* Device selector dropdown */}
       {(() => {
-        const availableDevices = devices;
+        const availableDevices = devices.filter(d => d.id !== currentDevice?.id);
         const selectedDevice = availableDevices.find(d => d.id === selectedDeviceId);
         const selPlatform = (selectedDevice as any)?.platform || selectedDevice?.type || '';
         const selIcon = selectedDevice

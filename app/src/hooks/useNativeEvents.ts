@@ -71,13 +71,36 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
   // تسجيل الجهاز عند تحميل المستخدم
   useEffect(() => {
-    if (user && !currentDevice) {
-      registerDevice().then(() => {
-        startOnlineStatusTracking();
-        // Delay contact sync slightly to ensure Firestore auth token is ready
-        setTimeout(() => syncContactsToFirebase(), 2000);
-        fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
-      });
+    if (!user) {
+      return () => {
+        stopOnlineStatusTracking();
+        if (fcmTokenListenerUnsubscribe.current) {
+          fcmTokenListenerUnsubscribe.current();
+          fcmTokenListenerUnsubscribe.current = null;
+        }
+      };
+    }
+
+    if (!currentDevice) {
+      registerDevice().catch(() => {});
+      return () => {
+        stopOnlineStatusTracking();
+        if (fcmTokenListenerUnsubscribe.current) {
+          fcmTokenListenerUnsubscribe.current();
+          fcmTokenListenerUnsubscribe.current = null;
+        }
+      };
+    }
+
+    // Start tracking on every authenticated session once currentDevice is ready,
+    // including app relaunches where the device is restored from persisted state.
+    startOnlineStatusTracking();
+
+    // Delay contact sync slightly to ensure Firestore auth token is ready.
+    setTimeout(() => syncContactsToFirebase(), 2000);
+
+    if (!fcmTokenListenerUnsubscribe.current) {
+      fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
     }
 
     return () => {

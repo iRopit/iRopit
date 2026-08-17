@@ -64,7 +64,10 @@ public class SentSmsObserver extends ContentObserver {
     // Polling fallback: some devices don't fire ContentObserver for sent SMS
     private Handler pollingHandler;
     private Runnable pollingRunnable;
-    private static final long POLLING_INTERVAL_MS = 15000; // 15 seconds
+    private static final long POLLING_INTERVAL_FAST_MS = 10000; // 10 seconds
+    private static final long POLLING_INTERVAL_SLOW_MS = 30000; // 30 seconds
+    private static final long FAST_POLL_WINDOW_MS = 2 * 60 * 1000; // first 2 minutes
+    private long pollingStartedAt = 0L;
     
     public SentSmsObserver(Handler handler, Context context) {
         super(handler);
@@ -145,6 +148,15 @@ public class SentSmsObserver extends ContentObserver {
      */
     private void startPolling() {
         if (pollingRunnable != null) return;
+
+        pollingStartedAt = System.currentTimeMillis();
+
+        // Run an immediate check so recent SMS are fetched without waiting for first timer tick.
+        try {
+            checkForNewSentSms();
+        } catch (Exception e) {
+            Log.e(TAG, "Initial polling check error: " + e.getMessage());
+        }
         
         pollingRunnable = new Runnable() {
             @Override
@@ -156,14 +168,21 @@ public class SentSmsObserver extends ContentObserver {
                     Log.e(TAG, "Polling error: " + e.getMessage());
                 }
                 if (pollingHandler != null && pollingRunnable != null) {
-                    pollingHandler.postDelayed(pollingRunnable, POLLING_INTERVAL_MS);
+                    long elapsed = System.currentTimeMillis() - pollingStartedAt;
+                    long interval = elapsed <= FAST_POLL_WINDOW_MS
+                            ? POLLING_INTERVAL_FAST_MS
+                            : POLLING_INTERVAL_SLOW_MS;
+                    pollingHandler.postDelayed(pollingRunnable, interval);
                 }
             }
         };
         
-        // Start first poll after 10 seconds
-        pollingHandler.postDelayed(pollingRunnable, 10000);
-        Log.i(TAG, "🔄 Sent SMS polling started (interval: " + (POLLING_INTERVAL_MS / 1000) + "s)");
+        // Start first scheduled poll quickly after startup
+        pollingHandler.postDelayed(pollingRunnable, 3000);
+        Log.i(TAG, "🔄 Sent SMS polling started (fast="
+                + (POLLING_INTERVAL_FAST_MS / 1000)
+                + "s for " + (FAST_POLL_WINDOW_MS / 1000)
+                + "s, then slow=" + (POLLING_INTERVAL_SLOW_MS / 1000) + "s)");
     }
     
     /**

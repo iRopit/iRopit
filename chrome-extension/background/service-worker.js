@@ -18890,6 +18890,7 @@ var NOTIFICATION_DEDUPE_MAX_KEYS = 400;
 var recentNotificationFingerprints = {};
 var lastChatPollTimestamp = Date.now() - 2 * 60 * 1e3;
 var seenChatMessageIds = /* @__PURE__ */ new Set();
+var chatListenerHealthy = false;
 var serviceWorkerStartTime = Date.now();
 var badgeCount = 0;
 var unreadIdsBySource = /* @__PURE__ */ new Map();
@@ -19157,6 +19158,7 @@ async function startListening(forceRestart = false) {
   try {
     unsubscribeNotifications.forEach((unsub) => unsub());
     unsubscribeNotifications = [];
+    chatListenerHealthy = false;
     unreadIdsBySource.clear();
     setBadgeCount(0);
     listenToUserNotifications();
@@ -19232,9 +19234,10 @@ function listenToChatMessages() {
     collection(db, "chats"),
     where("participants", "array-contains", currentUser.uid),
     orderBy("timestamp", "desc"),
-    limit(50)
+    limit(200)
   );
   const unsub = onSnapshot(q2, (snapshot) => {
+    chatListenerHealthy = true;
     if (isFirstChatSnapshot) {
       isFirstChatSnapshot = false;
       snapshot.docs.forEach((d) => {
@@ -19264,8 +19267,16 @@ function listenToChatMessages() {
     const seenArray = Array.from(seenChatMessageIds).slice(-500);
     chrome.storage.local.set({ seenChatMessageIds: seenArray });
   }, (error) => {
+    chatListenerHealthy = false;
+    unsubscribeNotifications = unsubscribeNotifications.filter((fn) => fn !== unsub);
     if (error?.code === "permission-denied") return;
     console.error("ZyncIT: Chat listener error:", error);
+    setTimeout(() => {
+      if (currentUser) {
+        console.log("ZyncIT: Restarting listeners after chat listener error...");
+        startListening(true);
+      }
+    }, 1500);
   });
   unsubscribeNotifications.push(unsub);
 }
@@ -19407,9 +19418,9 @@ function listenToUserNotifications() {
           const uid = currentUser?.uid;
           Promise.all([
             decrypt(notification.title || notification.contactName || "", uid),
-            decrypt(notification.body || notification.text || notification.content || "", uid)
-          ]).then(([decTitle, decBody]) => {
-            const combined = `${decTitle} ${decBody}`;
+            buildNotificationOtpSource(notification, uid)
+          ]).then(([decTitle, otpSource]) => {
+            const combined = otpSource || decTitle || "";
             if (smartActions.copyOtp) {
               const otp = extractOTP(combined);
               if (otp) {
@@ -19426,7 +19437,7 @@ function listenToUserNotifications() {
                   message: `${otp} \u2014 Copied to clipboard`,
                   priority: 2
                 });
-                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+                sendOTPToActiveTab(otp, appName || decTitle, combined);
               }
             }
           }).catch(() => {
@@ -19605,9 +19616,9 @@ function listenToDevice(deviceId, deviceName) {
           const uid = currentUser?.uid;
           Promise.all([
             decrypt(notification.title || notification.contactName || "", uid),
-            decrypt(notification.body || notification.text || notification.content || "", uid)
-          ]).then(([decTitle, decBody]) => {
-            const combined = `${decTitle} ${decBody}`;
+            buildNotificationOtpSource(notification, uid)
+          ]).then(([decTitle, otpSource]) => {
+            const combined = otpSource || decTitle || "";
             if (smartActions.copyOtp) {
               const otp = extractOTP(combined);
               if (otp) {
@@ -19624,7 +19635,7 @@ function listenToDevice(deviceId, deviceName) {
                   message: `${otp} \u2014 Copied to clipboard`,
                   priority: 2
                 });
-                sendOTPToActiveTab(otp, appName || decTitle, decBody);
+                sendOTPToActiveTab(otp, appName || decTitle, combined);
               }
             }
           }).catch(() => {
@@ -20141,14 +20152,15 @@ function listenForCallsFromDevice(deviceId, deviceName) {
 function extractOTP(text) {
   if (!text || typeof text !== "string") return null;
   const clean = text.replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/\s+/g, " ").trim();
+  const normalized = clean.replace(/[\\*_`~]/g, "");
   const keywordRe = /(otp|verification.?code|one.?time.?pass(?:word|code)?|one.?time.?code|passcode|access.?code|security.?code|auth(?:entication)?.?code|login.?code|sign.?in.?code|activation.?code|reset.?code|password.?reset|temporary.?password|temp.?pass|2fa|two.?factor|2-factor|confirmation.?code|verify|verification|token|pin\b|\bcode\b|رمز|كود|تحقق|مفتاح|رمز المرور|كلمة السر المؤقتة)/i;
-  const kwMatch = clean.match(keywordRe);
+  const kwMatch = normalized.match(keywordRe);
   if (!kwMatch) return null;
   const kwIdx = kwMatch.index + kwMatch[0].length;
-  const window2 = clean.slice(kwIdx, kwIdx + 80);
+  const window2 = normalized.slice(kwIdx, kwIdx + 80);
   const nearby = window2.match(/\b(\d{4,8})\b/);
   if (nearby) return nearby[1];
-  const before = clean.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
+  const before = normalized.slice(Math.max(0, kwMatch.index - 40), kwMatch.index);
   const beforeMatch = before.match(/\b(\d{4,8})\b/);
   if (beforeMatch) {
     const maskedCardRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
@@ -20156,13 +20168,49 @@ function extractOTP(text) {
       return beforeMatch[1];
     }
   }
-  const anyMatch = clean.match(/\b(\d{4,8})\b/);
+  const anyMatch = normalized.match(/\b(\d{4,8})\b/);
   if (anyMatch) {
-    const precedingText = clean.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
+    const precedingText = normalized.slice(Math.max(0, anyMatch.index - 30), anyMatch.index);
     const maskedCardFallbackRe = /(?:ending|ending in|last\s+\d+\s+digits?|card|account|no\.?|number|acct|a\/c)[^\d]{0,15}$/i;
     if (!maskedCardFallbackRe.test(precedingText)) return anyMatch[1];
   }
   return null;
+}
+async function buildNotificationOtpSource(notification, uid) {
+  if (!notification || typeof notification !== "object") return "";
+  const candidates = [
+    notification.title,
+    notification.contactName,
+    notification.body,
+    notification.text,
+    notification.content,
+    notification.bigText,
+    notification.subText,
+    notification.summaryText,
+    notification.message,
+    notification.messages,
+    notification.tickerText
+  ];
+  const unique = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const value of candidates) {
+    if (value === null || value === void 0) continue;
+    const str = String(value).trim();
+    if (!str || seen.has(str)) continue;
+    seen.add(str);
+    unique.push(str);
+  }
+  if (unique.length === 0) return "";
+  const resolved = await Promise.all(
+    unique.map(async (value) => {
+      try {
+        return await decrypt(value, uid);
+      } catch {
+        return value;
+      }
+    })
+  );
+  return resolved.map((value) => value == null ? "" : String(value).trim()).filter(Boolean).join(" ");
 }
 async function sendOTPToActiveTab(otp, sender, body) {
   try {
@@ -20364,7 +20412,7 @@ async function showNotification(data) {
   const appName = data.appName || data.packageName || "App";
   const [title, message] = await Promise.all([
     decrypt(data.title || data.contactName || "New Notification", uid),
-    decrypt(data.body || data.text || data.content || "", uid)
+    decrypt(data.body || data.text || data.content || data.bigText || data.subText || "", uid)
   ]);
   const iconUrl = chrome.runtime.getURL("assets/icon128.png");
   const notificationType = data.type || "notification";
@@ -20494,7 +20542,7 @@ async function getSmartActionsFresh() {
 async function pollForChatSmartActions() {
   if (!currentUser || !auth.currentUser) return;
   const sa = await getSmartActionsFresh();
-  if (!sa.openUrls && !sa.openImages && !sa.universalCopy) return;
+  const hasSmartActionsEnabled = sa.openUrls || sa.openImages || sa.universalCopy;
   try {
     const uid = currentUser.uid;
     const q2 = query(
@@ -20504,7 +20552,12 @@ async function pollForChatSmartActions() {
       orderBy("timestamp", "desc"),
       limit(20)
     );
-    const snapshot = await getDocs(q2);
+    let snapshot;
+    try {
+      snapshot = await getDocsFromServer(q2);
+    } catch (_) {
+      snapshot = await getDocs(q2);
+    }
     if (snapshot.empty) return;
     console.log(`ZyncIT: \u{1F4EC} Chat poll found ${snapshot.size} new message(s)`);
     const docs = snapshot.docs.slice().reverse();
@@ -20519,7 +20572,9 @@ async function pollForChatSmartActions() {
       if (ts > latestTs) latestTs = ts;
       if (msg.senderPlatform === "chrome-extension") continue;
       if ((msg.senderDeviceId || "").startsWith("ext_")) continue;
-      await processChatMessageSmartActions(msg, sa);
+      if (hasSmartActionsEnabled) {
+        await processChatMessageSmartActions(msg, sa);
+      }
     }
     if (latestTs > lastChatPollTimestamp) {
       lastChatPollTimestamp = latestTs;
@@ -20762,7 +20817,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   if (alarm.name === "keepAlive") {
     console.log("ZyncIT: Keep-alive ping", (/* @__PURE__ */ new Date()).toLocaleTimeString());
-    if (currentUser && unsubscribeNotifications.length === 0) {
+    if (currentUser && (unsubscribeNotifications.length === 0 || !chatListenerHealthy)) {
       console.log("ZyncIT: Listeners lost, restarting...");
       startListening();
     }
@@ -21334,7 +21389,7 @@ async function fetchInsightsFromFirestore(fromTs, toTs) {
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "offscreen-heartbeat") {
-    if (currentUser && unsubscribeNotifications.length === 0) {
+    if (currentUser && (unsubscribeNotifications.length === 0 || !chatListenerHealthy)) {
       console.log("ZyncIT: \u{1F493} Heartbeat: listeners lost, restarting...");
       startListening();
     }

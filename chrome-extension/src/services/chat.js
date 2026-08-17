@@ -43,6 +43,7 @@ const chatContentById = new Map();
 let forceRefreshChats = null;
 const pendingPushedById = new Map();
 const PENDING_PUSH_TTL_MS = 2 * 60 * 1000;
+let chatRefreshIntervalId = null;
 
 function toTimestampMs(ts) {
   if (typeof ts === "number") return ts;
@@ -123,6 +124,16 @@ export function subscribeToChat() {
   );
 
   let refreshInFlight = false;
+  let lastServerRefreshAt = 0;
+
+  const requestServerRefresh = () => {
+    if (typeof forceRefreshChats !== "function") return;
+    const now = Date.now();
+    // Throttle to avoid burst loops when cache-only snapshots arrive.
+    if (now - lastServerRefreshAt < 4000) return;
+    lastServerRefreshAt = now;
+    forceRefreshChats().catch(() => {});
+  };
 
   const applySnapshot = async (snapshot) => {
     const rawMessages = [];
@@ -169,9 +180,15 @@ export function subscribeToChat() {
 
   const unsub = onSnapshot(
     q,
+    { includeMetadataChanges: true },
     async (snapshot) => {
       try {
         await applySnapshot(snapshot);
+        // If this update came from local cache, force a server refresh so
+        // incoming mobile->extension messages appear without waiting for retries.
+        if (snapshot.metadata?.fromCache) {
+          requestServerRefresh();
+        }
       } catch (err) {
         console.warn("[Chat] Snapshot processing failed, falling back to full refresh:", err);
         try {
@@ -212,11 +229,32 @@ export function subscribeToChat() {
   };
   state.addUnsubscriber(() => {
     forceRefreshChats = null;
+    if (chatRefreshIntervalId) {
+      clearInterval(chatRefreshIntervalId);
+      chatRefreshIntervalId = null;
+    }
+    window.removeEventListener("focus", requestServerRefresh);
+    document.removeEventListener("visibilitychange", onVisibilityRefresh);
   });
 
   // Server-first kick once on subscribe so messages sent while popup was closed
   // appear immediately even if onSnapshot delivery is delayed/throttled.
   forceRefreshChats().catch(() => {});
+
+  // Keep chat view warm while popup is open. This avoids minute-level delays
+  // when realtime channels are temporarily degraded by MV3 lifecycle/network.
+  if (chatRefreshIntervalId) clearInterval(chatRefreshIntervalId);
+  chatRefreshIntervalId = setInterval(() => {
+    requestServerRefresh();
+  }, 10000);
+
+  const onVisibilityRefresh = () => {
+    if (document.visibilityState === "visible") {
+      requestServerRefresh();
+    }
+  };
+  window.addEventListener("focus", requestServerRefresh);
+  document.addEventListener("visibilitychange", onVisibilityRefresh);
 }
 
 export async function refreshChatNow() {
