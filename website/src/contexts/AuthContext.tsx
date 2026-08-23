@@ -50,7 +50,16 @@ async function createUserDoc(user: User) {
       lastLoginAt: Date.now(),
     });
   } else {
-    await setDoc(userRef, { lastLoginAt: Date.now() }, { merge: true });
+    await setDoc(
+      userRef,
+      {
+        displayName: user.displayName || snap.data().displayName || "",
+        photoURL: user.photoURL || snap.data().photoURL || "",
+        email: user.email || snap.data().email || "",
+        lastLoginAt: Date.now(),
+      },
+      { merge: true },
+    );
   }
 }
 

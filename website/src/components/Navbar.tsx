@@ -26,6 +26,15 @@ export default function Navbar() {
   const { t, language, setLanguage } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const resolvedPhoto =
+    user?.photoURL || user?.providerData?.[0]?.photoURL || "";
+  const resolvedName =
+    user?.displayName ||
+    user?.providerData?.[0]?.displayName ||
+    user?.email?.split("@")[0] ||
+    "User";
+  const resolvedEmail = user?.email || user?.providerData?.[0]?.email || "";
+
   // Hide navbar on dashboard pages
   const isDashboard = pathname?.startsWith("/dashboard");
   const isAuthPage =
@@ -112,25 +121,34 @@ export default function Navbar() {
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm hover:bg-primary/30 transition-colors overflow-hidden"
+                  className="h-9 rounded-full bg-primary/20 flex items-center gap-2 ps-1 pe-3 text-primary font-bold text-sm hover:bg-primary/30 transition-colors overflow-hidden"
                 >
-                  {user.photoURL ? (
+                  <span className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-primary/30 shrink-0">
+                  {resolvedPhoto ? (
                     <img
-                      src={user.photoURL}
+                      src={resolvedPhoto}
                       alt=""
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
                     (
-                      user.displayName?.[0] ||
-                      user.email?.[0] ||
+                      resolvedName?.[0] ||
+                      resolvedEmail?.[0] ||
                       "U"
                     ).toUpperCase()
                   )}
+                  </span>
+                  <span className="hidden xl:block max-w-[120px] truncate text-xs font-semibold text-txt">
+                    {resolvedName}
+                  </span>
                 </button>
                 {userMenuOpen && (
                   <div className="absolute end-0 top-full mt-2 w-48 bg-surface border border-border rounded-[var(--radius)] shadow-lg py-1 z-50">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-xs font-semibold text-txt truncate">{resolvedName}</p>
+                      <p className="text-[11px] text-txt-secondary truncate">{resolvedEmail}</p>
+                    </div>
                     <Link
                       href="/dashboard"
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-txt hover:bg-surface-secondary transition-colors"
