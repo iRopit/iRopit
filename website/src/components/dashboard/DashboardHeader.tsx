@@ -53,7 +53,13 @@ export default function DashboardHeader({
     : user?.email?.[0]?.toUpperCase() || "?";
 
   return (
-    <header className="shrink-0 bg-gradient-to-r from-primary to-primary-dark shadow-md">
+    <header
+      className="shrink-0 shadow-md"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
+      }}
+    >
       {/* Top row: logo + actions */}
       <div className="h-14 flex items-center justify-between px-4 lg:px-6">
         {/* Left: Logo */}
@@ -78,7 +84,7 @@ export default function DashboardHeader({
           {/* Language toggle */}
           <button
             onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white text-xs font-bold"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white text-xs font-bold backdrop-blur-sm"
             title={t("common.language")}
           >
             {language === "en" ? "AR" : "EN"}
@@ -86,7 +92,7 @@ export default function DashboardHeader({
 
           <button
             onClick={() => window.location.reload()}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("common.refresh")}
           >
             <RefreshCw className="w-4.5 h-4.5" />
@@ -94,7 +100,7 @@ export default function DashboardHeader({
 
           <button
             onClick={onOpenSettings}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("tabs.settings")}
           >
             <Settings className="w-4.5 h-4.5" />
@@ -103,7 +109,7 @@ export default function DashboardHeader({
           {/* Theme toggle */}
           <button
             onClick={handleThemeToggle}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("common.theme")}
           >
             {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
@@ -113,7 +119,7 @@ export default function DashboardHeader({
           <div className="relative ms-1">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition text-white"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             >
               {user?.photoURL ? (
                 <img

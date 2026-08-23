@@ -90,13 +90,15 @@ export function subscribeToNotifications(
       p !== "web" &&
       p !== "chrome-extension" &&
       t !== "web" &&
-      t !== "chrome-extension"
+      t !== "chrome-extension" &&
+      (d.permissions?.notifications !== false)
     );
   });
 
   for (const device of mobileDevices) {
+    const sourceUserId = device.isShared ? device.ownerUid || userId : userId;
     const q = query(
-      collection(db, "users", userId, "devices", device.id, "notifications"),
+      collection(db, "users", sourceUserId, "devices", device.id, "notifications"),
       orderBy("timestamp", "desc"),
       limit(200),
     );

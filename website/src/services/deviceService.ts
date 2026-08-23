@@ -98,17 +98,87 @@ export interface DeviceInfo {
   lastActiveAt?: number;
   isOnline?: boolean;
   fcmToken?: string;
+  isShared?: boolean;
+  ownerUid?: string;
+  permissions?: {
+    sms?: boolean;
+    calls?: boolean;
+    notifications?: boolean;
+  };
 }
 
 export async function getUserDevices(userId: string): Promise<DeviceInfo[]> {
   const q = query(collection(db, "devices"), where("userId", "==", userId));
   const snapshot = await getDocs(q);
-  const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DeviceInfo);
+  const ownDevices = snapshot.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as DeviceInfo,
+  );
+
+  const sharesQuery = query(
+    collection(db, "deviceShares"),
+    where("sharedWithUid", "==", userId),
+  );
+  const sharesSnap = await getDocs(sharesQuery);
+
+  const sharedDevices: DeviceInfo[] = await Promise.all(
+    sharesSnap.docs.map(async (shareDoc) => {
+      const share = shareDoc.data() as {
+        ownerUid?: string;
+        deviceId?: string;
+        deviceName?: string;
+        permissions?: { sms?: boolean; calls?: boolean; notifications?: boolean };
+      };
+
+      const ownerUid = share.ownerUid || "";
+      const sharedDeviceId = share.deviceId || "";
+
+      if (!ownerUid || !sharedDeviceId) {
+        return null as unknown as DeviceInfo;
+      }
+
+      const sharedDeviceSnap = await getDoc(doc(db, "devices", sharedDeviceId));
+      const sharedDeviceData = sharedDeviceSnap.exists()
+        ? (sharedDeviceSnap.data() as Record<string, unknown>)
+        : {};
+
+      return {
+        id: sharedDeviceId,
+        userId: ownerUid,
+        ownerUid,
+        name:
+          (sharedDeviceData.name as string) ||
+          share.deviceName ||
+          "Shared Device",
+        type: (sharedDeviceData.type as string) || "android",
+        platform: (sharedDeviceData.platform as string) || "android",
+        model: (sharedDeviceData.model as string) || "",
+        lastActiveAt: (sharedDeviceData.lastActiveAt as number) || 0,
+        isOnline: Boolean(sharedDeviceData.isOnline),
+        fcmToken: (sharedDeviceData.fcmToken as string) || "",
+        isShared: true,
+        permissions: share.permissions || {
+          sms: true,
+          calls: true,
+          notifications: true,
+        },
+      } as DeviceInfo;
+    }),
+  );
+
+  const validSharedDevices = sharedDevices.filter(
+    (d) =>
+      d &&
+      d.id &&
+      d.ownerUid &&
+      (d.permissions?.sms !== false ||
+        d.permissions?.calls !== false ||
+        d.permissions?.notifications !== false),
+  );
 
   // Deduplicate: if multiple devices share the same name+model+platform, keep
   // only the most recently active one (covers app reinstall / upgrade scenario).
   const seen = new Map<string, DeviceInfo>();
-  for (const dev of all) {
+  for (const dev of ownDevices) {
     const key = [
       (dev.name || "").toLowerCase(),
       (dev.model || "").toLowerCase(),
@@ -129,7 +199,17 @@ export async function getUserDevices(userId: string): Promise<DeviceInfo[]> {
     }
   }
 
-  return Array.from(seen.values());
+  const merged = [...Array.from(seen.values()), ...validSharedDevices];
+
+  // Deduplicate shared entries by ownerUid+deviceId if there are duplicate share rows.
+  const sharedSeen = new Set<string>();
+  return merged.filter((d) => {
+    if (!d.isShared) return true;
+    const key = `${d.ownerUid || ""}::${d.id || ""}`;
+    if (sharedSeen.has(key)) return false;
+    sharedSeen.add(key);
+    return true;
+  });
 }
 
 export async function deleteDevice(deviceId: string): Promise<void> {

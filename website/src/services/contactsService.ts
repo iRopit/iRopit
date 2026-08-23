@@ -48,13 +48,15 @@ export function subscribeToContacts(
       p !== "web" &&
       p !== "chrome-extension" &&
       t !== "web" &&
-      t !== "chrome-extension"
+      t !== "chrome-extension" &&
+      (d.permissions?.sms !== false)
     );
   });
 
   for (const device of mobileDevices) {
+    const sourceUserId = device.isShared ? device.ownerUid || userId : userId;
     const q = query(
-      collection(db, "users", userId, "devices", device.id, "contacts"),
+      collection(db, "users", sourceUserId, "devices", device.id, "contacts"),
       orderBy("name", "asc"),
     );
 

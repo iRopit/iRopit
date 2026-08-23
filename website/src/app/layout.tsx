@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import AutoGoogleLoginPrompt from "@/components/AutoGoogleLoginPrompt";
 import JsonLd from "@/components/JsonLd";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -312,6 +313,7 @@ export default function RootLayout({
           <AuthProvider>
             <ServiceWorkerRegister />
             <PWAInstallPrompt />
+            <AutoGoogleLoginPrompt />
             <Navbar />
             <main className="flex-1">{children}</main>
             <Footer />

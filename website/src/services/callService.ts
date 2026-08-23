@@ -81,13 +81,15 @@ export function subscribeToCalls(
       p !== "web" &&
       p !== "chrome-extension" &&
       t !== "web" &&
-      t !== "chrome-extension"
+      t !== "chrome-extension" &&
+      (d.permissions?.calls !== false)
     );
   });
 
   for (const device of mobileDevices) {
+    const sourceUserId = device.isShared ? device.ownerUid || userId : userId;
     const q = query(
-      collection(db, "users", userId, "devices", device.id, "calls"),
+      collection(db, "users", sourceUserId, "devices", device.id, "calls"),
       orderBy("timestamp", "desc"),
       limit(200),
     );
