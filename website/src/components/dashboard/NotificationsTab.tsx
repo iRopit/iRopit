@@ -15,6 +15,36 @@ interface NotificationsTabProps {
   devices: DeviceInfo[];
 }
 
+type SnoozeDuration = "1h" | "8h" | "24h" | "7d" | "permanent";
+
+const SNOOZE_STORAGE_KEY = "iropit:notifSnoozeByApp";
+
+function getSnoozeUntil(duration: SnoozeDuration): number {
+  const now = Date.now();
+  if (duration === "1h") return now + 60 * 60 * 1000;
+  if (duration === "8h") return now + 8 * 60 * 60 * 1000;
+  if (duration === "24h") return now + 24 * 60 * 60 * 1000;
+  if (duration === "7d") return now + 7 * 24 * 60 * 60 * 1000;
+  return -1;
+}
+
+function readSnoozeMap(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(SNOOZE_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function isMutedApp(appName: string, snoozeMap: Record<string, number>): boolean {
+  const until = snoozeMap[appName];
+  if (!until) return false;
+  if (until === -1) return true;
+  return until > Date.now();
+}
+
 function formatTime(ts: number): string {
   const d = new Date(ts);
   const now = new Date();
@@ -57,6 +87,21 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [search, setSearch] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [snoozeMap, setSnoozeMap] = useState<Record<string, number>>({});
+  const [selectedApp, setSelectedApp] = useState("");
+  const [selectedDuration, setSelectedDuration] =
+    useState<SnoozeDuration>("1h");
+
+  useEffect(() => {
+    const stored = readSnoozeMap();
+    const now = Date.now();
+    const cleaned: Record<string, number> = {};
+    Object.entries(stored).forEach(([app, until]) => {
+      if (until === -1 || until > now) cleaned[app] = until;
+    });
+    setSnoozeMap(cleaned);
+    localStorage.setItem(SNOOZE_STORAGE_KEY, JSON.stringify(cleaned));
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -71,6 +116,36 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
     markAllNotificationsAsRead(user.uid, notifications).catch(() => {});
   };
 
+  const handleSnooze = () => {
+    if (!selectedApp) return;
+    const next = {
+      ...snoozeMap,
+      [selectedApp]: getSnoozeUntil(selectedDuration),
+    };
+    setSnoozeMap(next);
+    localStorage.setItem(SNOOZE_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const handleUnmute = () => {
+    if (!selectedApp) return;
+    const next = { ...snoozeMap };
+    delete next[selectedApp];
+    setSnoozeMap(next);
+    localStorage.setItem(SNOOZE_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const uniqueApps = Array.from(
+    new Set(notifications.map((n) => n.appName || "System")),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const mutedAppsCount = uniqueApps.filter((app) => isMutedApp(app, snoozeMap)).length;
+
+  useEffect(() => {
+    if (!selectedApp && uniqueApps.length > 0) {
+      setSelectedApp(uniqueApps[0]);
+    }
+  }, [selectedApp, uniqueApps]);
+
   const filtered = (() => {
     let result = search
       ? notifications.filter(
@@ -80,6 +155,9 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
             n.appName.toLowerCase().includes(search.toLowerCase()),
         )
       : notifications;
+
+    result = result.filter((n) => !isMutedApp(n.appName || "System", snoozeMap));
+
     if (showUnreadOnly) {
       result = result.filter((n) => n.read === false);
     }
@@ -105,8 +183,9 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg">
       {/* Search + filters toolbar */}
-      <div className="p-3 border-b border-border flex items-center gap-2 bg-surface">
-        <div className="flex-1 relative">
+      <div className="p-3 border-b border-border flex flex-col gap-2 bg-surface">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" />
           <input
             type="text"
@@ -133,6 +212,53 @@ export default function NotificationsTab({ devices }: NotificationsTabProps) {
         >
           <CheckCheck className="w-4 h-4" />
         </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedApp}
+            onChange={(e) => setSelectedApp(e.target.value)}
+            className="px-3 py-2 bg-surface-secondary border border-border rounded-full text-xs text-txt"
+          >
+            {uniqueApps.map((app) => (
+              <option key={app} value={app}>
+                {getAppLabel(app)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedDuration}
+            onChange={(e) => setSelectedDuration(e.target.value as SnoozeDuration)}
+            className="px-3 py-2 bg-surface-secondary border border-border rounded-full text-xs text-txt"
+          >
+            <option value="1h">{t("notifications.snooze1h")}</option>
+            <option value="8h">{t("notifications.snooze8h")}</option>
+            <option value="24h">{t("notifications.snooze24h")}</option>
+            <option value="7d">{t("notifications.snooze7d")}</option>
+            <option value="permanent">{t("notifications.snoozePermanent")}</option>
+          </select>
+
+          <button
+            onClick={handleSnooze}
+            disabled={!selectedApp}
+            className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-surface-secondary text-txt-secondary hover:bg-surface-tertiary disabled:opacity-50"
+          >
+            {t("notifications.muteApp")}
+          </button>
+
+          <button
+            onClick={handleUnmute}
+            disabled={!selectedApp || !isMutedApp(selectedApp, snoozeMap)}
+            className="px-3 py-2 rounded-full text-xs font-medium border border-border bg-surface-secondary text-txt-secondary hover:bg-surface-tertiary disabled:opacity-50"
+          >
+            {t("notifications.unmuteApp")}
+          </button>
+
+          <span className="text-[11px] text-txt-tertiary">
+            {t("notifications.mutedApps", { count: mutedAppsCount })}
+          </span>
+        </div>
       </div>
 
       {/* Notification list */}

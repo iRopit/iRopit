@@ -15,6 +15,7 @@ import {
   searchContacts,
   type Contact,
 } from "@/services/contactsService";
+import { getDesktopSetting } from "@/services/desktopSettingsService";
 import { getWebDeviceId, type DeviceInfo } from "@/services/deviceService";
 import {
   MessageSquare,
@@ -46,6 +47,26 @@ function formatTime(ts: number): string {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
   if (diff < 172800000) return "Yesterday";
   return d.toLocaleDateString();
+}
+
+function extractOtpCode(message: string): string | null {
+  if (!message) return null;
+
+  const keywordPattern = /(otp|code|pin|verification|verify|رمز|كود)/i;
+  const digitPattern = /\b(\d{4,8})\b/g;
+  const allMatches = [...message.matchAll(digitPattern)].map((m) => m[1]);
+  if (allMatches.length === 0) return null;
+
+  if (keywordPattern.test(message)) {
+    return allMatches[0] || null;
+  }
+
+  // Fallback for short transactional messages that include one clear OTP-like number.
+  if (allMatches.length === 1 && message.length <= 160) {
+    return allMatches[0] || null;
+  }
+
+  return null;
 }
 
 export default function SMSTab({ devices }: SMSTabProps) {
@@ -83,6 +104,8 @@ export default function SMSTab({ devices }: SMSTabProps) {
 
   // Unread filter
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const knownSmsIdsRef = useRef<Set<string>>(new Set());
+  const otpAutoCopyReadyRef = useRef(false);
 
   // Mobile devices only for sending
   const mobileDevices = devices.filter((d) => {
@@ -116,6 +139,39 @@ export default function SMSTab({ devices }: SMSTabProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [selectedConv, conversations]);
+
+  useEffect(() => {
+    if (!getDesktopSetting("smartAction_copyOtp")) return;
+    if (!navigator.clipboard?.writeText) return;
+
+    const allMessages = conversations.flatMap((c) => c.messages);
+
+    if (!otpAutoCopyReadyRef.current) {
+      knownSmsIdsRef.current = new Set(allMessages.map((m) => m.id));
+      otpAutoCopyReadyRef.current = true;
+      return;
+    }
+
+    for (const msg of allMessages) {
+      if (knownSmsIdsRef.current.has(msg.id)) continue;
+      knownSmsIdsRef.current.add(msg.id);
+
+      const msgType = (msg.type || "").toLowerCase();
+      if (
+        msgType.includes("sent") ||
+        msgType.includes("out") ||
+        msgType.includes("draft")
+      ) {
+        continue;
+      }
+
+      const otp = extractOtpCode(msg.body || "");
+      if (!otp) continue;
+
+      navigator.clipboard.writeText(otp).catch(() => {});
+      break;
+    }
+  }, [conversations]);
 
   const filtered = (() => {
     let result = conversations;

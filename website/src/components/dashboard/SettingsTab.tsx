@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -10,6 +10,12 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "@/lib/firebase";
+import {
+  getDesktopSettings,
+  initializeDesktopSettingsDefaults,
+  setDesktopSetting,
+  type DesktopSmartSettingKey,
+} from "@/services/desktopSettingsService";
 import {
   User,
   Globe,
@@ -74,10 +80,37 @@ export default function SettingsTab() {
     }
   };
 
-  // Active section for mobile
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [desktopSmartActions, setDesktopSmartActions] =
+    useState(getDesktopSettings());
 
   const isGoogleUser = user?.providerData?.[0]?.providerId === "google.com";
+
+  useEffect(() => {
+    initializeDesktopSettingsDefaults();
+    setDesktopSmartActions(getDesktopSettings());
+  }, []);
+
+  const handleToggleSmartAction = async (
+    key: DesktopSmartSettingKey,
+    checked: boolean,
+  ) => {
+    if (
+      checked &&
+      (key === "smartAction_incomingCallPopup" ||
+        key === "smartAction_outgoingCallPopup") &&
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      try {
+        await Notification.requestPermission();
+      } catch {
+        // Ignore permission prompt failures and still save the preference.
+      }
+    }
+
+    setDesktopSetting(key, checked);
+    setDesktopSmartActions(getDesktopSettings());
+  };
 
   // Save display name
   const handleSaveProfile = async () => {
@@ -380,6 +413,110 @@ export default function SettingsTab() {
             </div>
           </section>
         )}
+
+        {/* ─── Desktop Smart Actions Section ─── */}
+        <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Bell className="w-4 h-4 text-primary" />
+              </div>
+              <h2 className="text-sm font-semibold text-txt">
+                {t("settings.smartActionsTitle")}
+              </h2>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-start justify-between gap-4 px-4 py-3 bg-bg rounded-xl border border-border/80">
+                <div>
+                  <p className="text-sm font-medium text-txt">
+                    {t("settings.smartAutoCopyOtp")}
+                  </p>
+                  <p className="text-xs text-txt-secondary mt-0.5">
+                    {t("settings.smartAutoCopyOtpDesc")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={desktopSmartActions.smartAction_copyOtp}
+                  onChange={(e) =>
+                    handleToggleSmartAction(
+                      "smartAction_copyOtp",
+                      e.target.checked,
+                    )
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+              </label>
+
+              <label className="flex items-start justify-between gap-4 px-4 py-3 bg-bg rounded-xl border border-border/80">
+                <div>
+                  <p className="text-sm font-medium text-txt">
+                    {t("settings.smartAutoOpenLinks")}
+                  </p>
+                  <p className="text-xs text-txt-secondary mt-0.5">
+                    {t("settings.smartAutoOpenLinksDesc")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={desktopSmartActions.smartAction_openUrls}
+                  onChange={(e) =>
+                    handleToggleSmartAction(
+                      "smartAction_openUrls",
+                      e.target.checked,
+                    )
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+              </label>
+
+              <label className="flex items-start justify-between gap-4 px-4 py-3 bg-bg rounded-xl border border-border/80">
+                <div>
+                  <p className="text-sm font-medium text-txt">
+                    {t("settings.smartIncomingCallPopup")}
+                  </p>
+                  <p className="text-xs text-txt-secondary mt-0.5">
+                    {t("settings.smartIncomingCallPopupDesc")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={desktopSmartActions.smartAction_incomingCallPopup}
+                  onChange={(e) =>
+                    handleToggleSmartAction(
+                      "smartAction_incomingCallPopup",
+                      e.target.checked,
+                    )
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+              </label>
+
+              <label className="flex items-start justify-between gap-4 px-4 py-3 bg-bg rounded-xl border border-border/80">
+                <div>
+                  <p className="text-sm font-medium text-txt">
+                    {t("settings.smartOutgoingCallPopup")}
+                  </p>
+                  <p className="text-xs text-txt-secondary mt-0.5">
+                    {t("settings.smartOutgoingCallPopupDesc")}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={desktopSmartActions.smartAction_outgoingCallPopup}
+                  onChange={(e) =>
+                    handleToggleSmartAction(
+                      "smartAction_outgoingCallPopup",
+                      e.target.checked,
+                    )
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+              </label>
+            </div>
+          </div>
+        </section>
 
         {/* ─── Appearance Section ─── */}
         <section className="bg-surface rounded-2xl border border-border overflow-hidden">

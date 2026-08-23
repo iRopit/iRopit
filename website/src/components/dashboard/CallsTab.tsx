@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -8,6 +8,7 @@ import {
   markCallsAsViewed,
   type CallRecord,
 } from "@/services/callService";
+import { getDesktopSettings } from "@/services/desktopSettingsService";
 import type { DeviceInfo } from "@/services/deviceService";
 import {
   Phone,
@@ -73,6 +74,8 @@ export default function CallsTab({ devices }: CallsTabProps) {
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [filter, setFilter] = useState<"all" | "missed">("all");
   const [search, setSearch] = useState("");
+  const knownCallIdsRef = useRef<Set<string>>(new Set());
+  const popupReadyRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -98,6 +101,43 @@ export default function CallsTab({ devices }: CallsTabProps) {
       markCallsAsViewed(user.uid, deviceId, ids);
     });
   }, [user, calls]);
+
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+
+    if (!popupReadyRef.current) {
+      knownCallIdsRef.current = new Set(calls.map((c) => c.id));
+      popupReadyRef.current = true;
+      return;
+    }
+
+    const settings = getDesktopSettings();
+    if (Notification.permission !== "granted") return;
+
+    for (const call of calls) {
+      if (knownCallIdsRef.current.has(call.id)) continue;
+      knownCallIdsRef.current.add(call.id);
+
+      const incomingEnabled = settings.smartAction_incomingCallPopup;
+      const outgoingEnabled = settings.smartAction_outgoingCallPopup;
+
+      if (call.type === "incoming" && incomingEnabled) {
+        new Notification(t("settings.smartIncomingCallPopup"), {
+          body: `${call.contactName || call.phoneNumber || t("calls.unknown")} • ${call.deviceName}`,
+          icon: "/icons/icon-192.png",
+          tag: `iropit-call-in-${call.id}`,
+        });
+      }
+
+      if (call.type === "outgoing" && outgoingEnabled) {
+        new Notification(t("settings.smartOutgoingCallPopup"), {
+          body: `${call.contactName || call.phoneNumber || t("calls.unknown")} • ${call.deviceName}`,
+          icon: "/icons/icon-192.png",
+          tag: `iropit-call-out-${call.id}`,
+        });
+      }
+    }
+  }, [calls, t]);
 
   const filtered = (() => {
     let result =

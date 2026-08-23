@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.IRopit";
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
 
 const CheckIcon = () => (
   <svg
@@ -28,6 +30,8 @@ const CheckIcon = () => (
 export default function PWAInstallPrompt() {
   const [show, setShow] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const { t, isRTL } = useLanguage();
 
   useEffect(() => {
@@ -38,17 +42,34 @@ export default function PWAInstallPrompt() {
 
     const handler = (e: Event) => {
       e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Only show the card when browser is actually ready to install
       setShow(true);
       setTimeout(() => setVisible(true), 80);
     };
 
+    const appInstalledHandler = () => {
+      setDeferredPrompt(null);
+      handleDismiss();
+    };
+
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", appInstalledHandler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", appInstalledHandler);
+    };
   }, []);
 
-  const handleInstall = () => {
-    window.open(PLAY_STORE_URL, "_blank", "noopener,noreferrer");
+  const handleInstall = async () => {
+    if (!deferredPrompt) {
+      handleDismiss();
+      return;
+    }
+
+    await deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(() => ({ outcome: "dismissed", platform: "" }));
+    setDeferredPrompt(null);
     handleDismiss();
   };
 

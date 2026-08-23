@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -10,6 +10,10 @@ import {
   getWebDeviceId,
   type DeviceInfo,
 } from "@/services/deviceService";
+import { subscribeToSMS } from "@/services/smsService";
+import { subscribeToCalls } from "@/services/callService";
+import { subscribeToNotifications } from "@/services/notificationService";
+import { subscribeToChat } from "@/services/chatService";
 import Sidebar, { type TabId } from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import ChatTab from "@/components/dashboard/ChatTab";
@@ -31,6 +35,7 @@ import {
   Monitor,
   Chrome,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 function getPlatformIcon(platform: string) {
   const p = (platform || "").toLowerCase();
@@ -41,10 +46,13 @@ function getPlatformIcon(platform: string) {
 
 export default function DashboardPage() {  const { user } = useAuth();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [deviceFilter, setDeviceFilter] = useState("all");
-  const [badges] = useState({
+  const knownChatMessageIdsRef = useRef<Set<string>>(new Set());
+  const chatBadgeBootstrappedRef = useRef(false);
+  const [badges, setBadges] = useState({
     overview: 0,
     chat: 0,
     sms: 0,
@@ -53,6 +61,18 @@ export default function DashboardPage() {  const { user } = useAuth();
     devices: 0,
     settings: 0,
   });
+
+  useEffect(() => {
+    if (activeTab === "chat") {
+      setBadges((prev) => ({ ...prev, chat: 0 }));
+    }
+    if (activeTab === "notifications") {
+      setBadges((prev) => ({ ...prev, notifications: 0 }));
+    }
+    if (activeTab === "calls") {
+      setBadges((prev) => ({ ...prev, calls: 0 }));
+    }
+  }, [activeTab]);
 
   // Register web device on mount
   useEffect(() => {
@@ -95,6 +115,79 @@ export default function DashboardPage() {  const { user } = useAuth();
     const devs = await getUserDevices(user.uid);
     setDevices(devs);
   }, [user]);
+
+  useEffect(() => {
+    if (!user || devices.length === 0) return;
+
+    const unsubSms = subscribeToSMS(user.uid, devices, (conversations) => {
+      const unreadSms = conversations.reduce(
+        (sum, conv) => sum + (conv.unreadCount || 0),
+        0,
+      );
+      setBadges((prev) => ({ ...prev, sms: unreadSms }));
+    });
+
+    const unsubCalls = subscribeToCalls(user.uid, devices, (calls) => {
+      const missedUnviewed = calls.filter(
+        (c) => c.type === "missed" && !c.viewed,
+      ).length;
+      setBadges((prev) => ({ ...prev, calls: missedUnviewed }));
+    });
+
+    const unsubNotifs = subscribeToNotifications(user.uid, devices, (notifs) => {
+      const unreadNotifs = notifs.filter((n) => n.read === false).length;
+      setBadges((prev) => ({ ...prev, notifications: unreadNotifs }));
+    });
+
+    const currentWebDeviceId = getWebDeviceId();
+    const unsubChat = subscribeToChat(user.uid, (messages) => {
+      if (!chatBadgeBootstrappedRef.current) {
+        knownChatMessageIdsRef.current = new Set(messages.map((m) => m.id));
+        chatBadgeBootstrappedRef.current = true;
+        return;
+      }
+
+      let increment = 0;
+      for (const msg of messages) {
+        if (knownChatMessageIdsRef.current.has(msg.id)) continue;
+        knownChatMessageIdsRef.current.add(msg.id);
+
+        if (msg.senderDeviceId === currentWebDeviceId) continue;
+        if (activeTab === "chat") continue;
+        increment += 1;
+      }
+
+      if (increment > 0) {
+        setBadges((prev) => ({ ...prev, chat: prev.chat + increment }));
+      }
+    });
+
+    return () => {
+      unsubSms();
+      unsubCalls();
+      unsubNotifs();
+      unsubChat();
+    };
+  }, [user, devices, activeTab]);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (!requestedTab) return;
+
+    const validTabs: TabId[] = [
+      "overview",
+      "chat",
+      "sms",
+      "calls",
+      "notifications",
+      "devices",
+      "settings",
+    ];
+
+    if (validTabs.includes(requestedTab as TabId)) {
+      setActiveTab(requestedTab as TabId);
+    }
+  }, [searchParams]);
 
   // Only mobile devices for SMS/Calls/Notifications
   const mobileDevices = devices.filter((d) => {

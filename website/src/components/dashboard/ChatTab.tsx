@@ -12,6 +12,7 @@ import {
   toggleStarMessage,
   type ChatMessage,
 } from "@/services/chatService";
+import { getDesktopSetting } from "@/services/desktopSettingsService";
 import { getWebDeviceId } from "@/services/deviceService";
 import {
   Send,
@@ -66,6 +67,12 @@ function linkify(text: string) {
   });
 }
 
+function extractFirstUrl(text: string): string | null {
+  const m = text.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i);
+  if (!m?.[0]) return null;
+  return m[0].startsWith("http") ? m[0] : `https://${m[0]}`;
+}
+
 function getDeviceAvatar(platform: string) {
   const p = (platform || "").toLowerCase();
   if (p.includes("chrome") || p.includes("ext"))
@@ -100,6 +107,8 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
   const [search, setSearch] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const autoOpenReadyRef = useRef(false);
   const webDeviceId = getWebDeviceId();
 
   useEffect(() => {
@@ -115,6 +124,29 @@ export default function ChatTab({ deviceFilter }: ChatTabProps) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!getDesktopSetting("smartAction_openUrls")) return;
+
+    if (!autoOpenReadyRef.current) {
+      knownMessageIdsRef.current = new Set(messages.map((m) => m.id));
+      autoOpenReadyRef.current = true;
+      return;
+    }
+
+    for (const msg of messages) {
+      if (knownMessageIdsRef.current.has(msg.id)) continue;
+      knownMessageIdsRef.current.add(msg.id);
+
+      if (msg.senderDeviceId === webDeviceId) continue;
+      if (!msg.content || msg.content.startsWith("ENC:")) continue;
+
+      const url = extractFirstUrl(msg.content);
+      if (!url) continue;
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, [messages, webDeviceId]);
 
   const filtered = (() => {
     let result =

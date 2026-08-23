@@ -66,6 +66,30 @@
       "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     },
     {
+      "name": "SMS",
+      "short_name": "SMS",
+      "url": "/dashboard?tab=sms",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Calls",
+      "short_name": "Calls",
+      "url": "/dashboard?tab=calls",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Notifications",
+      "short_name": "Notifications",
+      "url": "/dashboard?tab=notifications",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "url": "/dashboard?tab=chat",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
       "name": "Login",
       "short_name": "Login",
       "url": "/login",

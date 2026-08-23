@@ -145,6 +145,14 @@ const en = {
     searchNotifications: "Search notifications...",
     allApps: "All Apps",
     showUnread: "Unread only",
+    muteApp: "Mute",
+    unmuteApp: "Unmute",
+    snooze1h: "Mute 1h",
+    snooze8h: "Mute 8h",
+    snooze24h: "Mute 24h",
+    snooze7d: "Mute 7d",
+    snoozePermanent: "Mute until unmute",
+    mutedApps: "Muted apps: {{count}}",
   },
 
   // Devices
@@ -180,8 +188,8 @@ const en = {
     theme: "Theme",
     light: "Light",
     dark: "Dark",
-    install: "Install Android App",
-    installDescription: "Install iRopit for a better experience",
+    install: "Install Desktop App",
+    installDescription: "Install iRopit as a desktop app (PWA)",
     dismiss: "Dismiss",
     pwaOffline: "Works offline",
     pwaInstant: "Instant access",
@@ -233,6 +241,19 @@ const en = {
     wrongCurrentPassword: "Current password is incorrect",
     appearance: "Appearance",
     deleteAccount: "Delete Account",
+    smartActionsTitle: "Desktop Smart Actions",
+    smartAutoCopyOtp: "Auto-copy OTP",
+    smartAutoCopyOtpDesc:
+      "Automatically copy newly received OTP codes from SMS.",
+    smartAutoOpenLinks: "Auto-open received links",
+    smartAutoOpenLinksDesc:
+      "Open links from new incoming chat messages in a browser tab.",
+    smartIncomingCallPopup: "Show incoming call popup",
+    smartIncomingCallPopupDesc:
+      "Show a desktop notification when an incoming call is received.",
+    smartOutgoingCallPopup: "Show outgoing call popup",
+    smartOutgoingCallPopupDesc:
+      "Show a desktop notification when an outgoing call is started.",
     about: "About",
     version: "Version",
     platform: "Platform",
