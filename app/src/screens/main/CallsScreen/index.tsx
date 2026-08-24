@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   FlatList,
@@ -16,7 +16,7 @@ import {
   ConfirmDeleteBottomSheet,
   DeviceFilterDropdown,
 } from '../../../components/shared';
-import { Container, AnimatedListItem } from '../../../components';
+import { Container } from '../../../components';
 import { styles } from './styles';
 import { GroupedCall } from './types';
 import SwipeableCallItem from './components/SwipeableCallItem';
@@ -27,6 +27,8 @@ import { useCallsScreen } from './useCallsScreen';
  * UI-only component - all business logic is handled by useCallsScreen hook
  */
 const CallsScreen = () => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const {
     // Data
     groupedCalls,
@@ -72,30 +74,35 @@ const CallsScreen = () => {
     confirmDelete,
   } = useCallsScreen();
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await loadCalls();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadCalls]);
+
   const renderItem = ({
     item,
-    index,
   }: {
     item: GroupedCall;
-    index: number;
   }) => (
-    <AnimatedListItem index={index}>
-      <SwipeableCallItem
-        item={item}
-        onPress={() => handlePress(item)}
-        onDelete={() => handleDelete(item)}
-        isRTL={isRTL}
-        isDarkMode={isDarkMode}
-        textColor={textColor}
-        secondaryTextColor={secondaryTextColor}
-        bgColor={bgColor}
-        avatarBgColor={avatarBgColor}
-        colors={colors}
-        isSelectMode={isSelectMode}
-        isSelected={selectedCalls.includes(item.phoneNumber)}
-        onToggleSelect={() => toggleSelectCall(item.phoneNumber)}
-      />
-    </AnimatedListItem>
+    <SwipeableCallItem
+      item={item}
+      onPress={() => handlePress(item)}
+      onDelete={() => handleDelete(item)}
+      isRTL={isRTL}
+      isDarkMode={isDarkMode}
+      textColor={textColor}
+      secondaryTextColor={secondaryTextColor}
+      bgColor={bgColor}
+      avatarBgColor={avatarBgColor}
+      colors={colors}
+      isSelectMode={isSelectMode}
+      isSelected={selectedCalls.includes(item.phoneNumber)}
+      onToggleSelect={() => toggleSelectCall(item.phoneNumber)}
+    />
   );
 
   const renderDeleteAllButton = () => (
@@ -208,12 +215,18 @@ const CallsScreen = () => {
         keyExtractor={item => item.key}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
-        removeClippedSubviews={false}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={5}
+        removeClippedSubviews={true}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={loadCalls}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
             tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={bgColor}
           />
         }
       />

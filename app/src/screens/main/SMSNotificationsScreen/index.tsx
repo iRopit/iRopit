@@ -1,5 +1,12 @@
 import React, { useCallback } from 'react';
-import { View, FlatList, RefreshControl, StatusBar } from 'react-native';
+import {
+  View,
+  FlatList,
+  RefreshControl,
+  StatusBar,
+  ActivityIndicator,
+  Text,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 
@@ -74,13 +81,12 @@ const SMSNotificationsScreen = () => {
   const renderEmptyState = () => {
     if (initialLoading) {
       return (
-        <EmptyState
-          icon="hourglass-outline"
-          title={t('loading')}
-          isDarkMode={isDarkMode}
-          isLoading={true}
-          loadingText={t('loading')}
-        />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16 }}>
+            {isRTL ? 'جاري تحميل الرسائل...' : 'Loading SMS...'}
+          </Text>
+        </View>
       );
     }
 

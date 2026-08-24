@@ -200,4 +200,4 @@ const SwipeableCallItem = ({
   );
 };
 
-export default SwipeableCallItem;
+export default React.memo(SwipeableCallItem);

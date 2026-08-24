@@ -10,6 +10,7 @@ import {
   Moon,
   Settings,
 } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -31,6 +32,15 @@ export default function DashboardHeader({
     return saved === "dark" || (!saved && prefersDark);
   });
 
+  const resolvedPhoto =
+    user?.photoURL || user?.providerData?.[0]?.photoURL || "";
+  const resolvedName =
+    user?.displayName ||
+    user?.providerData?.[0]?.displayName ||
+    user?.email?.split("@")[0] ||
+    "User";
+  const resolvedEmail = user?.email || user?.providerData?.[0]?.email || "";
+
   const handleLogout = async () => {
     await logout();
     router.push("/");
@@ -43,14 +53,14 @@ export default function DashboardHeader({
     localStorage.setItem("theme", nowDark ? "dark" : "light");
   };
 
-  const initials = user?.displayName
-    ? user.displayName
+  const initials = resolvedName
+    ? resolvedName
         .split(" ")
         .map((n) => n[0])
         .join("")
         .toUpperCase()
         .slice(0, 2)
-    : user?.email?.[0]?.toUpperCase() || "?";
+    : resolvedEmail?.[0]?.toUpperCase() || "?";
 
   return (
     <header
@@ -69,10 +79,14 @@ export default function DashboardHeader({
           rel="noopener noreferrer"
           className="flex items-center gap-2.5 no-underline"
         >
-          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-            <span className="text-white text-sm font-bold tracking-tight">
-              iR
-            </span>
+          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center backdrop-blur-sm overflow-hidden p-1">
+            <Image
+              src="/logo.png"
+              alt="iRopit"
+              width={28}
+              height={28}
+              className="object-contain"
+            />
           </div>
           <span className="text-white text-lg font-bold tracking-tight hidden sm:block">
             iRopit
@@ -84,7 +98,7 @@ export default function DashboardHeader({
           {/* Language toggle */}
           <button
             onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white text-xs font-bold backdrop-blur-sm"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] border border-white/10 bg-white/10 hover:bg-white/20 transition text-white text-xs font-bold backdrop-blur-sm"
             title={t("common.language")}
           >
             {language === "en" ? "AR" : "EN"}
@@ -92,7 +106,7 @@ export default function DashboardHeader({
 
           <button
             onClick={() => window.location.reload()}
-            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] border border-white/10 bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("common.refresh")}
           >
             <RefreshCw className="w-4.5 h-4.5" />
@@ -100,7 +114,7 @@ export default function DashboardHeader({
 
           <button
             onClick={onOpenSettings}
-            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] border border-white/10 bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("tabs.settings")}
           >
             <Settings className="w-4.5 h-4.5" />
@@ -109,7 +123,7 @@ export default function DashboardHeader({
           {/* Theme toggle */}
           <button
             onClick={handleThemeToggle}
-            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
+            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-sm)] border border-white/10 bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             title={t("common.theme")}
           >
             {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
@@ -119,11 +133,11 @@ export default function DashboardHeader({
           <div className="relative ms-1">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-sm)] bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-sm)] border border-white/10 bg-white/10 hover:bg-white/20 transition text-white backdrop-blur-sm"
             >
-              {user?.photoURL ? (
+              {resolvedPhoto ? (
                 <img
-                  src={user.photoURL}
+                  src={resolvedPhoto}
                   alt=""
                   className="w-6 h-6 rounded-full object-cover ring-1 ring-white/30"
                   referrerPolicy="no-referrer"
@@ -136,7 +150,7 @@ export default function DashboardHeader({
                 </div>
               )}
               <span className="hidden sm:block text-xs font-semibold">
-                {user?.displayName?.split(" ")[0] || user?.email?.split("@")[0]}
+                {resolvedName?.split(" ")[0] || resolvedEmail?.split("@")[0]}
               </span>
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
@@ -150,10 +164,10 @@ export default function DashboardHeader({
                 <div className="absolute end-0 top-full mt-1.5 w-52 bg-surface border border-border rounded-xl shadow-xl z-50 py-1 overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-border">
                     <p className="text-xs font-semibold text-txt truncate">
-                      {user?.displayName || user?.email}
+                      {resolvedName || resolvedEmail}
                     </p>
                     <p className="text-[11px] text-txt-secondary truncate">
-                      {user?.email}
+                      {resolvedEmail}
                     </p>
                   </div>
                   <button

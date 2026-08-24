@@ -25,23 +25,26 @@ const { ZyncITModule, CallLogModule, SmsModule } = NativeModules;
  * @param listenToEvents - إذا كان true، يستمع للأحداث الجديدة (SMS/Calls). استخدمه فقط مرة واحدة في App.tsx
  */
 export const useNativeEvents = (listenToEvents: boolean = false) => {
-  const {
-    addMessage,
-    addMessageAndSync,
-    syncMessagesToFirebase,
-    listenForSMSRequests,
-  } = useSMSStore();
-  const { addCall, addCallAndSync, syncCallsToFirebase } = useCallStore();
-  const { user } = useAuthStore();
-  const {
-    currentDevice,
-    registerDevice,
-    startOnlineStatusTracking,
-    stopOnlineStatusTracking,
-    startFcmTokenListener,
-    startDeviceDeleteListener,
-  } = useDeviceStore();
-  const { syncContactsToFirebase } = useContactStore();
+  const listenForSMSRequests = useSMSStore(state => state.listenForSMSRequests);
+  const addCallAndSync = useCallStore(state => state.addCallAndSync);
+  const user = useAuthStore(state => state.user);
+  const currentDevice = useDeviceStore(state => state.currentDevice);
+  const registerDevice = useDeviceStore(state => state.registerDevice);
+  const startOnlineStatusTracking = useDeviceStore(
+    state => state.startOnlineStatusTracking,
+  );
+  const stopOnlineStatusTracking = useDeviceStore(
+    state => state.stopOnlineStatusTracking,
+  );
+  const startFcmTokenListener = useDeviceStore(
+    state => state.startFcmTokenListener,
+  );
+  const startDeviceDeleteListener = useDeviceStore(
+    state => state.startDeviceDeleteListener,
+  );
+  const syncContactsToFirebase = useContactStore(
+    state => state.syncContactsToFirebase,
+  );
   const pushListenerUnsubscribe = useRef<(() => void) | null>(null);
   const fcmTokenListenerUnsubscribe = useRef<(() => void) | null>(null);
   const deviceDeleteListenerUnsubscribe = useRef<(() => void) | null>(null);
@@ -513,7 +516,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       smsSubscription?.remove();
       callSubscription?.remove();
     };
-  }, [listenToEvents, user, addMessageAndSync, addCallAndSync]);
+  }, [listenToEvents, user, addCallAndSync]);
 
   // Start call listener for real-time call events
   const startCallListener = useCallback(async () => {

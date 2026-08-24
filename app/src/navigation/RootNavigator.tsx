@@ -34,7 +34,8 @@ const isFileShare = (data: SharedData) =>
   !!(data.uri || (data.uris && data.uris.length > 0));
 
 const RootNavigator = () => {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
   const { isRTL, colors } = useTheme();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<
     boolean | null
@@ -188,7 +189,7 @@ const RootNavigator = () => {
 
   return (
     <>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none' }}>
         {isAuthenticated ? (
           <>
             <Stack.Screen name="Main" component={MainNavigator} />

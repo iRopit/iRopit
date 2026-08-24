@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState, useMemo, useRef } from 'react';
-import { Platform, NativeModules } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Platform, NativeModules, InteractionManager } from 'react-native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../types';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -18,23 +18,26 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
  */
 export const useCallsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const {
-    calls,
-    isLoading,
-    isSyncing,
-    loadCalls,
-    clearAllCalls,
-    deleteCallsByPhoneNumbers,
-    syncCalls,
-  } = useCallStore();
+  const calls = useCallStore(state => state.calls);
+  const isLoading = useCallStore(state => state.isLoading);
+  const isSyncing = useCallStore(state => state.isSyncing);
+  const loadCalls = useCallStore(state => state.loadCalls);
+  const clearAllCalls = useCallStore(state => state.clearAllCalls);
+  const deleteCallsByPhoneNumbers = useCallStore(
+    state => state.deleteCallsByPhoneNumbers,
+  );
+  const syncCalls = useCallStore(state => state.syncCalls);
   const { requestPermissions } = useNativeEvents();
-  const { currentDevice, devices, loadDevices } = useDeviceStore();
+  const currentDevice = useDeviceStore(state => state.currentDevice);
+  const devices = useDeviceStore(state => state.devices);
+  const loadDevices = useDeviceStore(state => state.loadDevices);
   const { isRTL, isDarkMode, colors } = useTheme();
 
   // Persist selected device so leaving/returning to the tab keeps the same filter.
   const selectedDeviceId = useDeviceFilterStore(state => state.callsDeviceId);
   const setSelectedDeviceId = useDeviceFilterStore(state => state.setCallsDeviceId);
   const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
+  const isFocused = useIsFocused();
 
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +50,7 @@ export const useCallsScreen = () => {
   const [singleDeleteItem, setSingleDeleteItem] = useState<GroupedCall | null>(
     null,
   );
+  const [allowHeavyWork, setAllowHeavyWork] = useState(false);
 
   // Theme colors - use canonical theme tokens
   const bgColor = colors.background;
@@ -56,6 +60,20 @@ export const useCallsScreen = () => {
   const avatarBgColor = isDarkMode
     ? colors.surfaceSecondary
     : colors.surfaceTertiary;
+  const nativeWarmupDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setAllowHeavyWork(false);
+      return;
+    }
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      setAllowHeavyWork(true);
+    });
+
+    return () => task.cancel();
+  }, [isFocused]);
 
   // Initialize call listener
   const initializeCallListener = useCallback(async () => {
@@ -63,7 +81,8 @@ export const useCallsScreen = () => {
     // immediately; do not block on native top-up sync.
     loadCalls(activeDeviceId || undefined);
 
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && !nativeWarmupDoneRef.current) {
+      nativeWarmupDoneRef.current = true;
       await requestPermissions();
 
       // Lightweight top-up sync to avoid stale Calls tab when a realtime
@@ -100,14 +119,16 @@ export const useCallsScreen = () => {
   }, [loadCalls, activeDeviceId, syncCalls, currentDevice?.id]);
 
   useEffect(() => {
+    if (!allowHeavyWork) return;
     initializeCallListener();
-  }, [initializeCallListener]);
+  }, [allowHeavyWork, initializeCallListener]);
 
   // Load native SIM slot data for enrichment
   const [simSlotMap, setSimSlotMap] = useState<Record<string, number>>({});
   const simSlotLoaded = useRef(false);
 
   useEffect(() => {
+    if (!allowHeavyWork) return;
     if (Platform.OS !== 'android' || simSlotLoaded.current) return;
     simSlotLoaded.current = true;
 
@@ -128,18 +149,20 @@ export const useCallsScreen = () => {
       }
       setSimSlotMap(map);
 
-      // Re-sync native calls to Firestore to fix any incorrect call types
-      syncCalls(nativeCalls);
+      // Re-sync in the background so tab transition remains smooth.
+      setTimeout(() => {
+        syncCalls(nativeCalls);
+      }, 0);
     }).catch(() => {});
-  }, []);
+  }, [allowHeavyWork, syncCalls]);
 
   // Load devices list on mount
   useEffect(() => {
     loadDevices();
   }, [loadDevices]);
 
-  // Group calls by phone number
-  const groupedCalls = useMemo(() => {
+  // Group calls by phone number (expensive path, independent from search text)
+  const baseGroupedCalls = useMemo(() => {
     const groups: { [key: string]: GroupedCall } = {};
     const validCalls = Array.isArray(calls) ? calls : [];
 
@@ -193,21 +216,21 @@ export const useCallsScreen = () => {
       }
     });
 
-    let result = Object.values(groups).sort(
+    return Object.values(groups).sort(
       (a, b) => b.lastTimestamp - a.lastTimestamp,
     );
+  }, [calls, simSlotMap]);
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        g =>
-          g.contactName.toLowerCase().includes(query) ||
-          g.phoneNumber.includes(query),
-      );
-    }
+  const groupedCalls = useMemo(() => {
+    if (!searchQuery.trim()) return baseGroupedCalls;
 
-    return result;
-  }, [calls, searchQuery, simSlotMap]);
+    const query = searchQuery.toLowerCase();
+    return baseGroupedCalls.filter(
+      g =>
+        g.contactName.toLowerCase().includes(query) ||
+        g.phoneNumber.includes(query),
+    );
+  }, [baseGroupedCalls, searchQuery]);
 
   // Handlers
   const handlePress = useCallback(

@@ -41,8 +41,8 @@ LogBox.ignoreLogs([
 ]);
 
 const AppContent = () => {
-  const { initialize, isLoading, isAuthenticated, error } = useAuthStore();
-  const { darkMode } = useSettingsStore();
+  const initialize = useAuthStore(state => state.initialize);
+  const darkMode = useSettingsStore(state => state.darkMode);
 
   // Initialize native event listeners for SMS and Calls - true to enable listening
   useNativeEvents(true);

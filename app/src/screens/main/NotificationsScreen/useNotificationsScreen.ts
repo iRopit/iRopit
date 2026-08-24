@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
 
 import notificationService, {
@@ -19,32 +19,42 @@ import { AlertService } from '../../../components/shared';
 import { GroupedNotification } from './types';
 import { normalizePhoneNumber, sanitizeFirestoreKey } from './helper';
 
+const EMPTY_SMS_MESSAGES: any[] = [];
+const EMPTY_NOTIFICATIONS: AppNotification[] = [];
+
 export const useNotificationsScreen = (
   filterType?: 'sms' | 'notifications-only' | 'all',
 ) => {
+  const NOTIFICATIONS_INITIAL_LIMIT = 1500;
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
+  const shouldUseSmsData = filterType !== 'notifications-only';
+  const shouldUseNotificationsData = filterType !== 'sms';
 
   // Store hooks
-  const {
-    notifications,
-    addNotification,
-    setNotifications,
-    removeNotification,
-    markGroupAsRead,
-  } = useNotificationStore();
+  const notifications = useNotificationStore(state =>
+    shouldUseNotificationsData ? state.notifications : EMPTY_NOTIFICATIONS,
+  );
+  const addNotification = useNotificationStore(state => state.addNotification);
+  const setNotifications = useNotificationStore(state => state.setNotifications);
+  const removeNotification = useNotificationStore(state => state.removeNotification);
+  const markGroupAsRead = useNotificationStore(state => state.markGroupAsRead);
 
-  const {
-    messages: smsMessages,
-    smsDebug,
-    markMessagesAsReadBySender,
-    loadMessages: loadSmsMessages,
-    setMessages: setSmsMessages,
-    deleteMessagesBySender,
-  } = useSMSStore();
+  const smsMessages = useSMSStore(state =>
+    shouldUseSmsData ? state.messages : EMPTY_SMS_MESSAGES,
+  );
+  const smsDebug = useSMSStore(state => state.smsDebug);
+  const markMessagesAsReadBySender = useSMSStore(
+    state => state.markMessagesAsReadBySender,
+  );
+  const loadSmsMessages = useSMSStore(state => state.loadMessages);
+  const deleteMessagesBySender = useSMSStore(state => state.deleteMessagesBySender);
 
-  const { addCallAndSync } = useCallStore();
-  const { user } = useAuthStore();
-  const { currentDevice, devices, loadDevices } = useDeviceStore();
+  const addCallAndSync = useCallStore(state => state.addCallAndSync);
+  const user = useAuthStore(state => state.user);
+  const currentDevice = useDeviceStore(state => state.currentDevice);
+  const devices = useDeviceStore(state => state.devices);
+  const loadDevices = useDeviceStore(state => state.loadDevices);
   const persistedSmsDeviceId = useDeviceFilterStore(state => state.smsDeviceId);
   const persistedNotificationsDeviceId = useDeviceFilterStore(
     state => state.notificationsDeviceId,
@@ -55,7 +65,7 @@ export const useNotificationsScreen = (
   const setPersistedNotificationsDeviceId = useDeviceFilterStore(
     state => state.setNotificationsDeviceId,
   );
-  const { contacts } = useContactStore();
+  const contacts = useContactStore(state => state.contacts);
   const { isRTL, colors, isDarkMode } = useTheme();
 
   // Persist selected device so filter survives tab/screen navigation.
@@ -80,6 +90,10 @@ export const useNotificationsScreen = (
     filterType === 'sms'
       ? activeDeviceId || undefined
       : activeDeviceId || undefined;
+  const isViewingCurrentDevice =
+    !selectedDeviceId || selectedDeviceId === currentDevice?.id;
+  const requiresLocalSmsPermission =
+    filterType === 'sms' && Platform.OS === 'android' && isViewingCurrentDevice;
 
   // Local state
   const [isLoading] = useState(false);
@@ -96,34 +110,40 @@ export const useNotificationsScreen = (
   const notificationsListenerGenerationRef = useRef(0);
 
   useEffect(() => {
-    // Force a clean fetch path when the device filter changes.
-    // Without this, a transient empty snapshot can leave stale data visible.
+    if (!isFocused) return;
+
+    // Device switch: restart listener generation and reload path, but keep
+    // currently rendered items to avoid empty-state flicker/hangs.
     lastSmsLoadKeyRef.current = '';
     notificationsListenerGenerationRef.current += 1;
-    setInitialLoading(true);
 
-    if (filterType === 'sms') {
-      setSmsMessages([]);
-    } else {
-      setNotifications([]);
+    const hasVisibleData =
+      filterType === 'sms' ? smsMessages.length > 0 : notifications.length > 0;
+    if (!hasVisibleData) {
+      setInitialLoading(true);
     }
-  }, [activeDeviceId, filterType, setNotifications, setSmsMessages]);
+  }, [
+    isFocused,
+    activeDeviceId,
+    filterType,
+  ]);
 
   // Theme colors
   const bgColor = colors.background;
   const textColor = colors.text;
   const secondaryTextColor = colors.textSecondary;
 
-  const groupedNotifications = useMemo(() => {
-    const groups: { [key: string]: GroupedNotification } = {};
+  const contactLookup = useMemo(() => {
+    if (!shouldUseSmsData) {
+      return {
+        nameToPhoneMap: {} as Record<string, string>,
+        phoneToNameMap: {} as Record<string, string>,
+      };
+    }
 
+    const nameToPhoneMap: Record<string, string> = {};
+    const phoneToNameMap: Record<string, string> = {};
     const validSmsMessages = Array.isArray(smsMessages) ? smsMessages : [];
-    const validNotifications = Array.isArray(notifications)
-      ? notifications
-      : [];
-
-    const nameToPhoneMap: { [name: string]: string } = {};
-    const phoneToNameMap: { [phone: string]: string } = {};
 
     // Build phone-to-name map from local device contacts
     if (Array.isArray(contacts)) {
@@ -158,6 +178,18 @@ export const useNotificationsScreen = (
         phoneToNameMap[normalized] = name;
       }
     });
+
+    return { nameToPhoneMap, phoneToNameMap };
+  }, [contacts, smsMessages, shouldUseSmsData]);
+
+  const baseGroupedNotifications = useMemo(() => {
+    const groups: { [key: string]: GroupedNotification } = {};
+
+    const validSmsMessages = Array.isArray(smsMessages) ? smsMessages : [];
+    const validNotifications = Array.isArray(notifications)
+      ? notifications
+      : [];
+    const { nameToPhoneMap, phoneToNameMap } = contactLookup;
 
     // Process SMS messages - skip if notifications-only filter
     if (filterType !== 'notifications-only') {
@@ -289,22 +321,21 @@ export const useNotificationsScreen = (
         });
     }
 
-    let result = Object.values(groups).sort(
+    return Object.values(groups).sort(
       (a, b) => b.lastTimestamp - a.lastTimestamp,
     );
+  }, [notifications, smsMessages, filterType, contactLookup]);
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        g =>
-          (g.title || '').toLowerCase().includes(query) ||
-          (g.lastText || '').toLowerCase().includes(query),
-      );
-    }
+  const groupedNotifications = useMemo(() => {
+    if (!searchQuery.trim()) return baseGroupedNotifications;
 
-    return result;
-  }, [notifications, smsMessages, searchQuery, filterType, contacts]);
+    const query = searchQuery.toLowerCase();
+    return baseGroupedNotifications.filter(
+      g =>
+        (g.title || '').toLowerCase().includes(query) ||
+        (g.lastText || '').toLowerCase().includes(query),
+    );
+  }, [baseGroupedNotifications, searchQuery]);
 
   // Load devices list on mount
   useEffect(() => {
@@ -315,6 +346,13 @@ export const useNotificationsScreen = (
   const checkPermission = useCallback(async () => {
     try {
       if (filterType === 'sms' && Platform.OS === 'android') {
+        // Viewing another device's SMS is a cloud-read path and should not
+        // be blocked by this phone's READ_SMS/RECEIVE_SMS permissions.
+        if (!isViewingCurrentDevice) {
+          setHasPermission(true);
+          return true;
+        }
+
         const [hasReadSms, hasReceiveSms] = await Promise.all([
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS),
@@ -330,10 +368,19 @@ export const useNotificationsScreen = (
     } catch (_error) {
       return false;
     }
-  }, [filterType]);
+  }, [filterType, isViewingCurrentDevice]);
 
   const requestPermission = useCallback(async () => {
     if (filterType === 'sms' && Platform.OS === 'android') {
+      if (!isViewingCurrentDevice) {
+        // Remote SMS view does not need local runtime SMS permission.
+        setHasPermission(true);
+        if (user && currentDevice) {
+          loadSmsMessages(smsDeviceId);
+        }
+        return;
+      }
+
       try {
         const smsResults = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.READ_SMS,
@@ -366,7 +413,14 @@ export const useNotificationsScreen = (
         notificationService.openSettings(),
       );
     }
-  }, [filterType, user, currentDevice, loadSmsMessages, smsDeviceId]);
+  }, [
+    filterType,
+    user,
+    currentDevice,
+    loadSmsMessages,
+    smsDeviceId,
+    isViewingCurrentDevice,
+  ]);
 
   // Firebase operations
   const saveToFirebase = useCallback(
@@ -494,6 +548,8 @@ export const useNotificationsScreen = (
 
   // Effects
   useEffect(() => {
+    if (!isFocused) return;
+
     checkPermission();
     notificationService.isMiuiDevice().then(isMiui => {
       setIsMiuiDevice(isMiui);
@@ -507,10 +563,13 @@ export const useNotificationsScreen = (
     });
     const interval = setInterval(checkPermission, 30000);
     return () => clearInterval(interval);
-  }, [checkPermission]);
+  }, [isFocused, checkPermission]);
 
   // Load SMS from Firebase on mount
   useEffect(() => {
+    if (!isFocused) return;
+    if (!shouldUseSmsData) return;
+
     if (user && currentDevice) {
       // Just kick off the listener — DON'T clear initialLoading here.
       // loadSmsMessages returns synchronously after attaching the Firestore
@@ -518,7 +577,7 @@ export const useNotificationsScreen = (
       // install where there is no cache and the historical batchSyncNativeSMS
       // hasn't run yet). The previous code cleared initialLoading in a
       // .finally() that fires immediately, so the spinner barely flashed.
-      if (filterType !== 'sms' || hasPermission) {
+      if (filterType !== 'sms' || hasPermission || !requiresLocalSmsPermission) {
         const loadKey = `${user.uid}:${smsDeviceId || 'all'}:${filterType || 'all'}:${hasPermission ? '1' : '0'}`;
         if (lastSmsLoadKeyRef.current !== loadKey) {
           lastSmsLoadKeyRef.current = loadKey;
@@ -533,27 +592,77 @@ export const useNotificationsScreen = (
     smsDeviceId,
     filterType,
     hasPermission,
+    requiresLocalSmsPermission,
+    shouldUseSmsData,
+    isFocused,
   ]);
 
   // Clear initialLoading once messages/notifications actually arrive, OR
   // after a generous safety timeout (covers users with a truly empty inbox).
   useEffect(() => {
     if (!initialLoading) return;
-    if (smsMessages.length > 0 || notifications.length > 0) {
+
+    const hasArrivedData =
+      filterType === 'sms'
+        ? smsMessages.length > 0
+        : filterType === 'notifications-only'
+        ? notifications.length > 0
+        : smsMessages.length > 0 || notifications.length > 0;
+
+    if (hasArrivedData) {
       setInitialLoading(false);
       return;
     }
-    const t = setTimeout(() => setInitialLoading(false), 30000);
+    const fallbackMs = filterType === 'sms' ? 7000 : 3500;
+    const t = setTimeout(() => setInitialLoading(false), fallbackMs);
     return () => clearTimeout(t);
-  }, [initialLoading, smsMessages.length, notifications.length]);
+  }, [initialLoading, smsMessages.length, notifications.length, filterType]);
 
   // Subscribe to notifications from Firebase
   useEffect(() => {
+    if (!isFocused) return;
+    if (!shouldUseNotificationsData) return;
     if (!user || !currentDevice || !activeDeviceId) return;
 
     const listenerGeneration = ++notificationsListenerGenerationRef.current;
     const isStaleListener =
       () => listenerGeneration !== notificationsListenerGenerationRef.current;
+    let attemptedCreatedAtFallback = false;
+
+    const mapNotifications = (snapshot: any): AppNotification[] => {
+      const mapped: AppNotification[] = [];
+      snapshot.forEach((doc: any) => {
+        const data = doc.data();
+        const type = data.type || 'other';
+
+        if (
+          type === 'sms' ||
+          type === 'call' ||
+          type === 'missed_call' ||
+          type === 'whatsapp_call'
+        ) {
+          return;
+        }
+
+        const notification: AppNotification = {
+          id: doc.id,
+          key: data.key || `${data.packageName}_${data.timestamp}`,
+          packageName: data.packageName || '',
+          title: data.title || '',
+          text: data.text || '',
+          type: type,
+          timestamp:
+            data.timestamp ||
+            data.createdAt?.toMillis?.() ||
+            data.syncedAt ||
+            Date.now(),
+          appName: data.appName || '',
+          read: data.read ?? false,
+        };
+        mapped.push(notification);
+      });
+      return mapped;
+    };
 
     const unsubscribe = firestore()
       .collection('users')
@@ -561,58 +670,66 @@ export const useNotificationsScreen = (
       .collection('devices')
       .doc(activeDeviceId)
       .collection('notifications')
-      .orderBy('createdAt', 'desc')
-      .limit(10000)
+      .orderBy('timestamp', 'desc')
+      .limit(NOTIFICATIONS_INITIAL_LIMIT)
       .onSnapshot(
-        snapshot => {
+        async snapshot => {
           if (isStaleListener()) return;
 
-          const mapped: AppNotification[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            const type = data.type || 'other';
+          // First snapshot has arrived (even if empty), so stop spinner.
+          setInitialLoading(false);
 
-            if (
-              type === 'sms' ||
-              type === 'call' ||
-              type === 'missed_call' ||
-              type === 'whatsapp_call'
-            ) {
-              return;
-            }
-
-            const notification: AppNotification = {
-              id: doc.id,
-              key: data.key || `${data.packageName}_${data.timestamp}`,
-              packageName: data.packageName || '',
-              title: data.title || '',
-              text: data.text || '',
-              type: type,
-              timestamp:
-                data.timestamp ||
-                data.createdAt?.toMillis?.() ||
-                data.syncedAt ||
-                Date.now(),
-              appName: data.appName || '',
-              read: data.read ?? false,
-            };
-            mapped.push(notification);
-          });
+          const mapped = mapNotifications(snapshot);
 
           setNotifications(mapped);
+
+          // Some older selected-device notifications can be missing timestamp.
+          // If timestamp listener is empty, do a one-time createdAt fallback.
+          if (mapped.length === 0 && !attemptedCreatedAtFallback) {
+            attemptedCreatedAtFallback = true;
+            try {
+              const createdAtSnap = await firestore()
+                .collection('users')
+                .doc(user.uid)
+                .collection('devices')
+                .doc(activeDeviceId)
+                .collection('notifications')
+                .orderBy('createdAt', 'desc')
+                .limit(NOTIFICATIONS_INITIAL_LIMIT)
+                .get();
+
+              if (isStaleListener()) return;
+              const fallbackMapped = mapNotifications(createdAtSnap);
+              if (fallbackMapped.length > 0) {
+                setNotifications(fallbackMapped);
+              }
+            } catch (_) {}
+          }
         },
-        _error => {},
+        _error => {
+          if (isStaleListener()) return;
+          setInitialLoading(false);
+        },
       );
 
     return () => {
       unsubscribe();
       notificationsListenerGenerationRef.current += 1;
     };
-  }, [user, currentDevice, setNotifications, activeDeviceId]);
+  }, [
+    user,
+    currentDevice,
+    setNotifications,
+    activeDeviceId,
+    shouldUseNotificationsData,
+    isFocused,
+  ]);
 
   // Listen for new notifications
   useEffect(() => {
-    if (!hasPermission) return;
+    if (!isFocused) return;
+    if (!hasPermission && requiresLocalSmsPermission) return;
+    if (!shouldUseNotificationsData) return;
 
     const shouldProjectLiveToCurrentView =
       !selectedDeviceId || selectedDeviceId === currentDevice?.id;
@@ -684,12 +801,15 @@ export const useNotificationsScreen = (
     return () => unsubscribe();
   }, [
     hasPermission,
+    requiresLocalSmsPermission,
     addNotification,
     saveToFirebase,
     addCallAndSync,
     user,
     currentDevice,
     selectedDeviceId,
+    shouldUseNotificationsData,
+    isFocused,
   ]);
 
   return {

@@ -63,16 +63,14 @@ export const useConversationScreen = (
 ) => {
   const { title, appName, type, phoneNumber } = params;
 
-  const {
-    notifications: allNotifications,
-    removeNotification,
-    addNotification,
-    loadNotificationsForConversation,
-  } = useNotificationStore();
-  const {
-    messages: smsMessages,
-    isLoading: isSmsLoading,
-  } = useSMSStore();
+  const allNotifications = useNotificationStore(state => state.notifications);
+  const removeNotification = useNotificationStore(state => state.removeNotification);
+  const addNotification = useNotificationStore(state => state.addNotification);
+  const loadNotificationsForConversation = useNotificationStore(
+    state => state.loadNotificationsForConversation,
+  );
+  const smsMessages = useSMSStore(state => state.messages);
+  const isSmsLoading = useSMSStore(state => state.isLoading);
   const { isRTL, isDarkMode, colors, t } = useTheme();
 
   // State for loaded notifications (non-SMS only)
@@ -136,10 +134,13 @@ export const useConversationScreen = (
       n => n.title === title && n.appName === appName && n.type === type,
     );
 
-    // Remove duplicates from regular notifications
-    const uniqueRegularNotifications = regularNotifications.filter(
-      (n, index, self) => index === self.findIndex(m => m.id === n.id),
-    );
+    // Remove duplicates from regular notifications in O(n)
+    const seenRegularIds = new Set<string>();
+    const uniqueRegularNotifications = regularNotifications.filter(n => {
+      if (seenRegularIds.has(n.id)) return false;
+      seenRegularIds.add(n.id);
+      return true;
+    });
 
     if (type === 'sms') {
       const messagesToUse =

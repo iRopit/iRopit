@@ -20,15 +20,27 @@ export const useDeviceFilterStore = create<DeviceFilterState>()(
       notificationsDeviceId: null,
 
       setCallsDeviceId: (deviceId: string | null) => {
-        set({ callsDeviceId: deviceId });
+        set(state =>
+          state.callsDeviceId === deviceId
+            ? state
+            : { callsDeviceId: deviceId },
+        );
       },
 
       setSmsDeviceId: (deviceId: string | null) => {
-        set({ smsDeviceId: deviceId });
+        set(state =>
+          state.smsDeviceId === deviceId
+            ? state
+            : { smsDeviceId: deviceId },
+        );
       },
 
       setNotificationsDeviceId: (deviceId: string | null) => {
-        set({ notificationsDeviceId: deviceId });
+        set(state =>
+          state.notificationsDeviceId === deviceId
+            ? state
+            : { notificationsDeviceId: deviceId },
+        );
       },
 
       clearDeviceFilters: () => {

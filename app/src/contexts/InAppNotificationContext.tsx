@@ -55,7 +55,7 @@ export const InAppNotificationProvider: React.FC<Props> = ({ children }) => {
   const [notification, setNotification] = useState<NotificationData | null>(
     null,
   );
-  const { darkMode } = useSettingsStore();
+  const darkMode = useSettingsStore(state => state.darkMode);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
 

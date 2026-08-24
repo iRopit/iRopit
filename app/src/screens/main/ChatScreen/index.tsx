@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import RNBlobUtil from 'react-native-blob-util';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { EmptyState, ScreenTitle, SearchBar } from '../../../components/shared';
-import { Container, AnimatedListItem } from '../../../components';
+import { Container } from '../../../components';
 import { Message } from './types';
 import { styles } from './styles';
 import { useChatScreen } from './useChatScreen';
@@ -72,7 +72,7 @@ const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const handleDownloadImage = async (url: string) => {
+  const handleDownloadImage = useCallback(async (url: string) => {
     if (Platform.OS === 'android') {
       try {
         const fileName = `iRopit_${Date.now()}.jpg`;
@@ -94,7 +94,7 @@ const ChatScreen = () => {
     } else {
       Share.share({ url }).catch(() => Linking.openURL(url));
     }
-  };
+  }, []);
 
   const {
     messages,
@@ -133,10 +133,29 @@ const ChatScreen = () => {
     deleteAllMessages,
   } = useChatScreen();
 
+  const listData = useMemo(
+    () => [...filteredMessages].reverse(),
+    [filteredMessages],
+  );
+
+  const handleSelectChatDevice = useCallback(
+    (deviceId: string | null) => {
+      if (deviceId === selectedDeviceId) {
+        setDropdownOpen(false);
+        return;
+      }
+
+      setDropdownOpen(false);
+      setTimeout(() => {
+        setSelectedDeviceId(deviceId);
+      }, 80);
+    },
+    [selectedDeviceId, setSelectedDeviceId],
+  );
+
   // Render message item
-  const renderMessageItem = ({
+  const renderMessageItem = useCallback(({
     item,
-    index,
   }: {
     item: Message;
     index: number;
@@ -147,90 +166,89 @@ const ChatScreen = () => {
     const bubbleAlign = isMyMessage ? 'flex-end' : 'flex-start';
 
     return (
-      <AnimatedListItem index={index}>
-        <View
-          style={[
-            styles.messageWrapper,
-            isMyMessage && styles.myMessageWrapper,
-            { alignSelf: bubbleAlign, alignItems: bubbleAlign },
-          ]}
-        >
-          {!isMyMessage && (
-            <Text style={[styles.senderName, { color: secondaryTextColor }]}>
-              {(item as any).senderName || 'Unknown'} •{' '}
-              {(item as any).senderPlatform === 'chrome-extension' ? 'Browser' : ((item as any).senderPlatform || 'device')}
-            </Text>
-          )}
-          {item.replyTo && (
+      <View
+        style={[
+          styles.messageWrapper,
+          isMyMessage && styles.myMessageWrapper,
+          { alignSelf: bubbleAlign, alignItems: bubbleAlign },
+        ]}
+      >
+        {!isMyMessage && (
+          <Text style={[styles.senderName, { color: secondaryTextColor }]}>
+            {(item as any).senderName || 'Unknown'} •{' '}
+            {(item as any).senderPlatform === 'chrome-extension' ? 'Browser' : ((item as any).senderPlatform || 'device')}
+          </Text>
+        )}
+        {item.replyTo && (
+          <View
+            style={[styles.replyContainer, { backgroundColor: surfaceColor }]}
+          >
             <View
-              style={[styles.replyContainer, { backgroundColor: surfaceColor }]}
+              style={[styles.replyBar, { backgroundColor: colors.primary }]}
+            />
+            <Text
+              style={[styles.replyText, { color: secondaryTextColor }]}
+              numberOfLines={1}
             >
-              <View
-                style={[styles.replyBar, { backgroundColor: colors.primary }]}
-              />
-              <Text
-                style={[styles.replyText, { color: secondaryTextColor }]}
-                numberOfLines={1}
-              >
-                {item.replyTo.content}
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.messageBubble,
-              { backgroundColor: colors.primary },
-            ]}
-            onLongPress={() => {
-              const options: { text: string; onPress: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [];
-              if ((!msgType || msgType === 'text') && item.content) {
-                options.push({
-                  text: 'Copy Text',
-                  onPress: () => {
-                    Clipboard.setString(item.content);
-                    if (Platform.OS === 'android') {
-                      ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
-                    }
-                  },
-                });
-                options.push({
-                  text: 'Share',
-                  onPress: () => {
-                    Share.share({ message: item.content });
-                  },
-                });
-              }
-              if (msgType === 'image' && fileUrl) {
-                options.push({
-                  text: 'Save / Share Image',
-                  onPress: () => {
-                    Share.share(
-                      Platform.OS === 'ios'
-                        ? { url: fileUrl }
-                        : { message: fileUrl, title: 'Save Image' },
-                    ).catch(() => Linking.openURL(fileUrl));
-                  },
-                });
-              }
-              options.push({ text: 'Reply', onPress: () => setReplyMessage(item) });
+              {item.replyTo.content}
+            </Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={[
+            styles.messageBubble,
+            { backgroundColor: colors.primary },
+          ]}
+          onLongPress={() => {
+            const options: { text: string; onPress: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [];
+            if ((!msgType || msgType === 'text') && item.content) {
               options.push({
-                text: 'Delete',
-                style: 'destructive',
+                text: 'Copy Text',
                 onPress: () => {
-                  Alert.alert(
-                    'Delete Message',
-                    'Delete this message?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => deleteMessage(item.id) },
-                    ],
-                  );
+                  Clipboard.setString(item.content);
+                  if (Platform.OS === 'android') {
+                    ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
+                  }
                 },
               });
-              options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
-              Alert.alert('Message Options', undefined, options);
-            }}
-          >
+              options.push({
+                text: 'Share',
+                onPress: () => {
+                  Share.share({ message: item.content });
+                },
+              });
+            }
+            if (msgType === 'image' && fileUrl) {
+              options.push({
+                text: 'Save / Share Image',
+                onPress: () => {
+                  Share.share(
+                    Platform.OS === 'ios'
+                      ? { url: fileUrl }
+                      : { message: fileUrl, title: 'Save Image' },
+                  ).catch(() => Linking.openURL(fileUrl));
+                },
+              });
+            }
+            options.push({ text: 'Reply', onPress: () => setReplyMessage(item) });
+            options.push({
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                Alert.alert(
+                  'Delete Message',
+                  'Delete this message?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => deleteMessage(item.id) },
+                  ],
+                );
+              },
+            });
+            options.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
+            Alert.alert('Message Options', undefined, options);
+          }}
+        >
             {msgType === 'image' && fileUrl && (
               <View>
                 <TouchableOpacity onPress={() => setPreviewImage(fileUrl)}>
@@ -238,6 +256,9 @@ const ChatScreen = () => {
                     source={{ uri: fileUrl }}
                     style={styles.chatImage}
                     resizeMode="cover"
+                    fadeDuration={0}
+                    progressiveRenderingEnabled={true}
+                    resizeMethod="resize"
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -303,11 +324,18 @@ const ChatScreen = () => {
                 minute: '2-digit',
               })}
             </Text>
-          </TouchableOpacity>
-        </View>
-      </AnimatedListItem>
+        </TouchableOpacity>
+      </View>
     );
-  };
+  }, [
+    currentDevice?.id,
+    secondaryTextColor,
+    surfaceColor,
+    colors.primary,
+    isRTL,
+    setReplyMessage,
+    deleteMessage,
+  ]);
 
   const renderHeader = () => <View style={styles.headerSpacer} />;
 
@@ -475,7 +503,7 @@ const ChatScreen = () => {
                       return (
                         <TouchableOpacity
                           key={opt.id ?? '__all__'}
-                          onPress={() => { setSelectedDeviceId(opt.id); setDropdownOpen(false); }}
+                          onPress={() => handleSelectChatDevice(opt.id)}
                           activeOpacity={0.7}
                           style={{
                             flexDirection: 'row',
@@ -542,8 +570,12 @@ const ChatScreen = () => {
         <FlatList
           ref={flatListRef}
           style={{ flex: 1 }}
-          data={[...filteredMessages].reverse()}
+          data={listData}
           inverted={true}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 1,
+            autoscrollToTopThreshold: 20,
+          }}
           keyExtractor={item => item.id}
           renderItem={renderMessageItem}
           contentContainerStyle={[
@@ -553,6 +585,11 @@ const ChatScreen = () => {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           ListEmptyComponent={renderEmptyComponent}
+          initialNumToRender={14}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={40}
+          windowSize={7}
+          removeClippedSubviews={true}
         />
       )}
 
@@ -717,6 +754,9 @@ const ChatScreen = () => {
                 height: Dimensions.get('window').height * 0.7,
               }}
               resizeMode="contain"
+              fadeDuration={0}
+              progressiveRenderingEnabled={true}
+              resizeMethod="resize"
             />
           )}
         </TouchableOpacity>

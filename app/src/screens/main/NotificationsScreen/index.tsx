@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList, RefreshControl, ActivityIndicator, Text } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { Container, AnimatedListItem } from '../../../components';
+import { Container } from '../../../components';
 
 import {
   SelectableHeader,
@@ -57,37 +57,33 @@ const NotificationsScreen = () => {
 
   const renderItem = ({
     item,
-    index,
   }: {
     item: GroupedNotification;
     index: number;
   }) => (
-    <AnimatedListItem index={index}>
-      <SwipeableItem
-        item={item}
-        onPress={() => handlePress(item)}
-        onDelete={() => handleDelete(item)}
-        onMute={() => handleMute(item)}
-        isRTL={isRTL}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isSelectMode={isSelectMode}
-        isSelected={selectedNotifications.includes(item.key)}
-        onToggleSelect={() => toggleSelectNotification(item.key)}
-      />
-    </AnimatedListItem>
+    <SwipeableItem
+      item={item}
+      onPress={() => handlePress(item)}
+      onDelete={() => handleDelete(item)}
+      onMute={() => handleMute(item)}
+      isRTL={isRTL}
+      colors={colors}
+      isDarkMode={isDarkMode}
+      isSelectMode={isSelectMode}
+      isSelected={selectedNotifications.includes(item.key)}
+      onToggleSelect={() => toggleSelectNotification(item.key)}
+    />
   );
 
   const renderEmptyState = () => {
     if (initialLoading) {
       return (
-        <EmptyState
-          icon="hourglass-outline"
-          title={t('loading')}
-          isDarkMode={isDarkMode}
-          isLoading={true}
-          loadingText={t('loading')}
-        />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16 }}>
+            {isRTL ? 'جاري تحميل الإشعارات...' : 'Loading notifications...'}
+          </Text>
+        </View>
       );
     }
 
@@ -115,9 +111,20 @@ const NotificationsScreen = () => {
 
     return (
       <EmptyState
-        icon="📭"
-        title={t('noMessagesYet')}
-        subtitle={t('messagesWillAppear')}
+        iconComponent={
+          <Ionicons
+            name="notifications-off-outline"
+            size={64}
+            color={colors.primary}
+            style={{ marginBottom: 16 }}
+          />
+        }
+        title={isRTL ? 'لا توجد إشعارات بعد' : 'No notifications yet'}
+        subtitle={
+          isRTL
+            ? 'ستظهر الإشعارات هنا عند وصولها'
+            : 'Your notifications will appear here when they arrive.'
+        }
         isDarkMode={isDarkMode}
       />
     );
@@ -177,6 +184,11 @@ const NotificationsScreen = () => {
         keyExtractor={item => item.key}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
+        initialNumToRender={14}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={6}
+        removeClippedSubviews={true}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

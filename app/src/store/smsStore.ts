@@ -275,6 +275,11 @@ export const useSMSStore = create<SMSState>()(
 
         const targetDeviceIds = [deviceIdParam || currentDevice.id];
         const targetDeviceId = targetDeviceIds[0] || null;
+        const isRemoteSelectedDevice =
+          !!deviceIdParam && deviceIdParam !== currentDevice.id;
+        const initialLoadLimit = isRemoteSelectedDevice
+          ? Math.min(600, SMS_PAGE_SIZE)
+          : Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT);
         const previousDeviceId = get().smsDebug.deviceId;
         const isSwitchingDevice =
           !!targetDeviceId &&
@@ -287,8 +292,8 @@ export const useSMSStore = create<SMSState>()(
         }
 
         setIfCurrent({
-          messages: isSwitchingDevice ? [] : get().messages,
-          oldestMessageTimestamp: isSwitchingDevice ? null : get().oldestMessageTimestamp,
+          messages: get().messages,
+          oldestMessageTimestamp: get().oldestMessageTimestamp,
           isLoading: true,
           smsDebug: {
             deviceId: targetDeviceId,
@@ -490,7 +495,7 @@ export const useSMSStore = create<SMSState>()(
             .doc(targetDeviceId)
             .collection(COLLECTIONS.NOTIFICATIONS)
             .orderBy('timestamp', 'desc')
-            .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+            .limit(initialLoadLimit)
             .onSnapshot(
               async snapshot => {
                 if (isStaleListener()) return;
@@ -527,7 +532,7 @@ export const useSMSStore = create<SMSState>()(
                         .doc(targetDeviceId)
                         .collection(COLLECTIONS.NOTIFICATIONS)
                         .orderBy('timestamp', 'desc')
-                        .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+                        .limit(initialLoadLimit)
                         .get();
 
                       relaxedSnap.forEach(doc => {
@@ -548,6 +553,44 @@ export const useSMSStore = create<SMSState>()(
                           source: relaxedCount > 0 ? 'relaxed-notifications' : state.smsDebug.source,
                         },
                       }));
+
+                      // Older records may not have `timestamp` but do have
+                      // `createdAt`. If strict+relaxed timestamp paths are
+                      // empty, try a createdAt-ordered fallback once.
+                      if (rawMessages.length === 0) {
+                        const createdAtSnap = await firestore()
+                          .collection(COLLECTIONS.USERS)
+                          .doc(user.uid)
+                          .collection(COLLECTIONS.DEVICES)
+                          .doc(targetDeviceId)
+                          .collection(COLLECTIONS.NOTIFICATIONS)
+                          .orderBy('createdAt', 'desc')
+                          .limit(initialLoadLimit)
+                          .get();
+
+                        createdAtSnap.forEach(doc => {
+                          const data: any = doc.data() || {};
+                          const looksLikeSms =
+                            data.type === 'sms' ||
+                            !!data.smsType ||
+                            data.packageName === 'com.android.mms';
+                          if (looksLikeSms) {
+                            rawMessages.push({ ...data, id: doc.id });
+                            relaxedCount++;
+                          }
+                        });
+
+                        setIfCurrent((state: SMSState) => ({
+                          smsDebug: {
+                            ...state.smsDebug,
+                            relaxedDocs: relaxedCount,
+                            source:
+                              relaxedCount > 0
+                                ? 'relaxed-createdAt'
+                                : state.smsDebug.source,
+                          },
+                        }));
+                      }
                     } catch (_) {}
                   }
 
@@ -559,7 +602,7 @@ export const useSMSStore = create<SMSState>()(
                         .where('userId', '==', user.uid)
                         .where('deviceId', '==', targetDeviceId)
                         .orderBy('timestamp', 'desc')
-                        .limit(Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT))
+                        .limit(initialLoadLimit)
                         .get();
 
                       legacySnap.forEach(doc => {

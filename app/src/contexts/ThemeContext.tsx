@@ -381,7 +381,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { darkMode, language } = useSettingsStore();
+  const darkMode = useSettingsStore(state => state.darkMode);
+  const language = useSettingsStore(state => state.language);
   const [isHydrated, setIsHydrated] = React.useState(false);
 
   // Wait for Zustand persist to hydrate before checking language

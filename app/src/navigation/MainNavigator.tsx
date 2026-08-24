@@ -26,7 +26,8 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const MainNavigator = () => {
   const { isRTL, t } = useTheme();
-  const { darkMode, language } = useSettingsStore();
+  const darkMode = useSettingsStore(s => s.darkMode);
+  const language = useSettingsStore(s => s.language);
   const colors = darkMode ? DARK_COLORS : LIGHT_COLORS;
   const insets = useSafeAreaInsets();
   const user = useAuthStore(s => s.user);
@@ -135,8 +136,9 @@ const MainNavigator = () => {
       <Tab.Navigator
         key={language} // Force re-mount when language changes
         backBehavior="none"
-        detachInactiveScreens={true}
+        detachInactiveScreens={false}
         screenOptions={{
+          animation: 'none',
           // Prevent hidden tabs from re-rendering on every global store update.
           // This reduces intermittent lag when switching between menu tabs.
           freezeOnBlur: true,

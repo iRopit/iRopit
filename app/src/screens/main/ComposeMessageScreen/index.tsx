@@ -20,7 +20,7 @@ const ComposeMessageScreen = ({ navigation }: ComposeMessageScreenProps) => {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const { colors, t } = useTheme();
-  const { addMessage } = useSMSStore();
+  const addMessage = useSMSStore(state => state.addMessage);
 
   const handleSend = async () => {
     if (!phoneNumber.trim()) {

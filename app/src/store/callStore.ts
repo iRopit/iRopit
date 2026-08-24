@@ -190,7 +190,7 @@ export const useCallStore = create<CallState>()(
         set({
           isLoading: true,
           activeDeviceId: deviceId,
-          calls: isSwitchingDevice ? [] : get().calls,
+          calls: get().calls,
         });
 
         const isLikelyCallPayload = (data: any): boolean => {

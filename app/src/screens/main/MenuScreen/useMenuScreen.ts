@@ -13,9 +13,15 @@ export const useMenuScreen = (
   onOpenDeleteDeviceModal?: () => void,
   onOpenDeleteAccountModal?: () => void,
 ) => {
-  const { user, signOut, deleteAccount } = useAuthStore();
-  const { currentDevice, deleteDevice } = useDeviceStore();
-  const settings = useSettingsStore();
+  const user = useAuthStore(state => state.user);
+  const signOut = useAuthStore(state => state.signOut);
+  const deleteAccount = useAuthStore(state => state.deleteAccount);
+  const currentDevice = useDeviceStore(state => state.currentDevice);
+  const deleteDevice = useDeviceStore(state => state.deleteDevice);
+  const darkMode = useSettingsStore(state => state.darkMode);
+  const language = useSettingsStore(state => state.language);
+  const updateSetting = useSettingsStore(state => state.updateSetting);
+  const syncToFirebase = useSettingsStore(state => state.syncToFirebase);
   const { colors, t, isDarkMode, isRTL } = useTheme();
 
   // Dynamic colors for iOS-like design
@@ -24,12 +30,12 @@ export const useMenuScreen = (
 
   const saveAndSync = useCallback(
     async (key: string, value: any) => {
-      await settings.updateSetting(key as any, value);
+      await updateSetting(key as any, value);
       if (user?.uid) {
-        await settings.syncToFirebase(user.uid);
+        await syncToFirebase(user.uid);
       }
     },
-    [settings, user?.uid],
+    [updateSetting, syncToFirebase, user?.uid],
   );
 
   const showLanguagePicker = useCallback(() => {
@@ -97,13 +103,13 @@ export const useMenuScreen = (
           subtitle: isDarkMode ? t('on') : t('off'),
           danger: false,
           isSwitch: true,
-          value: settings.darkMode,
+          value: darkMode,
           settingKey: 'darkMode',
         },
         {
           icon: 'language-outline',
           title: t('language'),
-          subtitle: settings.language === 'ar' ? t('arabic') : t('english'),
+          subtitle: language === 'ar' ? t('arabic') : t('english'),
           danger: false,
           onPress: showLanguagePicker,
         },
@@ -175,7 +181,12 @@ export const useMenuScreen = (
     // Data
     user,
     currentDevice,
-    settings,
+    settings: {
+      darkMode,
+      language,
+      updateSetting,
+      syncToFirebase,
+    },
     menuSections,
 
     // Theme

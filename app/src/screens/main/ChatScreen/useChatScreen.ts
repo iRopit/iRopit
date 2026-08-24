@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Alert, AppState, Clipboard, Keyboard, NativeModules, Platform, ToastAndroid } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuthStore } from '../../../store/authStore';
 import { useDeviceStore } from '../../../store/deviceStore';
@@ -21,8 +22,11 @@ const { FilePickerModule } = NativeModules;
 
 export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
-  const { user } = useAuthStore();
-  const { currentDevice, devices, loadDevices } = useDeviceStore();
+  const isFocused = useIsFocused();
+  const user = useAuthStore(state => state.user);
+  const currentDevice = useDeviceStore(state => state.currentDevice);
+  const devices = useDeviceStore(state => state.devices);
+  const loadDevices = useDeviceStore(state => state.loadDevices);
   const insets = useSafeAreaInsets();
 
   const pendingShare = useShareStore(state => state.pendingShare);
@@ -54,7 +58,7 @@ export const useChatScreen = () => {
 
   // Real-time device subscription — ensures devices are always populated before sending
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!isFocused || !user?.uid) return;
     const unsubscribe = firestore()
       .collection(COLLECTIONS.DEVICES)
       .where('userId', '==', user.uid)
@@ -70,7 +74,7 @@ export const useChatScreen = () => {
         },
       );
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [isFocused, user?.uid, loadDevices]);
 
   // Keep latest devices in a ref to avoid re-subscribing chat listener on every device change.
   useEffect(() => {
@@ -91,6 +95,8 @@ export const useChatScreen = () => {
 
   // Keyboard listener for Android
   useEffect(() => {
+    if (!isFocused) return;
+
     const showSub = Keyboard.addListener('keyboardDidShow', e => {
       setKeyboardHeight(e.endCoordinates.height);
     });
@@ -101,7 +107,7 @@ export const useChatScreen = () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [isFocused]);
 
   // Pick image from gallery
   const pickImage = useCallback(async () => {
@@ -351,6 +357,7 @@ export const useChatScreen = () => {
   // Subscribe to messages
   const isFirstSnapshotRef = useRef(true);
   useEffect(() => {
+    if (!isFocused) return;
     if (!user?.uid || !currentDevice) {
       return;
     }
@@ -509,7 +516,7 @@ export const useChatScreen = () => {
       unsubscribe();
       appStateSub.remove();
     };
-  }, [user?.uid, currentDevice, selectedDeviceId]);
+  }, [isFocused, user?.uid, currentDevice]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {

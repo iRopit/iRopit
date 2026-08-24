@@ -19,7 +19,7 @@ export const useSMSScreen = () => {
   const batchSyncNativeSMS = useSMSStore(state => state.batchSyncNativeSMS);
   const markAllAsRead = useSMSStore(state => state.markAllAsRead);
   const deleteAllMessages = useSMSStore(state => state.deleteAllMessages);
-  const { user } = useAuthStore();
+  const user = useAuthStore(state => state.user);
 
   const [showActions, setShowActions] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);

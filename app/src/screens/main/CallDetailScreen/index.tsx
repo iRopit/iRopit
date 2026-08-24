@@ -37,7 +37,7 @@ const CallDetailScreen = () => {
   const route = useRoute<CallDetailRouteProp>();
   const { call } = route.params;
   const { isRTL, t, isDarkMode, colors } = useTheme();
-  const { calls } = useCallStore();
+  const calls = useCallStore(state => state.calls);
   const insets = useSafeAreaInsets();
 
   // Load native SIM slot data for enrichment

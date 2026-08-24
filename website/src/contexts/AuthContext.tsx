@@ -40,12 +40,18 @@ const AuthContext = createContext<AuthContextType | null>(null);
 async function createUserDoc(user: User) {
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
+  const providerProfile = user.providerData?.[0];
+  const resolvedDisplayName =
+    user.displayName || providerProfile?.displayName || "";
+  const resolvedPhotoURL = user.photoURL || providerProfile?.photoURL || "";
+  const resolvedEmail = user.email || providerProfile?.email || "";
+
   if (!snap.exists()) {
     await setDoc(userRef, {
       uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || "",
-      photoURL: user.photoURL || "",
+      email: resolvedEmail,
+      displayName: resolvedDisplayName,
+      photoURL: resolvedPhotoURL,
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
     });
@@ -53,9 +59,9 @@ async function createUserDoc(user: User) {
     await setDoc(
       userRef,
       {
-        displayName: user.displayName || snap.data().displayName || "",
-        photoURL: user.photoURL || snap.data().photoURL || "",
-        email: user.email || snap.data().email || "",
+        displayName: resolvedDisplayName || snap.data().displayName || "",
+        photoURL: resolvedPhotoURL || snap.data().photoURL || "",
+        email: resolvedEmail || snap.data().email || "",
         lastLoginAt: Date.now(),
       },
       { merge: true },

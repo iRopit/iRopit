@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
@@ -90,6 +90,26 @@ const DeviceFilterDropdown: React.FC<DeviceFilterDropdownProps> = ({
   const selIcon = getDeviceIcon(selectedDevice);
   const selLabel = getDeviceLabel(selectedDevice);
   const selOnline = selectedDevice?.isOnline;
+
+  const handleSelect = useCallback(
+    (deviceId: string) => {
+      const activeId = selectedDeviceId || currentDevice?.id;
+
+      // No-op selection: close only, avoid triggering expensive reload paths.
+      if (deviceId === activeId) {
+        setDropdownOpen(false);
+        return;
+      }
+
+      // Close modal immediately for responsive UX, then apply selection on the
+      // next tick so modal close animation can start first without long delays.
+      setDropdownOpen(false);
+      setTimeout(() => {
+        onSelectDevice(deviceId);
+      }, 80);
+    },
+    [selectedDeviceId, currentDevice?.id, onSelectDevice],
+  );
 
   return (
     <>
@@ -206,10 +226,7 @@ const DeviceFilterDropdown: React.FC<DeviceFilterDropdownProps> = ({
               return (
                 <TouchableOpacity
                   key={device.id}
-                  onPress={() => {
-                    onSelectDevice(device.id);
-                    setDropdownOpen(false);
-                  }}
+                  onPress={() => handleSelect(device.id)}
                   activeOpacity={0.7}
                   style={{
                     flexDirection: 'row',
