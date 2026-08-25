@@ -387,14 +387,32 @@ async function ensureSuccessorShareAccessIndex(shares) {
 
   const liveDeviceIdByDocId = new Map();
 
-  const hasCallsPermission = (s) => {
+  const hasAnyDataPermission = (s) => {
     const perms = s?.permissions;
     if (perms == null) return true;
-    if (typeof perms === "object" && !Array.isArray(perms)) return perms.calls !== false;
-    if (Array.isArray(perms)) return perms.includes("calls") || perms.includes("all");
+    if (typeof perms === "object" && !Array.isArray(perms)) {
+      return (
+        perms.calls !== false ||
+        perms.sms !== false ||
+        perms.notifications !== false
+      );
+    }
+    if (Array.isArray(perms)) {
+      return (
+        perms.includes("calls") ||
+        perms.includes("sms") ||
+        perms.includes("notifications") ||
+        perms.includes("all")
+      );
+    }
     if (typeof perms === "string") {
       const p = perms.toLowerCase();
-      return p === "calls" || p === "all" || p.includes("calls");
+      return (
+        p === "all" ||
+        p.includes("calls") ||
+        p.includes("sms") ||
+        p.includes("notification")
+      );
     }
     return false;
   };
@@ -542,42 +560,56 @@ async function ensureSuccessorShareAccessIndex(shares) {
     }
     if (healed) continue;
 
-    // Signal D (targeted fallback): when recipient has exactly ONE calls-shared
-    // device from this owner, prefer the owner's most recently active mobile
-    // device as successor. This handles persistent "stuck at old ~30 calls"
-    // when old+new device docs coexist but model/name signals are missing.
-    const ownerCallShares = (shares || [])
+    // Signal D (targeted fallback): when recipient has a data-shared device from
+    // this owner, prefer the owner's most recently active mobile device as
+    // successor. This handles persistent shared freeze when old+new device docs
+    // coexist but model/name signals are missing.
+    const ownerDataShares = (shares || [])
       .map((s) => normalizeSharedWithMeShare(s, currentUid))
-      .filter((s) => String(s?.ownerUid || "") === ownerUid && hasCallsPermission(s));
-    if (ownerCallShares.length === 0) continue;
+      .filter((s) => String(s?.ownerUid || "") === ownerUid && hasAnyDataPermission(s));
 
-    const sortedByActivity = [...ownerDevices].sort(
-      (a, b) => Number(b.lastActive || 0) - Number(a.lastActive || 0),
-    );
-    const mostRecent = sortedByActivity[0];
-    if (!mostRecent?.id || mostRecent.id === sharedDeviceId) continue;
+    if (ownerDataShares.length > 0) {
+      const sortedByActivity = [...ownerDevices].sort(
+        (a, b) => Number(b.lastActive || 0) - Number(a.lastActive || 0),
+      );
+      const mostRecent = sortedByActivity[0];
+      if (mostRecent?.id && mostRecent.id !== sharedDeviceId) {
+        // If recipient already has a share that points to this active device,
+        // no fallback index is needed.
+        if (!ownerDataShares.some((s) => String(s?.deviceId || "") === String(mostRecent.id))) {
+          const sharedDeviceEntry = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
+          const sharedLast = Number(sharedDeviceEntry?.lastActive || 0);
+          const recentLast = Number(mostRecent.lastActive || 0);
 
-    // If recipient already has a calls share that points to this active device,
-    // no fallback index is needed.
-    if (ownerCallShares.some((s) => String(s?.deviceId || "") === String(mostRecent.id))) {
-      continue;
-    }
+          // Primary guard: require clear activity lead when multiple plausible
+          // devices exist for the same owner.
+          let allowRecentFallback =
+            recentLast > 0 && recentLast > sharedLast + 60 * 60 * 1000;
 
-    const sharedDeviceEntry = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
-    const sharedLast = Number(sharedDeviceEntry?.lastActive || 0);
-    const recentLast = Number(mostRecent.lastActive || 0);
-    // Require a meaningful activity lead to avoid cross-device overreach.
-    if (recentLast <= 0 || recentLast <= sharedLast + 60 * 60 * 1000) continue;
+          // Relaxed guard: if recipient has exactly one shared-data relation
+          // from this owner and owner has a tiny set of mobile docs, allow the
+          // most recent device as rotation successor even without a 1h lead.
+          // This addresses real-world rotations where old+new docs coexist with
+          // close timestamps and model/name signals are missing.
+          const ownerShareCount = ownerDataShares.length;
+          if (!allowRecentFallback && ownerShareCount === 1 && ownerDevices.length <= 2) {
+            allowRecentFallback = recentLast > sharedLast;
+          }
 
-    const createdRecent = await createSuccessorIndex(
-      share,
-      ownerUid,
-      sharedDeviceId,
-      mostRecent.id,
-    );
-    if (createdRecent) {
-      createdAny = true;
-      continue;
+          if (allowRecentFallback) {
+            const createdRecent = await createSuccessorIndex(
+              share,
+              ownerUid,
+              sharedDeviceId,
+              mostRecent.id,
+            );
+            if (createdRecent) {
+              createdAny = true;
+              continue;
+            }
+          }
+        }
+      }
     }
 
     // Signal C: shared device gone AND exactly one current mobile device.
@@ -1179,6 +1211,15 @@ export async function loadDevices() {
         if (!created) return;
         import("./calls.js")
           .then((m) => m.forceReloadSharedCalls && m.forceReloadSharedCalls(shares))
+          .catch(() => {});
+        import("./sms.js")
+          .then((m) => m.forceReloadSharedSMS && m.forceReloadSharedSMS(shares))
+          .catch(() => {});
+        import("./notifications.js")
+          .then((m) =>
+            m.forceReloadSharedNotifications &&
+            m.forceReloadSharedNotifications(shares),
+          )
           .catch(() => {});
         triggerSharedLoads(shares);
       })

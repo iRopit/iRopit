@@ -186,8 +186,10 @@ function getSharedSmsSourceCount(listenerKey) {
   const lists = [
     source.strict,
     source.strictReceivedAt,
+    source.relaxedCreatedAt,
     source.altStrict,
     source.altStrictReceivedAt,
+    source.altRelaxedCreatedAt,
     source.relaxed,
     source.legacy,
     source.legacyWide,
@@ -460,6 +462,7 @@ export function isSMSSyncing() {
 // Selection mode state
 let selectionMode = false;
 let selectedConversations = new Set();
+let smsLongPressTimer = null;
 const SMS_PIN_STORAGE_KEY = "smsPinnedConversations";
 let smsPinnedConversations = {};
 let smsPinHydrated = false;
@@ -1700,6 +1703,11 @@ export function renderSMS(messages) {
     return;
   }
 
+  // Preserve current scroll before any list DOM mutation (innerHTML/cloneNode
+  // can reset scrollTop to 0 if captured later).
+  const smsListBeforeRender = document.getElementById("smsList");
+  const preservedScrollTop = smsListBeforeRender ? smsListBeforeRender.scrollTop : 0;
+
   // Defensive guard against transient "disappeared then reloaded" flashes:
   // if we were handed an empty list but the authoritative per-device state map
   // (state.allSMS) still holds messages, re-derive from it instead of blanking
@@ -2009,12 +2017,12 @@ export function renderSMS(messages) {
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${
+        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">${
           (() => { const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || ""; return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'; })()
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row">${renderSMSDeviceTag(conv.lastMessage)}</div>` : ""}
@@ -2053,52 +2061,46 @@ export function renderSMS(messages) {
     .join("");
 
   // Add click handlers using event delegation
-  // Replace the node to remove any stale listeners from previous renders
-  const oldSmsList = document.getElementById("smsList");
-  if (oldSmsList) {
-    const newSmsList = oldSmsList.cloneNode(true);
-    oldSmsList.parentNode.replaceChild(newSmsList, oldSmsList);
-  }
-
   const smsList2 = document.getElementById("smsList");
   wireHoverPreview(smsList2);
+  if (smsList2 && !smsList2.dataset.listenersWired) {
+    smsList2.dataset.listenersWired = "1";
 
-  // Long-press to enter selection mode
-  let longPressTimer = null;
-  smsList2?.addEventListener("pointerdown", (e) => {
-    const conversation = e.target.closest(".sms-conversation");
-    const iconTarget = e.target.closest(".list-item-avatar");
-    if (!iconTarget || !conversation?.contains(iconTarget)) return;
-    if (!conversation || selectionMode) return;
-    longPressTimer = setTimeout(() => {
-      longPressTimer = null;
-      const phoneNumber = conversation.dataset.phone;
-      // Enter selection mode and pre-select this item
-      selectionMode = true;
-      selectedConversations.clear();
-      const selectBtn = document.getElementById("smsSelectBtn");
-      selectBtn?.classList.add("active");
-      const toolbar = document.getElementById("smsSelectToolbar");
-      if (toolbar) toolbar.style.display = "flex";
-      renderSMS(state.allSMSMessages);
-      // After re-render, tick the long-pressed item
-      setTimeout(() => {
-        const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
-        if (el) {
-          selectedConversations.add(phoneNumber);
-          el.classList.add("selected");
-          const cb = el.querySelector(".conv-checkbox");
-          if (cb) cb.checked = true;
-          _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
-        }
-      }, 0);
-    }, 500);
-  });
-  smsList2?.addEventListener("pointerup", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
-  smsList2?.addEventListener("pointercancel", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
-  smsList2?.addEventListener("pointermove", () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+    // Long-press to enter selection mode
+    smsList2.addEventListener("pointerdown", (e) => {
+      const conversation = e.target.closest(".sms-conversation");
+      const iconTarget = e.target.closest(".list-item-avatar");
+      if (!iconTarget || !conversation?.contains(iconTarget)) return;
+      if (!conversation || selectionMode) return;
+      smsLongPressTimer = setTimeout(() => {
+        smsLongPressTimer = null;
+        const phoneNumber = conversation.dataset.phone;
+        // Enter selection mode and pre-select this item
+        selectionMode = true;
+        selectedConversations.clear();
+        const selectBtn = document.getElementById("smsSelectBtn");
+        selectBtn?.classList.add("active");
+        const toolbar = document.getElementById("smsSelectToolbar");
+        if (toolbar) toolbar.style.display = "flex";
+        renderSMS(state.allSMSMessages);
+        // After re-render, tick the long-pressed item
+        setTimeout(() => {
+          const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
+          if (el) {
+            selectedConversations.add(phoneNumber);
+            el.classList.add("selected");
+            const cb = el.querySelector(".conv-checkbox");
+            if (cb) cb.checked = true;
+            _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
+          }
+        }, 0);
+      }, 500);
+    });
+    smsList2.addEventListener("pointerup", () => { if (smsLongPressTimer) { clearTimeout(smsLongPressTimer); smsLongPressTimer = null; } });
+    smsList2.addEventListener("pointercancel", () => { if (smsLongPressTimer) { clearTimeout(smsLongPressTimer); smsLongPressTimer = null; } });
+    smsList2.addEventListener("pointermove", () => { if (smsLongPressTimer) { clearTimeout(smsLongPressTimer); smsLongPressTimer = null; } });
 
-  smsList2?.addEventListener("click", async (e) => {
+    smsList2.addEventListener("click", async (e) => {
     const pinBtn = e.target.closest(".sms-pin-btn");
     if (pinBtn) {
       e.stopPropagation();
@@ -2156,16 +2158,27 @@ export function renderSMS(messages) {
           const cb = conversation.querySelector(".conv-checkbox");
           if (cb) cb.checked = true;
         }
-        _updateSelectionToolbar(conversations.length);
+        _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
       } else {
         rememberSmsListPosition(phoneNumber);
         showConversation(phoneNumber);
       }
     }
-  });
+    });
+  }
 
   // Attach infinite scroll handler ONCE (not on every render)
   attachSMSScrollHandler();
+
+  // Keep the user's current list position stable across background realtime
+  // updates that trigger rerenders while scrolling.
+  if (preservedScrollTop > 0 && !state.currentConversation) {
+    requestAnimationFrame(() => {
+      const list = document.getElementById("smsList");
+      if (!list) return;
+      list.scrollTop = preservedScrollTop;
+    });
+  }
 
   updateSMSCountIndicator(conversations.length, selectedTab);
   updateTabBadges();
@@ -3801,6 +3814,11 @@ export function exportSMSToCSV() {
 /**
  * Load SMS messages for all shared devices and merge them into the SMS list.
  */
+export async function forceReloadSharedSMS(shares) {
+  stopSharedSMSListeners();
+  return loadSharedDevicesSMS(shares);
+}
+
 export async function loadSharedDevicesSMS(shares) {
   const user = state.currentUser;
   if (!user) {
@@ -3864,11 +3882,13 @@ export async function loadSharedDevicesSMS(shares) {
       const sharedSourceData = {
         strict: [],
         strictReceivedAt: [],
+        relaxedCreatedAt: [],
         relaxed: [],
         legacy: [],
         legacyWide: [],
         altStrict: [],
         altStrictReceivedAt: [],
+        altRelaxedCreatedAt: [],
         strictHeadProbeAt: 0,
       };
       sharedSmsSourceDataByKey.set(listenerKey, sharedSourceData);
@@ -3928,8 +3948,10 @@ export async function loadSharedDevicesSMS(shares) {
         const mergedShared = [
           ...latest.strict,
           ...latest.strictReceivedAt,
+          ...latest.relaxedCreatedAt,
           ...latest.altStrict,
           ...latest.altStrictReceivedAt,
+          ...latest.altRelaxedCreatedAt,
           ...latest.relaxed,
           ...latest.legacy,
           ...latest.legacyWide,
@@ -4100,6 +4122,8 @@ export async function loadSharedDevicesSMS(shares) {
         const nativeTs =
           toSmsTimestampMs(docSnap.data()?.timestamp) ||
           toSmsTimestampMs(docSnap.data()?.receivedAt) ||
+          toSmsTimestampMs(docSnap.data()?.createdAt) ||
+          toSmsTimestampMs(docSnap.data()?.syncedAt) ||
           0;
         const rawTs = nativeTs || Date.now();
         try {
@@ -4218,6 +4242,12 @@ export async function loadSharedDevicesSMS(shares) {
       const qRelaxed = query(
         collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
         orderBy("timestamp", "desc"),
+        limit(1000),
+      );
+
+      const qRelaxedCreatedAt = query(
+        collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+        orderBy("createdAt", "desc"),
         limit(1000),
       );
 
@@ -4363,6 +4393,26 @@ export async function loadSharedDevicesSMS(shares) {
 
       listenerUnsubs.push(unsubRelaxed);
 
+      const unsubRelaxedCreatedAt = onSnapshot(
+        qRelaxedCreatedAt,
+        async (snapshot) => {
+          const mapped = await mapSharedDocsSafe(snapshot.docs);
+          const messages = mapped.filter((m) => isLikelySMSMapped(m));
+          const source = sharedSmsSourceDataByKey.get(listenerKey);
+          if (!source) return;
+          source.relaxedCreatedAt = messages;
+          logNewestShared("relaxed-createdAt", messages);
+          publishSharedMerged();
+        },
+        (err) => {
+          if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+          if (isUnavailableError(err)) return;
+          console.warn(`[SMS] Shared relaxed createdAt listener failed for ${share.deviceId}:`, err?.code);
+        },
+      );
+
+      listenerUnsubs.push(unsubRelaxedCreatedAt);
+
       const unsubLegacy = onSnapshot(
         qLegacy,
         async (snapshot) => {
@@ -4445,6 +4495,12 @@ export async function loadSharedDevicesSMS(shares) {
           limit(1000),
         );
 
+        const qAltRelaxedCreatedAt = query(
+          collection(db, "users", share.ownerUid, "devices", altDeviceId, "notifications"),
+          orderBy("createdAt", "desc"),
+          limit(1000),
+        );
+
         const unsubAltStrict = onSnapshot(
           qAltStrict,
           async (snapshot) => {
@@ -4482,6 +4538,29 @@ export async function loadSharedDevicesSMS(shares) {
         );
 
         listenerUnsubs.push(unsubAltStrictReceivedAt);
+
+        const unsubAltRelaxedCreatedAt = onSnapshot(
+          qAltRelaxedCreatedAt,
+          async (snapshot) => {
+            const mapped = await mapSharedDocsSafe(snapshot.docs);
+            const messages = mapped.filter((m) => isLikelySMSMapped(m));
+            const source = sharedSmsSourceDataByKey.get(listenerKey);
+            if (!source) return;
+            source.altRelaxedCreatedAt = mergeByDocId(
+              source.altRelaxedCreatedAt,
+              messages,
+            );
+            logNewestShared(`alt-relaxed-createdAt:${altDeviceId}`, messages);
+            publishSharedMerged();
+          },
+          (err) => {
+            if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+            if (isUnavailableError(err)) return;
+            console.warn(`[SMS] Shared alt relaxed createdAt listener failed for ${share.deviceId}/${altDeviceId}:`, err?.code);
+          },
+        );
+
+        listenerUnsubs.push(unsubAltRelaxedCreatedAt);
       }
 
       sharedSmsUnsubscribeByKey.set(listenerKey, listenerUnsubs);

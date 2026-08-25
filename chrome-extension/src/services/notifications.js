@@ -133,13 +133,34 @@ let isSyncingNotif = false;
 let pendingNotifSnapshots = 0;
 let suppressNotifSyncIndicator = false;
 let notifHydrated = false;
-let sharedNotifListenerUnsubs = [];
+let sharedNotifListenerUnsubsByKey = new Map();
+let sharedNotifListenerMetaByKey = new Map();
+let sharedNotifSourceSignatureByKey = new Map();
+let sharedNotifListenerBoundAtByKey = new Map();
 
-function stopSharedNotificationsListeners() {
-  sharedNotifListenerUnsubs.forEach((unsub) => {
+function stopSharedNotificationsListeners(keepKeys = null) {
+  for (const [key, unsubs] of sharedNotifListenerUnsubsByKey.entries()) {
+    if (keepKeys && keepKeys.has(key)) continue;
+    (unsubs || []).forEach((unsub) => {
+      try { unsub(); } catch (_) {}
+    });
+    sharedNotifListenerUnsubsByKey.delete(key);
+    sharedNotifListenerMetaByKey.delete(key);
+    sharedNotifSourceSignatureByKey.delete(key);
+    sharedNotifListenerBoundAtByKey.delete(key);
+  }
+}
+
+function stopSharedNotificationsListenerByKey(key) {
+  if (!key || !sharedNotifListenerUnsubsByKey.has(key)) return;
+  const unsubs = sharedNotifListenerUnsubsByKey.get(key) || [];
+  unsubs.forEach((unsub) => {
     try { unsub(); } catch (_) {}
   });
-  sharedNotifListenerUnsubs = [];
+  sharedNotifListenerUnsubsByKey.delete(key);
+  sharedNotifListenerMetaByKey.delete(key);
+  sharedNotifSourceSignatureByKey.delete(key);
+  sharedNotifListenerBoundAtByKey.delete(key);
 }
 
 function hasSharedNotificationsPermission(share) {
@@ -1795,13 +1816,13 @@ function renderNotifications(notifications) {
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content">
-          <div class="list-item-title">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "مكتوم")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
-          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${groupDeviceName ? renderNotificationDeviceTag(latest) : ""}
             ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "إلغاء الكتم")}</button>` : ""}
@@ -2349,6 +2370,11 @@ export function exportNotificationsToCSV() {
 /**
  * Load notifications for all shared devices and merge them into the notifications list.
  */
+export async function forceReloadSharedNotifications(shares) {
+  stopSharedNotificationsListeners();
+  return loadSharedDevicesNotifications(shares);
+}
+
 export async function loadSharedDevicesNotifications(shares) {
   const user = state.currentUser;
   if (!user) return;
@@ -2364,17 +2390,68 @@ export async function loadSharedDevicesNotifications(shares) {
     updateTabBadges();
   }
 
-  stopSharedNotificationsListeners();
+  const activeShareKeys = new Set(
+    notifShares.map((s) => `${s.ownerUid}::${s.deviceId}`),
+  );
+  stopSharedNotificationsListeners(activeShareKeys);
   if (notifShares.length === 0) return;
 
   for (const share of notifShares) {
+    const listenerKey = `${share.ownerUid}::${share.deviceId}`;
+    let sourceSignature = "";
+    let shareMeta = "";
+    let localUnsubs = [];
     try {
       const sourceDeviceIds = await resolveSharedNotificationCandidateDeviceIds(share, user.uid);
+      const orderedSourceDeviceIds = [...sourceDeviceIds].sort((a, b) => {
+        const aIsRoot = a === share.deviceId ? 1 : 0;
+        const bIsRoot = b === share.deviceId ? 1 : 0;
+        return aIsRoot - bIsRoot;
+      });
+      sourceSignature = [...orderedSourceDeviceIds].sort().join("|");
+
+      shareMeta = JSON.stringify({
+        ownerUid: share.ownerUid || "",
+        deviceId: share.deviceId || "",
+        deviceDocId: share.deviceDocId || "",
+        permissions: share.permissions || null,
+        shareNotifications:
+          typeof share.shareNotifications === "boolean" ? share.shareNotifications : null,
+      });
+
+      const existingMeta = sharedNotifListenerMetaByKey.get(listenerKey) || "";
+      const existingSourceSignature =
+        sharedNotifSourceSignatureByKey.get(listenerKey) || "";
+      const boundAt = Number(sharedNotifListenerBoundAtByKey.get(listenerKey) || 0);
+      const listenerAgeMs =
+        boundAt > 0 ? Date.now() - boundAt : Number.MAX_SAFE_INTEGER;
+      const existingSharedRows = (state.allNotifications?.[share.deviceId] || []).length;
+
+      const shouldRebindExisting =
+        sharedNotifListenerUnsubsByKey.has(listenerKey) &&
+        (
+          existingMeta !== shareMeta ||
+          existingSourceSignature !== sourceSignature ||
+          (existingSharedRows === 0 && listenerAgeMs > 10 * 60 * 1000)
+        );
+
+      if (shouldRebindExisting) {
+        stopSharedNotificationsListenerByKey(listenerKey);
+      }
+      if (sharedNotifListenerUnsubsByKey.has(listenerKey)) {
+        continue;
+      }
+
       const notifsBySource = new Map();
+      localUnsubs = [];
 
       const mapNotifForShare = async (docSnap, sourceDeviceId = null) => {
         let data = docSnap.data();
-        data = await decryptNotification(data, share.ownerUid);
+        try {
+          data = await decryptNotification(data, share.ownerUid);
+        } catch (_) {
+          data = docSnap.data() || {};
+        }
         return {
           ...data,
           id: docSnap.id,
@@ -2405,10 +2482,24 @@ export async function loadSharedDevicesNotifications(shares) {
         const merged = Array.from(mergedByKey.values()).sort(
           (a, b) => normalizeNotifTsMs(b) - normalizeNotifTsMs(a),
         );
+
+        const existingShared = state.allNotifications?.[share.deviceId] || [];
+        const hadSharedRows = existingShared.some((n) => {
+          const ownerMatches = String(n?.ownerUid || "") === String(share.ownerUid || "");
+          const deviceMatches = String(n?.deviceId || "") === String(share.deviceId || "");
+          return ownerMatches || deviceMatches;
+        });
+        if (merged.length === 0 && hadSharedRows) {
+          console.debug(
+            `[Notifs][shared:${share.deviceId}] ignoring transient empty publish to preserve existing notifications`,
+          );
+          return;
+        }
+
         updateNotificationsList(share.deviceId, merged);
       };
 
-      for (const sourceDeviceId of sourceDeviceIds) {
+      for (const sourceDeviceId of orderedSourceDeviceIds) {
         try {
           const initialQTs = query(
             collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
@@ -2490,6 +2581,8 @@ export async function loadSharedDevicesNotifications(shares) {
               current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n]),
             );
 
+            let appliedAnyChange = false;
+
             for (const change of snapshot.docChanges()) {
               if (change.type !== "added" && change.type !== "modified") continue;
               const notif = await mapNotifForShare(change.doc, sourceDeviceId);
@@ -2499,6 +2592,24 @@ export async function loadSharedDevicesNotifications(shares) {
                 ? { ...notif, read: true }
                 : notif;
               byKey.set(identityKey, preserved);
+              appliedAnyChange = true;
+            }
+
+            // Some cache/metadata churn snapshots can have empty docChanges on
+            // initial emission. Fall back to full docs mapping to avoid drops.
+            if (!appliedAnyChange && snapshot.docs.length > 0) {
+              const mapped = await Promise.allSettled(
+                snapshot.docs.map(async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId)),
+              );
+              mapped.forEach((r) => {
+                if (r.status !== "fulfilled" || !r.value) return;
+                const identityKey = getNotificationIdentityKey(r.value, share.deviceId);
+                const existing = byKey.get(identityKey);
+                const preserved = existing && existing.read === true && !r.value.read
+                  ? { ...r.value, read: true }
+                  : r.value;
+                byKey.set(identityKey, preserved);
+              });
             }
 
             notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
@@ -2533,7 +2644,7 @@ export async function loadSharedDevicesNotifications(shares) {
             handleSharedSnapshotError,
           );
 
-          sharedNotifListenerUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
+          localUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
           state.addUnsubscriber(unsubTs);
           state.addUnsubscriber(unsubReceivedAt);
           state.addUnsubscriber(unsubCreatedAt);
@@ -2548,6 +2659,14 @@ export async function loadSharedDevicesNotifications(shares) {
       }
     } catch (err) {
       console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
+    } finally {
+      // Persist only when listeners were successfully attached for this share.
+      if (localUnsubs.length > 0) {
+        sharedNotifListenerUnsubsByKey.set(listenerKey, localUnsubs);
+        sharedNotifListenerMetaByKey.set(listenerKey, shareMeta);
+        sharedNotifSourceSignatureByKey.set(listenerKey, sourceSignature);
+        sharedNotifListenerBoundAtByKey.set(listenerKey, Date.now());
+      }
     }
   }
 }

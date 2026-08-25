@@ -23315,12 +23315,20 @@ ${this.customData.serverResponse}`;
       positionTooltipByElement(el);
     }
   }
+  function resolveHoverHostFromEventTarget(target, container) {
+    if (!container || !target) return null;
+    const elementTarget = target instanceof Element ? target : target?.parentElement;
+    if (!elementTarget) return null;
+    const host = elementTarget.closest("[data-hover-preview]");
+    if (!host || !container.contains(host)) return null;
+    return host;
+  }
   function wireHoverPreview(container) {
     if (!container || wiredContainers.has(container)) return;
     wiredContainers.add(container);
     container.addEventListener("mouseover", (e) => {
-      const host = e.target.closest("[data-hover-preview]");
-      if (!host || !container.contains(host)) {
+      const host = resolveHoverHostFromEventTarget(e.target, container);
+      if (!host) {
         if (tooltipEl?.classList.contains("visible")) hideTooltip();
         return;
       }
@@ -23328,8 +23336,8 @@ ${this.customData.serverResponse}`;
       showTooltipFor(host, e);
     });
     container.addEventListener("mousemove", (e) => {
-      const host = e.target.closest("[data-hover-preview]");
-      if (!host || !container.contains(host)) {
+      const host = resolveHoverHostFromEventTarget(e.target, container);
+      if (!host) {
         if (tooltipEl?.classList.contains("visible")) hideTooltip();
         return;
       }
@@ -23344,8 +23352,8 @@ ${this.customData.serverResponse}`;
     container.addEventListener("scroll", hideTooltip, true);
     container.addEventListener("mousedown", hideTooltip);
     container.addEventListener("focusin", (e) => {
-      const host = e.target.closest("[data-hover-preview]");
-      if (!host || !container.contains(host)) return;
+      const host = resolveHoverHostFromEventTarget(e.target, container);
+      if (!host) return;
       activeHost = host;
       showTooltipFor(host);
     });
@@ -24621,6 +24629,7 @@ ${this.customData.serverResponse}`;
         const lastLabel = isAr ? "\u0622\u062E\u0631 \u0645\u0643\u0627\u0644\u0645\u0629" : "Last Call";
         const callTypeText = group.lastCall.type ? getCallTypeLabel(group.lastCall.type) : isAr ? "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641" : "Unknown";
         const callHoverPreview = `${lastLabel}: ${lastTime} - ${displayName} - ${callTypeText} \xB7 ${methodLabel}`;
+        const escapedCallHoverPreview = String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
         const isPinned = isCallGroupPinned(group.key);
         return `
     <div class="list-item call-group call-${group.lastCall.type}${callsSelectionMode && selectedCallGroups.has(group.key) ? " selected" : ""}" data-phone="${group.phoneNumber}" data-group-key="${group.key}">
@@ -24628,12 +24637,12 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
-        <div class="list-item-title" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">
+      <div class="list-item-content" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">
+        <div class="list-item-title" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">
           ${!isVoIP ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>` : ""}
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${String(callHoverPreview).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
+        <div class="list-item-subtitle" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row">${renderCallDeviceTag(group.lastCall)}</div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
@@ -25275,6 +25284,9 @@ ${this.customData.serverResponse}`;
               share.deviceId,
               share.deviceName || ""
             );
+            call.timestamp = Number(
+              data.timestamp || data.receivedAt || data.createdAt || data.updatedAt || data.callDate || call.timestamp || Date.now()
+            ) || Date.now();
             call.ownerUid = share.ownerUid;
             call.sharedRootDeviceId = share.deviceId;
             call.sharedSourceDeviceId = sourceDeviceId;
@@ -25285,7 +25297,9 @@ ${this.customData.serverResponse}`;
               err?.message || err
             );
             const raw = docSnap?.data?.() || {};
-            const fallbackTs = Number(raw.timestamp || raw.callDate || Date.now()) || Date.now();
+            const fallbackTs = Number(
+              raw.timestamp || raw.receivedAt || raw.createdAt || raw.updatedAt || raw.callDate || Date.now()
+            ) || Date.now();
             return {
               id: docSnap.id,
               ownerUid: share.ownerUid,
@@ -25436,66 +25450,79 @@ ${this.customData.serverResponse}`;
               orderBy("timestamp", "desc"),
               limit(SHARED_CALLS_REALTIME_LIMIT)
             );
-            const unsub = onSnapshot(
-              q2,
-              async (snapshot) => {
-                if (snapshot.metadata.fromCache && snapshot.empty) return;
-                const currentCalls = callsBySource.get(sourceDeviceId) || [];
-                const callsMap = new Map(
-                  currentCalls.map((c) => [getCallIdentityKey(c, share.deviceId), c])
-                );
-                let appliedAnyChange = false;
-                for (const change of snapshot.docChanges()) {
-                  if (change.type !== "added" && change.type !== "modified") continue;
-                  let call;
-                  try {
-                    call = await mapCallForShare(change.doc, sourceDeviceId);
-                  } catch (_) {
-                    continue;
-                  }
-                  if (!call) continue;
-                  const identityKey = getCallIdentityKey(call, share.deviceId);
-                  const existing = callsMap.get(identityKey);
-                  callsMap.set(identityKey, mergeCallRecords(existing, call));
-                  appliedAnyChange = true;
+            const qCreatedAtCalls = query(
+              collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "calls"),
+              orderBy("createdAt", "desc"),
+              limit(SHARED_CALLS_REALTIME_LIMIT)
+            );
+            const applySharedCallsSnapshot = async (snapshot) => {
+              if (snapshot.metadata.fromCache && snapshot.empty) return;
+              const currentCalls = callsBySource.get(sourceDeviceId) || [];
+              const callsMap = new Map(
+                currentCalls.map((c) => [getCallIdentityKey(c, share.deviceId), c])
+              );
+              let appliedAnyChange = false;
+              for (const change of snapshot.docChanges()) {
+                if (change.type !== "added" && change.type !== "modified") continue;
+                let call;
+                try {
+                  call = await mapCallForShare(change.doc, sourceDeviceId);
+                } catch (_) {
+                  continue;
                 }
-                let mergedCalls = Array.from(callsMap.values()).sort(
+                if (!call) continue;
+                const identityKey = getCallIdentityKey(call, share.deviceId);
+                const existing = callsMap.get(identityKey);
+                callsMap.set(identityKey, mergeCallRecords(existing, call));
+                appliedAnyChange = true;
+              }
+              let mergedCalls = Array.from(callsMap.values()).sort(
+                (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+              );
+              if (!appliedAnyChange && snapshot.docs.length > 0) {
+                const mapped = await Promise.allSettled(
+                  snapshot.docs.map(async (docSnap) => mapCallForShare(docSnap, sourceDeviceId))
+                );
+                mapped.forEach((r) => {
+                  if (r.status !== "fulfilled" || !r.value) return;
+                  const key = getCallIdentityKey(r.value, share.deviceId);
+                  const prev = callsMap.get(key);
+                  callsMap.set(key, mergeCallRecords(prev, r.value));
+                });
+                mergedCalls = Array.from(callsMap.values()).sort(
                   (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
                 );
-                if (!appliedAnyChange && snapshot.docs.length > 0) {
-                  const mapped = await Promise.allSettled(
-                    snapshot.docs.map(async (docSnap) => mapCallForShare(docSnap, sourceDeviceId))
-                  );
-                  mapped.forEach((r) => {
-                    if (r.status !== "fulfilled" || !r.value) return;
-                    const key = getCallIdentityKey(r.value, share.deviceId);
-                    const prev = callsMap.get(key);
-                    callsMap.set(key, mergeCallRecords(prev, r.value));
-                  });
-                  mergedCalls = Array.from(callsMap.values()).sort(
-                    (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
-                  );
-                }
-                callsBySource.set(sourceDeviceId, mergedCalls);
-                publishSharedCalls();
-              },
-              (err) => {
-                if (err?.code === "permission-denied") return;
-                if (isUnavailableError(err)) {
-                  logCallsUnavailableOnce(
-                    `shared-listener:${share.deviceId}:${sourceDeviceId}`,
-                    `[Calls] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
-                    err?.message || err?.code
-                  );
-                  return;
-                }
-                console.warn(
-                  `[Calls] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
-                  err?.code
-                );
               }
+              callsBySource.set(sourceDeviceId, mergedCalls);
+              publishSharedCalls();
+            };
+            const handleSharedCallsSnapshotError = (err) => {
+              if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+              if (isUnavailableError(err)) {
+                logCallsUnavailableOnce(
+                  `shared-listener:${share.deviceId}:${sourceDeviceId}`,
+                  `[Calls] Shared listener unavailable for ${share.deviceId}/${sourceDeviceId}`,
+                  err?.message || err?.code
+                );
+                return;
+              }
+              console.warn(
+                `[Calls] Shared listener failed for ${share.deviceId}/${sourceDeviceId}:`,
+                err?.code
+              );
+            };
+            const unsub = onSnapshot(
+              q2,
+              applySharedCallsSnapshot,
+              handleSharedCallsSnapshotError
+            );
+            const unsubCreatedAtCalls = onSnapshot(
+              qCreatedAtCalls,
+              applySharedCallsSnapshot,
+              handleSharedCallsSnapshotError
             );
             localUnsubs.push(unsub);
+            localUnsubs.push(unsubCreatedAtCalls);
             const missedInitialSnaps = await Promise.allSettled([
               getCallsSnapshotWithFallback(
                 qMissedNotifTs,
@@ -25675,6 +25702,7 @@ ${this.customData.serverResponse}`;
               );
             });
             addUnsubscriber(unsub);
+            addUnsubscriber(unsubCreatedAtCalls);
           } catch (sourceErr) {
             if (sourceErr?.code === "permission-denied") return;
             if (isUnavailableError(sourceErr)) {
@@ -25964,6 +25992,7 @@ ${this.customData.serverResponse}`;
     deleteAllSms: () => deleteAllSms,
     deleteSelectedConversations: () => deleteSelectedConversations,
     exportSMSToCSV: () => exportSMSToCSV,
+    forceReloadSharedSMS: () => forceReloadSharedSMS,
     hasMoreSMS: () => hasMoreSMS,
     initSMSNavigation: () => initSMSNavigation,
     isSMSSyncing: () => isSMSSyncing,
@@ -26093,8 +26122,10 @@ ${this.customData.serverResponse}`;
     const lists = [
       source.strict,
       source.strictReceivedAt,
+      source.relaxedCreatedAt,
       source.altStrict,
       source.altStrictReceivedAt,
+      source.altRelaxedCreatedAt,
       source.relaxed,
       source.legacy,
       source.legacyWide
@@ -27145,6 +27176,8 @@ ${this.customData.serverResponse}`;
       updateTabBadges();
       return;
     }
+    const smsListBeforeRender = document.getElementById("smsList");
+    const preservedScrollTop = smsListBeforeRender ? smsListBeforeRender.scrollTop : 0;
     if (!Array.isArray(messages) || messages.length === 0) {
       const rebuilt = [];
       Object.values(allSMS || {}).forEach((arr) => {
@@ -27371,12 +27404,12 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content">
-        <div class="list-item-title">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${(() => {
+        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">${(() => {
           const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "";
           return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>';
         })()}</div>
@@ -27410,121 +27443,125 @@ ${this.customData.serverResponse}`;
   `;
       }
     ).join("");
-    const oldSmsList = document.getElementById("smsList");
-    if (oldSmsList) {
-      const newSmsList = oldSmsList.cloneNode(true);
-      oldSmsList.parentNode.replaceChild(newSmsList, oldSmsList);
-    }
     const smsList2 = document.getElementById("smsList");
     wireHoverPreview(smsList2);
-    let longPressTimer = null;
-    smsList2?.addEventListener("pointerdown", (e) => {
-      const conversation = e.target.closest(".sms-conversation");
-      const iconTarget = e.target.closest(".list-item-avatar");
-      if (!iconTarget || !conversation?.contains(iconTarget)) return;
-      if (!conversation || selectionMode) return;
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        const phoneNumber = conversation.dataset.phone;
-        selectionMode = true;
-        selectedConversations.clear();
-        const selectBtn = document.getElementById("smsSelectBtn");
-        selectBtn?.classList.add("active");
-        const toolbar = document.getElementById("smsSelectToolbar");
-        if (toolbar) toolbar.style.display = "flex";
-        renderSMS(allSMSMessages);
-        setTimeout(() => {
-          const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
-          if (el) {
-            selectedConversations.add(phoneNumber);
-            el.classList.add("selected");
-            const cb = el.querySelector(".conv-checkbox");
-            if (cb) cb.checked = true;
+    if (smsList2 && !smsList2.dataset.listenersWired) {
+      smsList2.dataset.listenersWired = "1";
+      smsList2.addEventListener("pointerdown", (e) => {
+        const conversation = e.target.closest(".sms-conversation");
+        const iconTarget = e.target.closest(".list-item-avatar");
+        if (!iconTarget || !conversation?.contains(iconTarget)) return;
+        if (!conversation || selectionMode) return;
+        smsLongPressTimer = setTimeout(() => {
+          smsLongPressTimer = null;
+          const phoneNumber = conversation.dataset.phone;
+          selectionMode = true;
+          selectedConversations.clear();
+          const selectBtn = document.getElementById("smsSelectBtn");
+          selectBtn?.classList.add("active");
+          const toolbar = document.getElementById("smsSelectToolbar");
+          if (toolbar) toolbar.style.display = "flex";
+          renderSMS(allSMSMessages);
+          setTimeout(() => {
+            const el = document.querySelector(`.sms-conversation[data-phone="${CSS.escape(phoneNumber)}"]`);
+            if (el) {
+              selectedConversations.add(phoneNumber);
+              el.classList.add("selected");
+              const cb = el.querySelector(".conv-checkbox");
+              if (cb) cb.checked = true;
+              _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
+            }
+          }, 0);
+        }, 500);
+      });
+      smsList2.addEventListener("pointerup", () => {
+        if (smsLongPressTimer) {
+          clearTimeout(smsLongPressTimer);
+          smsLongPressTimer = null;
+        }
+      });
+      smsList2.addEventListener("pointercancel", () => {
+        if (smsLongPressTimer) {
+          clearTimeout(smsLongPressTimer);
+          smsLongPressTimer = null;
+        }
+      });
+      smsList2.addEventListener("pointermove", () => {
+        if (smsLongPressTimer) {
+          clearTimeout(smsLongPressTimer);
+          smsLongPressTimer = null;
+        }
+      });
+      smsList2.addEventListener("click", async (e) => {
+        const pinBtn = e.target.closest(".sms-pin-btn");
+        if (pinBtn) {
+          e.stopPropagation();
+          const conv = pinBtn.closest(".sms-conversation");
+          const key = conv?.dataset?.phone;
+          const name5 = conv?.querySelector(".list-item-title")?.textContent?.trim() || key || "Conversation";
+          const pinned = await toggleSmsConversationPin(key);
+          showToast(
+            getCurrentLanguage() === "ar" ? pinned ? `\u062A\u0645 \u062A\u062B\u0628\u064A\u062A ${name5}` : `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062B\u0628\u064A\u062A ${name5}` : pinned ? `${name5} pinned` : `${name5} unpinned`,
+            "success"
+          );
+          renderSMS(allSMSMessages);
+          return;
+        }
+        const callBtn = e.target.closest(".sms-hover-call");
+        if (callBtn) {
+          e.stopPropagation();
+          const conv = callBtn.closest(".sms-conversation");
+          const phone = conv?.dataset.hoverPhone;
+          if (phone) {
+            Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.initiateDialRequest(phone, null));
+          }
+          return;
+        }
+        const waBtn = e.target.closest(".sms-hover-wa");
+        if (waBtn) {
+          e.stopPropagation();
+          const conv = waBtn.closest(".sms-conversation");
+          let phone = conv?.dataset.hoverPhone;
+          if (phone) {
+            let clean = phone.replace(/[^\d+]/g, "");
+            if (clean.startsWith("+")) clean = clean.slice(1);
+            else if (clean.startsWith("00")) clean = clean.slice(2);
+            else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
+            window.open(`https://wa.me/${clean}`, "_blank");
+          }
+          return;
+        }
+        const conversation = e.target.closest(".sms-conversation");
+        if (conversation) {
+          const phoneNumber = conversation.dataset.phone;
+          if (selectionMode) {
+            if (selectedConversations.has(phoneNumber)) {
+              selectedConversations.delete(phoneNumber);
+              conversation.classList.remove("selected");
+              const cb = conversation.querySelector(".conv-checkbox");
+              if (cb) cb.checked = false;
+            } else {
+              selectedConversations.add(phoneNumber);
+              conversation.classList.add("selected");
+              const cb = conversation.querySelector(".conv-checkbox");
+              if (cb) cb.checked = true;
+            }
             _updateSelectionToolbar(document.querySelectorAll(".sms-conversation[data-phone]").length);
-          }
-        }, 0);
-      }, 500);
-    });
-    smsList2?.addEventListener("pointerup", () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    });
-    smsList2?.addEventListener("pointercancel", () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    });
-    smsList2?.addEventListener("pointermove", () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    });
-    smsList2?.addEventListener("click", async (e) => {
-      const pinBtn = e.target.closest(".sms-pin-btn");
-      if (pinBtn) {
-        e.stopPropagation();
-        const conv = pinBtn.closest(".sms-conversation");
-        const key = conv?.dataset?.phone;
-        const name5 = conv?.querySelector(".list-item-title")?.textContent?.trim() || key || "Conversation";
-        const pinned = await toggleSmsConversationPin(key);
-        showToast(
-          getCurrentLanguage() === "ar" ? pinned ? `\u062A\u0645 \u062A\u062B\u0628\u064A\u062A ${name5}` : `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062B\u0628\u064A\u062A ${name5}` : pinned ? `${name5} pinned` : `${name5} unpinned`,
-          "success"
-        );
-        renderSMS(allSMSMessages);
-        return;
-      }
-      const callBtn = e.target.closest(".sms-hover-call");
-      if (callBtn) {
-        e.stopPropagation();
-        const conv = callBtn.closest(".sms-conversation");
-        const phone = conv?.dataset.hoverPhone;
-        if (phone) {
-          Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.initiateDialRequest(phone, null));
-        }
-        return;
-      }
-      const waBtn = e.target.closest(".sms-hover-wa");
-      if (waBtn) {
-        e.stopPropagation();
-        const conv = waBtn.closest(".sms-conversation");
-        let phone = conv?.dataset.hoverPhone;
-        if (phone) {
-          let clean = phone.replace(/[^\d+]/g, "");
-          if (clean.startsWith("+")) clean = clean.slice(1);
-          else if (clean.startsWith("00")) clean = clean.slice(2);
-          else if (clean.startsWith("0")) clean = "20" + clean.slice(1);
-          window.open(`https://wa.me/${clean}`, "_blank");
-        }
-        return;
-      }
-      const conversation = e.target.closest(".sms-conversation");
-      if (conversation) {
-        const phoneNumber = conversation.dataset.phone;
-        if (selectionMode) {
-          if (selectedConversations.has(phoneNumber)) {
-            selectedConversations.delete(phoneNumber);
-            conversation.classList.remove("selected");
-            const cb = conversation.querySelector(".conv-checkbox");
-            if (cb) cb.checked = false;
           } else {
-            selectedConversations.add(phoneNumber);
-            conversation.classList.add("selected");
-            const cb = conversation.querySelector(".conv-checkbox");
-            if (cb) cb.checked = true;
+            rememberSmsListPosition(phoneNumber);
+            showConversation(phoneNumber);
           }
-          _updateSelectionToolbar(conversations.length);
-        } else {
-          rememberSmsListPosition(phoneNumber);
-          showConversation(phoneNumber);
         }
-      }
-    });
+      });
+    }
     attachSMSScrollHandler();
+    if (preservedScrollTop > 0 && !currentConversation) {
+      requestAnimationFrame(() => {
+        const list = document.getElementById("smsList");
+        if (!list) return;
+        list.scrollTop = preservedScrollTop;
+      });
+    }
     updateSMSCountIndicator(conversations.length, selectedTab);
     updateTabBadges();
   }
@@ -28667,6 +28704,10 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
+  async function forceReloadSharedSMS(shares) {
+    stopSharedSMSListeners();
+    return loadSharedDevicesSMS(shares);
+  }
   async function loadSharedDevicesSMS(shares) {
     const user = currentUser;
     if (!user) {
@@ -28711,11 +28752,13 @@ ${this.customData.serverResponse}`;
         const sharedSourceData = {
           strict: [],
           strictReceivedAt: [],
+          relaxedCreatedAt: [],
           relaxed: [],
           legacy: [],
           legacyWide: [],
           altStrict: [],
           altStrictReceivedAt: [],
+          altRelaxedCreatedAt: [],
           strictHeadProbeAt: 0
         };
         sharedSmsSourceDataByKey.set(listenerKey, sharedSourceData);
@@ -28772,8 +28815,10 @@ ${this.customData.serverResponse}`;
           const mergedShared = [
             ...latest.strict,
             ...latest.strictReceivedAt,
+            ...latest.relaxedCreatedAt,
             ...latest.altStrict,
             ...latest.altStrictReceivedAt,
+            ...latest.altRelaxedCreatedAt,
             ...latest.relaxed,
             ...latest.legacy,
             ...latest.legacyWide
@@ -28899,7 +28944,7 @@ ${this.customData.serverResponse}`;
           return false;
         };
         const mapSharedSmsDoc = async (docSnap) => {
-          const nativeTs = toSmsTimestampMs(docSnap.data()?.timestamp) || toSmsTimestampMs(docSnap.data()?.receivedAt) || 0;
+          const nativeTs = toSmsTimestampMs(docSnap.data()?.timestamp) || toSmsTimestampMs(docSnap.data()?.receivedAt) || toSmsTimestampMs(docSnap.data()?.createdAt) || toSmsTimestampMs(docSnap.data()?.syncedAt) || 0;
           const rawTs = nativeTs || Date.now();
           try {
             let data = docSnap.data();
@@ -29005,6 +29050,11 @@ ${this.customData.serverResponse}`;
         const qRelaxed = query(
           collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
           orderBy("timestamp", "desc"),
+          limit(1e3)
+        );
+        const qRelaxedCreatedAt = query(
+          collection(db, "users", share.ownerUid, "devices", share.deviceId, "notifications"),
+          orderBy("createdAt", "desc"),
           limit(1e3)
         );
         const qLegacy = query(
@@ -29127,6 +29177,24 @@ ${this.customData.serverResponse}`;
           }
         );
         listenerUnsubs.push(unsubRelaxed);
+        const unsubRelaxedCreatedAt = onSnapshot(
+          qRelaxedCreatedAt,
+          async (snapshot) => {
+            const mapped = await mapSharedDocsSafe(snapshot.docs);
+            const messages = mapped.filter((m) => isLikelySMSMapped(m));
+            const source = sharedSmsSourceDataByKey.get(listenerKey);
+            if (!source) return;
+            source.relaxedCreatedAt = messages;
+            logNewestShared("relaxed-createdAt", messages);
+            publishSharedMerged();
+          },
+          (err) => {
+            if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+            if (isUnavailableError2(err)) return;
+            console.warn(`[SMS] Shared relaxed createdAt listener failed for ${share.deviceId}:`, err?.code);
+          }
+        );
+        listenerUnsubs.push(unsubRelaxedCreatedAt);
         const unsubLegacy = onSnapshot(
           qLegacy,
           async (snapshot) => {
@@ -29201,6 +29269,11 @@ ${this.customData.serverResponse}`;
             orderBy("receivedAt", "desc"),
             limit(1e3)
           );
+          const qAltRelaxedCreatedAt = query(
+            collection(db, "users", share.ownerUid, "devices", altDeviceId, "notifications"),
+            orderBy("createdAt", "desc"),
+            limit(1e3)
+          );
           const unsubAltStrict = onSnapshot(
             qAltStrict,
             async (snapshot) => {
@@ -29235,6 +29308,27 @@ ${this.customData.serverResponse}`;
             }
           );
           listenerUnsubs.push(unsubAltStrictReceivedAt);
+          const unsubAltRelaxedCreatedAt = onSnapshot(
+            qAltRelaxedCreatedAt,
+            async (snapshot) => {
+              const mapped = await mapSharedDocsSafe(snapshot.docs);
+              const messages = mapped.filter((m) => isLikelySMSMapped(m));
+              const source = sharedSmsSourceDataByKey.get(listenerKey);
+              if (!source) return;
+              source.altRelaxedCreatedAt = mergeByDocId(
+                source.altRelaxedCreatedAt,
+                messages
+              );
+              logNewestShared(`alt-relaxed-createdAt:${altDeviceId}`, messages);
+              publishSharedMerged();
+            },
+            (err) => {
+              if (err?.code === "permission-denied" || err?.code === "failed-precondition") return;
+              if (isUnavailableError2(err)) return;
+              console.warn(`[SMS] Shared alt relaxed createdAt listener failed for ${share.deviceId}/${altDeviceId}:`, err?.code);
+            }
+          );
+          listenerUnsubs.push(unsubAltRelaxedCreatedAt);
         }
         sharedSmsUnsubscribeByKey.set(listenerKey, listenerUnsubs);
       } catch (err) {
@@ -29251,7 +29345,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnavailableLogKeys, smsTransientEmptyFetchLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, sharedSmsListenerBoundAtByKey, sharedSmsListenerMetaByKey, smsListReturnState, processedMessageIds, realtimeMessageFingerprintById, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, smsTransientEmptyFetchLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, sharedSmsListenerBoundAtByKey, sharedSmsListenerMetaByKey, smsListReturnState, processedMessageIds, realtimeMessageFingerprintById, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, smsLongPressTimer, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29289,6 +29383,7 @@ ${this.customData.serverResponse}`;
       isSyncing = false;
       selectionMode = false;
       selectedConversations = /* @__PURE__ */ new Set();
+      smsLongPressTimer = null;
       SMS_PIN_STORAGE_KEY = "smsPinnedConversations";
       smsPinnedConversations = {};
       smsPinHydrated = false;
@@ -29449,6 +29544,7 @@ ${this.customData.serverResponse}`;
     clearAllNotifications: () => clearAllNotifications2,
     deleteSelectedNotifications: () => deleteSelectedNotifications,
     exportNotificationsToCSV: () => exportNotificationsToCSV,
+    forceReloadSharedNotifications: () => forceReloadSharedNotifications,
     injectPushedNotification: () => injectPushedNotification,
     isNotificationsSyncing: () => isNotificationsSyncing,
     loadNotifications: () => loadNotifications,
@@ -29532,14 +29628,34 @@ ${this.customData.serverResponse}`;
       '<a href="$1" target="_blank" rel="noopener noreferrer" class="sms-link">$1</a>'
     );
   }
-  function stopSharedNotificationsListeners() {
-    sharedNotifListenerUnsubs.forEach((unsub) => {
+  function stopSharedNotificationsListeners(keepKeys = null) {
+    for (const [key, unsubs] of sharedNotifListenerUnsubsByKey.entries()) {
+      if (keepKeys && keepKeys.has(key)) continue;
+      (unsubs || []).forEach((unsub) => {
+        try {
+          unsub();
+        } catch (_) {
+        }
+      });
+      sharedNotifListenerUnsubsByKey.delete(key);
+      sharedNotifListenerMetaByKey.delete(key);
+      sharedNotifSourceSignatureByKey.delete(key);
+      sharedNotifListenerBoundAtByKey.delete(key);
+    }
+  }
+  function stopSharedNotificationsListenerByKey(key) {
+    if (!key || !sharedNotifListenerUnsubsByKey.has(key)) return;
+    const unsubs = sharedNotifListenerUnsubsByKey.get(key) || [];
+    unsubs.forEach((unsub) => {
       try {
         unsub();
       } catch (_) {
       }
     });
-    sharedNotifListenerUnsubs = [];
+    sharedNotifListenerUnsubsByKey.delete(key);
+    sharedNotifListenerMetaByKey.delete(key);
+    sharedNotifSourceSignatureByKey.delete(key);
+    sharedNotifListenerBoundAtByKey.delete(key);
   }
   function hasSharedNotificationsPermission(share) {
     if (!share || !share.deviceId || !share.ownerUid) return false;
@@ -30822,13 +30938,13 @@ ${this.customData.serverResponse}`;
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content">
-          <div class="list-item-title">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "\u0645\u0643\u062A\u0648\u0645")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
-          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${groupDeviceName ? renderNotificationDeviceTag(latest) : ""}
             ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0643\u062A\u0645")}</button>` : ""}
@@ -31275,6 +31391,10 @@ ${this.customData.serverResponse}`;
     a.click();
     URL.revokeObjectURL(url);
   }
+  async function forceReloadSharedNotifications(shares) {
+    stopSharedNotificationsListeners();
+    return loadSharedDevicesNotifications(shares);
+  }
   async function loadSharedDevicesNotifications(shares) {
     const user = currentUser;
     if (!user) return;
@@ -31288,15 +31408,52 @@ ${this.customData.serverResponse}`;
       reRenderNotifications();
       updateTabBadges();
     }
-    stopSharedNotificationsListeners();
+    const activeShareKeys = new Set(
+      notifShares.map((s) => `${s.ownerUid}::${s.deviceId}`)
+    );
+    stopSharedNotificationsListeners(activeShareKeys);
     if (notifShares.length === 0) return;
     for (const share of notifShares) {
+      const listenerKey = `${share.ownerUid}::${share.deviceId}`;
+      let sourceSignature = "";
+      let shareMeta = "";
+      let localUnsubs = [];
       try {
         const sourceDeviceIds = await resolveSharedNotificationCandidateDeviceIds(share, user.uid);
+        const orderedSourceDeviceIds = [...sourceDeviceIds].sort((a, b) => {
+          const aIsRoot = a === share.deviceId ? 1 : 0;
+          const bIsRoot = b === share.deviceId ? 1 : 0;
+          return aIsRoot - bIsRoot;
+        });
+        sourceSignature = [...orderedSourceDeviceIds].sort().join("|");
+        shareMeta = JSON.stringify({
+          ownerUid: share.ownerUid || "",
+          deviceId: share.deviceId || "",
+          deviceDocId: share.deviceDocId || "",
+          permissions: share.permissions || null,
+          shareNotifications: typeof share.shareNotifications === "boolean" ? share.shareNotifications : null
+        });
+        const existingMeta = sharedNotifListenerMetaByKey.get(listenerKey) || "";
+        const existingSourceSignature = sharedNotifSourceSignatureByKey.get(listenerKey) || "";
+        const boundAt = Number(sharedNotifListenerBoundAtByKey.get(listenerKey) || 0);
+        const listenerAgeMs = boundAt > 0 ? Date.now() - boundAt : Number.MAX_SAFE_INTEGER;
+        const existingSharedRows = (allNotifications?.[share.deviceId] || []).length;
+        const shouldRebindExisting = sharedNotifListenerUnsubsByKey.has(listenerKey) && (existingMeta !== shareMeta || existingSourceSignature !== sourceSignature || existingSharedRows === 0 && listenerAgeMs > 10 * 60 * 1e3);
+        if (shouldRebindExisting) {
+          stopSharedNotificationsListenerByKey(listenerKey);
+        }
+        if (sharedNotifListenerUnsubsByKey.has(listenerKey)) {
+          continue;
+        }
         const notifsBySource = /* @__PURE__ */ new Map();
+        localUnsubs = [];
         const mapNotifForShare = async (docSnap, sourceDeviceId = null) => {
           let data = docSnap.data();
-          data = await decryptNotification(data, share.ownerUid);
+          try {
+            data = await decryptNotification(data, share.ownerUid);
+          } catch (_) {
+            data = docSnap.data() || {};
+          }
           return {
             ...data,
             id: docSnap.id,
@@ -31325,9 +31482,21 @@ ${this.customData.serverResponse}`;
           const merged = Array.from(mergedByKey.values()).sort(
             (a, b) => normalizeNotifTsMs2(b) - normalizeNotifTsMs2(a)
           );
+          const existingShared = allNotifications?.[share.deviceId] || [];
+          const hadSharedRows = existingShared.some((n) => {
+            const ownerMatches = String(n?.ownerUid || "") === String(share.ownerUid || "");
+            const deviceMatches = String(n?.deviceId || "") === String(share.deviceId || "");
+            return ownerMatches || deviceMatches;
+          });
+          if (merged.length === 0 && hadSharedRows) {
+            console.debug(
+              `[Notifs][shared:${share.deviceId}] ignoring transient empty publish to preserve existing notifications`
+            );
+            return;
+          }
           updateNotificationsList(share.deviceId, merged);
         };
-        for (const sourceDeviceId of sourceDeviceIds) {
+        for (const sourceDeviceId of orderedSourceDeviceIds) {
           try {
             const initialQTs = query(
               collection(db, "users", share.ownerUid, "devices", sourceDeviceId, "notifications"),
@@ -31395,6 +31564,7 @@ ${this.customData.serverResponse}`;
               const byKey = new Map(
                 current.map((n) => [getNotificationIdentityKey(n, share.deviceId), n])
               );
+              let appliedAnyChange = false;
               for (const change of snapshot.docChanges()) {
                 if (change.type !== "added" && change.type !== "modified") continue;
                 const notif = await mapNotifForShare(change.doc, sourceDeviceId);
@@ -31402,6 +31572,19 @@ ${this.customData.serverResponse}`;
                 const existing = byKey.get(identityKey);
                 const preserved = existing && existing.read === true && !notif.read ? { ...notif, read: true } : notif;
                 byKey.set(identityKey, preserved);
+                appliedAnyChange = true;
+              }
+              if (!appliedAnyChange && snapshot.docs.length > 0) {
+                const mapped = await Promise.allSettled(
+                  snapshot.docs.map(async (docSnap) => mapNotifForShare(docSnap, sourceDeviceId))
+                );
+                mapped.forEach((r) => {
+                  if (r.status !== "fulfilled" || !r.value) return;
+                  const identityKey = getNotificationIdentityKey(r.value, share.deviceId);
+                  const existing = byKey.get(identityKey);
+                  const preserved = existing && existing.read === true && !r.value.read ? { ...r.value, read: true } : r.value;
+                  byKey.set(identityKey, preserved);
+                });
               }
               notifsBySource.set(sourceDeviceId, Array.from(byKey.values()));
               publishSharedNotifs();
@@ -31432,7 +31615,7 @@ ${this.customData.serverResponse}`;
               applySharedSnapshot,
               handleSharedSnapshotError
             );
-            sharedNotifListenerUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
+            localUnsubs.push(unsubTs, unsubReceivedAt, unsubCreatedAt);
             addUnsubscriber(unsubTs);
             addUnsubscriber(unsubReceivedAt);
             addUnsubscriber(unsubCreatedAt);
@@ -31447,10 +31630,17 @@ ${this.customData.serverResponse}`;
         }
       } catch (err) {
         console.warn(`[Notifs] Failed to load shared device ${share.deviceId}:`, err?.code);
+      } finally {
+        if (localUnsubs.length > 0) {
+          sharedNotifListenerUnsubsByKey.set(listenerKey, localUnsubs);
+          sharedNotifListenerMetaByKey.set(listenerKey, shareMeta);
+          sharedNotifSourceSignatureByKey.set(listenerKey, sourceSignature);
+          sharedNotifListenerBoundAtByKey.set(listenerKey, Date.now());
+        }
       }
     }
   }
-  var notifUnavailableLogKeys, _notifSleep, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubs, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, visibleNotifGroupKeys, NOTIF_MIRROR_MAX_DRIFT_MS2, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
+  var notifUnavailableLogKeys, _notifSleep, isSyncingNotif, pendingNotifSnapshots, suppressNotifSyncIndicator, notifHydrated, sharedNotifListenerUnsubsByKey, sharedNotifListenerMetaByKey, sharedNotifSourceSignatureByKey, sharedNotifListenerBoundAtByKey, NOTIF_INITIAL_LIMIT, NOTIF_PAGE_SIZE, notifPaginationState, isLoadingMoreNotif, notifScrollHandlerAttached, notifSelectionMode, selectedNotifApps, visibleNotifGroupKeys, NOTIF_MIRROR_MAX_DRIFT_MS2, NOTIF_SNOOZE_STORAGE_KEY, notifSnoozedGroups, notifSnoozeHydrated, NOTIF_PIN_STORAGE_KEY, notifPinnedGroups, notifPinHydrated, isAutoFilling, _searchWired, _renderTimer;
   var init_notifications = __esm({
     "src/services/notifications.js"() {
       init_firebase();
@@ -31470,7 +31660,10 @@ ${this.customData.serverResponse}`;
       pendingNotifSnapshots = 0;
       suppressNotifSyncIndicator = false;
       notifHydrated = false;
-      sharedNotifListenerUnsubs = [];
+      sharedNotifListenerUnsubsByKey = /* @__PURE__ */ new Map();
+      sharedNotifListenerMetaByKey = /* @__PURE__ */ new Map();
+      sharedNotifSourceSignatureByKey = /* @__PURE__ */ new Map();
+      sharedNotifListenerBoundAtByKey = /* @__PURE__ */ new Map();
       NOTIF_INITIAL_LIMIT = 2e3;
       NOTIF_PAGE_SIZE = 500;
       notifPaginationState = {};
@@ -35307,14 +35500,18 @@ ${this.customData.serverResponse}`;
     const currentUid = auth.currentUser?.uid || "";
     if (!currentUid || !Array.isArray(shares) || shares.length === 0) return false;
     const liveDeviceIdByDocId = /* @__PURE__ */ new Map();
-    const hasCallsPermission = (s) => {
+    const hasAnyDataPermission = (s) => {
       const perms = s?.permissions;
       if (perms == null) return true;
-      if (typeof perms === "object" && !Array.isArray(perms)) return perms.calls !== false;
-      if (Array.isArray(perms)) return perms.includes("calls") || perms.includes("all");
+      if (typeof perms === "object" && !Array.isArray(perms)) {
+        return perms.calls !== false || perms.sms !== false || perms.notifications !== false;
+      }
+      if (Array.isArray(perms)) {
+        return perms.includes("calls") || perms.includes("sms") || perms.includes("notifications") || perms.includes("all");
+      }
       if (typeof perms === "string") {
         const p = perms.toLowerCase();
-        return p === "calls" || p === "all" || p.includes("calls");
+        return p === "all" || p.includes("calls") || p.includes("sms") || p.includes("notification");
       }
       return false;
     };
@@ -35443,29 +35640,36 @@ ${this.customData.serverResponse}`;
         }
       }
       if (healed) continue;
-      const ownerCallShares = (shares || []).map((s) => normalizeSharedWithMeShare(s, currentUid)).filter((s) => String(s?.ownerUid || "") === ownerUid && hasCallsPermission(s));
-      if (ownerCallShares.length === 0) continue;
-      const sortedByActivity = [...ownerDevices].sort(
-        (a, b) => Number(b.lastActive || 0) - Number(a.lastActive || 0)
-      );
-      const mostRecent = sortedByActivity[0];
-      if (!mostRecent?.id || mostRecent.id === sharedDeviceId) continue;
-      if (ownerCallShares.some((s) => String(s?.deviceId || "") === String(mostRecent.id))) {
-        continue;
-      }
-      const sharedDeviceEntry = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
-      const sharedLast = Number(sharedDeviceEntry?.lastActive || 0);
-      const recentLast = Number(mostRecent.lastActive || 0);
-      if (recentLast <= 0 || recentLast <= sharedLast + 60 * 60 * 1e3) continue;
-      const createdRecent = await createSuccessorIndex(
-        share,
-        ownerUid,
-        sharedDeviceId,
-        mostRecent.id
-      );
-      if (createdRecent) {
-        createdAny = true;
-        continue;
+      const ownerDataShares = (shares || []).map((s) => normalizeSharedWithMeShare(s, currentUid)).filter((s) => String(s?.ownerUid || "") === ownerUid && hasAnyDataPermission(s));
+      if (ownerDataShares.length > 0) {
+        const sortedByActivity = [...ownerDevices].sort(
+          (a, b) => Number(b.lastActive || 0) - Number(a.lastActive || 0)
+        );
+        const mostRecent = sortedByActivity[0];
+        if (mostRecent?.id && mostRecent.id !== sharedDeviceId) {
+          if (!ownerDataShares.some((s) => String(s?.deviceId || "") === String(mostRecent.id))) {
+            const sharedDeviceEntry = ownerDevices.find((d) => d.id === sharedDeviceId) || null;
+            const sharedLast = Number(sharedDeviceEntry?.lastActive || 0);
+            const recentLast = Number(mostRecent.lastActive || 0);
+            let allowRecentFallback = recentLast > 0 && recentLast > sharedLast + 60 * 60 * 1e3;
+            const ownerShareCount = ownerDataShares.length;
+            if (!allowRecentFallback && ownerShareCount === 1 && ownerDevices.length <= 2) {
+              allowRecentFallback = recentLast > sharedLast;
+            }
+            if (allowRecentFallback) {
+              const createdRecent = await createSuccessorIndex(
+                share,
+                ownerUid,
+                sharedDeviceId,
+                mostRecent.id
+              );
+              if (createdRecent) {
+                createdAny = true;
+                continue;
+              }
+            }
+          }
+        }
       }
       const ownerIds = ownerDevices.map((d) => d.id);
       if (ownerIds.includes(sharedDeviceId)) continue;
@@ -35937,6 +36141,12 @@ ${this.customData.serverResponse}`;
       ensureSuccessorShareAccessIndex(shares).then((created) => {
         if (!created) return;
         Promise.resolve().then(() => (init_calls(), calls_exports)).then((m) => m.forceReloadSharedCalls && m.forceReloadSharedCalls(shares)).catch(() => {
+        });
+        Promise.resolve().then(() => (init_sms(), sms_exports)).then((m) => m.forceReloadSharedSMS && m.forceReloadSharedSMS(shares)).catch(() => {
+        });
+        Promise.resolve().then(() => (init_notifications(), notifications_exports)).then(
+          (m) => m.forceReloadSharedNotifications && m.forceReloadSharedNotifications(shares)
+        ).catch(() => {
         });
         triggerSharedLoads(shares);
       }).catch(() => {

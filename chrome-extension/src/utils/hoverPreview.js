@@ -64,13 +64,22 @@ function showTooltipFor(el, event) {
   }
 }
 
+function resolveHoverHostFromEventTarget(target, container) {
+  if (!container || !target) return null;
+  const elementTarget = target instanceof Element ? target : target?.parentElement;
+  if (!elementTarget) return null;
+  const host = elementTarget.closest("[data-hover-preview]");
+  if (!host || !container.contains(host)) return null;
+  return host;
+}
+
 export function wireHoverPreview(container) {
   if (!container || wiredContainers.has(container)) return;
   wiredContainers.add(container);
 
   container.addEventListener("mouseover", (e) => {
-    const host = e.target.closest("[data-hover-preview]");
-    if (!host || !container.contains(host)) {
+    const host = resolveHoverHostFromEventTarget(e.target, container);
+    if (!host) {
       if (tooltipEl?.classList.contains("visible")) hideTooltip();
       return;
     }
@@ -79,8 +88,8 @@ export function wireHoverPreview(container) {
   });
 
   container.addEventListener("mousemove", (e) => {
-    const host = e.target.closest("[data-hover-preview]");
-    if (!host || !container.contains(host)) {
+    const host = resolveHoverHostFromEventTarget(e.target, container);
+    if (!host) {
       if (tooltipEl?.classList.contains("visible")) hideTooltip();
       return;
     }
@@ -99,8 +108,8 @@ export function wireHoverPreview(container) {
   container.addEventListener("mousedown", hideTooltip);
 
   container.addEventListener("focusin", (e) => {
-    const host = e.target.closest("[data-hover-preview]");
-    if (!host || !container.contains(host)) return;
+    const host = resolveHoverHostFromEventTarget(e.target, container);
+    if (!host) return;
     activeHost = host;
     showTooltipFor(host);
   });
