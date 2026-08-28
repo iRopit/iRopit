@@ -26379,6 +26379,22 @@ ${this.customData.serverResponse}`;
     }
     return normalized;
   }
+  function normalizeSmsBodyForDedup(body) {
+    return stripBidi(String(body || "")).replace(/\s+/g, " ").trim();
+  }
+  function getSmsPartyKey(msg) {
+    const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
+    return normalizePhoneNumber3(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
+  }
+  function buildSmsContentDedupKey(msg, options = {}) {
+    const includeDevice = options.includeDevice !== false;
+    const phone = getSmsPartyKey(msg);
+    const body = normalizeSmsBodyForDedup(msg.body || msg.text || msg.content || "");
+    const simKey = Number.isInteger(msg.simSlot) ? String(msg.simSlot) : "-1";
+    const deviceKey = includeDevice ? String(msg.deviceId || "") : "";
+    if (!phone || body.length < 8 || msg._syntheticTs) return null;
+    return `${deviceKey}_${simKey}_${phone}_${body}`;
+  }
   function isPhoneNumberLike2(value) {
     if (!value || !value.trim) return false;
     const digits = value.replace(/[\s\-().]/g, "");
@@ -27139,6 +27155,7 @@ ${this.customData.serverResponse}`;
     const uniqueMessages = [];
     const seenIds = /* @__PURE__ */ new Set();
     const seenContentTs = /* @__PURE__ */ new Map();
+    const seenContentTsNoDevice = /* @__PURE__ */ new Map();
     const DEDUP_WINDOW_MS = 2 * 60 * 1e3;
     for (const msg of merged) {
       const docScopedId = msg.docId || msg.id || msg.docRef?.id || msg.docRef?.path || `${msg.timestamp}_${msg.phoneNumber}`;
@@ -27147,19 +27164,24 @@ ${this.customData.serverResponse}`;
       const uniqueId = `${ownerScope}::${deviceScope}::${docScopedId}`;
       if (seenIds.has(uniqueId)) continue;
       seenIds.add(uniqueId);
-      const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
-      const phone = normalizePhoneNumber3(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
-      const body = stripBidi(msg.body || msg.text || "").trim();
-      const direction = String(msg.direction || msg.type || "").toLowerCase();
-      const simKey = Number.isInteger(msg.simSlot) ? String(msg.simSlot) : "-1";
-      const deviceKey = String(msg.deviceId || "");
       const isSharedMsg = !!msg.ownerUid && String(msg.ownerUid) !== String(currentUser?.uid || "");
-      if (phone && body.length >= 8 && !msg._syntheticTs && !isSharedMsg) {
-        const contentKey = `${deviceKey}_${simKey}_${direction}_${phone}_${body}`;
+      if (!isSharedMsg) {
         const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
-        const seenTs = seenContentTs.get(contentKey);
-        if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
-        seenContentTs.set(contentKey, msgTs);
+        const contentKey = buildSmsContentDedupKey(msg, { includeDevice: true });
+        if (contentKey) {
+          const seenTs = seenContentTs.get(contentKey);
+          if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
+          seenContentTs.set(contentKey, msgTs);
+        }
+        if (!msg.deviceId) {
+          const noDeviceKey = buildSmsContentDedupKey(msg, { includeDevice: false });
+          if (noDeviceKey) {
+            const seenNoDeviceTs = seenContentTsNoDevice.get(noDeviceKey);
+            if (seenNoDeviceTs != null && Math.abs(seenNoDeviceTs - msgTs) <= DEDUP_WINDOW_MS)
+              continue;
+            seenContentTsNoDevice.set(noDeviceKey, msgTs);
+          }
+        }
       }
       uniqueMessages.push(msg);
     }
@@ -27697,11 +27719,22 @@ ${this.customData.serverResponse}`;
     console.log(`[SMS] showConversation: found ${conversation.length} messages`);
     const uniqueConversation = [];
     const seenIds = /* @__PURE__ */ new Set();
+    const seenContentTs = /* @__PURE__ */ new Map();
+    const DEDUP_WINDOW_MS = 2 * 60 * 1e3;
     for (const msg of conversation) {
-      if (!seenIds.has(msg.id)) {
-        seenIds.add(msg.id);
-        uniqueConversation.push(msg);
+      const idKey = String(msg.id || msg.docId || "");
+      if (idKey) {
+        if (seenIds.has(idKey)) continue;
+        seenIds.add(idKey);
       }
+      const contentKey = buildSmsContentDedupKey(msg, { includeDevice: true });
+      if (contentKey) {
+        const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
+        const seenTs = seenContentTs.get(contentKey);
+        if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
+        seenContentTs.set(contentKey, msgTs);
+      }
+      uniqueConversation.push(msg);
     }
     const fullConversation = uniqueConversation;
     conversation = uniqueConversation;

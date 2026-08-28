@@ -577,6 +577,25 @@ function normalizePhoneNumber(phone) {
   return normalized;
 }
 
+function normalizeSmsBodyForDedup(body) {
+  return stripBidi(String(body || "")).replace(/\s+/g, " ").trim();
+}
+
+function getSmsPartyKey(msg) {
+  const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
+  return normalizePhoneNumber(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
+}
+
+function buildSmsContentDedupKey(msg, options = {}) {
+  const includeDevice = options.includeDevice !== false;
+  const phone = getSmsPartyKey(msg);
+  const body = normalizeSmsBodyForDedup(msg.body || msg.text || msg.content || "");
+  const simKey = Number.isInteger(msg.simSlot) ? String(msg.simSlot) : "-1";
+  const deviceKey = includeDevice ? String(msg.deviceId || "") : "";
+  if (!phone || body.length < 8 || msg._syntheticTs) return null;
+  return `${deviceKey}_${simKey}_${phone}_${body}`;
+}
+
 /**
  * Check if a string looks like a phone number
  * @param {string} value - Value to check
@@ -1630,6 +1649,7 @@ export function updateSMSList(deviceId, newMessages) {
   const uniqueMessages = [];
   const seenIds = new Set();
   const seenContentTs = new Map();
+  const seenContentTsNoDevice = new Map();
   const DEDUP_WINDOW_MS = 2 * 60 * 1000;
 
   for (const msg of merged) {
@@ -1651,26 +1671,31 @@ export function updateSMSList(deviceId, newMessages) {
 
     // Pass 2: Content-based dedup - suppress only near-time duplicates from
     // dual writers. Keep legitimate later messages even if body text repeats.
-    const rawPhoneSrc = stripBidi(msg.phoneNumber || msg.sender || "");
-    // Use normalized phone for numeric numbers, raw for text senders (HSBC, Orange, etc.)
-    const phone =
-      normalizePhoneNumber(rawPhoneSrc) || rawPhoneSrc.trim().toLowerCase();
-    const body = stripBidi(msg.body || msg.text || "").trim();
-    const direction = String(msg.direction || msg.type || "").toLowerCase();
-    const simKey = Number.isInteger(msg.simSlot) ? String(msg.simSlot) : "-1";
-    const deviceKey = String(msg.deviceId || "");
-
-    // Skip content dedupe for very short/empty bodies to avoid false positives.
     const isSharedMsg =
       !!msg.ownerUid &&
       String(msg.ownerUid) !== String(state.currentUser?.uid || "");
 
-    if (phone && body.length >= 8 && !msg._syntheticTs && !isSharedMsg) {
-      const contentKey = `${deviceKey}_${simKey}_${direction}_${phone}_${body}`;
+    if (!isSharedMsg) {
       const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
-      const seenTs = seenContentTs.get(contentKey);
-      if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
-      seenContentTs.set(contentKey, msgTs);
+
+      const contentKey = buildSmsContentDedupKey(msg, { includeDevice: true });
+      if (contentKey) {
+        const seenTs = seenContentTs.get(contentKey);
+        if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
+        seenContentTs.set(contentKey, msgTs);
+      }
+
+      // Fallback: if deviceId is missing on one copy, also dedup by content
+      // without device scope so cache/fetch variants collapse to one row.
+      if (!msg.deviceId) {
+        const noDeviceKey = buildSmsContentDedupKey(msg, { includeDevice: false });
+        if (noDeviceKey) {
+          const seenNoDeviceTs = seenContentTsNoDevice.get(noDeviceKey);
+          if (seenNoDeviceTs != null && Math.abs(seenNoDeviceTs - msgTs) <= DEDUP_WINDOW_MS)
+            continue;
+          seenContentTsNoDevice.set(noDeviceKey, msgTs);
+        }
+      }
     }
 
     uniqueMessages.push(msg);
@@ -2424,14 +2449,27 @@ export function showConversation(phoneNumber) {
 
   console.log(`[SMS] showConversation: found ${conversation.length} messages`);
 
-  // Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ØªÙƒØ±Ø§Ø± ÙÙŠ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©
+  // Conversation-level safety dedup: id first, then near-time same-content fallback.
   const uniqueConversation = [];
   const seenIds = new Set();
+  const seenContentTs = new Map();
+  const DEDUP_WINDOW_MS = 2 * 60 * 1000;
   for (const msg of conversation) {
-    if (!seenIds.has(msg.id)) {
-      seenIds.add(msg.id);
-      uniqueConversation.push(msg);
+    const idKey = String(msg.id || msg.docId || "");
+    if (idKey) {
+      if (seenIds.has(idKey)) continue;
+      seenIds.add(idKey);
     }
+
+    const contentKey = buildSmsContentDedupKey(msg, { includeDevice: true });
+    if (contentKey) {
+      const msgTs = toSmsTimestampMs(msg.timestamp) || toSmsTimestampMs(msg.receivedAt) || 0;
+      const seenTs = seenContentTs.get(contentKey);
+      if (seenTs != null && Math.abs(seenTs - msgTs) <= DEDUP_WINDOW_MS) continue;
+      seenContentTs.set(contentKey, msgTs);
+    }
+
+    uniqueConversation.push(msg);
   }
   const fullConversation = uniqueConversation;
   conversation = uniqueConversation;
