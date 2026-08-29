@@ -33,6 +33,7 @@ const SMSNotificationsScreen = () => {
     selectedNotifications,
     isLoading,
     initialLoading,
+    isSwitchingDevice,
     hasPermission,
 
     // Theme
@@ -172,6 +173,16 @@ const SMSNotificationsScreen = () => {
         isDarkMode={isDarkMode}
         colors={colors}
       />
+
+      {isSwitchingDevice && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+            {isRTL
+              ? 'جاري تبديل الجهاز وتحميل الرسائل...'
+              : 'Switching device and syncing SMS...'}
+          </Text>
+        </View>
+      )}
 
       {/* SMS List */}
       <FlatList

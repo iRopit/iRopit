@@ -51,6 +51,7 @@ export const useCallsScreen = () => {
     null,
   );
   const [allowHeavyWork, setAllowHeavyWork] = useState(false);
+  const [isSwitchingDevice, setIsSwitchingDevice] = useState(false);
 
   // Theme colors - use canonical theme tokens
   const bgColor = colors.background;
@@ -61,6 +62,15 @@ export const useCallsScreen = () => {
     ? colors.surfaceSecondary
     : colors.surfaceTertiary;
   const nativeWarmupDoneRef = useRef(false);
+  const previousActiveDeviceIdRef = useRef<string | null>(null);
+  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSwitchTimeout = useCallback(() => {
+    if (switchTimeoutRef.current) {
+      clearTimeout(switchTimeoutRef.current);
+      switchTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!isFocused) {
@@ -122,6 +132,35 @@ export const useCallsScreen = () => {
     if (!allowHeavyWork) return;
     initializeCallListener();
   }, [allowHeavyWork, initializeCallListener]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+
+    const previousActiveDeviceId = previousActiveDeviceIdRef.current;
+    const didSwitchDevice =
+      previousActiveDeviceId !== null && previousActiveDeviceId !== activeDeviceId;
+    previousActiveDeviceIdRef.current = activeDeviceId;
+
+    if (!didSwitchDevice) return;
+
+    setIsSwitchingDevice(true);
+    clearSwitchTimeout();
+    switchTimeoutRef.current = setTimeout(() => {
+      setIsSwitchingDevice(false);
+    }, 12000);
+  }, [isFocused, activeDeviceId, clearSwitchTimeout]);
+
+  useEffect(() => {
+    if (isLoading || isSyncing) return;
+    setIsSwitchingDevice(false);
+    clearSwitchTimeout();
+  }, [isLoading, isSyncing, clearSwitchTimeout]);
+
+  useEffect(() => {
+    return () => {
+      clearSwitchTimeout();
+    };
+  }, [clearSwitchTimeout]);
 
   // Load native SIM slot data for enrichment
   const [simSlotMap, setSimSlotMap] = useState<Record<string, number>>({});
@@ -327,6 +366,7 @@ export const useCallsScreen = () => {
     selectedCalls,
     isLoading,
     isSyncing,
+    isSwitchingDevice,
 
     // Device filter
     devices,

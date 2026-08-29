@@ -51,16 +51,62 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accountDeletedNotice: false,
 
   initialize: () => {
+    set({ isLoading: true, error: null });
+
+    let settled = false;
+    const INIT_TIMEOUT_MS = 10000;
+
+    const buildUserData = (
+      firebaseUser: FirebaseAuthTypes.User,
+      timestamp: number,
+    ): User => ({
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL,
+      createdAt: timestamp,
+      lastLoginAt: timestamp,
+    });
+
+    // Guard against rare startup hangs where auth callback is delayed.
+    const initTimeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        const currentUser = auth().currentUser;
+        if (currentUser) {
+          set({
+            user: buildUserData(currentUser, Date.now()),
+            firebaseUser: currentUser,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+        } else {
+          set({
+            user: null,
+            firebaseUser: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+          });
+        }
+      } catch {
+        set({
+          user: null,
+          firebaseUser: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    }, INIT_TIMEOUT_MS);
+
     const unsubscribe = auth().onAuthStateChanged(async firebaseUser => {
+      settled = true;
+      clearTimeout(initTimeout);
+
       if (firebaseUser) {
-        const userData: User = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          createdAt: Date.now(),
-          lastLoginAt: Date.now(),
-        };
+        const userData = buildUserData(firebaseUser, Date.now());
 
         // Set authenticated immediately, don't wait for Firestore
         set({

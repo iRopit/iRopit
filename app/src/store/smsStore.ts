@@ -28,6 +28,7 @@ const SMS_INITIAL_LOAD_LIMIT = 2000;
 // Track if SMS requests listener is already active
 let smsRequestsUnsubscribe: (() => void) | null = null;
 let smsListenerGeneration = 0;
+const smsMessagesCacheByDevice = new Map<string, SMS[]>();
 
 // Normalize phone number for comparison (remove +, spaces, dashes, etc.)
 const normalizePhoneNumber = (phone: string): string => {
@@ -285,6 +286,9 @@ export const useSMSStore = create<SMSState>()(
           !!targetDeviceId &&
           !!previousDeviceId &&
           previousDeviceId !== targetDeviceId;
+        const cachedForTargetDevice = targetDeviceId
+          ? smsMessagesCacheByDevice.get(targetDeviceId) || null
+          : null;
 
         const { unsubscribe: prevUnsubscribe } = get();
         if (prevUnsubscribe) {
@@ -292,8 +296,14 @@ export const useSMSStore = create<SMSState>()(
         }
 
         setIfCurrent({
-          messages: get().messages,
-          oldestMessageTimestamp: get().oldestMessageTimestamp,
+          messages:
+            cachedForTargetDevice || (isSwitchingDevice ? [] : get().messages),
+          oldestMessageTimestamp:
+            cachedForTargetDevice && cachedForTargetDevice.length > 0
+              ? Math.min(...cachedForTargetDevice.map(m => m.timestamp || Infinity))
+              : isSwitchingDevice
+              ? null
+              : get().oldestMessageTimestamp,
           isLoading: true,
           smsDebug: {
             deviceId: targetDeviceId,
@@ -307,6 +317,19 @@ export const useSMSStore = create<SMSState>()(
             lastError: null,
           },
         });
+
+        const INITIAL_SNAPSHOT_TIMEOUT_MS = 12000;
+        const initialSnapshotTimeout = setTimeout(() => {
+          if (isStaleListener()) return;
+          setIfCurrent((state: SMSState) => ({
+            isLoading: false,
+            smsDebug: {
+              ...state.smsDebug,
+              source: 'initial-timeout',
+              lastError: state.smsDebug.lastError || 'initial snapshot timeout',
+            },
+          }));
+        }, INITIAL_SNAPSHOT_TIMEOUT_MS);
 
         // Helper to map a decrypted data object to a typed SMS
         const toSMS = (data: any): SMS =>
@@ -452,6 +475,10 @@ export const useSMSStore = create<SMSState>()(
           merged = mergeByIdKeepNewest([], merged);
           merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
+          if (targetDeviceId) {
+            smsMessagesCacheByDevice.set(targetDeviceId, merged);
+          }
+
           // If backend query is temporarily empty, keep already-visible SMS
           // instead of flashing to an empty screen.
           const { messages: existingMessages } = get();
@@ -499,6 +526,7 @@ export const useSMSStore = create<SMSState>()(
             .onSnapshot(
               async snapshot => {
                 if (isStaleListener()) return;
+                clearTimeout(initialSnapshotTimeout);
 
                 if (isInitialSnapshot) {
                   isInitialSnapshot = false;
@@ -755,10 +783,12 @@ export const useSMSStore = create<SMSState>()(
                 const mergedDevice = mergeByIdKeepNewest(existing, newMessages);
                 mergedDevice.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 messagesByDevice.set(targetDeviceId, mergedDevice);
+                smsMessagesCacheByDevice.set(targetDeviceId, mergedDevice);
                 mergeAllDevices();
               },
               error => {
                 if (isStaleListener()) return;
+                clearTimeout(initialSnapshotTimeout);
                 pendingInitial = Math.max(0, pendingInitial - 1);
                 set({
                   error: error.message,
@@ -778,6 +808,7 @@ export const useSMSStore = create<SMSState>()(
 
         set({
           unsubscribe: () => {
+            clearTimeout(initialSnapshotTimeout);
             unsubscribers.forEach(unsub => {
               try {
                 unsub();
@@ -1249,6 +1280,7 @@ export const useSMSStore = create<SMSState>()(
 
       cleanup: () => {
         smsListenerGeneration++;
+        smsMessagesCacheByDevice.clear();
         const { unsubscribe } = get();
         if (unsubscribe) {
           unsubscribe();

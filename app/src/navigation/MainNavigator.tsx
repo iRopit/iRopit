@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, I18nManager, BackHandler, AppState, AppStateStatus } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  I18nManager,
+  BackHandler,
+  AppState,
+  AppStateStatus,
+  InteractionManager,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTabParamList } from '../types';
@@ -57,9 +66,16 @@ const MainNavigator = () => {
   useEffect(() => {
     if (prefetched.current || !user || !currentDevice) return;
     prefetched.current = true;
-    useCallStore.getState().loadCalls(selectedCallsDeviceId || undefined);
-    useSMSStore.getState().loadMessages(selectedSmsDeviceId || undefined);
-    useNotificationStore.getState().syncFromFirebase(user.uid);
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      useCallStore.getState().loadCalls(selectedCallsDeviceId || undefined);
+      useSMSStore.getState().loadMessages(selectedSmsDeviceId || undefined);
+      useNotificationStore.getState().syncFromFirebase(user.uid);
+    });
+
+    return () => {
+      task.cancel();
+    };
   }, [user, currentDevice, selectedCallsDeviceId, selectedSmsDeviceId]);
 
   // Re-establish Firestore listeners when app comes back to foreground.
@@ -75,8 +91,14 @@ const MainNavigator = () => {
           appStateRef.current !== 'active' &&
           nextState === 'active'
         ) {
-          useCallStore.getState().loadCalls(selectedCallsDeviceId || undefined);
-          useSMSStore.getState().loadMessages(selectedSmsDeviceId || undefined);
+          InteractionManager.runAfterInteractions(() => {
+            useCallStore
+              .getState()
+              .loadCalls(selectedCallsDeviceId || undefined);
+            useSMSStore
+              .getState()
+              .loadMessages(selectedSmsDeviceId || undefined);
+          });
         }
         appStateRef.current = nextState;
       },
@@ -136,7 +158,7 @@ const MainNavigator = () => {
       <Tab.Navigator
         key={language} // Force re-mount when language changes
         backBehavior="none"
-        detachInactiveScreens={false}
+        detachInactiveScreens={true}
         screenOptions={{
           animation: 'none',
           // Prevent hidden tabs from re-rendering on every global store update.

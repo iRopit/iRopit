@@ -38,6 +38,7 @@ const CallsScreen = () => {
     selectedCalls,
     isLoading,
     isSyncing,
+    isSwitchingDevice,
 
     // Theme
     isRTL,
@@ -82,6 +83,15 @@ const CallsScreen = () => {
       setIsRefreshing(false);
     }
   }, [loadCalls]);
+
+  const showStatusMessage = isSwitchingDevice || isLoading || isSyncing;
+  const statusMessage = isSwitchingDevice
+    ? isRTL
+      ? 'جاري تبديل الجهاز وتحميل المكالمات...'
+      : 'Switching device and syncing calls...'
+    : isRTL
+    ? 'جاري مزامنة المكالمات...'
+    : 'Syncing calls...';
 
   const renderItem = ({
     item,
@@ -207,6 +217,14 @@ const CallsScreen = () => {
         isDarkMode={isDarkMode}
         colors={colors}
       />
+
+      {showStatusMessage && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+            {statusMessage}
+          </Text>
+        </View>
+      )}
 
       {/* Calls List */}
       <FlatList

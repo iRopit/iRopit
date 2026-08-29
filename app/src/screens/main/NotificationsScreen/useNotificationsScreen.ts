@@ -106,26 +106,69 @@ export const useNotificationsScreen = (
   const [selectedNotifications, setSelectedNotifications] = useState<string[]>(
     [],
   );
+  const [isSwitchingDevice, setIsSwitchingDevice] = useState(false);
   const lastSmsLoadKeyRef = useRef<string>('');
   const notificationsListenerGenerationRef = useRef(0);
+  const previousActiveDeviceIdRef = useRef<string | null>(null);
+  const smsCountRef = useRef(0);
+  const notificationsCountRef = useRef(0);
+  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSwitchTimeout = useCallback(() => {
+    if (switchTimeoutRef.current) {
+      clearTimeout(switchTimeoutRef.current);
+      switchTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    smsCountRef.current = smsMessages.length;
+  }, [smsMessages.length]);
+
+  useEffect(() => {
+    notificationsCountRef.current = notifications.length;
+  }, [notifications.length]);
 
   useEffect(() => {
     if (!isFocused) return;
+
+    const previousActiveDeviceId = previousActiveDeviceIdRef.current;
+    const didSwitchDevice =
+      previousActiveDeviceId !== null && previousActiveDeviceId !== activeDeviceId;
+    previousActiveDeviceIdRef.current = activeDeviceId;
+
+    if (didSwitchDevice) {
+      setIsSwitchingDevice(true);
+      clearSwitchTimeout();
+      switchTimeoutRef.current = setTimeout(() => {
+        setIsSwitchingDevice(false);
+      }, 12000);
+    }
 
     // Device switch: restart listener generation and reload path, but keep
     // currently rendered items to avoid empty-state flicker/hangs.
     lastSmsLoadKeyRef.current = '';
     notificationsListenerGenerationRef.current += 1;
 
+    // For SMS device switches, always re-enable initial loader so old-device
+    // rows are not mistaken for a hang while the new listener warms up.
+    const shouldForceLoader = filterType === 'sms';
     const hasVisibleData =
-      filterType === 'sms' ? smsMessages.length > 0 : notifications.length > 0;
-    if (!hasVisibleData) {
+      filterType === 'sms'
+        ? smsCountRef.current > 0
+        : notificationsCountRef.current > 0;
+    if (shouldForceLoader || !hasVisibleData) {
       setInitialLoading(true);
     }
+
+    return () => {
+      clearSwitchTimeout();
+    };
   }, [
     isFocused,
     activeDeviceId,
     filterType,
+    clearSwitchTimeout,
   ]);
 
   // Theme colors
@@ -611,12 +654,24 @@ export const useNotificationsScreen = (
 
     if (hasArrivedData) {
       setInitialLoading(false);
+      setIsSwitchingDevice(false);
+      clearSwitchTimeout();
       return;
     }
     const fallbackMs = filterType === 'sms' ? 7000 : 3500;
-    const t = setTimeout(() => setInitialLoading(false), fallbackMs);
+    const t = setTimeout(() => {
+      setInitialLoading(false);
+      setIsSwitchingDevice(false);
+      clearSwitchTimeout();
+    }, fallbackMs);
     return () => clearTimeout(t);
-  }, [initialLoading, smsMessages.length, notifications.length, filterType]);
+  }, [
+    initialLoading,
+    smsMessages.length,
+    notifications.length,
+    filterType,
+    clearSwitchTimeout,
+  ]);
 
   // Subscribe to notifications from Firebase
   useEffect(() => {
@@ -820,6 +875,7 @@ export const useNotificationsScreen = (
     selectedNotifications,
     isLoading,
     initialLoading,
+    isSwitchingDevice,
     hasPermission,
     smsRawCount: smsMessages.length,
     smsDebug,

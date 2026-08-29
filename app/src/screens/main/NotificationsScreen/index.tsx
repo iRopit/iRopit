@@ -27,6 +27,7 @@ const NotificationsScreen = () => {
     selectedNotifications,
     isLoading,
     initialLoading,
+    isSwitchingDevice,
     hasPermission,
 
     // Theme
@@ -54,6 +55,15 @@ const NotificationsScreen = () => {
     checkPermission,
     requestPermission,
   } = useNotificationsScreen('notifications-only');
+
+  const showStatusMessage = isSwitchingDevice || initialLoading;
+  const statusMessage = isSwitchingDevice
+    ? isRTL
+      ? 'جاري تبديل الجهاز وتحميل الإشعارات...'
+      : 'Switching device and syncing notifications...'
+    : isRTL
+    ? 'جاري مزامنة الإشعارات...'
+    : 'Syncing notifications...';
 
   const renderItem = ({
     item,
@@ -176,6 +186,14 @@ const NotificationsScreen = () => {
         isDarkMode={isDarkMode}
         colors={colors}
       />
+
+      {showStatusMessage && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+            {statusMessage}
+          </Text>
+        </View>
+      )}
 
       {/* Notifications List */}
       <FlatList

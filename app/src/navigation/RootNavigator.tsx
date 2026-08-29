@@ -101,12 +101,39 @@ const RootNavigator = () => {
 
   // Check onboarding status on mount
   useEffect(() => {
-    const checkOnboarding = async () => {
-      const completed = await checkOnboardingComplete();
-      setHasCompletedOnboarding(completed);
-      setCheckingOnboarding(false);
+    let isMounted = true;
+
+    const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, fallback: T) => {
+      return Promise.race<T>([
+        promise,
+        new Promise<T>(resolve => {
+          setTimeout(() => resolve(fallback), timeoutMs);
+        }),
+      ]);
     };
+
+    const checkOnboarding = async () => {
+      try {
+        // Prevent a rare startup stall if AsyncStorage read blocks.
+        const completed = await withTimeout(checkOnboardingComplete(), 6000, true);
+        if (!isMounted) return;
+        setHasCompletedOnboarding(completed);
+      } catch {
+        if (!isMounted) return;
+        // Fail open to avoid trapping users behind an infinite loading state.
+        setHasCompletedOnboarding(true);
+      } finally {
+        if (isMounted) {
+          setCheckingOnboarding(false);
+        }
+      }
+    };
+
     checkOnboarding();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Fresh install helper: show once to guide user to install Chrome extension.

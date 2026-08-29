@@ -5,7 +5,7 @@ import {
   Alert,
   NativeModules,
   Platform,
-  PermissionsAndroid,
+  InteractionManager,
 } from 'react-native';
 import {
   NavigationContainer,
@@ -49,6 +49,7 @@ const AppContent = () => {
   useEffect(() => {
     initializeFirebase();
     initialize();
+    let interactionTask: { cancel: () => void } | null = null;
 
     // Check Notification Access permission on app start (only after onboarding)
     if (Platform.OS === 'android' && NotificationModule) {
@@ -58,48 +59,6 @@ const AppContent = () => {
           const onboardingComplete = await checkOnboardingComplete();
           if (!onboardingComplete) {
             return; // Skip alert if onboarding not complete
-          }
-
-          // Request SMS permissions if not granted (for BroadcastReceiver fallback)
-          const hasReceiveSms = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-          );
-          const hasReadSms = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.READ_SMS,
-          );
-          if (!hasReceiveSms || !hasReadSms) {
-            await PermissionsAndroid.requestMultiple([
-              PermissionsAndroid.PERMISSIONS.READ_SMS,
-              PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-            ]);
-          }
-
-          // Request CALL_PHONE so DialerActivity can place calls directly (no extra tap)
-          const hasCallPhone = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.CALL_PHONE,
-          );
-          if (!hasCallPhone) {
-            await PermissionsAndroid.request(
-              PermissionsAndroid.PERMISSIONS.CALL_PHONE,
-              {
-                title: 'Allow iRopit to make calls',
-                message: 'iRopit needs permission to place calls from the extension.',
-                buttonPositive: 'Allow',
-              },
-            );
-          }
-
-          // Request POST_NOTIFICATIONS on Android 13+ — without it, ALL app
-          // notifications (including the dial-prompt) are silently suppressed.
-          if (Platform.Version >= 33) {
-            const hasNotifPerm = await PermissionsAndroid.check(
-              'android.permission.POST_NOTIFICATIONS' as any,
-            );
-            if (!hasNotifPerm) {
-              await PermissionsAndroid.request(
-                'android.permission.POST_NOTIFICATIONS' as any,
-              );
-            }
           }
 
           const isGranted = await NotificationModule.isPermissionGranted();
@@ -131,8 +90,10 @@ const AppContent = () => {
           console.error('Error checking notification access:', e);
         }
       };
-      // Small delay to let UI render first
-      setTimeout(checkNotificationAccess, 2000);
+      // Run after initial interactions to avoid delaying first paint on cold reopen.
+      interactionTask = InteractionManager.runAfterInteractions(() => {
+        setTimeout(checkNotificationAccess, 1200);
+      });
     }
 
     // Handle foreground FCM messages (push notifications when app is open)
@@ -214,6 +175,7 @@ const AppContent = () => {
       });
 
     return () => {
+      interactionTask?.cancel();
       unsubscribeForeground();
       unsubscribeOpenedApp();
     };

@@ -19,6 +19,7 @@ import {
 } from '../../../services/cryptoService';
 
 const { FilePickerModule } = NativeModules;
+const chatMessagesCacheByUser = new Map<string, Message[]>();
 
 export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
@@ -49,6 +50,7 @@ export const useChatScreen = () => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const devicesRef = useRef<any[]>([]);
   const hasSeenServerSnapshotRef = useRef(false);
+  const decryptCacheRef = useRef<Map<string, Message>>(new Map());
 
   // Dynamic colors based on theme
   const bgColor = colors.background;
@@ -354,6 +356,49 @@ export const useChatScreen = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingShare, user?.uid]);
 
+  const decryptMessagesWithCache = useCallback(
+    async (rawMessages: Message[]): Promise<Message[]> => {
+      if (!user?.uid) return rawMessages;
+
+      const cache = decryptCacheRef.current;
+      const result: Message[] = [];
+      const pending: Array<{ index: number; msg: Message; key: string }> = [];
+
+      rawMessages.forEach((msg, index) => {
+        const key = `${msg.id}|${(msg as any).timestamp || 0}|${(msg as any).content || ''}|${(msg as any).fileUrl || ''}|${(msg as any).fileName || ''}`;
+        const cached = cache.get(key);
+        if (cached) {
+          result[index] = cached;
+        } else {
+          pending.push({ index, msg, key });
+        }
+      });
+
+      if (pending.length > 0) {
+        const decryptedPending = await Promise.all(
+          pending.map(({ msg }) => decryptChatMessage(msg, user.uid)),
+        );
+        decryptedPending.forEach((dec, i) => {
+          const { index, key } = pending[i];
+          const typed = dec as Message;
+          result[index] = typed;
+          cache.set(key, typed);
+        });
+      }
+
+      if (cache.size > 1500) {
+        const keys = Array.from(cache.keys());
+        const deleteCount = Math.floor(keys.length / 3);
+        for (let i = 0; i < deleteCount; i++) {
+          cache.delete(keys[i]);
+        }
+      }
+
+      return result;
+    },
+    [user?.uid],
+  );
+
   // Subscribe to messages
   const isFirstSnapshotRef = useRef(true);
   useEffect(() => {
@@ -364,7 +409,13 @@ export const useChatScreen = () => {
 
     isFirstSnapshotRef.current = true;
     hasSeenServerSnapshotRef.current = false;
-    setIsLoading(true);
+    const cachedMessages = chatMessagesCacheByUser.get(user.uid) || [];
+    if (cachedMessages.length > 0) {
+      setMessages(cachedMessages);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
 
     const chatsQuery = firestore()
       .collection('chats')
@@ -372,9 +423,15 @@ export const useChatScreen = () => {
       .orderBy('timestamp', 'desc')
       .limit(100);
 
+    const FIRST_SNAPSHOT_TIMEOUT_MS = 12000;
+    const firstSnapshotTimeout = setTimeout(() => {
+      setIsLoading(false);
+    }, FIRST_SNAPSHOT_TIMEOUT_MS);
+
     const unsubscribe = chatsQuery.onSnapshot(
         { includeMetadataChanges: true },
         async snapshot => {
+          clearTimeout(firstSnapshotTimeout);
           const rawMsgs: Message[] = [];
           snapshot.forEach(doc => {
             const data = doc.data();
@@ -385,10 +442,7 @@ export const useChatScreen = () => {
           // The selector in this screen is "Send to" only.
           // Keep chat history unfiltered so incoming messages never disappear.
           const filteredMsgs = rawMsgs;
-          // Decrypt messages
-          const decryptedMsgs = await Promise.all(
-            filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
-          );
+          const decryptedMsgs = await decryptMessagesWithCache(filteredMsgs);
           // Auto-copy text messages received from Chrome extension to clipboard
           if (isFirstSnapshotRef.current) {
             isFirstSnapshotRef.current = false;
@@ -429,6 +483,7 @@ export const useChatScreen = () => {
             seen.add(key);
             return true;
           });
+          chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
           // Merge: preserve optimistic messages that haven't been confirmed by
           // Firestore yet (matched by senderDeviceId + type + timestamp proximity).
           setMessages(prev => {
@@ -460,6 +515,7 @@ export const useChatScreen = () => {
           }
         },
         _error => {
+          clearTimeout(firstSnapshotTimeout);
           setIsLoading(false);
         },
       );
@@ -478,9 +534,7 @@ export const useChatScreen = () => {
 
           const filteredMsgs = rawMsgs;
 
-          const decryptedMsgs = await Promise.all(
-            filteredMsgs.map(msg => decryptChatMessage(msg, user.uid)),
-          );
+          const decryptedMsgs = await decryptMessagesWithCache(filteredMsgs);
 
           const seen = new Set<string>();
           const dedupedMsgs = decryptedMsgs.filter(msg => {
@@ -489,6 +543,7 @@ export const useChatScreen = () => {
             seen.add(key);
             return true;
           });
+          chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
 
           setMessages(prev => {
             const optimistics = prev.filter((m: any) => m._optimistic);
@@ -513,10 +568,11 @@ export const useChatScreen = () => {
     });
 
     return () => {
+      clearTimeout(firstSnapshotTimeout);
       unsubscribe();
       appStateSub.remove();
     };
-  }, [isFocused, user?.uid, currentDevice]);
+  }, [isFocused, user?.uid, currentDevice, decryptMessagesWithCache]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {

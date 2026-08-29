@@ -266,19 +266,23 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       }
     };
 
+    const scheduleInitialSync = () => {
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          doInitialSync();
+        }, 1200);
+      });
+    };
+
     // Defer the heavy work until after the UI has had time to mount/render,
     // then add a small delay so the first paint/navigation isn't blocked
     // by the native module call + encrypt/batch-write loop.
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(() => {
-        doInitialSync();
-      }, 1500);
-    });
+    scheduleInitialSync();
 
     // If user grants READ_SMS later during onboarding/settings, retry on foreground.
     const syncRetryOnActive = AppState.addEventListener('change', nextState => {
       if (nextState === 'active' && !initialSyncCompletedRef.current) {
-        doInitialSync();
+        scheduleInitialSync();
       }
     });
 

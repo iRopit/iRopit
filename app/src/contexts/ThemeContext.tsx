@@ -383,50 +383,70 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const darkMode = useSettingsStore(state => state.darkMode);
   const language = useSettingsStore(state => state.language);
-  const [isHydrated, setIsHydrated] = React.useState(false);
+  const [isHydrated, setIsHydrated] = React.useState(() => {
+    const persistApi = (useSettingsStore as any).persist;
+    return persistApi?.hasHydrated?.() ?? true;
+  });
+  const previousLanguageRef = React.useRef<'ar' | 'en' | null>(null);
 
-  // Wait for Zustand persist to hydrate before checking language
+  // Use Zustand persist hydration callback instead of a fixed timer.
+  // Cold starts after long idle can hydrate slower than expected.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const persistApi = (useSettingsStore as any).persist;
+    if (!persistApi?.onFinishHydration) {
       setIsHydrated(true);
-    }, 100);
-    return () => clearTimeout(timer);
+      return;
+    }
+
+    if (persistApi.hasHydrated?.()) {
+      setIsHydrated(true);
+      return;
+    }
+
+    const unsubscribe = persistApi.onFinishHydration(() => {
+      setIsHydrated(true);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (!isHydrated) return; // Don't run until store is hydrated
 
     const handleLanguageChange = async () => {
-      // Check saved language
-      const savedLanguage = await AsyncStorage.getItem('app_language');
+      const previousLanguage = previousLanguageRef.current;
+      const desiredRTL = language === 'ar';
+      const languageChangedInSession =
+        previousLanguage !== null && previousLanguage !== language;
 
-      if (!savedLanguage) {
-        // First time - just save and set RTL
-        const isRTL = language === 'ar';
-        I18nManager.allowRTL(isRTL);
-        I18nManager.forceRTL(isRTL);
-        await AsyncStorage.setItem('app_language', language);
-        return;
+      // Capture current language for subsequent updates.
+      previousLanguageRef.current = language;
+
+      const shouldRestartForRTLChange =
+        Platform.OS === 'android' &&
+        languageChangedInSession &&
+        I18nManager.isRTL !== desiredRTL;
+
+      // Keep native RTL flags in sync with selected language.
+      I18nManager.allowRTL(desiredRTL);
+      I18nManager.forceRTL(desiredRTL);
+
+      // Keep legacy key in sync for backwards compatibility.
+      await AsyncStorage.setItem('app_language', language);
+
+      // Restart only for a real in-session language toggle.
+      // Avoid restart on cold start where hydration/storage race can
+      // otherwise cause an unnecessary close/reopen loop.
+      if (shouldRestartForRTLChange) {
+        RNRestart.restart();
       }
-
-      // Language changed - need to restart
-      if (savedLanguage !== language) {
-        const isRTL = language === 'ar';
-        I18nManager.allowRTL(isRTL);
-        I18nManager.forceRTL(isRTL);
-
-        // Save BEFORE restart
-        await AsyncStorage.setItem('app_language', language);
-
-        // Restart to apply RTL changes
-        if (Platform.OS === 'android') {
-          RNRestart.restart();
-        }
-      }
-      // If savedLanguage === language, do nothing (already correct)
     };
 
-    handleLanguageChange();
+    handleLanguageChange().catch(() => {});
   }, [language, isHydrated]);
 
   const value = useMemo(() => {
