@@ -137,13 +137,15 @@ export const useNotificationsScreen = (
       previousActiveDeviceId !== null && previousActiveDeviceId !== activeDeviceId;
     previousActiveDeviceIdRef.current = activeDeviceId;
 
-    if (didSwitchDevice) {
-      setIsSwitchingDevice(true);
-      clearSwitchTimeout();
-      switchTimeoutRef.current = setTimeout(() => {
-        setIsSwitchingDevice(false);
-      }, 12000);
+    if (!didSwitchDevice) {
+      return;
     }
+
+    setIsSwitchingDevice(true);
+    clearSwitchTimeout();
+    switchTimeoutRef.current = setTimeout(() => {
+      setIsSwitchingDevice(false);
+    }, 12000);
 
     // Device switch: restart listener generation and reload path, but keep
     // currently rendered items to avoid empty-state flicker/hangs.

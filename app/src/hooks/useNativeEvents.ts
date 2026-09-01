@@ -51,6 +51,9 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   const lastContactSyncRef = useRef<number>(0);
   const initialSyncInFlightRef = useRef(false);
   const initialSyncCompletedRef = useRef(false);
+  const initialSyncRunningRef = useRef(false);
+  const initialSyncDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialSyncInteractionTaskRef = useRef<{ cancel: () => void } | null>(null);
 
   // Re-sync contacts when app comes to foreground (max once per 5 minutes)
   useEffect(() => {
@@ -152,6 +155,11 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     let isMounted = true;
 
     const doInitialSync = async () => {
+      if (initialSyncRunningRef.current || initialSyncCompletedRef.current) {
+        return;
+      }
+      initialSyncRunningRef.current = true;
+
       try {
         // v11: track call and SMS sync independently so SMS isn't skipped forever
         // when READ_SMS is granted after initial install.
@@ -260,6 +268,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
       } catch (e) {
         console.warn('[InitialSync] Error:', e);
       } finally {
+        initialSyncRunningRef.current = false;
         if (isMounted) {
           initialSyncInFlightRef.current = false;
         }
@@ -267,8 +276,17 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     };
 
     const scheduleInitialSync = () => {
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(() => {
+      if (initialSyncRunningRef.current || initialSyncCompletedRef.current) {
+        return;
+      }
+      if (initialSyncDelayTimerRef.current || initialSyncInteractionTaskRef.current) {
+        return;
+      }
+
+      initialSyncInteractionTaskRef.current = InteractionManager.runAfterInteractions(() => {
+        initialSyncInteractionTaskRef.current = null;
+        initialSyncDelayTimerRef.current = setTimeout(() => {
+          initialSyncDelayTimerRef.current = null;
           doInitialSync();
         }, 1200);
       });
@@ -288,6 +306,14 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
 
     return () => {
       isMounted = false;
+      if (initialSyncDelayTimerRef.current) {
+        clearTimeout(initialSyncDelayTimerRef.current);
+        initialSyncDelayTimerRef.current = null;
+      }
+      if (initialSyncInteractionTaskRef.current) {
+        initialSyncInteractionTaskRef.current.cancel();
+        initialSyncInteractionTaskRef.current = null;
+      }
       syncRetryOnActive.remove();
     };
   }, [user?.uid, currentDevice?.id]);

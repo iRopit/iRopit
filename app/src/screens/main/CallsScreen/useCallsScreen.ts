@@ -62,6 +62,7 @@ export const useCallsScreen = () => {
     ? colors.surfaceSecondary
     : colors.surfaceTertiary;
   const nativeWarmupDoneRef = useRef(false);
+  const initializedDeviceRef = useRef<string | null>(null);
   const previousActiveDeviceIdRef = useRef<string | null>(null);
   const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -75,6 +76,7 @@ export const useCallsScreen = () => {
   useEffect(() => {
     if (!isFocused) {
       setAllowHeavyWork(false);
+      initializedDeviceRef.current = null;
       return;
     }
 
@@ -130,8 +132,14 @@ export const useCallsScreen = () => {
 
   useEffect(() => {
     if (!allowHeavyWork) return;
+
+    if (initializedDeviceRef.current === activeDeviceId) {
+      return;
+    }
+    initializedDeviceRef.current = activeDeviceId;
+
     initializeCallListener();
-  }, [allowHeavyWork, initializeCallListener]);
+  }, [allowHeavyWork, activeDeviceId, initializeCallListener]);
 
   useEffect(() => {
     if (!isFocused) return;
