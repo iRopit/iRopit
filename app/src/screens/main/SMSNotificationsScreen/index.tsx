@@ -80,12 +80,18 @@ const SMSNotificationsScreen = () => {
   const keyExtractor = useCallback((item: GroupedNotification) => item.key, []);
 
   const renderEmptyState = () => {
-    if (initialLoading) {
+    if (initialLoading || isSwitchingDevice || isLoading) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16 }}>
-            {isRTL ? 'جاري تحميل الرسائل...' : 'Loading SMS...'}
+            {isSwitchingDevice
+              ? isRTL
+                ? 'جاري تبديل الجهاز وتحميل الرسائل...'
+                : 'Switching device and loading SMS...'
+              : isRTL
+              ? 'جاري تحميل الرسائل...'
+              : 'Loading SMS...'}
           </Text>
         </View>
       );
@@ -174,12 +180,16 @@ const SMSNotificationsScreen = () => {
         colors={colors}
       />
 
-      {isSwitchingDevice && (
+      {(isSwitchingDevice || initialLoading || isLoading) && (
         <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 }}>
           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-            {isRTL
-              ? 'جاري تبديل الجهاز وتحميل الرسائل...'
-              : 'Switching device and syncing SMS...'}
+            {isSwitchingDevice
+              ? isRTL
+                ? 'جاري تبديل الجهاز وتحميل الرسائل...'
+                : 'Switching device and syncing SMS...'
+              : isRTL
+              ? 'جاري تحميل الرسائل...'
+              : 'Loading SMS...'}
           </Text>
         </View>
       )}

@@ -279,7 +279,7 @@ export const useSMSStore = create<SMSState>()(
         const isRemoteSelectedDevice =
           !!deviceIdParam && deviceIdParam !== currentDevice.id;
         const initialLoadLimit = isRemoteSelectedDevice
-          ? Math.min(600, SMS_PAGE_SIZE)
+          ? Math.min(800, SMS_PAGE_SIZE)
           : Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT);
         const previousDeviceId = get().smsDebug.deviceId;
         const isSwitchingDevice =
@@ -318,7 +318,7 @@ export const useSMSStore = create<SMSState>()(
           },
         });
 
-        const INITIAL_SNAPSHOT_TIMEOUT_MS = 12000;
+        const INITIAL_SNAPSHOT_TIMEOUT_MS = 8000;
         const initialSnapshotTimeout = setTimeout(() => {
           if (isStaleListener()) return;
           setIfCurrent((state: SMSState) => ({
@@ -354,6 +354,46 @@ export const useSMSStore = create<SMSState>()(
             syncedAt: data.syncedAt || Date.now(),
           } as SMS);
 
+        const appendUniqueById = (target: any[], incoming: any[]) => {
+          if (!incoming || incoming.length === 0) return;
+          const existing = new Set(target.map(item => String(item?.id || '')));
+          incoming.forEach(item => {
+            const id = String(item?.id || '');
+            if (!id || existing.has(id)) return;
+            existing.add(id);
+            target.push(item);
+          });
+        };
+
+        const dedupeSmsForRender = (list: SMS[]): SMS[] => {
+          const seenIds = new Set<string>();
+          const seenContent = new Set<string>();
+
+          return list.filter(m => {
+            const id = String((m as any).id || '');
+            if (id) {
+              if (seenIds.has(id)) return false;
+              seenIds.add(id);
+            }
+
+            const phone = normalizePhoneNumber(m.phoneNumber || m.sender || '');
+            const body = (m.body || m.text || '').trim().substring(0, 120);
+            const ts = Number(m.timestamp || 0);
+
+            // If content is empty, keep the row and avoid collapsing many
+            // messages into one due to decrypt/network timing.
+            if (!body) {
+              return true;
+            }
+
+            const timeWindow = Math.floor(ts / 60000);
+            const contentKey = `${phone}_${timeWindow}_${body}`;
+            if (seenContent.has(contentKey)) return false;
+            seenContent.add(contentKey);
+            return true;
+          });
+        };
+
         // Some SMS writers may miss type='sms' but still carry SMS-specific fields.
         const isLikelySMSPayload = (data: any): boolean => {
           if (!data || typeof data !== 'object') return false;
@@ -380,7 +420,7 @@ export const useSMSStore = create<SMSState>()(
         };
 
         // Never let one stuck decrypt call block initial SMS rendering.
-        const decryptWithTimeout = async (msg: any, timeoutMs = 300): Promise<any> => {
+        const decryptWithTimeout = async (msg: any, timeoutMs = isRemoteSelectedDevice ? 700 : 350): Promise<any> => {
           try {
             const timeoutPromise = new Promise<any>(resolve => {
               setTimeout(() => resolve(msg), timeoutMs);
@@ -547,10 +587,10 @@ export const useSMSStore = create<SMSState>()(
                       },
                     }));
 
-                  // Compatibility fallback: older app builds stored SMS either
-                  // without type='sms' in notifications, or in legacy top-level
-                  // COLLECTIONS.SMS. If the strict query is empty, try both paths.
-                  if (rawMessages.length === 0) {
+                  // Compatibility fallback: older builds may have SMS without
+                  // strict markers. For remote device switches we always
+                  // supplement strict results with fallback paths.
+                  if (rawMessages.length === 0 || isRemoteSelectedDevice) {
                     try {
                       let relaxedCount = 0;
                       const relaxedSnap = await firestore()
@@ -563,6 +603,7 @@ export const useSMSStore = create<SMSState>()(
                         .limit(initialLoadLimit)
                         .get();
 
+                      const relaxedMessages: any[] = [];
                       relaxedSnap.forEach(doc => {
                         const data: any = doc.data() || {};
                         const looksLikeSms =
@@ -570,10 +611,11 @@ export const useSMSStore = create<SMSState>()(
                           !!data.smsType ||
                           data.packageName === 'com.android.mms';
                         if (looksLikeSms) {
-                          rawMessages.push({ ...data, id: doc.id });
+                          relaxedMessages.push({ ...data, id: doc.id });
                           relaxedCount++;
                         }
                       });
+                      appendUniqueById(rawMessages, relaxedMessages);
                       setIfCurrent((state: SMSState) => ({
                         smsDebug: {
                           ...state.smsDebug,
@@ -583,9 +625,9 @@ export const useSMSStore = create<SMSState>()(
                       }));
 
                       // Older records may not have `timestamp` but do have
-                      // `createdAt`. If strict+relaxed timestamp paths are
-                      // empty, try a createdAt-ordered fallback once.
-                      if (rawMessages.length === 0) {
+                      // `createdAt`. For remote device switches, always
+                      // supplement with this path as well.
+                      if (rawMessages.length === 0 || isRemoteSelectedDevice) {
                         const createdAtSnap = await firestore()
                           .collection(COLLECTIONS.USERS)
                           .doc(user.uid)
@@ -596,6 +638,7 @@ export const useSMSStore = create<SMSState>()(
                           .limit(initialLoadLimit)
                           .get();
 
+                        const createdAtMessages: any[] = [];
                         createdAtSnap.forEach(doc => {
                           const data: any = doc.data() || {};
                           const looksLikeSms =
@@ -603,10 +646,11 @@ export const useSMSStore = create<SMSState>()(
                             !!data.smsType ||
                             data.packageName === 'com.android.mms';
                           if (looksLikeSms) {
-                            rawMessages.push({ ...data, id: doc.id });
+                            createdAtMessages.push({ ...data, id: doc.id });
                             relaxedCount++;
                           }
                         });
+                        appendUniqueById(rawMessages, createdAtMessages);
 
                         setIfCurrent((state: SMSState) => ({
                           smsDebug: {
@@ -622,7 +666,7 @@ export const useSMSStore = create<SMSState>()(
                     } catch (_) {}
                   }
 
-                  if (rawMessages.length === 0) {
+                  if (rawMessages.length === 0 || isRemoteSelectedDevice) {
                     try {
                       let legacyCount = 0;
                       const legacySnap = await firestore()
@@ -633,10 +677,12 @@ export const useSMSStore = create<SMSState>()(
                         .limit(initialLoadLimit)
                         .get();
 
+                      const legacyMessages: any[] = [];
                       legacySnap.forEach(doc => {
-                        rawMessages.push({ ...doc.data(), id: doc.id });
+                        legacyMessages.push({ ...doc.data(), id: doc.id });
                         legacyCount++;
                       });
+                      appendUniqueById(rawMessages, legacyMessages);
                       setIfCurrent((state: SMSState) => ({
                         smsDebug: {
                           ...state.smsDebug,
@@ -688,16 +734,7 @@ export const useSMSStore = create<SMSState>()(
                       if (mergedMessages.length > 0 && (i === 0 || i % (DECRYPT_CHUNK * 5) === 0)) {
                           if (isStaleListener()) return;
                         const progressiveSms: SMS[] = mergedMessages.map(toSMS);
-                        const seenProgressive = new Set<string>();
-                        const progressiveDeduped = progressiveSms.filter(m => {
-                          const phone = normalizePhoneNumber(m.phoneNumber || m.sender || '');
-                          const body = (m.body || m.text || '').trim().substring(0, 100);
-                          const timeWindow = Math.floor((m.timestamp || 0) / 60000);
-                          const contentKey = `${phone}_${timeWindow}_${body}`;
-                          if (seenProgressive.has(contentKey)) return false;
-                          seenProgressive.add(contentKey);
-                          return true;
-                        });
+                        const progressiveDeduped = dedupeSmsForRender(progressiveSms);
                         progressiveDeduped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                         messagesByDevice.set(targetDeviceId, progressiveDeduped);
                         mergeAllDevices();
@@ -727,20 +764,11 @@ export const useSMSStore = create<SMSState>()(
 
                     const firebaseMessages: SMS[] = mergedMessages.map(toSMS);
 
-                    const seenContent = new Set<string>();
-                    const dedupedMessages = firebaseMessages.filter(m => {
-                      const phone = normalizePhoneNumber(m.phoneNumber || m.sender || '');
-                      const body = (m.body || m.text || '').trim().substring(0, 100);
-                      const timeWindow = Math.floor((m.timestamp || 0) / 60000);
-                      const contentKey = `${phone}_${timeWindow}_${body}`;
-                      if (seenContent.has(contentKey)) return false;
-                      seenContent.add(contentKey);
-                      return true;
-                    });
+                    const dedupedMessages = dedupeSmsForRender(firebaseMessages);
 
                     dedupedMessages.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                     messagesByDevice.set(targetDeviceId, dedupedMessages);
-                    hasMoreByDevice.set(targetDeviceId, snapshot.size >= SMS_PAGE_SIZE);
+                    hasMoreByDevice.set(targetDeviceId, snapshot.size >= initialLoadLimit);
 
                     pendingInitial = Math.max(0, pendingInitial - 1);
                     mergeAllDevices();

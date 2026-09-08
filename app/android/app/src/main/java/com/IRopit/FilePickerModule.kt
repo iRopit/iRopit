@@ -123,7 +123,10 @@ class FilePickerModule(private val reactContext: ReactApplicationContext) :
             return
         }
 
-        val uri = data.data!!
+        val uri = data.data ?: run {
+            promise.reject("PICKER_ERROR", "No URI returned from picker")
+            return
+        }
 
         try {
             val result = Arguments.createMap()

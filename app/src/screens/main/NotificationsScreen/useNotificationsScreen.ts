@@ -25,7 +25,8 @@ const EMPTY_NOTIFICATIONS: AppNotification[] = [];
 export const useNotificationsScreen = (
   filterType?: 'sms' | 'notifications-only' | 'all',
 ) => {
-  const NOTIFICATIONS_INITIAL_LIMIT = 1500;
+  const NOTIFICATIONS_INITIAL_LIMIT = 1200;
+  const NOTIFICATIONS_REMOTE_INITIAL_LIMIT = 500;
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const shouldUseSmsData = filterType !== 'notifications-only';
@@ -43,6 +44,7 @@ export const useNotificationsScreen = (
   const smsMessages = useSMSStore(state =>
     shouldUseSmsData ? state.messages : EMPTY_SMS_MESSAGES,
   );
+  const smsStoreIsLoading = useSMSStore(state => state.isLoading);
   const smsDebug = useSMSStore(state => state.smsDebug);
   const markMessagesAsReadBySender = useSMSStore(
     state => state.markMessagesAsReadBySender,
@@ -86,6 +88,10 @@ export const useNotificationsScreen = (
     ],
   );
   const activeDeviceId = selectedDeviceId || currentDevice?.id || null;
+  const notificationsInitialLimit =
+    selectedDeviceId && selectedDeviceId !== currentDevice?.id
+      ? NOTIFICATIONS_REMOTE_INITIAL_LIMIT
+      : NOTIFICATIONS_INITIAL_LIMIT;
   const smsDeviceId =
     filterType === 'sms'
       ? activeDeviceId || undefined
@@ -96,7 +102,7 @@ export const useNotificationsScreen = (
     filterType === 'sms' && Platform.OS === 'android' && isViewingCurrentDevice;
 
   // Local state
-  const [isLoading] = useState(false);
+  const isLoading = filterType === 'sms' ? smsStoreIsLoading : false;
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [, setIsMiuiDevice] = useState(false);
@@ -647,6 +653,30 @@ export const useNotificationsScreen = (
   useEffect(() => {
     if (!initialLoading) return;
 
+    if (filterType === 'sms') {
+      if (smsMessages.length > 0) {
+        setInitialLoading(false);
+        setIsSwitchingDevice(false);
+        clearSwitchTimeout();
+        return;
+      }
+
+      // Keep loader visible while the SMS store is still fetching/decrypting
+      // for a selected device, to avoid flashing an incorrect empty state.
+      if (smsStoreIsLoading || isSwitchingDevice) {
+        return;
+      }
+
+      // Give UI one extra beat before showing empty state when load completes
+      // with zero rows, so quick listener handoffs don't flicker.
+      const t = setTimeout(() => {
+        setInitialLoading(false);
+        setIsSwitchingDevice(false);
+        clearSwitchTimeout();
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+
     const hasArrivedData =
       filterType === 'sms'
         ? smsMessages.length > 0
@@ -672,6 +702,8 @@ export const useNotificationsScreen = (
     smsMessages.length,
     notifications.length,
     filterType,
+    smsStoreIsLoading,
+    isSwitchingDevice,
     clearSwitchTimeout,
   ]);
 
@@ -728,7 +760,7 @@ export const useNotificationsScreen = (
       .doc(activeDeviceId)
       .collection('notifications')
       .orderBy('timestamp', 'desc')
-      .limit(NOTIFICATIONS_INITIAL_LIMIT)
+      .limit(notificationsInitialLimit)
       .onSnapshot(
         async snapshot => {
           if (isStaleListener()) return;
@@ -752,7 +784,7 @@ export const useNotificationsScreen = (
                 .doc(activeDeviceId)
                 .collection('notifications')
                 .orderBy('createdAt', 'desc')
-                .limit(NOTIFICATIONS_INITIAL_LIMIT)
+                .limit(notificationsInitialLimit)
                 .get();
 
               if (isStaleListener()) return;
@@ -778,6 +810,7 @@ export const useNotificationsScreen = (
     currentDevice,
     setNotifications,
     activeDeviceId,
+    notificationsInitialLimit,
     shouldUseNotificationsData,
     isFocused,
   ]);

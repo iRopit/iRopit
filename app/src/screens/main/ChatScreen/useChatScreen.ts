@@ -51,6 +51,7 @@ export const useChatScreen = () => {
   const devicesRef = useRef<any[]>([]);
   const hasSeenServerSnapshotRef = useRef(false);
   const decryptCacheRef = useRef<Map<string, Message>>(new Map());
+  const snapshotGenerationRef = useRef(0);
 
   // Dynamic colors based on theme
   const bgColor = colors.background;
@@ -399,6 +400,38 @@ export const useChatScreen = () => {
     [user?.uid],
   );
 
+  const dedupeMessages = useCallback((list: Message[]): Message[] => {
+    const seen = new Set<string>();
+    return list.filter(msg => {
+      const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, []);
+
+  const mergeWithOptimistic = useCallback((
+    prev: Message[],
+    real: Message[],
+  ): Message[] => {
+    const optimistics = prev.filter((m: any) => m._optimistic);
+    if (optimistics.length === 0) return real;
+
+    const merged = [...real];
+    optimistics.forEach((opt: any) => {
+      const confirmed = real.some(
+        r =>
+          (r as any).senderDeviceId === opt.senderDeviceId &&
+          (r as any).type === opt.type &&
+          Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
+      );
+      if (!confirmed) merged.push(opt);
+    });
+
+    merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
+    return merged;
+  }, []);
+
   // Subscribe to messages
   const isFirstSnapshotRef = useRef(true);
   useEffect(() => {
@@ -410,6 +443,7 @@ export const useChatScreen = () => {
     isFirstSnapshotRef.current = true;
     hasSeenServerSnapshotRef.current = false;
     const cachedMessages = chatMessagesCacheByUser.get(user.uid) || [];
+    const hasWarmCache = cachedMessages.length > 0;
     if (cachedMessages.length > 0) {
       setMessages(cachedMessages);
       setIsLoading(false);
@@ -423,14 +457,15 @@ export const useChatScreen = () => {
       .orderBy('timestamp', 'desc')
       .limit(100);
 
-    const FIRST_SNAPSHOT_TIMEOUT_MS = 12000;
+    const FIRST_SNAPSHOT_TIMEOUT_MS = 8000;
     const firstSnapshotTimeout = setTimeout(() => {
       setIsLoading(false);
     }, FIRST_SNAPSHOT_TIMEOUT_MS);
 
     const unsubscribe = chatsQuery.onSnapshot(
-        { includeMetadataChanges: true },
+        { includeMetadataChanges: false },
         async snapshot => {
+          const generation = ++snapshotGenerationRef.current;
           clearTimeout(firstSnapshotTimeout);
           const rawMsgs: Message[] = [];
           snapshot.forEach(doc => {
@@ -442,7 +477,20 @@ export const useChatScreen = () => {
           // The selector in this screen is "Send to" only.
           // Keep chat history unfiltered so incoming messages never disappear.
           const filteredMsgs = rawMsgs;
+
+          // On cold reinstall/open with no in-memory cache, render newest messages first
+          // so the UI becomes responsive while full decrypt continues in background.
+          if (!hasWarmCache && filteredMsgs.length > 35) {
+            const recentSlice = filteredMsgs.slice(-35);
+            const recentDecrypted = await decryptMessagesWithCache(recentSlice);
+            if (generation !== snapshotGenerationRef.current) return;
+            const recentDeduped = dedupeMessages(recentDecrypted);
+            setMessages(prev => mergeWithOptimistic(prev, recentDeduped as Message[]));
+            setIsLoading(false);
+          }
+
           const decryptedMsgs = await decryptMessagesWithCache(filteredMsgs);
+          if (generation !== snapshotGenerationRef.current) return;
           // Auto-copy text messages received from Chrome extension to clipboard
           if (isFirstSnapshotRef.current) {
             isFirstSnapshotRef.current = false;
@@ -476,34 +524,9 @@ export const useChatScreen = () => {
           }
           // Deduplicate: fan-out creates one Firestore doc per device;
           // collapse copies with same sender + timestamp + content into one.
-          const seen = new Set<string>();
-          const dedupedMsgs = decryptedMsgs.filter(msg => {
-            const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
+          const dedupedMsgs = dedupeMessages(decryptedMsgs);
           chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
-          // Merge: preserve optimistic messages that haven't been confirmed by
-          // Firestore yet (matched by senderDeviceId + type + timestamp proximity).
-          setMessages(prev => {
-            const optimistics = prev.filter((m: any) => m._optimistic);
-            const real = dedupedMsgs as Message[];
-            if (optimistics.length === 0) return real;
-            const merged = [...real];
-            optimistics.forEach((opt: any) => {
-              const confirmed = real.some(
-                r =>
-                  (r as any).senderDeviceId === opt.senderDeviceId &&
-                  (r as any).type === opt.type &&
-                  Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
-              );
-              // Only keep optimistic if the real message hasn't arrived yet
-              if (!confirmed) merged.push(opt);
-            });
-            merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
-            return merged;
-          });
+          setMessages(prev => mergeWithOptimistic(prev, dedupedMsgs as Message[]));
 
           if (!snapshot.metadata.fromCache) {
             hasSeenServerSnapshotRef.current = true;
@@ -535,44 +558,29 @@ export const useChatScreen = () => {
           const filteredMsgs = rawMsgs;
 
           const decryptedMsgs = await decryptMessagesWithCache(filteredMsgs);
-
-          const seen = new Set<string>();
-          const dedupedMsgs = decryptedMsgs.filter(msg => {
-            const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
+          const dedupedMsgs = dedupeMessages(decryptedMsgs);
           chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
 
-          setMessages(prev => {
-            const optimistics = prev.filter((m: any) => m._optimistic);
-            const real = dedupedMsgs as Message[];
-            if (optimistics.length === 0) return real;
-            const merged = [...real];
-            optimistics.forEach((opt: any) => {
-              const confirmed = real.some(
-                r =>
-                  (r as any).senderDeviceId === opt.senderDeviceId &&
-                  (r as any).type === opt.type &&
-                  Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
-              );
-              if (!confirmed) merged.push(opt);
-            });
-            merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
-            return merged;
-          });
+          setMessages(prev => mergeWithOptimistic(prev, dedupedMsgs as Message[]));
           setIsLoading(false);
         })
         .catch(() => {});
     });
 
     return () => {
+      snapshotGenerationRef.current += 1;
       clearTimeout(firstSnapshotTimeout);
       unsubscribe();
       appStateSub.remove();
     };
-  }, [isFocused, user?.uid, currentDevice, decryptMessagesWithCache]);
+  }, [
+    isFocused,
+    user?.uid,
+    currentDevice,
+    decryptMessagesWithCache,
+    dedupeMessages,
+    mergeWithOptimistic,
+  ]);
 
   // Send typing indicator - disabled for flat structure
   const sendTypingIndicator = useCallback(async () => {

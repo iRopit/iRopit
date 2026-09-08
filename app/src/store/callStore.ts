@@ -9,6 +9,9 @@ import { useDeviceStore } from './deviceStore';
 import { encryptCall, decryptCall } from '../services/cryptoService';
 
 let callListenerGeneration = 0;
+const callLogsCacheByDevice = new Map<string, CallLog[]>();
+const CALL_INITIAL_LOAD_LIMIT = 2500;
+const CALL_REMOTE_INITIAL_LOAD_LIMIT = 1200;
 
 interface CallState {
   calls: CallLog[];
@@ -178,6 +181,12 @@ export const useCallStore = create<CallState>()(
         const previousDeviceId = get().activeDeviceId;
         const isSwitchingDevice =
           !!previousDeviceId && previousDeviceId !== deviceId;
+        const isRemoteSelectedDevice =
+          !!deviceIdParam && deviceIdParam !== currentDevice.id;
+        const initialLoadLimit = isRemoteSelectedDevice
+          ? Math.min(CALL_PAGE_SIZE, CALL_REMOTE_INITIAL_LOAD_LIMIT)
+          : Math.min(CALL_PAGE_SIZE, CALL_INITIAL_LOAD_LIMIT);
+        const cachedCalls = callLogsCacheByDevice.get(deviceId) || null;
         const listenerGeneration = ++callListenerGeneration;
         const isStaleListener = () => listenerGeneration !== callListenerGeneration;
 
@@ -190,7 +199,7 @@ export const useCallStore = create<CallState>()(
         set({
           isLoading: true,
           activeDeviceId: deviceId,
-          calls: get().calls,
+          calls: cachedCalls || (isSwitchingDevice ? [] : get().calls),
         });
 
         const isLikelyCallPayload = (data: any): boolean => {
@@ -245,7 +254,7 @@ export const useCallStore = create<CallState>()(
           .doc(deviceId)
           .collection(COLLECTIONS.CALLS)
           .orderBy('timestamp', 'desc')
-          .limit(CALL_PAGE_SIZE)
+          .limit(initialLoadLimit)
           .onSnapshot(
             async snapshot => {
               if (isStaleListener()) return;
@@ -287,6 +296,7 @@ export const useCallStore = create<CallState>()(
                     const progressive = [...calls];
                     progressive.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                     if (isStaleListener()) return;
+                    callLogsCacheByDevice.set(deviceId, progressive);
                     set({ calls: progressive, isLoading: false });
                     hasRenderedProgressive = true;
                   }
@@ -296,6 +306,7 @@ export const useCallStore = create<CallState>()(
                 }
                 if (isStaleListener()) return;
                 calls.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                callLogsCacheByDevice.set(deviceId, calls);
                 set({ calls, isLoading: false });
                 return;
               }
@@ -334,6 +345,7 @@ export const useCallStore = create<CallState>()(
                 const merged = Array.from(callsMap.values());
                 merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 if (isStaleListener()) return;
+                callLogsCacheByDevice.set(deviceId, merged);
                 set({ calls: merged });
                 return;
               }
@@ -374,6 +386,7 @@ export const useCallStore = create<CallState>()(
                   const snapshotMerged = Array.from(snapshotMap.values());
                   snapshotMerged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                   if (isStaleListener()) return;
+                  callLogsCacheByDevice.set(deviceId, snapshotMerged);
                   set({ calls: snapshotMerged });
                 }
               }
@@ -537,6 +550,7 @@ export const useCallStore = create<CallState>()(
 
       cleanup: () => {
         callListenerGeneration++;
+        callLogsCacheByDevice.clear();
         const { unsubscribe } = get();
         if (unsubscribe) {
           unsubscribe();

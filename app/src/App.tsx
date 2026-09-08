@@ -7,6 +7,7 @@ import {
   Platform,
   InteractionManager,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -31,6 +32,7 @@ import {
 import { LIGHT_COLORS, DARK_COLORS } from './theme/colors';
 import { useNativeEvents } from './hooks/useNativeEvents';
 import { checkOnboardingComplete } from './screens/onboarding/OnboardingScreen/useOnboarding';
+import ErrorBoundary from './components/feedback/ErrorBoundary';
 // ServiceStatusBanner is now only in MainNavigator
 
 const { NotificationModule } = NativeModules;
@@ -47,17 +49,57 @@ const AppContent = () => {
   // Initialize native event listeners for SMS and Calls - true to enable listening
   useNativeEvents(true);
   useEffect(() => {
-    initializeFirebase();
-    initialize();
+    const errorUtils = (global as any).ErrorUtils;
+    const previousGlobalHandler =
+      typeof errorUtils?.getGlobalHandler === 'function'
+        ? errorUtils.getGlobalHandler()
+        : null;
+
+    if (typeof errorUtils?.setGlobalHandler === 'function') {
+      errorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
+        try {
+          const payload = JSON.stringify({
+            name: error?.name || 'Error',
+            message: error?.message || String(error),
+            stack: error?.stack || '',
+            isFatal: !!isFatal,
+            time: Date.now(),
+          });
+          AsyncStorage.setItem('@iropit_last_js_crash', payload).catch(() => {});
+        } catch (_) {}
+
+        console.error('[GlobalJSException]', isFatal ? 'FATAL' : 'NON_FATAL', error);
+
+        if (typeof previousGlobalHandler === 'function') {
+          previousGlobalHandler(error, !!isFatal);
+        }
+      });
+    }
+
+    let unsubscribeAuth: (() => void) | void;
+    try {
+      initializeFirebase();
+    } catch (e) {
+      console.error('[App] Firebase initialization failed:', e);
+    }
+
+    try {
+      unsubscribeAuth = initialize();
+    } catch (e) {
+      console.error('[App] Auth initialization failed:', e);
+    }
+
+    let isMounted = true;
     let interactionTask: { cancel: () => void } | null = null;
 
     // Check Notification Access permission on app start (only after onboarding)
     if (Platform.OS === 'android' && NotificationModule) {
       const checkNotificationAccess = async () => {
         try {
+          if (!isMounted) return;
           // Only show alert if user has completed onboarding
           const onboardingComplete = await checkOnboardingComplete();
-          if (!onboardingComplete) {
+          if (!isMounted || !onboardingComplete) {
             return; // Skip alert if onboarding not complete
           }
 
@@ -92,7 +134,11 @@ const AppContent = () => {
       };
       // Run after initial interactions to avoid delaying first paint on cold reopen.
       interactionTask = InteractionManager.runAfterInteractions(() => {
-        setTimeout(checkNotificationAccess, 1200);
+        if (!isMounted) return;
+        setTimeout(() => {
+          if (!isMounted) return;
+          checkNotificationAccess().catch(() => {});
+        }, 1200);
       });
     }
 
@@ -175,7 +221,14 @@ const AppContent = () => {
       });
 
     return () => {
+      isMounted = false;
       interactionTask?.cancel();
+      if (typeof errorUtils?.setGlobalHandler === 'function' && previousGlobalHandler) {
+        errorUtils.setGlobalHandler(previousGlobalHandler);
+      }
+      if (typeof unsubscribeAuth === 'function') {
+        unsubscribeAuth();
+      }
       unsubscribeForeground();
       unsubscribeOpenedApp();
     };
@@ -236,7 +289,14 @@ const App = () => {
     <SafeAreaProvider>
       <ThemeProvider>
         <InAppNotificationProvider>
-          <AppContent />
+          <ErrorBoundary
+            title="Something went wrong"
+            message="The app hit an unexpected error. Tap retry to recover."
+            retryText="Retry"
+            showDetails={false}
+          >
+            <AppContent />
+          </ErrorBoundary>
         </InAppNotificationProvider>
       </ThemeProvider>
     </SafeAreaProvider>

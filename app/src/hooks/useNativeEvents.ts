@@ -54,6 +54,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
   const initialSyncRunningRef = useRef(false);
   const initialSyncDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSyncInteractionTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const contactSyncDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-sync contacts when app comes to foreground (max once per 5 minutes)
   useEffect(() => {
@@ -66,7 +67,7 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
         if (now - lastContactSyncRef.current > FIVE_MINUTES) {
           lastContactSyncRef.current = now;
           console.log('[Contacts] App foregrounded - re-syncing contacts');
-          syncContactsToFirebase();
+          syncContactsToFirebase().catch(() => {});
         }
       }
     };
@@ -103,13 +104,24 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
     startOnlineStatusTracking();
 
     // Delay contact sync slightly to ensure Firestore auth token is ready.
-    setTimeout(() => syncContactsToFirebase(), 2000);
+    if (contactSyncDelayTimerRef.current) {
+      clearTimeout(contactSyncDelayTimerRef.current);
+      contactSyncDelayTimerRef.current = null;
+    }
+    contactSyncDelayTimerRef.current = setTimeout(() => {
+      contactSyncDelayTimerRef.current = null;
+      syncContactsToFirebase().catch(() => {});
+    }, 2000);
 
     if (!fcmTokenListenerUnsubscribe.current) {
       fcmTokenListenerUnsubscribe.current = startFcmTokenListener();
     }
 
     return () => {
+      if (contactSyncDelayTimerRef.current) {
+        clearTimeout(contactSyncDelayTimerRef.current);
+        contactSyncDelayTimerRef.current = null;
+      }
       stopOnlineStatusTracking();
       if (fcmTokenListenerUnsubscribe.current) {
         fcmTokenListenerUnsubscribe.current();
