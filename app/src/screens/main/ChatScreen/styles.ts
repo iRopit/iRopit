@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ColorTheme } from '../../../theme/colors';
 
 export const createStyles = (colors: ColorTheme) =>
@@ -118,7 +118,7 @@ export const createStyles = (colors: ColorTheme) =>
       flexDirection: 'row',
       alignItems: 'flex-end',
       padding: 8,
-      paddingBottom: Platform.OS === 'ios' ? 34 : 8,
+      paddingBottom: 6,
     },
     attachButton: {
       width: 40,

@@ -40,17 +40,20 @@ export const formatTime = (timestamp: number): string => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-export const getInitials = (name: string): string => {
-  if (!name) return '?';
-  const words = name.trim().split(' ');
+export const getInitials = (name: string | number | null | undefined): string => {
+  if (name == null) return '?';
+  const safeName = String(name).trim();
+  if (!safeName) return '?';
+  const words = safeName.split(' ');
   if (words.length >= 2) {
     return (words[0][0] + words[words.length - 1][0]).toUpperCase();
   }
-  return name.substring(0, 2).toUpperCase();
+  return safeName.substring(0, 2).toUpperCase();
 };
 
-export const normalizePhoneNumber = (phone: string): string => {
-  let normalized = phone.replace(/[\s\-\(\)\+]/g, '').trim();
+export const normalizePhoneNumber = (phone: string | number | null | undefined): string => {
+  const safePhone = phone == null ? '' : String(phone);
+  let normalized = safePhone.replace(/[\s\-\(\)\+]/g, '').trim();
   if (normalized.startsWith('20') && normalized.length > 10) {
     normalized = normalized.substring(2);
   }

@@ -125,51 +125,32 @@ const CallsScreen = () => {
   );
 
   const renderEmptyState = () => (
-    <EmptyState
-      icon="📞"
-      title={isRTL ? 'لا توجد مكالمات' : 'No Calls'}
-      subtitle={
-        isRTL
-          ? 'المكالمات الجديدة ستظهر هنا بعد حدوثها'
-          : 'New calls will appear here after they occur'
-      }
-      isDarkMode={isDarkMode}
-    />
+    (isSwitchingDevice || isLoading || isSyncing) ? (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16 }}>
+          {isSwitchingDevice
+            ? isRTL
+              ? 'جاري تبديل الجهاز وتحميل المكالمات...'
+              : 'Switching device and loading calls...'
+            : isRTL
+            ? 'جاري تحميل المكالمات...'
+            : 'Loading calls...'}
+        </Text>
+      </View>
+    ) : (
+      <EmptyState
+        icon="📞"
+        title={isRTL ? 'لا توجد مكالمات' : 'No Calls'}
+        subtitle={
+          isRTL
+            ? 'المكالمات الجديدة ستظهر هنا بعد حدوثها'
+            : 'New calls will appear here after they occur'
+        }
+        isDarkMode={isDarkMode}
+      />
+    )
   );
-
-  // Show loading indicator while initial historical sync is running and we
-  // don't have any calls yet (avoids the "No Calls" flash on fresh install).
-  if ((isLoading || isSyncing) && calls.length === 0) {
-    return (
-      <Container
-        isDark={isDarkMode}
-        noPaddingHorizontal
-        backgroundColor={bgColor}
-      >
-        <SelectableHeader
-          isSelectMode={isSelectMode}
-          selectedCount={selectedCalls.length}
-          totalCount={groupedCalls.length}
-          onCancel={cancelSelectMode}
-          onSelectAll={toggleSelectAll}
-          onEnterSelectMode={enterSelectMode}
-          isRTL={isRTL}
-          isDarkMode={isDarkMode}
-        />
-        <ScreenTitle
-          title={isRTL ? 'المكالمات' : 'Calls'}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: secondaryTextColor }]}>
-            {isRTL ? 'جاري تحميل المكالمات...' : 'Loading calls...'}
-          </Text>
-        </View>
-      </Container>
-    );
-  }
 
   return (
     <Container

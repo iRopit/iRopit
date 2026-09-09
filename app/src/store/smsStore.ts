@@ -279,7 +279,7 @@ export const useSMSStore = create<SMSState>()(
         const isRemoteSelectedDevice =
           !!deviceIdParam && deviceIdParam !== currentDevice.id;
         const initialLoadLimit = isRemoteSelectedDevice
-          ? Math.min(800, SMS_PAGE_SIZE)
+          ? Math.min(300, SMS_PAGE_SIZE)
           : Math.min(SMS_PAGE_SIZE, SMS_INITIAL_LOAD_LIMIT);
         const previousDeviceId = get().smsDebug.deviceId;
         const isSwitchingDevice =
@@ -340,8 +340,8 @@ export const useSMSStore = create<SMSState>()(
             deviceId: data.deviceId || currentDevice.id,
             body: data.text || data.content || data.body || '',
             text: data.text || data.content || data.body || '',
-            phoneNumber: data.phoneNumber || '',
-            sender: data.phoneNumber || '',
+            phoneNumber: data.phoneNumber || data.sender || data.address || data.number || '',
+            sender: data.sender || data.phoneNumber || data.address || data.number || '',
             contactName: data.contactName || '',
             timestamp:
               data.timestamp ||
@@ -555,15 +555,23 @@ export const useSMSStore = create<SMSState>()(
 
         const unsubscribers = targetDeviceIds.map(targetDeviceId => {
           let isInitialSnapshot = true;
-          return firestore()
+          const notificationsRef = firestore()
             .collection(COLLECTIONS.USERS)
             .doc(user.uid)
             .collection(COLLECTIONS.DEVICES)
             .doc(targetDeviceId)
-            .collection(COLLECTIONS.NOTIFICATIONS)
-            .orderBy('timestamp', 'desc')
-            .limit(initialLoadLimit)
-            .onSnapshot(
+            .collection(COLLECTIONS.NOTIFICATIONS);
+
+          const listenerQuery = isRemoteSelectedDevice
+            ? notificationsRef
+                .where('type', '==', 'sms')
+                .orderBy('timestamp', 'desc')
+                .limit(initialLoadLimit)
+            : notificationsRef
+                .orderBy('timestamp', 'desc')
+                .limit(initialLoadLimit);
+
+          return listenerQuery.onSnapshot(
               async snapshot => {
                 if (isStaleListener()) return;
                 clearTimeout(initialSnapshotTimeout);
@@ -583,16 +591,67 @@ export const useSMSStore = create<SMSState>()(
                       smsDebug: {
                         ...state.smsDebug,
                         strictDocs: rawMessages.length,
-                        source: 'strict-notifications',
+                        source: isRemoteSelectedDevice
+                          ? 'strict-sms-listener'
+                          : 'strict-notifications',
                       },
                     }));
+
+                  // If timeline is dominated by non-SMS notifications, this
+                  // explicit SMS query avoids returning only 1-2 rows on
+                  // selected-device switches.
+                  if (
+                    !isRemoteSelectedDevice &&
+                    snapshot.size >= initialLoadLimit &&
+                    rawMessages.length <= 2
+                  ) {
+                    try {
+                      const strictSmsSnap = await firestore()
+                        .collection(COLLECTIONS.USERS)
+                        .doc(user.uid)
+                        .collection(COLLECTIONS.DEVICES)
+                        .doc(targetDeviceId)
+                        .collection(COLLECTIONS.NOTIFICATIONS)
+                        .where('type', '==', 'sms')
+                        .orderBy('timestamp', 'desc')
+                        .limit(initialLoadLimit)
+                        .get();
+
+                      const strictTypeMessages: any[] = [];
+                      strictSmsSnap.forEach(doc => {
+                        strictTypeMessages.push({ ...doc.data(), id: doc.id });
+                      });
+
+                      appendUniqueById(rawMessages, strictTypeMessages);
+                      setIfCurrent((state: SMSState) => ({
+                        smsDebug: {
+                          ...state.smsDebug,
+                          strictDocs: Math.max(
+                            state.smsDebug.strictDocs,
+                            strictTypeMessages.length,
+                          ),
+                          source:
+                            strictTypeMessages.length > 0
+                              ? 'strict-type-query'
+                              : state.smsDebug.source,
+                        },
+                      }));
+                    } catch (_) {}
+                  }
 
                   // Compatibility fallback: older builds may have SMS without
                   // strict markers. For remote device switches we always
                   // supplement strict results with fallback paths.
-                  if (rawMessages.length === 0 || isRemoteSelectedDevice) {
+                  const needsFallbackExpansion =
+                    rawMessages.length === 0 ||
+                    (isRemoteSelectedDevice && rawMessages.length < 25);
+
+                  if (needsFallbackExpansion) {
                     try {
                       let relaxedCount = 0;
+                      const relaxedLimit = isRemoteSelectedDevice
+                        ? Math.min(180, initialLoadLimit)
+                        : initialLoadLimit;
                       const relaxedSnap = await firestore()
                         .collection(COLLECTIONS.USERS)
                         .doc(user.uid)
@@ -600,7 +659,7 @@ export const useSMSStore = create<SMSState>()(
                         .doc(targetDeviceId)
                         .collection(COLLECTIONS.NOTIFICATIONS)
                         .orderBy('timestamp', 'desc')
-                        .limit(initialLoadLimit)
+                        .limit(relaxedLimit)
                         .get();
 
                       const relaxedMessages: any[] = [];
@@ -627,7 +686,7 @@ export const useSMSStore = create<SMSState>()(
                       // Older records may not have `timestamp` but do have
                       // `createdAt`. For remote device switches, always
                       // supplement with this path as well.
-                      if (rawMessages.length === 0 || isRemoteSelectedDevice) {
+                      if (rawMessages.length === 0 || (isRemoteSelectedDevice && rawMessages.length < 25)) {
                         const createdAtSnap = await firestore()
                           .collection(COLLECTIONS.USERS)
                           .doc(user.uid)
@@ -666,15 +725,18 @@ export const useSMSStore = create<SMSState>()(
                     } catch (_) {}
                   }
 
-                  if (rawMessages.length === 0 || isRemoteSelectedDevice) {
+                  if (rawMessages.length === 0 || (isRemoteSelectedDevice && rawMessages.length < 25)) {
                     try {
                       let legacyCount = 0;
+                      const legacyLimit = isRemoteSelectedDevice
+                        ? Math.min(180, initialLoadLimit)
+                        : initialLoadLimit;
                       const legacySnap = await firestore()
                         .collection(COLLECTIONS.SMS)
                         .where('userId', '==', user.uid)
                         .where('deviceId', '==', targetDeviceId)
                         .orderBy('timestamp', 'desc')
-                        .limit(initialLoadLimit)
+                        .limit(legacyLimit)
                         .get();
 
                       const legacyMessages: any[] = [];
@@ -694,7 +756,7 @@ export const useSMSStore = create<SMSState>()(
                   }
 
                       if (isStaleListener()) return;
-                    const DECRYPT_CHUNK = 50;
+                    const DECRYPT_CHUNK = isRemoteSelectedDevice ? 25 : 50;
                     const mergedMessages: any[] = [...rawMessages];
                     let successfulDecrypts = 0;
                     for (let i = 0; i < rawMessages.length; i += DECRYPT_CHUNK) {
@@ -739,6 +801,10 @@ export const useSMSStore = create<SMSState>()(
                         messagesByDevice.set(targetDeviceId, progressiveDeduped);
                         mergeAllDevices();
                         setIfCurrent((state: SMSState) => ({
+                          isLoading:
+                            isRemoteSelectedDevice && progressiveDeduped.length > 0
+                              ? false
+                              : pendingInitial > 0,
                           smsDebug: {
                             ...state.smsDebug,
                             decryptedDocs: successfulDecrypts,

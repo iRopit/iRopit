@@ -107,7 +107,6 @@ const ChatScreen = () => {
     isUploading,
     uploadProgress,
     keyboardHeight,
-    insets,
     user,
     currentDevice,
     devices,
@@ -137,6 +136,9 @@ const ChatScreen = () => {
     () => [...filteredMessages].reverse(),
     [filteredMessages],
   );
+
+  // Match v1.1.28 keyboard offset behavior.
+  const keyboardSpacerHeight = keyboardHeight > 0 ? keyboardHeight : 0;
 
   const handleSelectChatDevice = useCallback(
     (deviceId: string | null) => {
@@ -377,6 +379,7 @@ const ChatScreen = () => {
     <Container
       isDark={isDarkMode}
       noPaddingHorizontal
+      edges={['top']}
       backgroundColor={bgColor}
     >
       {renderHeader()}
@@ -685,12 +688,17 @@ const ChatScreen = () => {
             onPress={sendMessage}
             disabled={!inputText.trim()}
           >
-            <Text style={styles.sendButtonText}>↑</Text>
+            <Ionicons
+              name="paper-plane-outline"
+              size={20}
+              color="#111111"
+              style={{ transform: [{ rotate: '-18deg' }] }}
+            />
           </TouchableOpacity>
         )}
       </View>
-      {Platform.OS === 'android' && keyboardHeight > 0 && (
-        <View style={{ height: keyboardHeight + insets.bottom }} />
+      {Platform.OS === 'android' && keyboardSpacerHeight > 0 && (
+        <View style={{ height: keyboardSpacerHeight }} />
       )}
       </View>
 

@@ -21,12 +21,13 @@ import { normalizePhoneNumber, sanitizeFirestoreKey } from './helper';
 
 const EMPTY_SMS_MESSAGES: any[] = [];
 const EMPTY_NOTIFICATIONS: AppNotification[] = [];
+const notificationsCacheByDevice = new Map<string, AppNotification[]>();
 
 export const useNotificationsScreen = (
   filterType?: 'sms' | 'notifications-only' | 'all',
 ) => {
   const NOTIFICATIONS_INITIAL_LIMIT = 1200;
-  const NOTIFICATIONS_REMOTE_INITIAL_LIMIT = 500;
+  const NOTIFICATIONS_REMOTE_INITIAL_LIMIT = 300;
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const shouldUseSmsData = filterType !== 'notifications-only';
@@ -158,6 +159,16 @@ export const useNotificationsScreen = (
     lastSmsLoadKeyRef.current = '';
     notificationsListenerGenerationRef.current += 1;
 
+    // Warm start selected-device notifications from memory cache so the
+    // list appears instantly while Firestore catches up.
+    if (filterType !== 'sms' && activeDeviceId) {
+      const cachedNotifications =
+        notificationsCacheByDevice.get(activeDeviceId) || null;
+      if (cachedNotifications && cachedNotifications.length > 0) {
+        setNotifications(cachedNotifications);
+      }
+    }
+
     // For SMS device switches, always re-enable initial loader so old-device
     // rows are not mistaken for a hang while the new listener warms up.
     const shouldForceLoader = filterType === 'sms';
@@ -176,6 +187,7 @@ export const useNotificationsScreen = (
     isFocused,
     activeDeviceId,
     filterType,
+    setNotifications,
     clearSwitchTimeout,
   ]);
 
@@ -199,17 +211,19 @@ export const useNotificationsScreen = (
     // Build phone-to-name map from local device contacts
     if (Array.isArray(contacts)) {
       contacts.forEach(contact => {
-        if (contact.name && contact.phoneNumber) {
-          const normalized = normalizePhoneNumber(contact.phoneNumber);
+        const contactName = String((contact as any)?.name ?? '');
+        const primaryPhone = String((contact as any)?.phoneNumber ?? '');
+        if (contactName && primaryPhone) {
+          const normalized = normalizePhoneNumber(primaryPhone);
           if (normalized) {
-            phoneToNameMap[normalized] = contact.name;
+            phoneToNameMap[normalized] = contactName;
           }
           // Also map all alternate phone numbers
-          if (contact.phoneNumbers) {
-            contact.phoneNumbers.forEach((num: string) => {
+          if ((contact as any).phoneNumbers) {
+            (contact as any).phoneNumbers.forEach((num: string) => {
               const normAlt = normalizePhoneNumber(num);
               if (normAlt) {
-                phoneToNameMap[normAlt] = contact.name;
+                phoneToNameMap[normAlt] = contactName;
               }
             });
           }
@@ -245,12 +259,13 @@ export const useNotificationsScreen = (
     // Process SMS messages - skip if notifications-only filter
     if (filterType !== 'notifications-only') {
       validSmsMessages.forEach(sms => {
-        let phoneNumber =
-          (sms as any).phoneNumber ||
-          (sms as any).sender ||
-          (sms as any).address ||
-          '';
-        let contactName = (sms as any).contactName || '';
+        let phoneNumber = String(
+          (sms as any).phoneNumber ??
+            (sms as any).sender ??
+            (sms as any).address ??
+            '',
+        );
+        let contactName = String((sms as any).contactName ?? '');
 
         // If contactName looks like a phone number, treat it as empty
         // (name will be resolved from contacts map instead)
@@ -293,11 +308,12 @@ export const useNotificationsScreen = (
           key: `sms_${smsId}`,
           packageName: 'com.android.mms',
           title: displayName,
-          text:
-            (sms as any).body ||
-            (sms as any).message ||
-            (sms as any).text ||
-            '',
+          text: String(
+            (sms as any).body ??
+              (sms as any).message ??
+              (sms as any).text ??
+              '',
+          ),
           appName: 'SMS',
           type: 'sms',
           smsType: (sms as any).type || 'inbox',
@@ -713,6 +729,12 @@ export const useNotificationsScreen = (
     if (!shouldUseNotificationsData) return;
     if (!user || !currentDevice || !activeDeviceId) return;
 
+    const cachedNotifications =
+      notificationsCacheByDevice.get(activeDeviceId) || null;
+    if (cachedNotifications && cachedNotifications.length > 0) {
+      setNotifications(cachedNotifications);
+    }
+
     const listenerGeneration = ++notificationsListenerGenerationRef.current;
     const isStaleListener =
       () => listenerGeneration !== notificationsListenerGenerationRef.current;
@@ -771,6 +793,7 @@ export const useNotificationsScreen = (
           const mapped = mapNotifications(snapshot);
 
           setNotifications(mapped);
+          notificationsCacheByDevice.set(activeDeviceId, mapped);
 
           // Some older selected-device notifications can be missing timestamp.
           // If timestamp listener is empty, do a one-time createdAt fallback.
@@ -791,6 +814,7 @@ export const useNotificationsScreen = (
               const fallbackMapped = mapNotifications(createdAtSnap);
               if (fallbackMapped.length > 0) {
                 setNotifications(fallbackMapped);
+                notificationsCacheByDevice.set(activeDeviceId, fallbackMapped);
               }
             } catch (_) {}
           }

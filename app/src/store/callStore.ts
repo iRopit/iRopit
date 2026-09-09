@@ -11,7 +11,7 @@ import { encryptCall, decryptCall } from '../services/cryptoService';
 let callListenerGeneration = 0;
 const callLogsCacheByDevice = new Map<string, CallLog[]>();
 const CALL_INITIAL_LOAD_LIMIT = 2500;
-const CALL_REMOTE_INITIAL_LOAD_LIMIT = 1200;
+const CALL_REMOTE_INITIAL_LOAD_LIMIT = 500;
 
 interface CallState {
   calls: CallLog[];
@@ -189,6 +189,7 @@ export const useCallStore = create<CallState>()(
         const cachedCalls = callLogsCacheByDevice.get(deviceId) || null;
         const listenerGeneration = ++callListenerGeneration;
         const isStaleListener = () => listenerGeneration !== callListenerGeneration;
+        const INITIAL_SNAPSHOT_TIMEOUT_MS = 8000;
 
         // Unsubscribe from previous listener
         const { unsubscribe: prevUnsubscribe } = get();
@@ -201,6 +202,11 @@ export const useCallStore = create<CallState>()(
           activeDeviceId: deviceId,
           calls: cachedCalls || (isSwitchingDevice ? [] : get().calls),
         });
+
+        const initialSnapshotTimeout = setTimeout(() => {
+          if (isStaleListener()) return;
+          set({ isLoading: false });
+        }, INITIAL_SNAPSHOT_TIMEOUT_MS);
 
         const isLikelyCallPayload = (data: any): boolean => {
           if (!data || typeof data !== 'object') return false;
@@ -247,6 +253,17 @@ export const useCallStore = create<CallState>()(
         // so we can merge them incrementally without re-decrypting everything.
         let isInitialSnapshot = true;
 
+        const appendUniqueById = (target: CallLog[], incoming: CallLog[]) => {
+          if (!incoming.length) return;
+          const existing = new Set(target.map(item => String(item?.id || '')));
+          incoming.forEach(item => {
+            const id = String(item?.id || '');
+            if (!id || existing.has(id)) return;
+            existing.add(id);
+            target.push(item);
+          });
+        };
+
         const unsubscribe = firestore()
           .collection(COLLECTIONS.USERS)
           .doc(user.uid)
@@ -258,6 +275,7 @@ export const useCallStore = create<CallState>()(
           .onSnapshot(
             async snapshot => {
               if (isStaleListener()) return;
+              clearTimeout(initialSnapshotTimeout);
 
               if (isInitialSnapshot) {
                 isInitialSnapshot = false;
@@ -278,6 +296,46 @@ export const useCallStore = create<CallState>()(
                     rawCalls.push({ id: doc.id, ...normalizedData } as CallLog);
                   }
                 });
+
+                // Compatibility fallback for selected devices where older builds
+                // persisted call-like events under notifications instead of calls.
+                if (
+                  rawCalls.length === 0 ||
+                  (isRemoteSelectedDevice && rawCalls.length <= 2)
+                ) {
+                  try {
+                    const fallbackSnap = await firestore()
+                      .collection(COLLECTIONS.USERS)
+                      .doc(user.uid)
+                      .collection(COLLECTIONS.DEVICES)
+                      .doc(deviceId)
+                      .collection(COLLECTIONS.NOTIFICATIONS)
+                      .orderBy('timestamp', 'desc')
+                      .limit(initialLoadLimit)
+                      .get();
+
+                    const fallbackCalls: CallLog[] = [];
+                    fallbackSnap.forEach(doc => {
+                      const data: any = doc.data() || {};
+                      const normalizedData = {
+                        ...data,
+                        timestamp:
+                          data.timestamp ||
+                          data.createdAt?.toMillis?.() ||
+                          data.syncedAt ||
+                          Date.now(),
+                      };
+                      if (isLikelyCallPayload(normalizedData)) {
+                        fallbackCalls.push({
+                          id: doc.id,
+                          ...normalizedData,
+                        } as CallLog);
+                      }
+                    });
+
+                    appendUniqueById(rawCalls, fallbackCalls);
+                  } catch (_) {}
+                }
                 // Decrypt in chunks with yields so large initial loads don't
                 // freeze the JS thread and cause navigation lag.
                 const DECRYPT_CHUNK = 100;
@@ -393,11 +451,19 @@ export const useCallStore = create<CallState>()(
             },
             error => {
               if (isStaleListener()) return;
+              clearTimeout(initialSnapshotTimeout);
               set({ error: error.message, isLoading: false });
             },
           );
 
-        set({ unsubscribe });
+        set({
+          unsubscribe: () => {
+            clearTimeout(initialSnapshotTimeout);
+            try {
+              unsubscribe();
+            } catch (_) {}
+          },
+        });
       },
 
       syncCalls: async (localCalls: any[]) => {
