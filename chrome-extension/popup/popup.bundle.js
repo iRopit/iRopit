@@ -34213,6 +34213,7 @@ ${this.customData.serverResponse}`;
     PKR: "PKR",
     MYR: "MYR",
     TRY: "TRY",
+    "\u062C\u0645": "EGP",
     "$": "USD",
     "\xA3": "GBP",
     "\u20AC": "EUR",
@@ -34221,6 +34222,7 @@ ${this.customData.serverResponse}`;
   };
   var DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
   var CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
+  var AR_INCOMING_TRANSFER_RE = /تم\s*(?:ايداع|إيداع|اضافة|إضافة)\s*تحويل/i;
   var CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
   var CARD_PAYMENT_RECEIVED_RE = /\bpayment\s+of\b.{0,80}\bhas\s+been\s+received\s+on\s+your\b.{0,80}\bcard\b/i;
   var CARD_STATEMENT_RE_AR = /كشف\s*حساب|الحد\s*الأدنى\s*لل(?:دفع|سداد)|تاريخ\s*(?:ال)?(?:أ|ا)ستحقاق|اخر\s*دفعة\s*مستلمة/i;
@@ -34236,7 +34238,7 @@ ${this.customData.serverResponse}`;
   var BALANCE_MASK_RE_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:is\s+(?:your\s+|the\s+)?)?(?:(?:current|available|total|avail|new|updated)\s+)?\b(balance|bal\b|available\b|avail\b|limit\b|outstanding\b)/gi;
   var BALANCE_MASK_RE_AR = /(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى|المتوفر))?|الحد(?:\s*(?:المتاح|الأدنى\s*لل(?:دفع|سداد)))?|المتاح|المتبقي|المتبقى|المتوفر|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى|اخر\s*دفعة\s*مستلمة)\s*[:\-]?\s*(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?/gi;
   var BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*)?([0-9,]+(?:\.[0-9]{1,3})?)(?:\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))?\s*(?:الرصيد(?:\s*(?:المتاح|المتبقي|المتبقى))?|الحد(?:\s*المتاح)?|المتاح|المتبقي|المتبقى|رصيد(?:\s*متاح)?|متاح|متبقي|متبقى)/gi;
-  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+  var AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))/gi;
   function isBankingSMS(body) {
     if (!body || typeof body !== "string") return false;
     const STRONG = /\b(debited|credited|reversed|reversal|transaction|txn|purchase|withdrawal|has been used|used for|credit card|debit card|pos |atm |card ending|card no|account ending|a\/c ending|a\/c no|acct no|your card|your account|bank account|internet banking|online banking|mobile banking|dear customer|dear valued|salary|authorization code|auth code|ref no|reference no|upi|neft|rtgs|imps|swift|wire transfer|tt\s+payment|telegraphic\s+transfer|direct debit|standing order|emi|instalment|installment|cashback|refund|available\s+balance|your\s+balance)\b|(?:بطاقة|بطاقه|المدفوعة\s*مقد(?:ما|مًا)|مدفوعة\s*مقد(?:ما|مًا)|حساب|المتاح|رصيد|تم\s*خصم|تم\s*(?:ايداع|إيداع)|عملية\s*شراء|للمزيد\s*اتصل)/i;
@@ -34280,7 +34282,7 @@ ${this.customData.serverResponse}`;
         type = "credit";
       } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
         type = "debit";
-      } else if (forceCreditMessage) {
+      } else if (forceCreditMessage || AR_INCOMING_TRANSFER_RE.test(body)) {
         type = "credit";
       } else {
         type = isCredit && !isDebit ? "credit" : "debit";

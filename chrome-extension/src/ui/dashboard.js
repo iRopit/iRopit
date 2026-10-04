@@ -469,7 +469,7 @@ const CURRENCY_MAP = {
   SAR: "SAR", AED: "AED", KWD: "KWD", BHD: "BHD", QAR: "QAR", OMR: "OMR",
   EGP: "EGP", JOD: "JOD", USD: "USD", GBP: "GBP", EUR: "EUR", INR: "INR",
   PKR: "PKR", MYR: "MYR", TRY: "TRY",
-  "$": "USD", "£": "GBP", "€": "EUR", "₹": "INR", "﷼": "SAR",
+  "جم": "EGP", "$": "USD", "£": "GBP", "€": "EUR", "₹": "INR", "﷼": "SAR",
 };
 
 const CURRENCY_REGEX_STR =
@@ -480,6 +480,7 @@ const CURRENCY_REGEX_STR =
 const DEBIT_KEYWORDS = /\b(debited|debit|charged|charge|paid|payment|purchase|bought|withdrawn|withdrawal|deducted|deduct|sent|used\s+for|has\s+been\s+used|transfer(?:red)?\s+(?:to|from\s+your))\b|(?:تم\s*خصم|خصم|عملية\s*شراء|شراء|سحب|مدفوعة|دفع|استخدام\s*بطاقة|استخدام\s*البطاقة)/i;
 // NOTE: "received" removed — banks say "we received your payment" which is a DEBIT for the customer
 const CREDIT_KEYWORDS = /\b(credited|deposited|deposit|refund|cashback|returned|reversed|reversal|salary|transferred\s+to\s+your)\b|(?:تم\s*(?:ايداع|إيداع|اضافة|إضافة|تحويل)|ايداع|إيداع|استرداد|مرتجع|راتب|تحويل\s*وارد)/i;
+const AR_INCOMING_TRANSFER_RE = /تم\s*(?:ايداع|إيداع|اضافة|إضافة)\s*تحويل/i;
 // Credit card bill payment confirmations — "Your Payment of AED X for card XXXX has been processed"
 // These are NOT spending transactions; they are the customer paying off their credit card balance.
 const CARD_BILL_PAYMENT_RE = /\bpayment\b.{0,80}\bfor\s+card\b.{0,80}\bhas\s+been\s+processed\b/i;
@@ -528,7 +529,7 @@ const BALANCE_MASK_RE_AR_B = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|IN
 // numbers like "XXXX1311 USD" where 1311 is part of the card number, not an amount.
 // Second branch requires no leading zeros (e.g. "001 AED" from account numbers like
 // "036-722***-001 AED 51.00" must not be matched as amount=1).
-const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY))/gi;
+const AMOUNT_POS_RE = /(?:(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|[$£€₹﷼])\s*([0-9,]+(?:\.[0-9]{1,3})?))|(?:(?<!\w)([1-9][0-9,]*(?:\.[0-9]{1,3})?|0\.[0-9]{1,3})\s*(SAR|AED|KWD|BHD|QAR|OMR|EGP|JOD|USD|GBP|EUR|INR|PKR|MYR|TRY|جم))/gi;
 
 /**
  * Returns true if the SMS body looks like a bank/card transaction alert.
@@ -615,7 +616,7 @@ function extractTransactions(body) {
       type = "credit";
     } else if (TT_PAYMENT_FROM_RE.test(ctx)) {
       type = "debit";
-    } else if (forceCreditMessage) {
+    } else if (forceCreditMessage || AR_INCOMING_TRANSFER_RE.test(body)) {
       type = "credit";
     } else {
       type = isCredit && !isDebit ? "credit" : "debit";
