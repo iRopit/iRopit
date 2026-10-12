@@ -8,6 +8,7 @@ import {
   auth,
   doc,
   getDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   collection,
@@ -35,6 +36,78 @@ function isUnavailableError(error) {
   const code = String(error?.code || "").toLowerCase()
   const msg = String(error?.message || "").toLowerCase()
   return code.includes("unavailable") || msg.includes("client is offline")
+}
+const COUNTRY_CODE_RE = /^[A-Z]{2}$/
+const TIME_ZONE_COUNTRY_MAP = {
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Kuwait": "KW",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Muscat": "OM",
+  "Asia/Amman": "JO",
+  "Asia/Baghdad": "IQ",
+  "Africa/Cairo": "EG",
+}
+
+function formatSignInCountryLabel(countryCode) {
+  if (typeof countryCode !== "string" || !countryCode.trim()) return "—"
+  const code = countryCode.trim().toUpperCase()
+  const language = getCurrentLanguage() === "ar" ? "ar" : "en"
+  try {
+    const displayNames = new Intl.DisplayNames([language], { type: "region" })
+    const countryName = displayNames.of(code)
+    if (countryName) return `${countryName} (${code})`
+  } catch (error) {
+    console.warn("[Settings] Unable to format country code:", error)
+  }
+  return code
+}
+
+function parseCountryCodeFromLocale(localeHint) {
+  if (typeof localeHint !== "string") return null
+  const token = localeHint.trim()
+  if (!token) return null
+  const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i)
+  if (!match) return null
+  const countryCode = String(match[1] || "").toUpperCase()
+  return COUNTRY_CODE_RE.test(countryCode) ? countryCode : null
+}
+
+function parseCountryCodeFromTimeZone(timeZone) {
+  if (typeof timeZone !== "string") return null
+  const zone = timeZone.trim()
+  if (!zone) return null
+  const countryCode = TIME_ZONE_COUNTRY_MAP[zone]
+  return COUNTRY_CODE_RE.test(countryCode || "") ? countryCode : null
+}
+
+function inferCountryCodeFromHints(localeHint, timeZone) {
+  const timeZoneCountryCode = parseCountryCodeFromTimeZone(timeZone)
+  if (timeZoneCountryCode) return timeZoneCountryCode
+  return parseCountryCodeFromLocale(localeHint)
+}
+
+function getLocaleCountryHints() {
+  const localeHint =
+    (typeof navigator !== "undefined" && typeof navigator.language === "string")
+      ? navigator.language.trim()
+      : ""
+
+  let timeZone = ""
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions()
+    if (typeof resolved?.timeZone === "string") {
+      timeZone = resolved.timeZone.trim()
+    }
+  } catch (error) {
+    console.warn("[Settings] Unable to resolve local time zone:", error)
+  }
+
+  return {
+    localeHint,
+    timeZone,
+  }
 }
 
 /**
@@ -75,8 +148,10 @@ export async function loadUserSettings() {
   chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
     const displayNameInput = document.getElementById("settingsDisplayName")
     const emailInput = document.getElementById("settingsEmail")
+    const signInCountryInput = document.getElementById("settingsLastSignInCountry")
     if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName
     if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail
+    if (signInCountryInput) signInCountryInput.value = cached.cachedLastSignInCountry || "—"
   })
 
   // Then fetch fresh from Firestore and update cache (wrapped so failures don't
@@ -87,14 +162,44 @@ export async function loadUserSettings() {
       const userData = userDoc.data()
       const displayNameInput = document.getElementById("settingsDisplayName")
       const emailInput = document.getElementById("settingsEmail")
+      const signInCountryInput = document.getElementById("settingsLastSignInCountry")
+      const existingCountryCode = userData.lastSignInCountryCode
+      const existingCountrySource = String(userData.lastSignInCountrySource || "")
+      let signInCountryLabel = formatSignInCountryLabel(existingCountryCode)
 
       if (displayNameInput) displayNameInput.value = userData.displayName || ""
       if (emailInput) emailInput.value = userData.email || ""
+      if (signInCountryInput) signInCountryInput.value = signInCountryLabel
+
+      const hints = getLocaleCountryHints()
+      const inferredCountryCode = inferCountryCodeFromHints(hints.localeHint, hints.timeZone)
+      const hasExistingCountryCode = typeof existingCountryCode === "string" && existingCountryCode.trim()
+      const shouldCorrectLocaleFallback =
+        hasExistingCountryCode &&
+        existingCountrySource.includes("locale-") &&
+        inferredCountryCode &&
+        inferredCountryCode !== existingCountryCode
+
+      if (!hasExistingCountryCode || shouldCorrectLocaleFallback) {
+        const fallbackCountryCode = inferredCountryCode
+        const fallbackLabel = formatSignInCountryLabel(fallbackCountryCode)
+        await setDoc(doc(db, "users", user.uid), {
+          lastSignInCountryCode: fallbackCountryCode,
+          lastSignInCountrySource: fallbackCountryCode ? "settings-hints-fallback" : "settings-hints-unavailable",
+          lastSignInCountryCapturedAt: Date.now(),
+          lastSignInLocaleHint: hints.localeHint || null,
+          lastSignInTimeZone: hints.timeZone || null,
+          lastLoginAt: Date.now(),
+        }, { merge: true })
+        signInCountryLabel = fallbackLabel
+        if (signInCountryInput) signInCountryInput.value = signInCountryLabel
+      }
 
       // Cache for instant display next time
       chrome.storage.local.set({
         cachedDisplayName: userData.displayName || "",
         cachedEmail: userData.email || "",
+        cachedLastSignInCountry: signInCountryLabel,
       })
     }
   } catch (e) {

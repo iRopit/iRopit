@@ -5,6 +5,7 @@
 
 const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const functionsV1 = require("firebase-functions/v1");
 const { defineString } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
@@ -17,6 +18,18 @@ initializeApp();
 
 const db = getFirestore();
 const messaging = getMessaging();
+const COUNTRY_CODE_RE = /^[A-Z]{2}$/;
+const TIME_ZONE_COUNTRY_MAP = {
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Kuwait": "KW",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Muscat": "OM",
+  "Asia/Amman": "JO",
+  "Asia/Baghdad": "IQ",
+  "Africa/Cairo": "EG",
+};
 
 const FIRST_LOGIN_EMAIL_SUBJECT =
   "Complete Your iRopit Setup in Less Than 1 Minute";
@@ -258,6 +271,116 @@ function simpleHash(str) {
   }
   return hash;
 }
+
+function normalizeCountryCode(value) {
+  if (typeof value !== "string") return null;
+  const code = value.trim().toUpperCase();
+  if (!COUNTRY_CODE_RE.test(code)) return null;
+  if (code === "ZZ" || code === "XX") return null;
+  return code;
+}
+
+function parseLocaleCountry(locale) {
+  if (typeof locale !== "string") return null;
+  const token = locale.trim();
+  if (!token) return null;
+  const match = token.match(/[-_]([a-z]{2}|\d{3})(?:[-_]|$)/i);
+  if (!match) return null;
+  return normalizeCountryCode(match[1]);
+}
+
+function parseAcceptLanguageCountry(acceptLanguageHeader) {
+  if (typeof acceptLanguageHeader !== "string") return null;
+  const firstLocale = acceptLanguageHeader
+    .split(",")
+    .map((part) => part.split(";")[0].trim())
+    .find(Boolean);
+  if (!firstLocale) return null;
+  return parseLocaleCountry(firstLocale);
+}
+
+function parseTimeZoneCountry(timeZoneHint) {
+  if (typeof timeZoneHint !== "string") return null;
+  const zone = timeZoneHint.trim();
+  if (!zone) return null;
+  return normalizeCountryCode(TIME_ZONE_COUNTRY_MAP[zone]);
+}
+
+function inferCountryCode(rawRequest, localeHint, timeZoneHint) {
+  const headers = rawRequest?.headers || {};
+  const headerCandidates = [
+    { source: "x-appengine-country", value: headers["x-appengine-country"] },
+    { source: "x-country-code", value: headers["x-country-code"] },
+    { source: "cf-ipcountry", value: headers["cf-ipcountry"] },
+    { source: "cloudfront-viewer-country", value: headers["cloudfront-viewer-country"] },
+  ];
+
+  for (const candidate of headerCandidates) {
+    const countryCode = normalizeCountryCode(candidate.value);
+    if (countryCode) {
+      return { countryCode, source: candidate.source };
+    }
+  }
+
+  const timeZoneCountry = parseTimeZoneCountry(timeZoneHint);
+  if (timeZoneCountry) {
+    return { countryCode: timeZoneCountry, source: "client-timezone" };
+  }
+
+  const localeCountry = parseLocaleCountry(localeHint);
+  if (localeCountry) {
+    return { countryCode: localeCountry, source: "client-locale" };
+  }
+
+  const acceptLanguageCountry = parseAcceptLanguageCountry(headers["accept-language"]);
+  if (acceptLanguageCountry) {
+    return { countryCode: acceptLanguageCountry, source: "accept-language" };
+  }
+
+  return { countryCode: null, source: "unknown" };
+}
+
+/**
+ * Callable function that stores sign-in country metadata on users/{uid}.
+ * The country code is inferred from trusted edge headers when available,
+ * then falls back to locale hints.
+ */
+exports.captureSignInCountry = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const localeHintRaw = request.data?.localeHint;
+  const timeZoneRaw = request.data?.timeZone;
+  const localeHint = typeof localeHintRaw === "string" ? localeHintRaw.trim().slice(0, 64) : "";
+  const timeZone = typeof timeZoneRaw === "string" ? timeZoneRaw.trim().slice(0, 64) : "";
+  const { countryCode, source } = inferCountryCode(request.rawRequest, localeHint, timeZone);
+
+  const payload = {
+    lastLoginAt: FieldValue.serverTimestamp(),
+    lastSignInCountryCapturedAt: FieldValue.serverTimestamp(),
+    lastSignInCountryCode: countryCode,
+    lastSignInCountrySource: source,
+    lastSignInLocaleHint: localeHint || null,
+    lastSignInTimeZone: timeZone || null,
+  };
+
+  try {
+    await db.collection("users").doc(uid).set(payload, { merge: true });
+  } catch (error) {
+    console.error("captureSignInCountry: failed to update users doc", {
+      uid,
+      message: error?.message || String(error),
+    });
+    throw new HttpsError("internal", "Failed to persist sign-in country.");
+  }
+
+  return {
+    countryCode,
+    source,
+  };
+});
 
 function deriveKey(userId, salt) {
   const combined =

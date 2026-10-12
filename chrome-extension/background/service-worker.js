@@ -423,12 +423,12 @@ function getOrCreateEl(id) {
   return { created, element: parentDiv };
 }
 var previouslyDismissed = false;
-function updateEmulatorBanner(name4, isRunningEmulator) {
-  if (typeof window === "undefined" || typeof document === "undefined" || !isCloudWorkstation(window.location.host) || emulatorStatus[name4] === isRunningEmulator || emulatorStatus[name4] || // If already set to use emulator, can't go back to prod.
+function updateEmulatorBanner(name5, isRunningEmulator) {
+  if (typeof window === "undefined" || typeof document === "undefined" || !isCloudWorkstation(window.location.host) || emulatorStatus[name5] === isRunningEmulator || emulatorStatus[name5] || // If already set to use emulator, can't go back to prod.
   previouslyDismissed) {
     return;
   }
-  emulatorStatus[name4] = isRunningEmulator;
+  emulatorStatus[name5] = isRunningEmulator;
   function prefixedId(id) {
     return `__firebase__banner__${id}`;
   }
@@ -862,8 +862,8 @@ var Component = class {
    * @param instanceFactory Service factory responsible for creating the public interface
    * @param type whether the service provided by the component is public or private
    */
-  constructor(name4, instanceFactory, type) {
-    this.name = name4;
+  constructor(name5, instanceFactory, type) {
+    this.name = name5;
     this.instanceFactory = instanceFactory;
     this.type = type;
     this.multipleInstances = false;
@@ -890,8 +890,8 @@ var Component = class {
 };
 var DEFAULT_ENTRY_NAME = "[DEFAULT]";
 var Provider = class {
-  constructor(name4, container) {
-    this.name = name4;
+  constructor(name5, container) {
+    this.name = name5;
     this.container = container;
     this.component = null;
     this.instances = /* @__PURE__ */ new Map();
@@ -1094,8 +1094,8 @@ function isComponentEager(component) {
   return component.instantiationMode === "EAGER";
 }
 var ComponentContainer = class {
-  constructor(name4) {
-    this.name = name4;
+  constructor(name5) {
+    this.name = name5;
     this.providers = /* @__PURE__ */ new Map();
   }
   /**
@@ -1128,12 +1128,12 @@ var ComponentContainer = class {
    * Firebase SDKs providing services should extend NameServiceMapping interface to register
    * themselves.
    */
-  getProvider(name4) {
-    if (this.providers.has(name4)) {
-      return this.providers.get(name4);
+  getProvider(name5) {
+    if (this.providers.has(name5)) {
+      return this.providers.get(name5);
     }
-    const provider = new Provider(name4, this);
-    this.providers.set(name4, provider);
+    const provider = new Provider(name5, this);
+    this.providers.set(name5, provider);
     return provider;
   }
   getProviders() {
@@ -1187,8 +1187,8 @@ var Logger = class {
    *
    * @param name The name that the logs will be associated with
    */
-  constructor(name4) {
-    this.name = name4;
+  constructor(name5) {
+    this.name = name5;
     this._logLevel = defaultLogLevel;
     this._logHandler = defaultLogHandler;
     this._userLogHandler = null;
@@ -1391,8 +1391,8 @@ function wrap(value) {
 var unwrap = (value) => reverseTransformCache.get(value);
 
 // node_modules/idb/build/index.js
-function openDB(name4, version4, { blocked, upgrade, blocking, terminated } = {}) {
-  const request = indexedDB.open(name4, version4);
+function openDB(name5, version5, { blocked, upgrade, blocking, terminated } = {}) {
+  const request = indexedDB.open(name5, version5);
   const openPromise = wrap(request);
   if (upgrade) {
     request.addEventListener("upgradeneeded", (event) => {
@@ -1564,12 +1564,12 @@ function _registerComponent(component) {
   }
   return true;
 }
-function _getProvider(app2, name4) {
+function _getProvider(app2, name5) {
   const heartbeatController = app2.container.getProvider("heartbeat").getImmediate({ optional: true });
   if (heartbeatController) {
     void heartbeatController.triggerHeartbeat();
   }
-  return app2.container.getProvider(name4);
+  return app2.container.getProvider(name5);
 }
 function _isFirebaseServerApp(obj) {
   if (obj === null || obj === void 0) {
@@ -1694,18 +1694,18 @@ var SDK_VERSION = version;
 function initializeApp(_options, rawConfig = {}) {
   let options = _options;
   if (typeof rawConfig !== "object") {
-    const name5 = rawConfig;
-    rawConfig = { name: name5 };
+    const name6 = rawConfig;
+    rawConfig = { name: name6 };
   }
   const config = {
     name: DEFAULT_ENTRY_NAME2,
     automaticDataCollectionEnabled: true,
     ...rawConfig
   };
-  const name4 = config.name;
-  if (typeof name4 !== "string" || !name4) {
+  const name5 = config.name;
+  if (typeof name5 !== "string" || !name5) {
     throw ERROR_FACTORY.create("bad-app-name", {
-      appName: String(name4)
+      appName: String(name5)
     });
   }
   options || (options = getDefaultAppConfig());
@@ -1715,42 +1715,42 @@ function initializeApp(_options, rawConfig = {}) {
       /* AppError.NO_OPTIONS */
     );
   }
-  const existingApp = _apps.get(name4);
+  const existingApp = _apps.get(name5);
   if (existingApp) {
     if (deepEqual(options, existingApp.options) && deepEqual(config, existingApp.config)) {
       return existingApp;
     } else {
-      throw ERROR_FACTORY.create("duplicate-app", { appName: name4 });
+      throw ERROR_FACTORY.create("duplicate-app", { appName: name5 });
     }
   }
-  const container = new ComponentContainer(name4);
+  const container = new ComponentContainer(name5);
   for (const component of _components.values()) {
     container.addComponent(component);
   }
   const newApp = new FirebaseAppImpl(options, config, container);
-  _apps.set(name4, newApp);
+  _apps.set(name5, newApp);
   return newApp;
 }
-function getApp(name4 = DEFAULT_ENTRY_NAME2) {
-  const app2 = _apps.get(name4);
-  if (!app2 && name4 === DEFAULT_ENTRY_NAME2 && getDefaultAppConfig()) {
+function getApp(name5 = DEFAULT_ENTRY_NAME2) {
+  const app2 = _apps.get(name5);
+  if (!app2 && name5 === DEFAULT_ENTRY_NAME2 && getDefaultAppConfig()) {
     return initializeApp();
   }
   if (!app2) {
-    throw ERROR_FACTORY.create("no-app", { appName: name4 });
+    throw ERROR_FACTORY.create("no-app", { appName: name5 });
   }
   return app2;
 }
-function registerVersion(libraryKeyOrName, version4, variant) {
+function registerVersion(libraryKeyOrName, version5, variant) {
   let library = PLATFORM_LOG_STRING[libraryKeyOrName] ?? libraryKeyOrName;
   if (variant) {
     library += `-${variant}`;
   }
   const libraryMismatch = library.match(/\s|\//);
-  const versionMismatch = version4.match(/\s|\//);
+  const versionMismatch = version5.match(/\s|\//);
   if (libraryMismatch || versionMismatch) {
     const warning = [
-      `Unable to register library "${library}" with version "${version4}":`
+      `Unable to register library "${library}" with version "${version5}":`
     ];
     if (libraryMismatch) {
       warning.push(`library name "${library}" contains illegal characters (whitespace or "/")`);
@@ -1759,14 +1759,14 @@ function registerVersion(libraryKeyOrName, version4, variant) {
       warning.push("and");
     }
     if (versionMismatch) {
-      warning.push(`version name "${version4}" contains illegal characters (whitespace or "/")`);
+      warning.push(`version name "${version5}" contains illegal characters (whitespace or "/")`);
     }
     logger.warn(warning.join(" "));
     return;
   }
   _registerComponent(new Component(
     `${library}-version`,
-    () => ({ library, version: version4 }),
+    () => ({ library, version: version5 }),
     "VERSION"
     /* ComponentType.VERSION */
   ));
@@ -3358,9 +3358,9 @@ var PersistenceUserManager = class _PersistenceUserManager {
     this.persistence = persistence;
     this.auth = auth2;
     this.userKey = userKey;
-    const { config, name: name4 } = this.auth;
-    this.fullUserKey = _persistenceKeyName(this.userKey, config.apiKey, name4);
-    this.fullPersistenceKey = _persistenceKeyName("persistence", config.apiKey, name4);
+    const { config, name: name5 } = this.auth;
+    this.fullUserKey = _persistenceKeyName(this.userKey, config.apiKey, name5);
+    this.fullPersistenceKey = _persistenceKeyName("persistence", config.apiKey, name5);
     this.boundEventHandler = auth2._onStorageEvent.bind(auth2);
     this.persistence._addListener(this.fullUserKey, this.boundEventHandler);
   }
@@ -18748,6 +18748,593 @@ function __PRIVATE_convertToDocSnapshot(e, t, n) {
   registerVersion(F, M, "esm2020");
 })();
 
+// node_modules/@firebase/functions/dist/esm/index.esm.js
+var LONG_TYPE = "type.googleapis.com/google.protobuf.Int64Value";
+var UNSIGNED_LONG_TYPE = "type.googleapis.com/google.protobuf.UInt64Value";
+function mapValues(o, f) {
+  const result = {};
+  for (const key in o) {
+    if (o.hasOwnProperty(key)) {
+      result[key] = f(o[key]);
+    }
+  }
+  return result;
+}
+function encode(data) {
+  if (data == null) {
+    return null;
+  }
+  if (data instanceof Number) {
+    data = data.valueOf();
+  }
+  if (typeof data === "number" && isFinite(data)) {
+    return data;
+  }
+  if (data === true || data === false) {
+    return data;
+  }
+  if (Object.prototype.toString.call(data) === "[object String]") {
+    return data;
+  }
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+  if (Array.isArray(data)) {
+    return data.map((x2) => encode(x2));
+  }
+  if (typeof data === "function" || typeof data === "object") {
+    return mapValues(data, (x2) => encode(x2));
+  }
+  throw new Error("Data cannot be encoded in JSON: " + data);
+}
+function decode(json) {
+  if (json == null) {
+    return json;
+  }
+  if (json["@type"]) {
+    switch (json["@type"]) {
+      case LONG_TYPE:
+      // Fall through and handle this the same as unsigned.
+      case UNSIGNED_LONG_TYPE: {
+        const value = Number(json["value"]);
+        if (isNaN(value)) {
+          throw new Error("Data cannot be decoded from JSON: " + json);
+        }
+        return value;
+      }
+      default: {
+        throw new Error("Data cannot be decoded from JSON: " + json);
+      }
+    }
+  }
+  if (Array.isArray(json)) {
+    return json.map((x2) => decode(x2));
+  }
+  if (typeof json === "function" || typeof json === "object") {
+    return mapValues(json, (x2) => decode(x2));
+  }
+  return json;
+}
+var FUNCTIONS_TYPE = "functions";
+var errorCodeMap = {
+  OK: "ok",
+  CANCELLED: "cancelled",
+  UNKNOWN: "unknown",
+  INVALID_ARGUMENT: "invalid-argument",
+  DEADLINE_EXCEEDED: "deadline-exceeded",
+  NOT_FOUND: "not-found",
+  ALREADY_EXISTS: "already-exists",
+  PERMISSION_DENIED: "permission-denied",
+  UNAUTHENTICATED: "unauthenticated",
+  RESOURCE_EXHAUSTED: "resource-exhausted",
+  FAILED_PRECONDITION: "failed-precondition",
+  ABORTED: "aborted",
+  OUT_OF_RANGE: "out-of-range",
+  UNIMPLEMENTED: "unimplemented",
+  INTERNAL: "internal",
+  UNAVAILABLE: "unavailable",
+  DATA_LOSS: "data-loss"
+};
+var FunctionsError = class _FunctionsError extends FirebaseError {
+  /**
+   * Constructs a new instance of the `FunctionsError` class.
+   */
+  constructor(code, message, details) {
+    super(`${FUNCTIONS_TYPE}/${code}`, message || "");
+    this.details = details;
+    Object.setPrototypeOf(this, _FunctionsError.prototype);
+  }
+};
+function codeForHTTPStatus(status) {
+  if (status >= 200 && status < 300) {
+    return "ok";
+  }
+  switch (status) {
+    case 0:
+      return "internal";
+    case 400:
+      return "invalid-argument";
+    case 401:
+      return "unauthenticated";
+    case 403:
+      return "permission-denied";
+    case 404:
+      return "not-found";
+    case 409:
+      return "aborted";
+    case 429:
+      return "resource-exhausted";
+    case 499:
+      return "cancelled";
+    case 500:
+      return "internal";
+    case 501:
+      return "unimplemented";
+    case 503:
+      return "unavailable";
+    case 504:
+      return "deadline-exceeded";
+  }
+  return "unknown";
+}
+function _errorForResponse(status, bodyJSON) {
+  let code = codeForHTTPStatus(status);
+  let description = code;
+  let details = void 0;
+  try {
+    const errorJSON = bodyJSON && bodyJSON.error;
+    if (errorJSON) {
+      const status2 = errorJSON.status;
+      if (typeof status2 === "string") {
+        if (!errorCodeMap[status2]) {
+          return new FunctionsError("internal", "internal");
+        }
+        code = errorCodeMap[status2];
+        description = status2;
+      }
+      const message = errorJSON.message;
+      if (typeof message === "string") {
+        description = message;
+      }
+      details = errorJSON.details;
+      if (details !== void 0) {
+        details = decode(details);
+      }
+    }
+  } catch (e) {
+  }
+  if (code === "ok") {
+    return null;
+  }
+  return new FunctionsError(code, description, details);
+}
+var ContextProvider = class {
+  constructor(app2, authProvider, messagingProvider, appCheckProvider) {
+    this.app = app2;
+    this.auth = null;
+    this.messaging = null;
+    this.appCheck = null;
+    this.serverAppAppCheckToken = null;
+    if (_isFirebaseServerApp(app2) && app2.settings.appCheckToken) {
+      this.serverAppAppCheckToken = app2.settings.appCheckToken;
+    }
+    this.auth = authProvider.getImmediate({ optional: true });
+    this.messaging = messagingProvider.getImmediate({
+      optional: true
+    });
+    if (!this.auth) {
+      authProvider.get().then((auth2) => this.auth = auth2, () => {
+      });
+    }
+    if (!this.messaging) {
+      messagingProvider.get().then((messaging) => this.messaging = messaging, () => {
+      });
+    }
+    if (!this.appCheck) {
+      appCheckProvider?.get().then((appCheck) => this.appCheck = appCheck, () => {
+      });
+    }
+  }
+  async getAuthToken() {
+    if (!this.auth) {
+      return void 0;
+    }
+    try {
+      const token = await this.auth.getToken();
+      return token?.accessToken;
+    } catch (e) {
+      return void 0;
+    }
+  }
+  async getMessagingToken() {
+    if (!this.messaging || !("Notification" in self) || Notification.permission !== "granted") {
+      return void 0;
+    }
+    try {
+      return await this.messaging.getToken();
+    } catch (e) {
+      return void 0;
+    }
+  }
+  async getAppCheckToken(limitedUseAppCheckTokens) {
+    if (this.serverAppAppCheckToken) {
+      return this.serverAppAppCheckToken;
+    }
+    if (this.appCheck) {
+      const result = limitedUseAppCheckTokens ? await this.appCheck.getLimitedUseToken() : await this.appCheck.getToken();
+      if (result.error) {
+        return null;
+      }
+      return result.token;
+    }
+    return null;
+  }
+  async getContext(limitedUseAppCheckTokens) {
+    const authToken = await this.getAuthToken();
+    const messagingToken = await this.getMessagingToken();
+    const appCheckToken = await this.getAppCheckToken(limitedUseAppCheckTokens);
+    return { authToken, messagingToken, appCheckToken };
+  }
+};
+var DEFAULT_REGION = "us-central1";
+var responseLineRE = /^data: (.*?)(?:\n|$)/;
+function failAfter(millis) {
+  let timer = null;
+  return {
+    promise: new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new FunctionsError("deadline-exceeded", "deadline-exceeded"));
+      }, millis);
+    }),
+    cancel: () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
+  };
+}
+var FunctionsService = class {
+  /**
+   * Creates a new Functions service for the given app.
+   * @param app - The FirebaseApp to use.
+   */
+  constructor(app2, authProvider, messagingProvider, appCheckProvider, regionOrCustomDomain = DEFAULT_REGION, fetchImpl = (...args) => fetch(...args)) {
+    this.app = app2;
+    this.fetchImpl = fetchImpl;
+    this.emulatorOrigin = null;
+    this.contextProvider = new ContextProvider(app2, authProvider, messagingProvider, appCheckProvider);
+    this.cancelAllRequests = new Promise((resolve) => {
+      this.deleteService = () => {
+        return Promise.resolve(resolve());
+      };
+    });
+    try {
+      const url = new URL(regionOrCustomDomain);
+      this.customDomain = url.origin + (url.pathname === "/" ? "" : url.pathname);
+      this.region = DEFAULT_REGION;
+    } catch (e) {
+      this.customDomain = null;
+      this.region = regionOrCustomDomain;
+    }
+  }
+  _delete() {
+    return this.deleteService();
+  }
+  /**
+   * Returns the URL for a callable with the given name.
+   * @param name - The name of the callable.
+   * @internal
+   */
+  _url(name5) {
+    const projectId = this.app.options.projectId;
+    if (this.emulatorOrigin !== null) {
+      const origin = this.emulatorOrigin;
+      return `${origin}/${projectId}/${this.region}/${name5}`;
+    }
+    if (this.customDomain !== null) {
+      return `${this.customDomain}/${name5}`;
+    }
+    return `https://${this.region}-${projectId}.cloudfunctions.net/${name5}`;
+  }
+};
+function connectFunctionsEmulator$1(functionsInstance, host, port) {
+  const useSsl = isCloudWorkstation(host);
+  functionsInstance.emulatorOrigin = `http${useSsl ? "s" : ""}://${host}:${port}`;
+  if (useSsl) {
+    void pingServer(functionsInstance.emulatorOrigin + "/backends");
+    updateEmulatorBanner("Functions", true);
+  }
+}
+function httpsCallable$1(functionsInstance, name5, options) {
+  const callable = (data) => {
+    return call(functionsInstance, name5, data, options || {});
+  };
+  callable.stream = (data, options2) => {
+    return stream(functionsInstance, name5, data, options2);
+  };
+  return callable;
+}
+function getCredentials(functionsInstance) {
+  return functionsInstance.emulatorOrigin && isCloudWorkstation(functionsInstance.emulatorOrigin) ? "include" : void 0;
+}
+async function postJSON(url, body, headers, fetchImpl, functionsInstance) {
+  headers["Content-Type"] = "application/json";
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers,
+      credentials: getCredentials(functionsInstance)
+    });
+  } catch (e) {
+    return {
+      status: 0,
+      json: null
+    };
+  }
+  let json = null;
+  try {
+    json = await response.json();
+  } catch (e) {
+  }
+  return {
+    status: response.status,
+    json
+  };
+}
+async function makeAuthHeaders(functionsInstance, options) {
+  const headers = {};
+  const context = await functionsInstance.contextProvider.getContext(options.limitedUseAppCheckTokens);
+  if (context.authToken) {
+    headers["Authorization"] = "Bearer " + context.authToken;
+  }
+  if (context.messagingToken) {
+    headers["Firebase-Instance-ID-Token"] = context.messagingToken;
+  }
+  if (context.appCheckToken !== null) {
+    headers["X-Firebase-AppCheck"] = context.appCheckToken;
+  }
+  return headers;
+}
+function call(functionsInstance, name5, data, options) {
+  const url = functionsInstance._url(name5);
+  return callAtURL(functionsInstance, url, data, options);
+}
+async function callAtURL(functionsInstance, url, data, options) {
+  data = encode(data);
+  const body = { data };
+  const headers = await makeAuthHeaders(functionsInstance, options);
+  const timeout = options.timeout || 7e4;
+  const failAfterHandle = failAfter(timeout);
+  const response = await Promise.race([
+    postJSON(url, body, headers, functionsInstance.fetchImpl, functionsInstance),
+    failAfterHandle.promise,
+    functionsInstance.cancelAllRequests
+  ]);
+  failAfterHandle.cancel();
+  if (!response) {
+    throw new FunctionsError("cancelled", "Firebase Functions instance was deleted.");
+  }
+  const error = _errorForResponse(response.status, response.json);
+  if (error) {
+    throw error;
+  }
+  if (!response.json) {
+    throw new FunctionsError("internal", "Response is not valid JSON object.");
+  }
+  let responseData = response.json.data;
+  if (typeof responseData === "undefined") {
+    responseData = response.json.result;
+  }
+  if (typeof responseData === "undefined") {
+    throw new FunctionsError("internal", "Response is missing data field.");
+  }
+  const decodedData = decode(responseData);
+  return { data: decodedData };
+}
+function stream(functionsInstance, name5, data, options) {
+  const url = functionsInstance._url(name5);
+  return streamAtURL(functionsInstance, url, data, options || {});
+}
+async function streamAtURL(functionsInstance, url, data, options) {
+  data = encode(data);
+  const body = { data };
+  const headers = await makeAuthHeaders(functionsInstance, options);
+  headers["Content-Type"] = "application/json";
+  headers["Accept"] = "text/event-stream";
+  let response;
+  try {
+    response = await functionsInstance.fetchImpl(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers,
+      signal: options?.signal,
+      credentials: getCredentials(functionsInstance)
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      const error2 = new FunctionsError("cancelled", "Request was cancelled.");
+      return {
+        data: Promise.reject(error2),
+        stream: {
+          [Symbol.asyncIterator]() {
+            return {
+              next() {
+                return Promise.reject(error2);
+              }
+            };
+          }
+        }
+      };
+    }
+    const error = _errorForResponse(0, null);
+    return {
+      data: Promise.reject(error),
+      // Return an empty async iterator
+      stream: {
+        [Symbol.asyncIterator]() {
+          return {
+            next() {
+              return Promise.reject(error);
+            }
+          };
+        }
+      }
+    };
+  }
+  let resultResolver;
+  let resultRejecter;
+  const resultPromise = new Promise((resolve, reject) => {
+    resultResolver = resolve;
+    resultRejecter = reject;
+  });
+  options?.signal?.addEventListener("abort", () => {
+    const error = new FunctionsError("cancelled", "Request was cancelled.");
+    resultRejecter(error);
+  });
+  const reader = response.body.getReader();
+  const rstream = createResponseStream(reader, resultResolver, resultRejecter, options?.signal);
+  return {
+    stream: {
+      [Symbol.asyncIterator]() {
+        const rreader = rstream.getReader();
+        return {
+          async next() {
+            const { value, done } = await rreader.read();
+            return { value, done };
+          },
+          async return() {
+            await rreader.cancel();
+            return { done: true, value: void 0 };
+          }
+        };
+      }
+    },
+    data: resultPromise
+  };
+}
+function createResponseStream(reader, resultResolver, resultRejecter, signal) {
+  const processLine = (line, controller) => {
+    const match = line.match(responseLineRE);
+    if (!match) {
+      return;
+    }
+    const data = match[1];
+    try {
+      const jsonData = JSON.parse(data);
+      if ("result" in jsonData) {
+        resultResolver(decode(jsonData.result));
+        return;
+      }
+      if ("message" in jsonData) {
+        controller.enqueue(decode(jsonData.message));
+        return;
+      }
+      if ("error" in jsonData) {
+        const error = _errorForResponse(0, jsonData);
+        controller.error(error);
+        resultRejecter(error);
+        return;
+      }
+    } catch (error) {
+      if (error instanceof FunctionsError) {
+        controller.error(error);
+        resultRejecter(error);
+        return;
+      }
+    }
+  };
+  const decoder = new TextDecoder();
+  return new ReadableStream({
+    start(controller) {
+      let currentText = "";
+      return pump();
+      async function pump() {
+        if (signal?.aborted) {
+          const error = new FunctionsError("cancelled", "Request was cancelled");
+          controller.error(error);
+          resultRejecter(error);
+          return Promise.resolve();
+        }
+        try {
+          const { value, done } = await reader.read();
+          if (done) {
+            if (currentText.trim()) {
+              processLine(currentText.trim(), controller);
+            }
+            controller.close();
+            return;
+          }
+          if (signal?.aborted) {
+            const error = new FunctionsError("cancelled", "Request was cancelled");
+            controller.error(error);
+            resultRejecter(error);
+            await reader.cancel();
+            return;
+          }
+          currentText += decoder.decode(value, { stream: true });
+          const lines = currentText.split("\n");
+          currentText = lines.pop() || "";
+          for (const line of lines) {
+            if (line.trim()) {
+              processLine(line.trim(), controller);
+            }
+          }
+          return pump();
+        } catch (error) {
+          const functionsError = error instanceof FunctionsError ? error : _errorForResponse(0, null);
+          controller.error(functionsError);
+          resultRejecter(functionsError);
+        }
+      }
+    },
+    cancel() {
+      return reader.cancel();
+    }
+  });
+}
+var name4 = "@firebase/functions";
+var version4 = "0.13.1";
+var AUTH_INTERNAL_NAME = "auth-internal";
+var APP_CHECK_INTERNAL_NAME = "app-check-internal";
+var MESSAGING_INTERNAL_NAME = "messaging-internal";
+function registerFunctions(variant) {
+  const factory = (container, { instanceIdentifier: regionOrCustomDomain }) => {
+    const app2 = container.getProvider("app").getImmediate();
+    const authProvider = container.getProvider(AUTH_INTERNAL_NAME);
+    const messagingProvider = container.getProvider(MESSAGING_INTERNAL_NAME);
+    const appCheckProvider = container.getProvider(APP_CHECK_INTERNAL_NAME);
+    return new FunctionsService(app2, authProvider, messagingProvider, appCheckProvider, regionOrCustomDomain);
+  };
+  _registerComponent(new Component(
+    FUNCTIONS_TYPE,
+    factory,
+    "PUBLIC"
+    /* ComponentType.PUBLIC */
+  ).setMultipleInstances(true));
+  registerVersion(name4, version4, variant);
+  registerVersion(name4, version4, "esm2020");
+}
+function getFunctions(app2 = getApp(), regionOrCustomDomain = DEFAULT_REGION) {
+  const functionsProvider = _getProvider(getModularInstance(app2), FUNCTIONS_TYPE);
+  const functionsInstance = functionsProvider.getImmediate({
+    identifier: regionOrCustomDomain
+  });
+  const emulator = getDefaultEmulatorHostnameAndPort("functions");
+  if (emulator) {
+    connectFunctionsEmulator(functionsInstance, ...emulator);
+  }
+  return functionsInstance;
+}
+function connectFunctionsEmulator(functionsInstance, host, port) {
+  connectFunctionsEmulator$1(getModularInstance(functionsInstance), host, port);
+}
+function httpsCallable(functionsInstance, name5, options) {
+  return httpsCallable$1(getModularInstance(functionsInstance), name5, options);
+}
+registerFunctions();
+
 // firebase-config.js
 var firebaseConfig = {
   apiKey: "AIzaSyA_Me3_sF5j0iXj2WYEshTw6QoTOim_Ppg",
@@ -18847,8 +19434,8 @@ var ENCRYPTED_FIELDS = {
   notification: ["title", "body", "text"],
   contact: ["name", "phoneNumber", "email"]
 };
-async function decryptCall(call, userId) {
-  return decryptFields(call, userId, ENCRYPTED_FIELDS.call);
+async function decryptCall(call2, userId) {
+  return decryptFields(call2, userId, ENCRYPTED_FIELDS.call);
 }
 
 // src/service-worker.js
@@ -18856,6 +19443,21 @@ console.log("ZyncIT: Service Worker starting...");
 var app = initializeApp(firebase_config_default);
 var auth = getAuth(app);
 var db = getFirestore(app);
+var functions = getFunctions(app);
+var captureSignInCountryCallable = httpsCallable(functions, "captureSignInCountry");
+var SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY = "signInCountryCaptureByUid";
+var COUNTRY_CODE_RE = /^[A-Z]{2}$/;
+var TIME_ZONE_COUNTRY_MAP = {
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Kuwait": "KW",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Muscat": "OM",
+  "Asia/Amman": "JO",
+  "Asia/Baghdad": "IQ",
+  "Africa/Cairo": "EG"
+};
 console.log("ZyncIT: Firebase initialized");
 self.addEventListener("unhandledrejection", (event) => {
   const reason = event?.reason;
@@ -18955,6 +19557,75 @@ chrome.storage.local.get(
   }
 );
 var popupIsOpen = false;
+function getLocaleHintForCountryCapture() {
+  const localeHint = typeof navigator !== "undefined" && typeof navigator.language === "string" ? navigator.language.trim() : "";
+  let timeZone = "";
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions();
+    if (typeof resolved?.timeZone === "string") {
+      timeZone = resolved.timeZone.trim();
+    }
+  } catch (error) {
+    console.warn("Unable to resolve local time zone:", error?.message || error);
+  }
+  return {
+    localeHint,
+    timeZone
+  };
+}
+function parseCountryCodeFromLocale(localeHint) {
+  if (typeof localeHint !== "string") return null;
+  const token = localeHint.trim();
+  if (!token) return null;
+  const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i);
+  if (!match) return null;
+  const countryCode = String(match[1] || "").toUpperCase();
+  return COUNTRY_CODE_RE.test(countryCode) ? countryCode : null;
+}
+function parseCountryCodeFromTimeZone(timeZone) {
+  if (typeof timeZone !== "string") return null;
+  const zone = timeZone.trim();
+  if (!zone) return null;
+  const countryCode = TIME_ZONE_COUNTRY_MAP[zone];
+  return COUNTRY_CODE_RE.test(countryCode || "") ? countryCode : null;
+}
+function inferCountryCodeFromHints(localeHint, timeZone) {
+  const timeZoneCountryCode = parseCountryCodeFromTimeZone(timeZone);
+  if (timeZoneCountryCode) return timeZoneCountryCode;
+  return parseCountryCodeFromLocale(localeHint);
+}
+async function captureSignInCountry(user) {
+  if (!user?.uid) return;
+  const signInSignature = user.metadata?.lastSignInTime || user.metadata?.creationTime || `${Date.now()}`;
+  const stored = await chrome.storage.local.get([SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]);
+  const byUid = stored[SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY] || {};
+  if (byUid[user.uid] === signInSignature) return;
+  try {
+    const hints = getLocaleHintForCountryCapture();
+    await captureSignInCountryCallable(hints);
+    byUid[user.uid] = signInSignature;
+    await chrome.storage.local.set({ [SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]: byUid });
+  } catch (error) {
+    console.warn("captureSignInCountry callable failed; using locale fallback:", error?.message || error);
+    try {
+      const hints = getLocaleHintForCountryCapture();
+      const fallbackCountryCode = inferCountryCodeFromHints(hints.localeHint, hints.timeZone);
+      await setDoc(doc(db, "users", user.uid), {
+        lastLoginAt: Date.now(),
+        lastSignInCountryCapturedAt: Date.now(),
+        lastSignInCountryCode: fallbackCountryCode,
+        lastSignInCountrySource: fallbackCountryCode ? "client-hints-fallback" : "client-hints-unavailable",
+        lastSignInLocaleHint: hints.localeHint || null,
+        lastSignInTimeZone: hints.timeZone || null,
+        lastSignInCountryCaptureError: error?.message || String(error)
+      }, { merge: true });
+      byUid[user.uid] = signInSignature;
+      await chrome.storage.local.set({ [SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]: byUid });
+    } catch (fallbackError) {
+      console.warn("captureSignInCountry fallback failed:", fallbackError?.message || fallbackError);
+    }
+  }
+}
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes.cached_notifications_data) {
@@ -18972,6 +19643,9 @@ onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
+    captureSignInCountry(user).catch((error) => {
+      console.warn("captureSignInCountry scheduling failed:", error?.message || error);
+    });
     watchCurrentUserProfile(user.uid);
     await loadDeviceId();
     await loadLocallyReadNotificationIds();
@@ -20112,25 +20786,25 @@ function listenForCallsFromDevice(deviceId, deviceName) {
     (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
-          const call = change.doc.data();
+          const call2 = change.doc.data();
           const docId = change.doc.id;
-          const callTime = call.timestamp || Date.now();
+          const callTime = call2.timestamp || Date.now();
           const callKey = `call_${docId}`;
           if (seenNotifications.has(callKey)) {
             return;
           }
-          updateCallsCache(deviceId, deviceName, { ...call, id: docId });
+          updateCallsCache(deviceId, deviceName, { ...call2, id: docId });
           chrome.runtime.sendMessage({ type: "newCall", deviceId, deviceName }).catch(() => {
           });
           const fiveMinutesAgo = Date.now() - 5 * 60 * 1e3;
           if (callTime > fiveMinutesAgo) {
-            if ((call.type || "").toLowerCase() === "incoming") {
+            if ((call2.type || "").toLowerCase() === "incoming") {
               return;
             }
             seenNotifications.add(callKey);
             const callWithDevice = {
-              ...call,
-              deviceName: deviceName || call.deviceName
+              ...call2,
+              deviceName: deviceName || call2.deviceName
             };
             showCallNotification(callWithDevice);
           }
@@ -20458,11 +21132,11 @@ async function showNotification(data) {
     }
   );
 }
-async function showCallNotification(call) {
+async function showCallNotification(call2) {
   const uid = currentUser?.uid;
-  const contactInfo = await decrypt(call.contactName || call.phoneNumber || "Unknown", uid);
-  const callType = call.type || "incoming";
-  const deviceInfo = call.deviceName ? ` - ${call.deviceName}` : "";
+  const contactInfo = await decrypt(call2.contactName || call2.phoneNumber || "Unknown", uid);
+  const callType = call2.type || "incoming";
+  const deviceInfo = call2.deviceName ? ` - ${call2.deviceName}` : "";
   let title = "";
   let icon = "";
   switch (callType) {
@@ -20481,8 +21155,8 @@ async function showCallNotification(call) {
     default:
       title = `Call: ${contactInfo}`;
   }
-  const message = `Duration: ${formatDuration(call.duration || 0)}${deviceInfo}`;
-  const notificationId = `zyncit_call_${call.id || Date.now()}`;
+  const message = `Duration: ${formatDuration(call2.duration || 0)}${deviceInfo}`;
+  const notificationId = `zyncit_call_${call2.id || Date.now()}`;
   createNotificationIfNotSnoozed(
     notificationId,
     {
@@ -21897,6 +22571,7 @@ firebase/app/dist/esm/index.esm.js:
    *)
 
 @firebase/auth/dist/web-extension-esm/register-21a33d64.js:
+@firebase/functions/dist/esm/index.esm.js:
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -22779,6 +23454,40 @@ firebase/app/dist/esm/index.esm.js:
   (**
    * @license
    * Copyright 2025 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+
+@firebase/functions/dist/esm/index.esm.js:
+  (**
+   * @license
+   * Copyright 2017 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.

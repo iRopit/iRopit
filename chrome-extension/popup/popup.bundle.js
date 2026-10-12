@@ -20970,6 +20970,7 @@ ${this.customData.serverResponse}`;
           settings_language: "Language",
           settings_profile: "User Profile",
           settings_display_name: "Display Name",
+          settings_last_sign_in_country: "Last Sign-in Country",
           settings_enter_name: "Enter your name",
           settings_save: "Save",
           settings_email: "Email",
@@ -21140,6 +21141,7 @@ ${this.customData.serverResponse}`;
           settings_language: "\u0627\u0644\u0644\u063A\u0629 / Language",
           settings_profile: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A",
           settings_display_name: "\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u0631\u0648\u0636",
+          settings_last_sign_in_country: "\u0628\u0644\u062F \u0622\u062E\u0631 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644",
           settings_enter_name: "\u0623\u062F\u062E\u0644 \u0627\u0633\u0645\u0643",
           settings_save: "\u062D\u0641\u0638",
           settings_email: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
@@ -34835,6 +34837,23 @@ ${this.customData.serverResponse}`;
   var transientLogoutTimer = null;
   var AUTH_SESSION_HINT_KEY = "authSessionHint";
   var explicitSignOutInProgress = false;
+  var COUNTRY_CODE_RE = /^[A-Z]{2}$/;
+  var TIME_ZONE_COUNTRY_MAP = {
+    "Asia/Dubai": "AE",
+    "Asia/Riyadh": "SA",
+    "Asia/Kuwait": "KW",
+    "Asia/Qatar": "QA",
+    "Asia/Bahrain": "BH",
+    "Asia/Muscat": "OM",
+    "Asia/Amman": "JO",
+    "Asia/Baghdad": "IQ",
+    "Africa/Cairo": "EG"
+  };
+  function isPermissionOrTransientFirestoreError(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code.includes("permission-denied") || code.includes("unauthenticated") || code.includes("unavailable") || msg.includes("insufficient permissions") || msg.includes("client is offline");
+  }
   function markExplicitSignOutInProgress() {
     explicitSignOutInProgress = true;
   }
@@ -34902,6 +34921,78 @@ ${this.customData.serverResponse}`;
   }
   function isOAuthCancelledError(error) {
     return error?.code === "auth/oauth-cancelled" || isOAuthUserCancelMessage(error?.message);
+  }
+  function parseCountryCodeFromLocale(localeHint) {
+    if (typeof localeHint !== "string") return null;
+    const token = localeHint.trim();
+    if (!token) return null;
+    const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i);
+    if (!match) return null;
+    const countryCode = String(match[1] || "").toUpperCase();
+    return COUNTRY_CODE_RE.test(countryCode) ? countryCode : null;
+  }
+  function parseCountryCodeFromTimeZone(timeZone) {
+    if (typeof timeZone !== "string") return null;
+    const zone = timeZone.trim();
+    if (!zone) return null;
+    const countryCode = TIME_ZONE_COUNTRY_MAP[zone];
+    return COUNTRY_CODE_RE.test(countryCode || "") ? countryCode : null;
+  }
+  function inferCountryCodeFromHints(localeHint, timeZone) {
+    const timeZoneCountryCode = parseCountryCodeFromTimeZone(timeZone);
+    if (timeZoneCountryCode) return timeZoneCountryCode;
+    return parseCountryCodeFromLocale(localeHint);
+  }
+  function getSignInLocaleHints() {
+    const localeHint = typeof navigator !== "undefined" && typeof navigator.language === "string" ? navigator.language.trim() : "";
+    let timeZone = "";
+    try {
+      const resolved = Intl.DateTimeFormat().resolvedOptions();
+      if (typeof resolved?.timeZone === "string") {
+        timeZone = resolved.timeZone.trim();
+      }
+    } catch (error) {
+      authLogger.warn("Unable to resolve local time zone", error?.message || error);
+    }
+    return {
+      localeHint,
+      timeZone
+    };
+  }
+  async function ensureSignInCountryFallback(user) {
+    if (!user?.uid) return;
+    const userRef = doc(db, "users", user.uid);
+    let existingCountryCode = null;
+    try {
+      const existingDoc = await getDoc(userRef);
+      if (existingDoc.exists()) {
+        const userData = existingDoc.data() || {};
+        existingCountryCode = userData.lastSignInCountryCode || null;
+      }
+    } catch (error) {
+      if (isPermissionOrTransientFirestoreError(error)) {
+        return;
+      }
+      authLogger.warn("Failed to read user profile before country fallback", error?.message || error);
+    }
+    if (typeof existingCountryCode === "string" && existingCountryCode.trim()) return;
+    const hints = getSignInLocaleHints();
+    const fallbackCountryCode = inferCountryCodeFromHints(hints.localeHint, hints.timeZone);
+    try {
+      await setDoc(userRef, {
+        lastSignInCountryCode: fallbackCountryCode,
+        lastSignInCountrySource: fallbackCountryCode ? "popup-locale-fallback" : "popup-locale-unavailable",
+        lastSignInCountryCapturedAt: Date.now(),
+        lastSignInLocaleHint: hints.localeHint || null,
+        lastSignInTimeZone: hints.timeZone || null,
+        lastLoginAt: Date.now()
+      }, { merge: true });
+    } catch (error) {
+      if (isPermissionOrTransientFirestoreError(error)) {
+        return;
+      }
+      authLogger.warn("Failed to write sign-in country fallback", error?.message || error);
+    }
   }
   function showAuthUI() {
     if (!isInitialAuthCheckDone) return;
@@ -35187,6 +35278,9 @@ ${this.customData.serverResponse}`;
         setCurrentUser(user);
         showMainUI();
         setupAccountDocWatcher(user);
+        ensureSignInCountryFallback(user).catch((error) => {
+          authLogger.warn("Failed to schedule popup sign-in country fallback", error?.message || error);
+        });
         try {
           chrome.runtime.sendMessage({ type: "userLoggedIn", userId: user.uid }).catch(() => {
           });
@@ -37990,6 +38084,68 @@ ${this.customData.serverResponse}`;
     const msg = String(error?.message || "").toLowerCase();
     return code.includes("unavailable") || msg.includes("client is offline");
   }
+  var COUNTRY_CODE_RE2 = /^[A-Z]{2}$/;
+  var TIME_ZONE_COUNTRY_MAP2 = {
+    "Asia/Dubai": "AE",
+    "Asia/Riyadh": "SA",
+    "Asia/Kuwait": "KW",
+    "Asia/Qatar": "QA",
+    "Asia/Bahrain": "BH",
+    "Asia/Muscat": "OM",
+    "Asia/Amman": "JO",
+    "Asia/Baghdad": "IQ",
+    "Africa/Cairo": "EG"
+  };
+  function formatSignInCountryLabel(countryCode) {
+    if (typeof countryCode !== "string" || !countryCode.trim()) return "\u2014";
+    const code = countryCode.trim().toUpperCase();
+    const language = getCurrentLanguage() === "ar" ? "ar" : "en";
+    try {
+      const displayNames = new Intl.DisplayNames([language], { type: "region" });
+      const countryName = displayNames.of(code);
+      if (countryName) return `${countryName} (${code})`;
+    } catch (error) {
+      console.warn("[Settings] Unable to format country code:", error);
+    }
+    return code;
+  }
+  function parseCountryCodeFromLocale2(localeHint) {
+    if (typeof localeHint !== "string") return null;
+    const token = localeHint.trim();
+    if (!token) return null;
+    const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i);
+    if (!match) return null;
+    const countryCode = String(match[1] || "").toUpperCase();
+    return COUNTRY_CODE_RE2.test(countryCode) ? countryCode : null;
+  }
+  function parseCountryCodeFromTimeZone2(timeZone) {
+    if (typeof timeZone !== "string") return null;
+    const zone = timeZone.trim();
+    if (!zone) return null;
+    const countryCode = TIME_ZONE_COUNTRY_MAP2[zone];
+    return COUNTRY_CODE_RE2.test(countryCode || "") ? countryCode : null;
+  }
+  function inferCountryCodeFromHints2(localeHint, timeZone) {
+    const timeZoneCountryCode = parseCountryCodeFromTimeZone2(timeZone);
+    if (timeZoneCountryCode) return timeZoneCountryCode;
+    return parseCountryCodeFromLocale2(localeHint);
+  }
+  function getLocaleCountryHints() {
+    const localeHint = typeof navigator !== "undefined" && typeof navigator.language === "string" ? navigator.language.trim() : "";
+    let timeZone = "";
+    try {
+      const resolved = Intl.DateTimeFormat().resolvedOptions();
+      if (typeof resolved?.timeZone === "string") {
+        timeZone = resolved.timeZone.trim();
+      }
+    } catch (error) {
+      console.warn("[Settings] Unable to resolve local time zone:", error);
+    }
+    return {
+      localeHint,
+      timeZone
+    };
+  }
   async function loadUserSettings() {
     const user = currentUser;
     if (!user) return;
@@ -38017,8 +38173,10 @@ ${this.customData.serverResponse}`;
     chrome.storage.local.get(["cachedDisplayName", "cachedEmail"], (cached) => {
       const displayNameInput = document.getElementById("settingsDisplayName");
       const emailInput = document.getElementById("settingsEmail");
+      const signInCountryInput = document.getElementById("settingsLastSignInCountry");
       if (displayNameInput && cached.cachedDisplayName) displayNameInput.value = cached.cachedDisplayName;
       if (emailInput && cached.cachedEmail) emailInput.value = cached.cachedEmail;
+      if (signInCountryInput) signInCountryInput.value = cached.cachedLastSignInCountry || "\u2014";
     });
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -38026,11 +38184,35 @@ ${this.customData.serverResponse}`;
         const userData = userDoc.data();
         const displayNameInput = document.getElementById("settingsDisplayName");
         const emailInput = document.getElementById("settingsEmail");
+        const signInCountryInput = document.getElementById("settingsLastSignInCountry");
+        const existingCountryCode = userData.lastSignInCountryCode;
+        const existingCountrySource = String(userData.lastSignInCountrySource || "");
+        let signInCountryLabel = formatSignInCountryLabel(existingCountryCode);
         if (displayNameInput) displayNameInput.value = userData.displayName || "";
         if (emailInput) emailInput.value = userData.email || "";
+        if (signInCountryInput) signInCountryInput.value = signInCountryLabel;
+        const hints = getLocaleCountryHints();
+        const inferredCountryCode = inferCountryCodeFromHints2(hints.localeHint, hints.timeZone);
+        const hasExistingCountryCode = typeof existingCountryCode === "string" && existingCountryCode.trim();
+        const shouldCorrectLocaleFallback = hasExistingCountryCode && existingCountrySource.includes("locale-") && inferredCountryCode && inferredCountryCode !== existingCountryCode;
+        if (!hasExistingCountryCode || shouldCorrectLocaleFallback) {
+          const fallbackCountryCode = inferredCountryCode;
+          const fallbackLabel = formatSignInCountryLabel(fallbackCountryCode);
+          await setDoc(doc(db, "users", user.uid), {
+            lastSignInCountryCode: fallbackCountryCode,
+            lastSignInCountrySource: fallbackCountryCode ? "settings-hints-fallback" : "settings-hints-unavailable",
+            lastSignInCountryCapturedAt: Date.now(),
+            lastSignInLocaleHint: hints.localeHint || null,
+            lastSignInTimeZone: hints.timeZone || null,
+            lastLoginAt: Date.now()
+          }, { merge: true });
+          signInCountryLabel = fallbackLabel;
+          if (signInCountryInput) signInCountryInput.value = signInCountryLabel;
+        }
         chrome.storage.local.set({
           cachedDisplayName: userData.displayName || "",
-          cachedEmail: userData.email || ""
+          cachedEmail: userData.email || "",
+          cachedLastSignInCountry: signInCountryLabel
         });
       }
     } catch (e) {

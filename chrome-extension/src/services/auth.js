@@ -59,6 +59,30 @@ const AUTH_SESSION_HINT_KEY = "authSessionHint";
 // MV3 service-worker restarts, network blips) must NOT be treated as explicit
 // sign-outs, otherwise the cached SMS/Calls get wiped and reload from scratch.
 let explicitSignOutInProgress = false;
+const COUNTRY_CODE_RE = /^[A-Z]{2}$/;
+const TIME_ZONE_COUNTRY_MAP = {
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Kuwait": "KW",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Muscat": "OM",
+  "Asia/Amman": "JO",
+  "Asia/Baghdad": "IQ",
+  "Africa/Cairo": "EG",
+};
+
+function isPermissionOrTransientFirestoreError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const msg = String(error?.message || "").toLowerCase();
+  return (
+    code.includes("permission-denied") ||
+    code.includes("unauthenticated") ||
+    code.includes("unavailable") ||
+    msg.includes("insufficient permissions") ||
+    msg.includes("client is offline")
+  );
+}
 
 /**
  * Whether the most recent logout was an explicit, user-initiated (or forced
@@ -163,6 +187,92 @@ function isOAuthCancelledError(error) {
     error?.code === "auth/oauth-cancelled" ||
     isOAuthUserCancelMessage(error?.message)
   );
+}
+
+function parseCountryCodeFromLocale(localeHint) {
+  if (typeof localeHint !== "string") return null;
+  const token = localeHint.trim();
+  if (!token) return null;
+  const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i);
+  if (!match) return null;
+  const countryCode = String(match[1] || "").toUpperCase();
+  return COUNTRY_CODE_RE.test(countryCode) ? countryCode : null;
+}
+
+function parseCountryCodeFromTimeZone(timeZone) {
+  if (typeof timeZone !== "string") return null;
+  const zone = timeZone.trim();
+  if (!zone) return null;
+  const countryCode = TIME_ZONE_COUNTRY_MAP[zone];
+  return COUNTRY_CODE_RE.test(countryCode || "") ? countryCode : null;
+}
+
+function inferCountryCodeFromHints(localeHint, timeZone) {
+  const timeZoneCountryCode = parseCountryCodeFromTimeZone(timeZone);
+  if (timeZoneCountryCode) return timeZoneCountryCode;
+  return parseCountryCodeFromLocale(localeHint);
+}
+
+function getSignInLocaleHints() {
+  const localeHint =
+    (typeof navigator !== "undefined" && typeof navigator.language === "string")
+      ? navigator.language.trim()
+      : "";
+
+  let timeZone = "";
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions();
+    if (typeof resolved?.timeZone === "string") {
+      timeZone = resolved.timeZone.trim();
+    }
+  } catch (error) {
+    logger.warn("Unable to resolve local time zone", error?.message || error);
+  }
+
+  return {
+    localeHint,
+    timeZone,
+  };
+}
+
+async function ensureSignInCountryFallback(user) {
+  if (!user?.uid) return;
+
+  const userRef = doc(db, "users", user.uid);
+  let existingCountryCode = null;
+  try {
+    const existingDoc = await getDoc(userRef);
+    if (existingDoc.exists()) {
+      const userData = existingDoc.data() || {};
+      existingCountryCode = userData.lastSignInCountryCode || null;
+    }
+  } catch (error) {
+    if (isPermissionOrTransientFirestoreError(error)) {
+      return;
+    }
+    logger.warn("Failed to read user profile before country fallback", error?.message || error);
+  }
+
+  if (typeof existingCountryCode === "string" && existingCountryCode.trim()) return;
+
+  const hints = getSignInLocaleHints();
+  const fallbackCountryCode = inferCountryCodeFromHints(hints.localeHint, hints.timeZone);
+
+  try {
+    await setDoc(userRef, {
+      lastSignInCountryCode: fallbackCountryCode,
+      lastSignInCountrySource: fallbackCountryCode ? "popup-locale-fallback" : "popup-locale-unavailable",
+      lastSignInCountryCapturedAt: Date.now(),
+      lastSignInLocaleHint: hints.localeHint || null,
+      lastSignInTimeZone: hints.timeZone || null,
+      lastLoginAt: Date.now(),
+    }, { merge: true });
+  } catch (error) {
+    if (isPermissionOrTransientFirestoreError(error)) {
+      return;
+    }
+    logger.warn("Failed to write sign-in country fallback", error?.message || error);
+  }
 }
 
 /**
@@ -582,6 +692,9 @@ export function initAuthObserver(onLogin, onLogout) {
       state.setCurrentUser(user);
       showMainUI();
       setupAccountDocWatcher(user);
+      ensureSignInCountryFallback(user).catch((error) => {
+        logger.warn("Failed to schedule popup sign-in country fallback", error?.message || error);
+      });
 
       try {
         chrome.runtime

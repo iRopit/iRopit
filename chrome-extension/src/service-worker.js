@@ -24,6 +24,7 @@ import {
   addDoc,
   setDoc,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 // Firebase config - imported from external file
 import firebaseConfig from "../firebase-config.js";
 import { decrypt, decryptCall } from "./services/cryptoService.js";
@@ -34,6 +35,21 @@ console.log("ZyncIT: Service Worker starting...");
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
+const captureSignInCountryCallable = httpsCallable(functions, "captureSignInCountry");
+const SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY = "signInCountryCaptureByUid";
+const COUNTRY_CODE_RE = /^[A-Z]{2}$/;
+const TIME_ZONE_COUNTRY_MAP = {
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Kuwait": "KW",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Muscat": "OM",
+  "Asia/Amman": "JO",
+  "Asia/Baghdad": "IQ",
+  "Africa/Cairo": "EG",
+};
 
 console.log("ZyncIT: Firebase initialized");
 
@@ -161,6 +177,91 @@ chrome.storage.local.get(
 // syncBadge with the correct, lower count).
 let popupIsOpen = false;
 
+function getLocaleHintForCountryCapture() {
+  const localeHint =
+    (typeof navigator !== "undefined" && typeof navigator.language === "string")
+      ? navigator.language.trim()
+      : "";
+
+  let timeZone = "";
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions();
+    if (typeof resolved?.timeZone === "string") {
+      timeZone = resolved.timeZone.trim();
+    }
+  } catch (error) {
+    console.warn("Unable to resolve local time zone:", error?.message || error);
+  }
+
+  return {
+    localeHint,
+    timeZone,
+  };
+}
+
+function parseCountryCodeFromLocale(localeHint) {
+  if (typeof localeHint !== "string") return null;
+  const token = localeHint.trim();
+  if (!token) return null;
+  const match = token.match(/[-_]([a-z]{2})(?:[-_]|$)/i);
+  if (!match) return null;
+  const countryCode = String(match[1] || "").toUpperCase();
+  return COUNTRY_CODE_RE.test(countryCode) ? countryCode : null;
+}
+
+function parseCountryCodeFromTimeZone(timeZone) {
+  if (typeof timeZone !== "string") return null;
+  const zone = timeZone.trim();
+  if (!zone) return null;
+  const countryCode = TIME_ZONE_COUNTRY_MAP[zone];
+  return COUNTRY_CODE_RE.test(countryCode || "") ? countryCode : null;
+}
+
+function inferCountryCodeFromHints(localeHint, timeZone) {
+  const timeZoneCountryCode = parseCountryCodeFromTimeZone(timeZone);
+  if (timeZoneCountryCode) return timeZoneCountryCode;
+  return parseCountryCodeFromLocale(localeHint);
+}
+
+async function captureSignInCountry(user) {
+  if (!user?.uid) return;
+
+  const signInSignature =
+    user.metadata?.lastSignInTime ||
+    user.metadata?.creationTime ||
+    `${Date.now()}`;
+  const stored = await chrome.storage.local.get([SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]);
+  const byUid = stored[SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY] || {};
+  if (byUid[user.uid] === signInSignature) return;
+
+  try {
+    const hints = getLocaleHintForCountryCapture();
+    await captureSignInCountryCallable(hints);
+
+    byUid[user.uid] = signInSignature;
+    await chrome.storage.local.set({ [SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]: byUid });
+  } catch (error) {
+    console.warn("captureSignInCountry callable failed; using locale fallback:", error?.message || error);
+    try {
+      const hints = getLocaleHintForCountryCapture();
+      const fallbackCountryCode = inferCountryCodeFromHints(hints.localeHint, hints.timeZone);
+      await setDoc(doc(db, "users", user.uid), {
+        lastLoginAt: Date.now(),
+        lastSignInCountryCapturedAt: Date.now(),
+        lastSignInCountryCode: fallbackCountryCode,
+        lastSignInCountrySource: fallbackCountryCode ? "client-hints-fallback" : "client-hints-unavailable",
+        lastSignInLocaleHint: hints.localeHint || null,
+        lastSignInTimeZone: hints.timeZone || null,
+        lastSignInCountryCaptureError: error?.message || String(error),
+      }, { merge: true });
+      byUid[user.uid] = signInSignature;
+      await chrome.storage.local.set({ [SIGN_IN_COUNTRY_CAPTURE_CACHE_KEY]: byUid });
+    } catch (fallbackError) {
+      console.warn("captureSignInCountry fallback failed:", fallbackError?.message || fallbackError);
+    }
+  }
+}
+
 // Keep badge aligned with popup whenever cached notification data changes.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
@@ -185,6 +286,9 @@ onAuthStateChanged(auth, async (user) => {
   console.log("ZyncIT: Auth state changed", user ? user.email : "(logged out)");
   if (user) {
     currentUser = user;
+    captureSignInCountry(user).catch((error) => {
+      console.warn("captureSignInCountry scheduling failed:", error?.message || error);
+    });
     watchCurrentUserProfile(user.uid);
     await loadDeviceId();
     await loadLocallyReadNotificationIds();
