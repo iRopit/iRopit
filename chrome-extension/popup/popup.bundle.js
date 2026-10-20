@@ -21951,6 +21951,28 @@ ${this.customData.serverResponse}`;
       }
     );
   }
+  function sanitizeDownloadFileName(fileName, fallbackName) {
+    const normalized = String(fileName || "").trim();
+    const candidate = normalized || fallbackName;
+    const withoutUnsafeChars = candidate.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_");
+    const withoutTrailingDots = withoutUnsafeChars.replace(/[.\s]+$/g, "");
+    return withoutTrailingDots || fallbackName;
+  }
+  function downloadChatAttachment(url, fileName, fallbackName) {
+    if (!url) return;
+    const options = { url, conflictAction: "uniquify" };
+    const safeFileName = sanitizeDownloadFileName(fileName, fallbackName);
+    if (safeFileName) {
+      options.filename = safeFileName;
+    }
+    chrome.downloads.download(options, () => {
+      if (chrome.runtime.lastError) {
+        showToast("Download failed", "error");
+      } else {
+        showToast("Downloading...", "success");
+      }
+    });
+  }
   function subscribeToChat() {
     const user = currentUser;
     if (!user) return;
@@ -22219,12 +22241,13 @@ ${this.customData.serverResponse}`;
       let content = "";
       if (msg.type === "image" && msg.fileUrl) {
         const safeUrl = sanitizeUrl(msg.fileUrl);
+        const safeFileName = escapeHtml(msg.fileName || "Image.jpg");
         content = safeUrl ? `
           <div class="chat-image-container">
             <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-image-link">
               <img src="${safeUrl}" alt="Image" class="chat-image" />
             </a>
-            <button class="chat-image-download-btn" data-url="${safeUrl}" title="Download image">
+            <button class="chat-image-download-btn" data-url="${safeUrl}" data-filename="${safeFileName}" title="Download image">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="8 17 12 21 16 17"/>
                 <line x1="12" y1="21" x2="12" y2="9"/>
@@ -22235,8 +22258,9 @@ ${this.customData.serverResponse}`;
         ` : `<div class="chat-file-link"><span>Invalid image URL</span></div>`;
       } else if (msg.type === "file" && msg.fileUrl) {
         const safeUrl = sanitizeUrl(msg.fileUrl);
+        const safeFileName = escapeHtml(msg.fileName || "File");
         content = safeUrl ? `
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-file-link">
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-file-link chat-file-download-link" data-url="${safeUrl}" data-filename="${safeFileName}">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
@@ -22298,14 +22322,19 @@ ${this.customData.serverResponse}`;
         e.stopPropagation();
         e.preventDefault();
         const url = btn.dataset.url;
+        const fileName = btn.dataset.filename;
         if (!url) return;
-        chrome.downloads.download({ url, conflictAction: "uniquify" }, () => {
-          if (chrome.runtime.lastError) {
-            showToast("Download failed", "error");
-          } else {
-            showToast("Downloading image...", "success");
-          }
-        });
+        downloadChatAttachment(url, fileName, "Image.jpg");
+      });
+    });
+    chatMessages.querySelectorAll(".chat-file-download-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = link.dataset.url;
+        const fileName = link.dataset.filename;
+        if (!url) return;
+        downloadChatAttachment(url, fileName, "File");
       });
     });
     chatMessages.querySelectorAll(".copy-msg-btn").forEach((btn) => {
