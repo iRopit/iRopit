@@ -2857,9 +2857,9 @@ export function showConversation(phoneNumber) {
           return;
         }
         const q = this.value.trim().toLowerCase();
-        document.querySelectorAll(".message-bubble").forEach((bubble) => {
-          const text = bubble.querySelector(".message-text")?.textContent.toLowerCase() || "";
-          bubble.style.display = !q || text.includes(q) ? "" : "none";
+        document.querySelectorAll(".chat-message-wrapper").forEach((wrapper) => {
+          const text = wrapper.querySelector(".message-text")?.textContent.toLowerCase() || "";
+          wrapper.style.display = !q || text.includes(q) ? "" : "none";
         });
       });
     }
