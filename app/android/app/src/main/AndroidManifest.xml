@@ -28,6 +28,14 @@
     <!-- Battery optimization exemption -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Keep hardware optional to avoid Play Store device exclusion -->
+    <uses-feature
+      android:name="android.hardware.telephony"
+      android:required="false" />
+    <uses-feature
+      android:name="android.hardware.wifi"
+      android:required="false" />
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
