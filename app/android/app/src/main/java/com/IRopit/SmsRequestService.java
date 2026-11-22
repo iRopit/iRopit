@@ -1,6 +1,7 @@
 package com.IRopit;
 
 import android.app.Notification;
+import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -318,6 +319,15 @@ public class SmsRequestService extends Service {
 
     private void copyViaActivity(String message) {
         try {
+            if (isAppInForeground()) {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("iRopit", message));
+                    Log.d(TAG, "Copied SMS to clipboard directly while app is foreground");
+                    return;
+                }
+            }
+
             int notifId = 4000 + (smsCopyNotifCounter++ % 10);
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -333,7 +343,7 @@ public class SmsRequestService extends Service {
                 .setContentTitle("iRopit: SMS sent")
                 .setContentText(preview)
                 .setSmallIcon(android.R.drawable.ic_menu_send)
-                .setFullScreenIntent(fullScreenIntent, true)
+                .setContentIntent(fullScreenIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -344,6 +354,19 @@ public class SmsRequestService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "copyViaActivity failed: " + e);
         }
+    }
+
+    private boolean isAppInForeground() {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (am == null) return false;
+        String pkg = getPackageName();
+        for (ActivityManager.RunningAppProcessInfo proc : am.getRunningAppProcesses()) {
+            if (proc != null && pkg.equals(proc.processName)) {
+                return proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                    || proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+            }
+        }
+        return false;
     }
 
     private void createNotificationChannel() {

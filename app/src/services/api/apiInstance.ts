@@ -12,7 +12,7 @@ export const apiService = new ApiService({
   defaultHeaders: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    'X-App-Version': '1.1.33',
+    'X-App-Version': '1.1.34',
     'X-Platform': 'mobile',
   },
   timeout: TIMEOUTS.API_REQUEST,

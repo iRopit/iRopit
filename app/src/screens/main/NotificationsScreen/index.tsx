@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, FlatList, RefreshControl, ActivityIndicator, Text } from 'react-native';
+import { View, FlatList, RefreshControl, ActivityIndicator, Text, StatusBar } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { Container } from '../../../components';
 
 import {
   SelectableHeader,
@@ -141,11 +140,8 @@ const NotificationsScreen = () => {
   };
 
   return (
-    <Container
-      isDark={isDarkMode}
-      noPaddingHorizontal
-      backgroundColor={bgColor}
-    >
+    <View style={[styles.container, { backgroundColor: bgColor }]}> 
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       {/* Header with Select/Cancel buttons */}
       <SelectableHeader
         isSelectMode={isSelectMode}
@@ -215,7 +211,7 @@ const NotificationsScreen = () => {
           />
         }
       />
-    </Container>
+    </View>
   );
 };
 

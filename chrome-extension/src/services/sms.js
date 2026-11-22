@@ -223,6 +223,26 @@ function isLikelySMSPayload(data) {
   return false;
 }
 
+async function getOwnDeviceRelaxedSnapshot(userId, deviceId) {
+  const notifications = collection(db, "users", userId, "devices", deviceId, "notifications");
+  const byCreatedAt = query(
+    notifications,
+    orderBy("createdAt", "desc"),
+    limit(OWN_RELAXED_RECENT_LIMIT),
+  );
+  try {
+    return await getServerDocsWithAuthRetry(byCreatedAt);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") throw error;
+    const byTimestamp = query(
+      notifications,
+      orderBy("timestamp", "desc"),
+      limit(OWN_RELAXED_RECENT_LIMIT),
+    );
+    return await getServerDocsWithAuthRetry(byTimestamp);
+  }
+}
+
 function hasSharedSmsPermission(share) {
   if (!share || !share.deviceId || !share.ownerUid) return false;
   const perms = share.permissions;
@@ -390,6 +410,7 @@ function buildRealtimeSMSFingerprint(message) {
 
 // Pagination state
 const PAGE_SIZE = 10000;
+const OWN_RELAXED_RECENT_LIMIT = 200;
 let paginationState = {}; // { deviceId: { lastTimestamp, hasMore, loading } }
 
 // ── Starred SMS persistence ──────────────────────────────────────────────────
@@ -1132,20 +1153,56 @@ export async function loadSMS(options = {}) {
           `[SMS] ${isDelta ? "ðŸ”„ Delta" : "ðŸ“¥ Full"}: ${snapshot.size} messages from device ${device.id}`,
         );
 
+        const strictDocIds = new Set(snapshot.docs.map((d) => d.id));
+        const docsById = new Map(snapshot.docs.map((d) => [d.id, d]));
+
+        // Own-device fallback: also scan a small relaxed window (no type filter)
+        // to catch valid SMS rows where mobile-side sync missed `type: "sms"`.
+        // Shared-device path already has this relaxed fallback; keep parity.
+        try {
+          const relaxedSnap = await getOwnDeviceRelaxedSnapshot(user.uid, device.id);
+          relaxedSnap.docs.forEach((docSnap) => {
+            if (!docsById.has(docSnap.id)) docsById.set(docSnap.id, docSnap);
+          });
+        } catch (relaxedErr) {
+          if (
+            relaxedErr?.code !== "permission-denied" &&
+            relaxedErr?.code !== "failed-precondition" &&
+            !isUnavailableError(relaxedErr)
+          ) {
+            console.warn(`[SMS] Own relaxed fallback failed for ${device.id}:`, relaxedErr?.code || relaxedErr?.message);
+          }
+        }
+
         // Decrypt and render messages in small batches so the UI stays responsive.
         // First batch of 20 renders immediately; remaining in groups of 50 with a
         // setTimeout(0) yield between each so the browser can paint + handle events.
         const FIRST_BATCH = 20;
         const BATCH_SIZE = 50;
-        const docs = snapshot.docs;
+        const docs = Array.from(docsById.values()).sort((a, b) => {
+          const aTs =
+            toSmsTimestampMs(a.data()?.timestamp) ||
+            toSmsTimestampMs(a.data()?.receivedAt) ||
+            toSmsTimestampMs(a.data()?.createdAt) ||
+            0;
+          const bTs =
+            toSmsTimestampMs(b.data()?.timestamp) ||
+            toSmsTimestampMs(b.data()?.receivedAt) ||
+            toSmsTimestampMs(b.data()?.createdAt) ||
+            0;
+          return bTs - aTs;
+        });
         const allMessages = [];
 
         const decryptDoc = async (docSnap) => {
           let data = docSnap.data();
           const messageId = docSnap.id;
+          const isStrictTypeDoc = strictDocIds.has(messageId);
 
           // Use cached decryption
           data = await decryptSMSCached(data, user.uid, messageId);
+
+          if (!isStrictTypeDoc && !isLikelySMSPayload(data)) return null;
 
           const resolvedPhone = resolvePhoneNumber(data);
           const resolvedContact = resolveContactName(data, resolvedPhone);
@@ -1168,7 +1225,9 @@ export async function loadSMS(options = {}) {
         };
 
         // Process first batch and render immediately so the list appears fast
-        const firstBatch = await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc));
+        const firstBatch = (
+          await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc))
+        ).filter(Boolean);
         allMessages.push(...firstBatch);
 
         // Helper: merge bulk-loaded messages with any messages the realtime listener
@@ -1196,7 +1255,9 @@ export async function loadSMS(options = {}) {
         let offset = FIRST_BATCH;
         while (offset < docs.length) {
           await new Promise((r) => setTimeout(r, 0));
-          const batch = await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc));
+          const batch = (
+            await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc))
+          ).filter(Boolean);
           allMessages.push(...batch);
           offset += BATCH_SIZE;
 
@@ -1458,6 +1519,86 @@ function startSMSRealtimeListeners(userId, devicesList) {
     );
 
     smsUnsubscribeFunctions.push(unsub);
+
+    // Fallback realtime listener: captures valid SMS rows that were written
+    // without `type: "sms"` by mobile sync. Keep window small to avoid noise.
+    const qRelaxedCreatedAt = query(
+      collection(db, "users", userId, "devices", device.id, "notifications"),
+      orderBy("createdAt", "desc"),
+      limit(50),
+    );
+
+    const unsubRelaxed = onSnapshot(
+      qRelaxedCreatedAt,
+      async (snapshot) => {
+        const mapped = await Promise.all(
+          snapshot.docs.map(async (docSnap) => {
+            const messageId = docSnap.id;
+            let data = docSnap.data();
+            data = await decryptSMSCached(data, userId, messageId);
+            if (!isLikelySMSPayload(data)) return null;
+
+            const resolvedPhone = resolvePhoneNumber(data);
+            const resolvedContact = resolveContactName(data, resolvedPhone);
+            return {
+              ...data,
+              id: messageId,
+              docId: messageId,
+              docRef: docSnap.ref,
+              deviceId: device.id,
+              deviceName: device.name,
+              phoneNumber: resolvedPhone,
+              contactName: resolvedContact,
+              title: stripEnc(data.title),
+              body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
+              timestamp: data.timestamp || data.receivedAt || data.createdAt || Date.now(),
+              read: data.read === true,
+              type: data.type || "sms",
+            };
+          }),
+        );
+
+        const relaxedMessages = mapped.filter(Boolean);
+        if (relaxedMessages.length === 0) return;
+
+        const currentSMS = state.getSMSData(device.id) || [];
+        const currentById = new Map(currentSMS.map((m) => [m.id, m]));
+        let changed = false;
+
+        relaxedMessages.forEach((message) => {
+          const nextFingerprint = buildRealtimeSMSFingerprint(message);
+          const prevFingerprint = realtimeMessageFingerprintById.get(message.id);
+          const existing = currentById.get(message.id);
+          if (existing && prevFingerprint === nextFingerprint) return;
+
+          const preserved =
+            existing && existing.read === true && message.read === false
+              ? { ...message, read: true }
+              : message;
+
+          currentById.set(message.id, preserved);
+          realtimeMessageFingerprintById.set(message.id, nextFingerprint);
+          processedMessageIds.add(message.id);
+          changed = true;
+        });
+
+        if (!changed) return;
+
+        const merged = Array.from(currentById.values()).sort(
+          (a, b) =>
+            (toSmsTimestampMs(b.timestamp) || toSmsTimestampMs(b.receivedAt) || 0) -
+            (toSmsTimestampMs(a.timestamp) || toSmsTimestampMs(a.receivedAt) || 0),
+        );
+        updateSMSList(device.id, merged);
+      },
+      (error) => {
+        if (error?.code === "permission-denied" || error?.code === "failed-precondition") return;
+        if (isUnavailableError(error)) return;
+        console.warn(`[SMS] Own relaxed realtime listener failed for ${device.id}:`, error?.code || error?.message);
+      },
+    );
+
+    smsUnsubscribeFunctions.push(unsubRelaxed);
   }
 }
 
@@ -2042,12 +2183,12 @@ export function renderSMS(messages) {
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">${
+        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${
           (() => { const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || ""; return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message…"></span>'; })()
         }</div>
         ${resolveSMSDeviceName(conv.lastMessage) ? `<div class="list-item-device-row">${renderSMSDeviceTag(conv.lastMessage)}</div>` : ""}

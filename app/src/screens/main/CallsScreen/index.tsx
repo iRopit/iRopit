@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Text,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
@@ -16,7 +17,6 @@ import {
   ConfirmDeleteBottomSheet,
   DeviceFilterDropdown,
 } from '../../../components/shared';
-import { Container } from '../../../components';
 import { styles } from './styles';
 import { GroupedCall } from './types';
 import SwipeableCallItem from './components/SwipeableCallItem';
@@ -153,11 +153,8 @@ const CallsScreen = () => {
   );
 
   return (
-    <Container
-      isDark={isDarkMode}
-      noPaddingHorizontal
-      backgroundColor={bgColor}
-    >
+    <View style={[styles.container, { backgroundColor: bgColor }]}> 
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       {/* Header with Select/Cancel buttons */}
       <SelectableHeader
         isSelectMode={isSelectMode}
@@ -284,7 +281,7 @@ const CallsScreen = () => {
             : singleDeleteItem?.count || 1
         }
       />
-    </Container>
+    </View>
   );
 };
 

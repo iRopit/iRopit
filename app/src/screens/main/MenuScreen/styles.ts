@@ -17,6 +17,14 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    paddingBottom: 8,
+  },
+  contentContainer: {
+    paddingBottom: 20,
+  },
+  versionDock: {
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   profileHeader: {
     flexDirection: 'row',
@@ -88,7 +96,8 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
   version: {
     textAlign: 'center',
     fontSize: 12,
-    marginVertical: 20,
+    marginTop: 0,
+    marginBottom: 0,
   },
 
   modalOverlay: {
@@ -96,10 +105,12 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 4,
   },
   shareModalCard: {
     borderRadius: 14,
-    maxHeight: '84%',
+    height: '96%',
+    maxHeight: '99%',
     overflow: 'hidden',
   },
   shareModalHeader: {
@@ -118,6 +129,7 @@ export const createStyles = (colors: ColorTheme) => StyleSheet.create({
     marginRight: 12,
   },
   shareModalBody: {
+    flexGrow: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },

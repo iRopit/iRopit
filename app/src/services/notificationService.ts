@@ -13,12 +13,21 @@ export interface AppNotification {
   packageName: string;
   title: string;
   text: string;
-  type: 'sms' | 'call' | 'whatsapp' | 'telegram' | 'other';
+  type: string;
   timestamp: number;
   appName: string;
   read: boolean;
   smsType?: 'sent' | 'inbox'; // For SMS messages: sent or received
   simSlot?: number; // 0 = SIM 1, 1 = SIM 2, -1 = unknown
+  body?: string;
+  content?: string;
+  bigText?: string;
+  subText?: string;
+  summaryText?: string;
+  message?: string;
+  messages?: string;
+  tickerText?: string;
+  direction?: 'incoming' | 'outgoing';
 }
 
 class NotificationServiceClass {
@@ -133,6 +142,16 @@ class NotificationServiceClass {
           appName: data.appName || data.packageName,
           read: false,
           phoneNumber: data.phoneNumber || '',
+          smsType: data.smsType,
+          body: data.body || data.text || '',
+          content: data.content || '',
+          bigText: data.bigText || '',
+          subText: data.subText || '',
+          summaryText: data.summaryText || '',
+          message: data.message || '',
+          messages: data.messages || '',
+          tickerText: data.tickerText || '',
+          direction: data.direction,
         };
         console.log('[NotificationService] Received notification:', {
           type: notification.type,

@@ -24668,12 +24668,12 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(displayName)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">
-        <div class="list-item-title" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">
+      <div class="list-item-content" data-hover-preview="${escapedCallHoverPreview}">
+        <div class="list-item-title" data-hover-preview="${escapedCallHoverPreview}">
           ${!isVoIP ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>` : ""}
           <span class="call-contact-name">${displayName}</span>
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${escapedCallHoverPreview}" title="${escapedCallHoverPreview}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
+        <div class="list-item-subtitle" data-hover-preview="${escapedCallHoverPreview}">${group.lastCall.type ? `${getCallTypeLabel(group.lastCall.type)} \xB7 ${String(methodLabel).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])}` : isSyncingCalls ? '<span class="sms-body-loading"></span>' : ""}</div>
         ${resolveCallDeviceName(group.lastCall) ? `<div class="call-device-row">${renderCallDeviceTag(group.lastCall)}</div>` : ""}
       </div>
       ${!isVoIP ? `<div class="call-list-hover-actions">
@@ -26170,6 +26170,41 @@ ${this.customData.serverResponse}`;
     });
     return byId.size;
   }
+  function isLikelySMSPayload(data) {
+    if (!data || typeof data !== "object") return false;
+    if (data.type === "sms" || data.smsType) return true;
+    if (data.type && data.type !== "sms") return false;
+    if (data.callType || data.duration != null) return false;
+    const appName = String(data.appName || "").toLowerCase();
+    const isSmsApp = appName === "sms" || appName.includes("message");
+    const hasText = !!stripEnc(data.text || data.body || data.content);
+    const hasParty = !!stripEnc(data.phoneNumber || data.sender || data.address || data.number);
+    const direction = String(data.direction || "").toLowerCase();
+    if (isSmsApp && (hasText || hasParty)) return true;
+    if ((direction === "incoming" || direction === "outgoing") && hasText && hasParty) {
+      return true;
+    }
+    return false;
+  }
+  async function getOwnDeviceRelaxedSnapshot(userId, deviceId) {
+    const notifications = collection(db, "users", userId, "devices", deviceId, "notifications");
+    const byCreatedAt = query(
+      notifications,
+      orderBy("createdAt", "desc"),
+      limit(OWN_RELAXED_RECENT_LIMIT)
+    );
+    try {
+      return await getServerDocsWithAuthRetry(byCreatedAt);
+    } catch (error) {
+      if (error?.code !== "failed-precondition") throw error;
+      const byTimestamp = query(
+        notifications,
+        orderBy("timestamp", "desc"),
+        limit(OWN_RELAXED_RECENT_LIMIT)
+      );
+      return await getServerDocsWithAuthRetry(byTimestamp);
+    }
+  }
   function hasSharedSmsPermission(share) {
     if (!share || !share.deviceId || !share.ownerUid) return false;
     const perms = share.permissions;
@@ -26792,14 +26827,32 @@ ${this.customData.serverResponse}`;
           console.log(
             `[SMS] ${isDelta ? "\xF0\u0178\u201D\u201E Delta" : "\xF0\u0178\u201C\xA5 Full"}: ${snapshot.size} messages from device ${device.id}`
           );
+          const strictDocIds = new Set(snapshot.docs.map((d) => d.id));
+          const docsById = new Map(snapshot.docs.map((d) => [d.id, d]));
+          try {
+            const relaxedSnap = await getOwnDeviceRelaxedSnapshot(user.uid, device.id);
+            relaxedSnap.docs.forEach((docSnap) => {
+              if (!docsById.has(docSnap.id)) docsById.set(docSnap.id, docSnap);
+            });
+          } catch (relaxedErr) {
+            if (relaxedErr?.code !== "permission-denied" && relaxedErr?.code !== "failed-precondition" && !isUnavailableError2(relaxedErr)) {
+              console.warn(`[SMS] Own relaxed fallback failed for ${device.id}:`, relaxedErr?.code || relaxedErr?.message);
+            }
+          }
           const FIRST_BATCH = 20;
           const BATCH_SIZE = 50;
-          const docs = snapshot.docs;
+          const docs = Array.from(docsById.values()).sort((a, b) => {
+            const aTs = toSmsTimestampMs(a.data()?.timestamp) || toSmsTimestampMs(a.data()?.receivedAt) || toSmsTimestampMs(a.data()?.createdAt) || 0;
+            const bTs = toSmsTimestampMs(b.data()?.timestamp) || toSmsTimestampMs(b.data()?.receivedAt) || toSmsTimestampMs(b.data()?.createdAt) || 0;
+            return bTs - aTs;
+          });
           const allMessages = [];
           const decryptDoc = async (docSnap) => {
             let data = docSnap.data();
             const messageId = docSnap.id;
+            const isStrictTypeDoc = strictDocIds.has(messageId);
             data = await decryptSMSCached(data, user.uid, messageId);
+            if (!isStrictTypeDoc && !isLikelySMSPayload(data)) return null;
             const resolvedPhone = resolvePhoneNumber(data);
             const resolvedContact = resolveContactName(data, resolvedPhone);
             return {
@@ -26818,7 +26871,7 @@ ${this.customData.serverResponse}`;
               type: data.type || "sms"
             };
           };
-          const firstBatch = await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc));
+          const firstBatch = (await Promise.all(docs.slice(0, FIRST_BATCH).map(decryptDoc))).filter(Boolean);
           allMessages.push(...firstBatch);
           const mergeWithRealtime = (bulk) => {
             const bulkIds = new Set(bulk.map((m) => m.id));
@@ -26839,7 +26892,7 @@ ${this.customData.serverResponse}`;
           let offset = FIRST_BATCH;
           while (offset < docs.length) {
             await new Promise((r) => setTimeout(r, 0));
-            const batch = await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc));
+            const batch = (await Promise.all(docs.slice(offset, offset + BATCH_SIZE).map(decryptDoc))).filter(Boolean);
             allMessages.push(...batch);
             offset += BATCH_SIZE;
             if (!isDelta) {
@@ -27058,6 +27111,68 @@ ${this.customData.serverResponse}`;
         }
       );
       smsUnsubscribeFunctions.push(unsub);
+      const qRelaxedCreatedAt = query(
+        collection(db, "users", userId, "devices", device.id, "notifications"),
+        orderBy("createdAt", "desc"),
+        limit(50)
+      );
+      const unsubRelaxed = onSnapshot(
+        qRelaxedCreatedAt,
+        async (snapshot) => {
+          const mapped = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const messageId = docSnap.id;
+              let data = docSnap.data();
+              data = await decryptSMSCached(data, userId, messageId);
+              if (!isLikelySMSPayload(data)) return null;
+              const resolvedPhone = resolvePhoneNumber(data);
+              const resolvedContact = resolveContactName(data, resolvedPhone);
+              return {
+                ...data,
+                id: messageId,
+                docId: messageId,
+                docRef: docSnap.ref,
+                deviceId: device.id,
+                deviceName: device.name,
+                phoneNumber: resolvedPhone,
+                contactName: resolvedContact,
+                title: stripEnc(data.title),
+                body: stripEnc(data.text) || stripEnc(data.content) || stripEnc(data.body) || "",
+                timestamp: data.timestamp || data.receivedAt || data.createdAt || Date.now(),
+                read: data.read === true,
+                type: data.type || "sms"
+              };
+            })
+          );
+          const relaxedMessages = mapped.filter(Boolean);
+          if (relaxedMessages.length === 0) return;
+          const currentSMS = getSMSData(device.id) || [];
+          const currentById = new Map(currentSMS.map((m) => [m.id, m]));
+          let changed = false;
+          relaxedMessages.forEach((message) => {
+            const nextFingerprint = buildRealtimeSMSFingerprint(message);
+            const prevFingerprint = realtimeMessageFingerprintById.get(message.id);
+            const existing = currentById.get(message.id);
+            if (existing && prevFingerprint === nextFingerprint) return;
+            const preserved = existing && existing.read === true && message.read === false ? { ...message, read: true } : message;
+            currentById.set(message.id, preserved);
+            realtimeMessageFingerprintById.set(message.id, nextFingerprint);
+            processedMessageIds.add(message.id);
+            changed = true;
+          });
+          if (!changed) return;
+          const merged = Array.from(currentById.values()).sort(
+            (a, b) => (toSmsTimestampMs(b.timestamp) || toSmsTimestampMs(b.receivedAt) || 0) - (toSmsTimestampMs(a.timestamp) || toSmsTimestampMs(a.receivedAt) || 0)
+          );
+          updateSMSList(device.id, merged);
+        },
+        (error) => {
+          if (error?.code === "permission-denied" || error?.code === "failed-precondition") return;
+          if (isUnavailableError2(error)) return;
+          console.warn(`[SMS] Own relaxed realtime listener failed for ${device.id}:`, error?.code || error?.message);
+        }
+      );
+      smsUnsubscribeFunctions.push(unsubRelaxed);
     }
   }
   async function loadMoreSMS() {
@@ -27457,12 +27572,12 @@ ${this.customData.serverResponse}`;
       <div class="list-item-avatar">
         ${getInitials(conv.contactName || conv.phoneNumber)}
       </div>
-      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
-        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">
+      <div class="list-item-content" data-hover-preview="${escapeHtml(listHoverPreview)}">
+        <div class="list-item-title" data-hover-preview="${escapeHtml(listHoverPreview)}">
           ${getAppIcon(conv.lastMessage.type || "sms")}
           ${escapeHtml(conv.contactName || conv.phoneNumber)}
         </div>
-        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}" title="${escapeHtml(listHoverPreview)}">${(() => {
+        <div class="list-item-subtitle" data-hover-preview="${escapeHtml(listHoverPreview)}">${(() => {
           const _b = conv.lastMessage.body || conv.lastMessage.text || conv.lastMessage.content || "";
           return _b ? escapeHtml(_b.substring(0, 80)) : '<span class="sms-body-loading" aria-label="Loading message\u2026"></span>';
         })()}</div>
@@ -28046,9 +28161,9 @@ ${this.customData.serverResponse}`;
             return;
           }
           const q2 = this.value.trim().toLowerCase();
-          document.querySelectorAll(".message-bubble").forEach((bubble) => {
-            const text = bubble.querySelector(".message-text")?.textContent.toLowerCase() || "";
-            bubble.style.display = !q2 || text.includes(q2) ? "" : "none";
+          document.querySelectorAll(".chat-message-wrapper").forEach((wrapper) => {
+            const text = wrapper.querySelector(".message-text")?.textContent.toLowerCase() || "";
+            wrapper.style.display = !q2 || text.includes(q2) ? "" : "none";
           });
         });
       }
@@ -29409,7 +29524,7 @@ ${this.customData.serverResponse}`;
       }
     }
   }
-  var smsUnavailableLogKeys, smsTransientEmptyFetchLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, sharedSmsListenerBoundAtByKey, sharedSmsListenerMetaByKey, smsListReturnState, processedMessageIds, realtimeMessageFingerprintById, decryptionCache, PAGE_SIZE, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, smsLongPressTimer, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
+  var smsUnavailableLogKeys, smsTransientEmptyFetchLogKeys, _smsSleep, smsUnsubscribeFunctions, sharedSmsUnsubscribeByKey, sharedSmsSourceDataByKey, sharedSmsServerProbeTsByKey, sharedSmsListenerBoundAtByKey, sharedSmsListenerMetaByKey, smsListReturnState, processedMessageIds, realtimeMessageFingerprintById, decryptionCache, PAGE_SIZE, OWN_RELAXED_RECENT_LIMIT, paginationState, SMS_STARRED_LS_KEY, isLoadingMore, scrollHandlerAttached, isSyncing, selectionMode, selectedConversations, smsLongPressTimer, SMS_PIN_STORAGE_KEY, smsPinnedConversations, smsPinHydrated, messageSelectionMode, selectedMessages, _msgClickHandler, BIDI_MARKS_RE;
   var init_sms = __esm({
     "src/services/sms.js"() {
       init_firebase();
@@ -29440,6 +29555,7 @@ ${this.customData.serverResponse}`;
       realtimeMessageFingerprintById = /* @__PURE__ */ new Map();
       decryptionCache = /* @__PURE__ */ new Map();
       PAGE_SIZE = 1e4;
+      OWN_RELAXED_RECENT_LIMIT = 200;
       paginationState = {};
       SMS_STARRED_LS_KEY = "smsStarredMessages";
       isLoadingMore = false;
@@ -31002,13 +31118,13 @@ ${this.customData.serverResponse}`;
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "\u0645\u0643\u062A\u0648\u0645")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">\u25CF</span>` : ""}
           </div>
-          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${groupDeviceName ? renderNotificationDeviceTag(latest) : ""}
             ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0643\u062A\u0645")}</button>` : ""}

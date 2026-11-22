@@ -3,7 +3,13 @@
  * Reusable text input with validation support
  */
 
-import React, { useState, forwardRef, useCallback } from 'react';
+import React, {
+  useState,
+  forwardRef,
+  useCallback,
+  useRef,
+  useImperativeHandle,
+} from 'react';
 import {
   View,
   TextInput,
@@ -13,12 +19,16 @@ import {
   TextInputProps,
   ViewStyle,
   TextStyle,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { LIGHT_COLORS, DARK_COLORS } from '../../theme/colors';
 import { TYPOGRAPHY, FONT_SIZES } from '../../theme/typography';
 import { SPACING, RADIUS } from '../../theme/spacing';
 import { ICONS, ICON_SIZES } from '../../constants/icons';
+import { extractOtpCode } from '../../utils/otp';
 
 export type InputSize = 'sm' | 'md' | 'lg';
 
@@ -51,7 +61,27 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   labelStyle?: TextStyle;
   /** On right icon press */
   onRightIconPress?: () => void;
+  /** Enable clipboard OTP quick-paste on OTP-like fields */
+  enableOtpPaste?: boolean;
 }
+
+const isOtpLikeField = (props: InputProps): boolean => {
+  const autoComplete = String(props.autoComplete || '').toLowerCase();
+  const textContentType = String(props.textContentType || '').toLowerCase();
+  const keyboardType = String(props.keyboardType || '').toLowerCase();
+  const maxLength = Number(props.maxLength || 0);
+
+  if (autoComplete === 'one-time-code' || textContentType === 'onetimecode') {
+    return true;
+  }
+
+  const otpLength = maxLength >= 4 && maxLength <= 8;
+  const numericKeyboard =
+    keyboardType === 'number-pad' ||
+    keyboardType === 'numeric' ||
+    keyboardType === 'phone-pad';
+  return otpLength && numericKeyboard;
+};
 
 const Input = forwardRef<TextInput, InputProps>(
   (
@@ -67,6 +97,7 @@ const Input = forwardRef<TextInput, InputProps>(
       isDark = false,
       showPasswordToggle = false,
       secureTextEntry,
+      enableOtpPaste = true,
       containerStyle,
       inputStyle,
       labelStyle,
@@ -80,13 +111,38 @@ const Input = forwardRef<TextInput, InputProps>(
     const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
     const [isFocused, setIsFocused] = useState(false);
     const [isSecure, setIsSecure] = useState(secureTextEntry);
+    const [clipboardOtp, setClipboardOtp] = useState<string>('');
+    const innerRef = useRef<TextInput>(null);
+    useImperativeHandle(ref, () => innerRef.current as TextInput, []);
+
+    const otpField = isOtpLikeField({
+      keyboardType: props.keyboardType,
+      maxLength: props.maxLength,
+      autoComplete: props.autoComplete,
+      textContentType: props.textContentType,
+    } as InputProps);
+
+    const refreshClipboardOtp = useCallback(async () => {
+      if (!enableOtpPaste || !otpField || disabled || !Clipboard?.getString) {
+        setClipboardOtp('');
+        return;
+      }
+      try {
+        const text = await Clipboard.getString();
+        const otp = extractOtpCode(text);
+        setClipboardOtp(otp || '');
+      } catch {
+        setClipboardOtp('');
+      }
+    }, [enableOtpPaste, otpField, disabled]);
 
     const handleFocus = useCallback(
       (e: any) => {
         setIsFocused(true);
         onFocus?.(e);
+        refreshClipboardOtp();
       },
-      [onFocus],
+      [onFocus, refreshClipboardOtp],
     );
 
     const handleBlur = useCallback(
@@ -100,6 +156,18 @@ const Input = forwardRef<TextInput, InputProps>(
     const toggleSecure = useCallback(() => {
       setIsSecure(!isSecure);
     }, [isSecure]);
+
+    const handlePasteOtp = useCallback(() => {
+      if (!clipboardOtp) return;
+
+      innerRef.current?.focus();
+      innerRef.current?.setNativeProps({ text: clipboardOtp });
+      props.onChangeText?.(clipboardOtp);
+
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('OTP pasted', ToastAndroid.SHORT);
+      }
+    }, [clipboardOtp, props]);
 
     const getSizeStyles = useCallback((): {
       container: ViewStyle;
@@ -160,8 +228,12 @@ const Input = forwardRef<TextInput, InputProps>(
       return colors.inputBackground;
     };
 
-    const showRightIcon = showPasswordToggle || rightIcon;
-    const rightIconName = showPasswordToggle
+    const showOtpPaste =
+      enableOtpPaste && otpField && !!clipboardOtp && !showPasswordToggle && !rightIcon;
+    const showRightIcon = showPasswordToggle || rightIcon || showOtpPaste;
+    const rightIconName = showOtpPaste
+      ? ICONS.copyOutline
+      : showPasswordToggle
       ? isSecure
         ? ICONS.eyeOff
         : ICONS.eye
@@ -217,14 +289,20 @@ const Input = forwardRef<TextInput, InputProps>(
 
           {showRightIcon && (
             <TouchableOpacity
-              onPress={showPasswordToggle ? toggleSecure : onRightIconPress}
-              disabled={!showPasswordToggle && !onRightIconPress}
+              onPress={
+                showOtpPaste
+                  ? handlePasteOtp
+                  : showPasswordToggle
+                    ? toggleSecure
+                    : onRightIconPress
+              }
+              disabled={!showOtpPaste && !showPasswordToggle && !onRightIconPress}
               style={styles.rightIconButton}
             >
               <Icon
                 name={rightIconName!}
                 size={sizeStyles.iconSize}
-                color={colors.textTertiary}
+                color={showOtpPaste ? colors.primary : colors.textTertiary}
               />
             </TouchableOpacity>
           )}

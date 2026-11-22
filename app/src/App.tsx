@@ -31,6 +31,7 @@ import {
 } from './contexts/InAppNotificationContext';
 import { LIGHT_COLORS, DARK_COLORS } from './theme/colors';
 import { useNativeEvents } from './hooks/useNativeEvents';
+import { useOtpSmartActions } from './hooks/useOtpSmartActions';
 import { checkOnboardingComplete } from './screens/onboarding/OnboardingScreen/useOnboarding';
 import ErrorBoundary from './components/feedback/ErrorBoundary';
 // ServiceStatusBanner is now only in MainNavigator
@@ -48,6 +49,7 @@ const AppContent = () => {
 
   // Initialize native event listeners for SMS and Calls - true to enable listening
   useNativeEvents(true);
+  useOtpSmartActions();
   useEffect(() => {
     const errorUtils = (global as any).ErrorUtils;
     const previousGlobalHandler =

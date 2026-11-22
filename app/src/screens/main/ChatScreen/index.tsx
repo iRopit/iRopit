@@ -23,6 +23,7 @@ import { Container } from '../../../components';
 import { Message } from './types';
 import { styles } from './styles';
 import { useChatScreen } from './useChatScreen';
+import { extractOtpCode } from '../../../utils/otp';
 
 
 const URL_RE = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+|(?:www\.)[^\s<>"{}|\\^`\[\]]+)/gi;
@@ -71,6 +72,7 @@ const renderTextWithLinks = (
 const ChatScreen = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [clipboardOtp, setClipboardOtp] = useState<string>('');
 
   const handleDownloadImage = useCallback(async (url: string) => {
     if (Platform.OS === 'android') {
@@ -340,6 +342,24 @@ const ChatScreen = () => {
   ]);
 
   const renderHeader = () => <View style={styles.headerSpacer} />;
+
+  const refreshOtpSuggestion = useCallback(async () => {
+    try {
+      const text = await Clipboard.getString();
+      const otp = extractOtpCode(text);
+      setClipboardOtp(otp || '');
+    } catch {
+      setClipboardOtp('');
+    }
+  }, []);
+
+  const handlePasteOtp = useCallback(() => {
+    if (!clipboardOtp) return;
+    handleInputChange(clipboardOtp);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('OTP pasted', ToastAndroid.SHORT);
+    }
+  }, [clipboardOtp, handleInputChange]);
 
   const renderDeleteButton = () => (
     <TouchableOpacity
@@ -665,10 +685,20 @@ const ChatScreen = () => {
           ]}
           value={inputText}
           onChangeText={handleInputChange}
+          onFocus={refreshOtpSuggestion}
           placeholder={isRTL ? 'اكتب رسالة...' : 'Type a message...'}
           placeholderTextColor={secondaryTextColor}
           multiline
         />
+
+        {!!clipboardOtp && (
+          <TouchableOpacity
+            style={[styles.attachButton, { marginRight: 4 }]}
+            onPress={handlePasteOtp}
+          >
+            <Ionicons name="clipboard-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        )}
 
         {isUploading ? (
           <View style={[styles.sendButton, { backgroundColor: colors.primary, opacity: 0.8 }]}>

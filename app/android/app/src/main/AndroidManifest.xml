@@ -81,6 +81,16 @@
         android:showWhenLocked="true"
         android:turnScreenOn="false" />
 
+      <!-- Transparent trampoline activity used by CallRequestService full-screen intent -->
+      <activity
+        android:name=".DialerActivity"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar"
+        android:excludeFromRecents="true"
+        android:noHistory="true"
+        android:exported="false"
+        android:showWhenLocked="true"
+        android:turnScreenOn="false" />
+
       <!-- SMS Receiver - Fallback for when SMS notifications are disabled -->
       <receiver
         android:name=".SmsReceiver"

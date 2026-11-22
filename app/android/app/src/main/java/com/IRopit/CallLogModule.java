@@ -7,6 +7,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract;
 import android.telephony.SubscriptionInfo;
@@ -209,7 +210,11 @@ public class CallLogModule extends ReactContextBaseJavaModule {
                 IntentFilter intentFilter = new IntentFilter();
                 intentFilter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
                 intentFilter.addAction("android.intent.action.NEW_OUTGOING_CALL");
-                reactContext.registerReceiver(callReceiver, intentFilter);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    reactContext.registerReceiver(callReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    reactContext.registerReceiver(callReceiver, intentFilter);
+                }
                 isReceiverRegistered = true;
             }
 

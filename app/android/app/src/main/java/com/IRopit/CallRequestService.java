@@ -1,6 +1,7 @@
 package com.IRopit;
 
 import android.app.Notification;
+import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -159,23 +160,40 @@ public class CallRequestService extends Service {
         // Fallback content intent: direct dial if user taps the notification manually
         PendingIntent contentIntent = PendingIntent.getActivity(this, notificationId + 100, dialIntent, flags);
 
-        Notification notification = new NotificationCompat.Builder(this, DIAL_CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, DIAL_CHANNEL_ID)
             .setContentTitle("Calling " + displayName)
             .setContentText(displayName.equals(phoneNumber) ? "" : phoneNumber)
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setContentIntent(contentIntent)
-            .setFullScreenIntent(fullScreenIntent, true)
             .setAutoCancel(true)
             .setTimeoutAfter(5000)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .build();
+            .setCategory(NotificationCompat.CATEGORY_CALL);
+
+        if (!isAppInForeground()) {
+            builder.setFullScreenIntent(fullScreenIntent, true);
+        }
+
+        Notification notification = builder.build();
 
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
             manager.notify(notificationId, notification);
         }
         Log.d(TAG, "Dial notification shown for: " + displayName + " (" + phoneNumber + ")");
+    }
+
+    private boolean isAppInForeground() {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (am == null) return false;
+        String pkg = getPackageName();
+        for (ActivityManager.RunningAppProcessInfo proc : am.getRunningAppProcesses()) {
+            if (proc != null && pkg.equals(proc.processName)) {
+                return proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                    || proc.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+            }
+        }
+        return false;
     }
 
     private void createNotificationChannel() {

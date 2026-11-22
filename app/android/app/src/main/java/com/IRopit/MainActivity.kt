@@ -3,6 +3,7 @@
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.BroadcastReceiver
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -36,26 +37,18 @@ class MainActivity : ReactActivity() {
     
     enableEdgeToEdge() // Android 15 edge-to-edge compliance
     
-    // Register SMS receiver dynamically
-    val smsFilter = IntentFilter()
-    smsFilter.addAction("android.provider.Telephony.SMS_RECEIVED")
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      registerReceiver(smsReceiver, smsFilter, Context.RECEIVER_EXPORTED)
-    } else {
-      registerReceiver(smsReceiver, smsFilter)
+    // Register receivers dynamically.
+    // Use explicit flags on Android 13+ to avoid startup crashes on newer devices.
+    val smsFilter = IntentFilter().apply {
+      addAction("android.provider.Telephony.SMS_RECEIVED")
     }
-    Log.d("MainActivity", "SMS Receiver registered dynamically")
-    
-    // Register Call receiver dynamically  
-    val callFilter = IntentFilter()
-    callFilter.addAction("android.intent.action.PHONE_STATE")
-    callFilter.addAction("android.intent.action.NEW_OUTGOING_CALL")
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      registerReceiver(callReceiver, callFilter, Context.RECEIVER_EXPORTED)
-    } else {
-      registerReceiver(callReceiver, callFilter)
+    registerRuntimeReceiver(smsReceiver, smsFilter, "SMS")
+
+    val callFilter = IntentFilter().apply {
+      addAction("android.intent.action.PHONE_STATE")
+      addAction("android.intent.action.NEW_OUTGOING_CALL")
     }
-    Log.d("MainActivity", "Call Receiver registered dynamically")
+    registerRuntimeReceiver(callReceiver, callFilter, "Call")
 
     // Note: cold-start share intent is now handled BEFORE super.onCreate above.
   }
@@ -68,6 +61,23 @@ class MainActivity : ReactActivity() {
       Log.d("MainActivity", "Receivers unregistered")
     } catch (e: Exception) {
       Log.e("MainActivity", "Error unregistering receivers", e)
+    }
+  }
+
+  private fun registerRuntimeReceiver(
+    receiver: BroadcastReceiver,
+    filter: IntentFilter,
+    receiverName: String
+  ) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+      } else {
+        registerReceiver(receiver, filter)
+      }
+      Log.d("MainActivity", "$receiverName receiver registered dynamically")
+    } catch (e: Exception) {
+      Log.e("MainActivity", "Failed to register $receiverName receiver", e)
     }
   }
 

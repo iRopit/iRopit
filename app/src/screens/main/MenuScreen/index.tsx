@@ -524,7 +524,10 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         </Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+      >
         {/* Profile Header - Improved Design */}
         <TouchableOpacity
           style={[styles.profileHeader, { backgroundColor: colors.surface }]}
@@ -642,6 +645,12 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         ))}
 
       </ScrollView>
+
+      <View style={styles.versionDock}>
+        <Text style={[styles.version, { color: colors.textSecondary }]}>
+          {`iRopit v${APP_VERSION}`}
+        </Text>
+      </View>
 
       <Modal
         visible={shareModalVisible}
@@ -1109,9 +1118,6 @@ const MenuScreen = ({ navigation }: MenuScreenProps) => {
         </View>
       </Modal>
 
-      <Text style={[styles.version, { color: colors.textSecondary, paddingBottom: 12 }]}>
-        {`iRopit v${APP_VERSION}`}
-      </Text>
     </Container>
   );
 };

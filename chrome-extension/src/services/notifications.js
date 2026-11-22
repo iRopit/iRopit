@@ -1816,13 +1816,13 @@ function renderNotifications(notifications) {
         <div class="list-item-icon notification-icon">
           ${renderAppIcon(group.packageName, group.appIcon, 40)}
         </div>
-        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
-          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">
+        <div class="list-item-content" data-hover-preview="${escapeHtml(notifHoverPreview)}">
+          <div class="list-item-title" data-hover-preview="${escapeHtml(notifHoverPreview)}">
             ${escapeHtml(group.appName)}
             ${isSnoozed ? `<span class="notification-snoozed-badge">${tr("Muted", "مكتوم")}</span>` : ""}
             ${hasUnread ? `<span class="unread-dot">●</span>` : ""}
           </div>
-          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}" title="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
+          <div class="list-item-subtitle" data-hover-preview="${escapeHtml(notifHoverPreview)}">${escapeHtml(latest.title || latest.text || "")}</div>
           <div class="notification-app">
             ${groupDeviceName ? renderNotificationDeviceTag(latest) : ""}
             ${isSnoozed ? `<button class="notif-unsnooze-btn" type="button">${tr("Unmute", "إلغاء الكتم")}</button>` : ""}

@@ -4,6 +4,7 @@ buildscript {
         minSdkVersion = 24
         compileSdkVersion = 36
         targetSdkVersion = 36
+        REACT_NATIVE_NODE_MODULES_DIR = file("../node_modules/react-native").absolutePath
         // ndkVersion = "27.1.12297006" // Temporarily disabled - install NDK from Android Studio
         kotlinVersion = "2.1.20"
     }

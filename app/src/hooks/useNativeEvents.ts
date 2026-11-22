@@ -198,35 +198,17 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS),
         ]);
 
-        // First-install hardening: request missing history permissions here so
-        // initial sync doesn't silently skip SMS while calls still load.
-        if (!hasCallLog || !hasSms) {
-          try {
-            const req: string[] = [];
-            if (!hasCallLog) req.push(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG);
-            if (!hasSms) req.push(PermissionsAndroid.PERMISSIONS.READ_SMS);
-            if (req.length > 0) {
-              const grant = await PermissionsAndroid.requestMultiple(req as any);
-              hasCallLog =
-                hasCallLog ||
-                grant[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] ===
-                  PermissionsAndroid.RESULTS.GRANTED;
-              hasSms =
-                hasSms ||
-                grant[PermissionsAndroid.PERMISSIONS.READ_SMS] ===
-                  PermissionsAndroid.RESULTS.GRANTED;
-            }
-          } catch (_) {}
-        }
+        // Do not trigger permission prompts from this deferred background path.
+        // Permission flows should stay in explicit UI actions to avoid resume-time instability.
 
         if (!hasCallLog && !hasSms) {
           console.warn('[InitialSync] No READ_CALL_LOG or READ_SMS permissions, skipping');
           return;
         }
 
-        // Sync call log — capped at 2000 newest calls on initial/fresh install.
-        // Native query uses ORDER BY date DESC so the most recent 2000 are fetched first.
-        const INITIAL_CALL_LIMIT = 2000;
+        // Sync call log with a conservative cap to reduce resume-time memory/CPU spikes.
+        // Native query uses ORDER BY date DESC so the most recent items are fetched first.
+        const INITIAL_CALL_LIMIT = 1000;
         if (hasCallLog && !syncState.callsSynced) {
           try {
             let nativeCalls: any[] = [];
@@ -247,10 +229,10 @@ export const useNativeEvents = (listenToEvents: boolean = false) => {
           }
         }
 
-        // Sync SMS — limit to 10000 newest messages on initial/fresh install.
-        // Native query uses ORDER BY date DESC so the most recent 10000 are fetched first.
+        // Sync SMS with a conservative cap to reduce reopen crashes on long-idle sessions.
+        // Native query uses ORDER BY date DESC so the most recent items are fetched first.
         // Ongoing new SMS are synced in real-time via the SMS listener.
-        const INITIAL_SMS_LIMIT = 10000;
+        const INITIAL_SMS_LIMIT = 6000;
         if (hasSms && !syncState.smsSynced) {
           try {
             let nativeSms: any[] = [];

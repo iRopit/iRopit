@@ -21,6 +21,22 @@ import {
 const { FilePickerModule } = NativeModules;
 const chatMessagesCacheByUser = new Map<string, Message[]>();
 
+const toTimestampMs = (ts: any): number => {
+  if (typeof ts === 'number') return ts;
+  if (ts && typeof ts.toMillis === 'function') {
+    try {
+      return ts.toMillis();
+    } catch {
+      return 0;
+    }
+  }
+  if (ts && typeof ts.seconds === 'number') {
+    const nanos = typeof ts.nanoseconds === 'number' ? ts.nanoseconds : 0;
+    return ts.seconds * 1000 + Math.floor(nanos / 1e6);
+  }
+  return 0;
+};
+
 export const useChatScreen = () => {
   const { colors, isRTL, isDarkMode } = useTheme();
   const isFocused = useIsFocused();
@@ -50,6 +66,7 @@ export const useChatScreen = () => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const devicesRef = useRef<any[]>([]);
   const hasSeenServerSnapshotRef = useRef(false);
+  const serverRefreshInFlightRef = useRef(false);
   const decryptCacheRef = useRef<Map<string, Message>>(new Map());
   const snapshotGenerationRef = useRef(0);
 
@@ -366,7 +383,7 @@ export const useChatScreen = () => {
       const pending: Array<{ index: number; msg: Message; key: string }> = [];
 
       rawMessages.forEach((msg, index) => {
-        const key = `${msg.id}|${(msg as any).timestamp || 0}|${(msg as any).content || ''}|${(msg as any).fileUrl || ''}|${(msg as any).fileName || ''}`;
+        const key = `${msg.id}|${toTimestampMs((msg as any).timestamp)}|${(msg as any).content || ''}|${(msg as any).fileUrl || ''}|${(msg as any).fileName || ''}`;
         const cached = cache.get(key);
         if (cached) {
           result[index] = cached;
@@ -403,7 +420,11 @@ export const useChatScreen = () => {
   const dedupeMessages = useCallback((list: Message[]): Message[] => {
     const seen = new Set<string>();
     return list.filter(msg => {
-      const key = `${msg.senderDeviceId}|${msg.timestamp}|${(msg as any).content || ''}`;
+      const msgType = String((msg as any).type || 'text');
+      const ts = toTimestampMs((msg as any).timestamp);
+      const content = String((msg as any).content || '');
+      const fileKey = `${(msg as any).fileUrl || ''}|${(msg as any).fileName || ''}`;
+      const key = `${msg.senderDeviceId || ''}|${ts}|${msgType}|${content}|${fileKey}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -423,12 +444,12 @@ export const useChatScreen = () => {
         r =>
           (r as any).senderDeviceId === opt.senderDeviceId &&
           (r as any).type === opt.type &&
-          Math.abs(((r as any).timestamp || 0) - (opt.timestamp || 0)) < 10000,
+          Math.abs(toTimestampMs((r as any).timestamp) - toTimestampMs(opt.timestamp)) < 10000,
       );
       if (!confirmed) merged.push(opt);
     });
 
-    merged.sort((a, b) => ((a as any).timestamp || 0) - ((b as any).timestamp || 0));
+    merged.sort((a, b) => toTimestampMs((a as any).timestamp) - toTimestampMs((b as any).timestamp));
     return merged;
   }, []);
 
@@ -436,7 +457,7 @@ export const useChatScreen = () => {
   const isFirstSnapshotRef = useRef(true);
   useEffect(() => {
     if (!isFocused) return;
-    if (!user?.uid || !currentDevice) {
+    if (!user?.uid) {
       return;
     }
 
@@ -456,6 +477,39 @@ export const useChatScreen = () => {
       .where('participants', 'array-contains', user.uid)
       .orderBy('timestamp', 'desc')
       .limit(100);
+    const QUICK_BOOT_MESSAGES = 24;
+
+    const refreshFromServer = async () => {
+      if (serverRefreshInFlightRef.current) return;
+      serverRefreshInFlightRef.current = true;
+      try {
+        const serverSnap = await chatsQuery.get({ source: 'server' });
+        const rawMsgs: Message[] = [];
+        serverSnap.forEach(doc => {
+          const data = doc.data();
+          rawMsgs.push({ id: doc.id, ...data } as Message);
+        });
+        rawMsgs.sort((a, b) => toTimestampMs((a as any).timestamp) - toTimestampMs((b as any).timestamp));
+
+        if (!hasWarmCache && rawMsgs.length > 0) {
+          const recentSlice = rawMsgs.slice(-Math.min(QUICK_BOOT_MESSAGES, rawMsgs.length));
+          const recentDecrypted = await decryptMessagesWithCache(recentSlice);
+          const recentDeduped = dedupeMessages(recentDecrypted);
+          setMessages(prev => mergeWithOptimistic(prev, recentDeduped as Message[]));
+          setIsLoading(false);
+        }
+
+        const decryptedMsgs = await decryptMessagesWithCache(rawMsgs);
+        const dedupedMsgs = dedupeMessages(decryptedMsgs);
+        chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
+        hasSeenServerSnapshotRef.current = true;
+        setMessages(prev => mergeWithOptimistic(prev, dedupedMsgs as Message[]));
+        setIsLoading(false);
+      } catch {
+      } finally {
+        serverRefreshInFlightRef.current = false;
+      }
+    };
 
     const FIRST_SNAPSHOT_TIMEOUT_MS = 8000;
     const firstSnapshotTimeout = setTimeout(() => {
@@ -472,16 +526,16 @@ export const useChatScreen = () => {
             const data = doc.data();
             rawMsgs.push({ id: doc.id, ...data } as Message);
           });
-          rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          rawMsgs.sort((a, b) => toTimestampMs((a as any).timestamp) - toTimestampMs((b as any).timestamp));
 
           // The selector in this screen is "Send to" only.
           // Keep chat history unfiltered so incoming messages never disappear.
           const filteredMsgs = rawMsgs;
 
-          // On cold reinstall/open with no in-memory cache, render newest messages first
+          // On cold launch with no in-memory cache, render a small recent slice first
           // so the UI becomes responsive while full decrypt continues in background.
-          if (!hasWarmCache && filteredMsgs.length > 35) {
-            const recentSlice = filteredMsgs.slice(-35);
+          if (!hasWarmCache && filteredMsgs.length > 0) {
+            const recentSlice = filteredMsgs.slice(-Math.min(QUICK_BOOT_MESSAGES, filteredMsgs.length));
             const recentDecrypted = await decryptMessagesWithCache(recentSlice);
             if (generation !== snapshotGenerationRef.current) return;
             const recentDeduped = dedupeMessages(recentDecrypted);
@@ -543,40 +597,32 @@ export const useChatScreen = () => {
         },
       );
 
+    // Force a server reconciliation on screen open to avoid stale cache-only
+    // states where push notification arrives before chat snapshot catches up.
+    refreshFromServer();
+
+    // If realtime is degraded and no server snapshot was seen yet, keep trying
+    // briefly so newly received extension messages show up immediately.
+    const serverRetryInterval = setInterval(() => {
+      if (hasSeenServerSnapshotRef.current) return;
+      refreshFromServer();
+    }, 5000);
+
     const appStateSub = AppState.addEventListener('change', nextState => {
       if (nextState !== 'active') return;
-      chatsQuery
-        .get({ source: 'server' })
-        .then(async serverSnap => {
-          const rawMsgs: Message[] = [];
-          serverSnap.forEach(doc => {
-            const data = doc.data();
-            rawMsgs.push({ id: doc.id, ...data } as Message);
-          });
-          rawMsgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-          const filteredMsgs = rawMsgs;
-
-          const decryptedMsgs = await decryptMessagesWithCache(filteredMsgs);
-          const dedupedMsgs = dedupeMessages(decryptedMsgs);
-          chatMessagesCacheByUser.set(user.uid, dedupedMsgs as Message[]);
-
-          setMessages(prev => mergeWithOptimistic(prev, dedupedMsgs as Message[]));
-          setIsLoading(false);
-        })
-        .catch(() => {});
+      refreshFromServer();
     });
 
     return () => {
       snapshotGenerationRef.current += 1;
       clearTimeout(firstSnapshotTimeout);
+      clearInterval(serverRetryInterval);
       unsubscribe();
       appStateSub.remove();
     };
   }, [
     isFocused,
     user?.uid,
-    currentDevice,
     decryptMessagesWithCache,
     dedupeMessages,
     mergeWithOptimistic,
