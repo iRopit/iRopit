@@ -1,5 +1,6 @@
 package com.IRopit;
 
+import android.Manifest;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.app.Notification;
@@ -11,6 +12,7 @@ import android.content.Context;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.os.BatteryManager;
 import android.content.pm.PackageManager;
@@ -28,6 +30,7 @@ import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Base64;
 import android.util.Log;
+import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
@@ -46,6 +49,10 @@ public class NotificationService extends NotificationListenerService {
     private static final String TAG = "ZyncIT_NotifService";
     private static final String CHANNEL_ID = "iropit_service_channel";
     private static final int FOREGROUND_NOTIFICATION_ID = 1001;
+    private static final String BACKFILL_PREFS = "ZyncITPrefs";
+    private static final String KEY_SMS_BACKFILL_AT = "smsBackfillAt";
+    private static final long SMS_BACKFILL_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000L;
+    private static final int SMS_BACKFILL_LIMIT = 400;
     
     private static NotificationService instance;
     private Handler mainHandler;
@@ -333,6 +340,81 @@ public class NotificationService extends NotificationListenerService {
         // delivered (e.g. Outlook when the app is in the foreground,
         // or emails that arrive in a batch-sync window).
         scheduleEmailPolling();
+        runOneTimeSmsBackfillIfNeeded();
+    }
+
+    private void runOneTimeSmsBackfillIfNeeded() {
+        if (firebaseHelper == null || !firebaseHelper.isLoggedIn()) return;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "SMS backfill skipped: READ_SMS not granted");
+            return;
+        }
+
+        SharedPreferences prefs = getSharedPreferences(BACKFILL_PREFS, MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        long lastRun = prefs.getLong(KEY_SMS_BACKFILL_AT, 0L);
+        if (lastRun > 0 && (now - lastRun) < SMS_BACKFILL_MIN_INTERVAL_MS) {
+            return;
+        }
+        prefs.edit().putLong(KEY_SMS_BACKFILL_AT, now).apply();
+
+        new Thread(() -> {
+            int scanned = 0;
+            int forwarded = 0;
+            Cursor cursor = null;
+            try {
+                String[] projection = new String[]{"_id", "address", "body", "date", "type"};
+                cursor = getContentResolver().query(
+                        Uri.parse("content://sms"),
+                        projection,
+                        "type IN (1, 2)",
+                        null,
+                        "date DESC"
+                );
+
+                if (cursor == null) return;
+                while (cursor.moveToNext() && scanned < SMS_BACKFILL_LIMIT) {
+                    scanned++;
+                    String address = cursor.getString(1);
+                    String body = cursor.getString(2);
+                    long date = cursor.getLong(3);
+                    if (body == null || body.trim().isEmpty()) continue;
+                    if (address == null || address.trim().isEmpty()) address = "Unknown";
+
+                    String title = address;
+                    if (isPhoneNumber(address)) {
+                        String maybeName = getContactNameFromNumber(address);
+                        if (maybeName != null && !maybeName.trim().isEmpty()) title = maybeName;
+                    }
+
+                    String syntheticId = "sms_backfill_" + date + "_" + scanned;
+                    String syntheticKey = "sms_backfill_" + date;
+                    firebaseHelper.sendNotificationToFirestore(
+                            syntheticId,
+                            syntheticKey,
+                            "com.android.mms",
+                            title,
+                            body,
+                            body,
+                            null,
+                            "sms",
+                            date,
+                            "SMS",
+                            false,
+                            null,
+                            address,
+                            title.equals(address) ? null : title
+                    );
+                    forwarded++;
+                }
+                Log.i(TAG, "SMS backfill complete: scanned=" + scanned + ", forwarded=" + forwarded);
+            } catch (Exception e) {
+                Log.e(TAG, "SMS backfill failed: " + e.getMessage(), e);
+            } finally {
+                if (cursor != null) cursor.close();
+            }
+        }, "sms-backfill").start();
     }
 
     @Override

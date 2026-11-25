@@ -169,7 +169,14 @@ const AppContent = () => {
             id: notifId,
             title,
             body: msgBody,
-            data: { messageBody: msgBody, pushDocId, chatId },
+            data: {
+              messageBody: msgBody,
+              body: msgBody,
+              message: remoteMessage.data?.message || remoteMessage.data?.messagePreview || msgBody,
+              fullMessage: remoteMessage.data?.fullMessage || remoteMessage.data?.message || msgBody,
+              pushDocId,
+              chatId,
+            },
             android: {
               channelId: 'iropit_chat',
               importance: AndroidImportance.HIGH,

@@ -215,6 +215,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
             handleChatNotificationAction(
               detail.pressAction.id,
               (detail.notification.data || {}) as Record<string, string>,
+              detail.notification.body || '',
               detail.notification.id,
             );
           }

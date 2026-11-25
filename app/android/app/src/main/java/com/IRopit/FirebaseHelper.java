@@ -174,7 +174,7 @@ public class FirebaseHelper {
         }
         // For SMS: also store text as "body" for compatibility with extension/app
         if (type.equals("sms")) {
-            String messageBody = (bigText != null && !bigText.isEmpty()) ? bigText : text;
+            String messageBody = getSmsBodyForHash(text, bigText);
             notification.put("body", messageBody);
             notification.put("direction", "incoming");
         }
@@ -189,11 +189,10 @@ public class FirebaseHelper {
         String docId;
         if (type.equals("sms")) {
             // For SMS: use deterministic docId that matches across both services
-            // IMPORTANT: Use ONLY the "text" field (not bigText) for the hash!
-            // BackgroundSmsService hashes the raw SMS body, which matches the notification's
-            // "text" field. Google Messages puts conversation history in "bigText" which 
-            // differs from the raw SMS body and causes mismatched docIds → duplicates.
-            String bodyForHash = (text != null ? text : "").trim();
+            // Prefer text when present (best match with BackgroundSmsService), but
+            // fall back to bigText-derived content when text is empty so all-empty
+            // hashes do not collapse many different SMS into one Firestore doc.
+            String bodyForHash = getSmsBodyForHash(text, bigText);
             int bodyHash = Math.abs(bodyForHash.hashCode());
             // Use the passed timestamp (not System.currentTimeMillis()) for dayBucket
             // to match BackgroundSmsService which uses the PDU timestamp
@@ -251,6 +250,21 @@ public class FirebaseHelper {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error sending notification to Firestore: " + e.getMessage());
                 });
+    }
+
+    private String getSmsBodyForHash(String text, String bigText) {
+        String normalizedText = text != null ? text.trim() : "";
+        if (!normalizedText.isEmpty()) return normalizedText;
+
+        String normalizedBig = bigText != null ? bigText.trim() : "";
+        if (normalizedBig.isEmpty()) return "";
+
+        String[] lines = normalizedBig.split("\\r?\\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String line = lines[i] != null ? lines[i].trim() : "";
+            if (!line.isEmpty()) return line;
+        }
+        return normalizedBig;
     }
 
     public void sendCallToFirestore(String phoneNumber, String contactName, 

@@ -12,9 +12,18 @@ import notifee from '@notifee/react-native';
 export async function handleChatNotificationAction(
   actionId: string,
   notificationData: Record<string, string>,
+  notificationBody?: string,
   notificationId?: string,
 ): Promise<void> {
-  const messageBody = notificationData?.messageBody || '';
+  const messageBody = (
+    notificationData?.messageBody ||
+    notificationData?.message ||
+    notificationData?.fullMessage ||
+    notificationData?.text ||
+    notificationData?.body ||
+    notificationBody ||
+    ''
+  ).split('\u0000').join('');
   const pushDocId   = notificationData?.pushDocId   || '';
   const chatId      = notificationData?.chatId      || '';
 

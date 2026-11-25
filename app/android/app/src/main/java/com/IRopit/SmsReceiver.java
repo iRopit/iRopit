@@ -385,10 +385,35 @@ public class SmsReceiver extends BroadcastReceiver {
             backgroundIntent.putExtra("contactName", contactName);
             backgroundIntent.putExtra("timestamp", timestamp);
             backgroundIntent.putExtra("simSlot", simSlot);
-            context.startService(backgroundIntent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(context, backgroundIntent);
+            } else {
+                context.startService(backgroundIntent);
+            }
             Log.d(TAG, "Starting BackgroundSmsService to save SMS");
         } catch (Exception e) {
             Log.e(TAG, "Error starting BackgroundSmsService", e);
+            try {
+                FirebaseHelper.getInstance(context).sendNotificationToFirestore(
+                    "sms_fallback_" + System.currentTimeMillis(),
+                    "sms_fallback",
+                    "com.android.mms",
+                    (contactName != null && !contactName.isEmpty()) ? contactName : (sender != null ? sender : "Unknown"),
+                    message,
+                    message,
+                    null,
+                    "sms",
+                    timestamp,
+                    "SMS",
+                    false,
+                    null,
+                    sender,
+                    contactName
+                );
+                Log.w(TAG, "Saved SMS via FirebaseHelper fallback after service start failure");
+            } catch (Exception fallbackError) {
+                Log.e(TAG, "Fallback SMS save failed", fallbackError);
+            }
         }
         
         // Also send to React if available

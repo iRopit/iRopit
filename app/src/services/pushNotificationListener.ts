@@ -110,6 +110,9 @@ export function startPushNotificationListener() {
                 body: msgBody,
                 data: {
                   messageBody: msgBody,
+                  body: msgBody,
+                  message: notification.data?.message || notification.data?.messagePreview || msgBody,
+                  fullMessage: notification.data?.fullMessage || notification.data?.message || msgBody,
                   pushDocId: change.doc.id,
                   chatId,
                 },

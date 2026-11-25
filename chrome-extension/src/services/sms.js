@@ -214,10 +214,14 @@ function isLikelySMSPayload(data) {
   const isSmsApp = appName === "sms" || appName.includes("message");
   const hasText = !!stripEnc(data.text || data.body || data.content);
   const hasParty = !!stripEnc(data.phoneNumber || data.sender || data.address || data.number);
+  const rawHasText = !!String(data.text || data.body || data.content || "").trim();
+  const rawHasParty = !!String(data.phoneNumber || data.sender || data.address || data.number || "").trim();
+  const hasAnyText = hasText || rawHasText;
+  const hasAnyParty = hasParty || rawHasParty;
   const direction = String(data.direction || "").toLowerCase();
 
-  if (isSmsApp && (hasText || hasParty)) return true;
-  if ((direction === "incoming" || direction === "outgoing") && hasText && hasParty) {
+  if (isSmsApp && (hasAnyText || hasAnyParty)) return true;
+  if ((direction === "incoming" || direction === "outgoing") && hasAnyText && hasAnyParty) {
     return true;
   }
   return false;
@@ -230,16 +234,57 @@ async function getOwnDeviceRelaxedSnapshot(userId, deviceId) {
     orderBy("createdAt", "desc"),
     limit(OWN_RELAXED_RECENT_LIMIT),
   );
+  const byTimestamp = query(
+    notifications,
+    orderBy("timestamp", "desc"),
+    limit(OWN_RELAXED_RECENT_LIMIT),
+  );
+
+  let createdAtSnap = null;
+  let timestampSnap = null;
+  let createdAtErr = null;
+  let timestampErr = null;
+
   try {
-    return await getServerDocsWithAuthRetry(byCreatedAt);
+    createdAtSnap = await getServerDocsWithAuthRetry(byCreatedAt);
   } catch (error) {
-    if (error?.code !== "failed-precondition") throw error;
-    const byTimestamp = query(
-      notifications,
-      orderBy("timestamp", "desc"),
-      limit(OWN_RELAXED_RECENT_LIMIT),
+    createdAtErr = error;
+  }
+
+  try {
+    timestampSnap = await getServerDocsWithAuthRetry(byTimestamp);
+  } catch (error) {
+    timestampErr = error;
+  }
+
+  const byId = new Map();
+  (createdAtSnap?.docs || []).forEach((docSnap) => byId.set(docSnap.id, docSnap));
+  (timestampSnap?.docs || []).forEach((docSnap) => byId.set(docSnap.id, docSnap));
+
+  if (byId.size > 0) {
+    return { docs: Array.from(byId.values()) };
+  }
+
+  // If neither query succeeded with any rows, surface the most informative error.
+  if (createdAtErr && createdAtErr?.code !== "failed-precondition") throw createdAtErr;
+  if (timestampErr) throw timestampErr;
+  if (createdAtErr) throw createdAtErr;
+  if (timestampErr) throw timestampErr;
+  return { docs: [] };
+}
+
+function getSmsTimestampValueForSort(docSnap) {
+  try {
+    const data = docSnap?.data?.() || {};
+    return (
+      toSmsTimestampMs(data.timestamp) ||
+      toSmsTimestampMs(data.receivedAt) ||
+      toSmsTimestampMs(data.createdAt) ||
+      toSmsTimestampMs(data.syncedAt) ||
+      0
     );
-    return await getServerDocsWithAuthRetry(byTimestamp);
+  } catch (_) {
+    return 0;
   }
 }
 
@@ -1179,19 +1224,9 @@ export async function loadSMS(options = {}) {
         // setTimeout(0) yield between each so the browser can paint + handle events.
         const FIRST_BATCH = 20;
         const BATCH_SIZE = 50;
-        const docs = Array.from(docsById.values()).sort((a, b) => {
-          const aTs =
-            toSmsTimestampMs(a.data()?.timestamp) ||
-            toSmsTimestampMs(a.data()?.receivedAt) ||
-            toSmsTimestampMs(a.data()?.createdAt) ||
-            0;
-          const bTs =
-            toSmsTimestampMs(b.data()?.timestamp) ||
-            toSmsTimestampMs(b.data()?.receivedAt) ||
-            toSmsTimestampMs(b.data()?.createdAt) ||
-            0;
-          return bTs - aTs;
-        });
+        const docs = Array.from(docsById.values()).sort(
+          (a, b) => getSmsTimestampValueForSort(b) - getSmsTimestampValueForSort(a),
+        );
         const allMessages = [];
 
         const decryptDoc = async (docSnap) => {
@@ -4280,12 +4315,14 @@ export async function loadSharedDevicesSMS(shares) {
 
         const hasBody = !!String(msg.body || "").trim();
         const hasParty = !!String(msg.phoneNumber || "").trim();
+        const hasAnyBody = hasBody || msg._rawHasText === true;
+        const hasAnyParty = hasParty || msg._rawHasParty === true;
         const appLooksSms = appName === "sms" || appName.includes("message") || appName.includes("messaging");
-        const hasLegacyShape = hasBody && hasParty;
+        const hasLegacyShape = hasAnyBody && hasAnyParty;
         const hasModernHints = !!rawType || !!rawSmsType || !!appName || !!direction;
 
-        if (appLooksSms && (hasBody || hasParty)) return true;
-        if ((direction === "incoming" || direction === "outgoing") && (hasBody || hasParty)) return true;
+        if (appLooksSms && (hasAnyBody || hasAnyParty)) return true;
+        if ((direction === "incoming" || direction === "outgoing") && (hasAnyBody || hasAnyParty)) return true;
         // Legacy shared rows can miss type/app metadata but still contain
         // canonical SMS payload (phone + body). Keep them to avoid dropping
         // historical messages on shared devices.
@@ -4330,6 +4367,8 @@ export async function loadSharedDevicesSMS(shares) {
             _rawCallType: data.callType,
             _rawDuration: data.duration,
             _rawDirection: data.direction,
+            _rawHasText: !!String(data.text || data.content || data.body || "").trim(),
+            _rawHasParty: !!String(data.phoneNumber || data.sender || data.address || data.number || "").trim(),
             deviceId: share.deviceId,
             deviceName: share.deviceName || "",
             phoneNumber: resolvedPhone || stripEnc(data.phoneNumber) || "",
