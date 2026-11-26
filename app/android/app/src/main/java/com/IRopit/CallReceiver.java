@@ -96,7 +96,7 @@ public class CallReceiver extends BroadcastReceiver {
             dbg.put("baselineCallLogId", outgoingBaselineCallLogId);
             dbg.put("offhookTime", outgoingOffhookTime);
             dbg.put("matchedNumber", number);
-            dbg.put("appVersion", "1.1.35");
+            dbg.put("appVersion", "1.1.36");
             fb.writeOutgoingCall(number, cn, -1, dbg);
             Log.d(TAG, "✅ outgoing_call written (" + source + ") number=" + number);
         } catch (Exception e) {
@@ -859,4 +859,5 @@ public class CallReceiver extends BroadcastReceiver {
         }
     }
 }
+
 

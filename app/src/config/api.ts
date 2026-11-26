@@ -119,7 +119,7 @@ export interface ApiResponse<T = any> {
 export const DEFAULT_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
   Accept: 'application/json',
-  'X-App-Version': '1.1.35',
+  'X-App-Version': '1.1.36',
   'X-Platform': 'mobile',
 };
 
@@ -267,3 +267,4 @@ export default {
   createRequest,
   API_ERROR_CODES,
 };
+

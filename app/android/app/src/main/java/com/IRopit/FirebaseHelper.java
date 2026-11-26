@@ -318,6 +318,78 @@ public class FirebaseHelper {
                 });
     }
 
+    /**
+     * Backfill path for historical SMS from content://sms.
+     * Uses the original SMS timestamp (not "now") so old messages do not appear as new.
+     */
+    public void sendSmsToFirestoreBackfill(
+            String phoneNumber,
+            String contactName,
+            String messageBody,
+            long timestamp,
+            boolean read,
+            String direction
+    ) {
+        String userId = getUserId();
+        String deviceId = getDeviceId();
+        if (userId == null || deviceId == null) {
+            Log.w(TAG, "Cannot backfill SMS: user/device not ready");
+            return;
+        }
+
+        if (db == null) {
+            initFirebase();
+            if (db == null) {
+                Log.e(TAG, "Firestore not initialized");
+                return;
+            }
+        }
+
+        String body = messageBody != null ? messageBody.trim() : "";
+        if (body.isEmpty()) return;
+
+        int bodyHash = Math.abs(body.hashCode());
+        long dayBucket = timestamp / (24 * 60 * 60 * 1000);
+        String docId = "sms_" + deviceId + "_" + dayBucket + "_" + bodyHash;
+
+        Map<String, Object> sms = new HashMap<>();
+        sms.put("id", docId);
+        sms.put("key", "sms_" + docId);
+        sms.put("packageName", "com.android.mms");
+        sms.put("title", (contactName != null && !contactName.isEmpty()) ? contactName : (phoneNumber != null ? phoneNumber : "Unknown"));
+        sms.put("text", body);
+        sms.put("content", body);
+        sms.put("body", body);
+        sms.put("appName", "SMS");
+        sms.put("type", "sms");
+        sms.put("smsType", "inbox");
+        sms.put("timestamp", timestamp);
+        sms.put("receivedAt", timestamp);
+        sms.put("createdAt", System.currentTimeMillis());
+        sms.put("syncedAt", System.currentTimeMillis());
+        sms.put("read", read);
+        sms.put("direction", (direction != null && !direction.isEmpty()) ? direction : "incoming");
+        sms.put("userId", userId);
+        sms.put("deviceId", deviceId);
+        sms.put("deviceName", getDeviceName());
+        sms.put("phoneNumber", phoneNumber != null ? phoneNumber : "");
+        sms.put("contactName", contactName != null ? contactName : "");
+
+        db.collection("users")
+                .document(userId)
+                .collection("devices")
+                .document(deviceId)
+                .collection("notifications")
+                .document(docId)
+                .set(sms, SetOptions.merge())
+                .addOnSuccessListener(aVoid ->
+                        Log.d(TAG, "Backfilled SMS doc: " + docId)
+                )
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Backfill SMS failed: " + e.getMessage())
+                );
+    }
+
     /** Write ringing_call/current doc so the Chrome extension can show an incoming call popup. */
     public void writeRingingCall(String phoneNumber, String contactName, int simSlot) {
         String userId = getUserId();

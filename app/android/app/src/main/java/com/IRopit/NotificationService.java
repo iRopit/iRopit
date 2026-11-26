@@ -51,7 +51,8 @@ public class NotificationService extends NotificationListenerService {
     private static final int FOREGROUND_NOTIFICATION_ID = 1001;
     private static final String BACKFILL_PREFS = "ZyncITPrefs";
     private static final String KEY_SMS_BACKFILL_AT = "smsBackfillAt";
-    private static final long SMS_BACKFILL_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000L;
+    private static final String KEY_SMS_BACKFILL_VERSION = "smsBackfillVersion";
+    private static final int SMS_BACKFILL_SCHEMA_VERSION = 2;
     private static final int SMS_BACKFILL_LIMIT = 400;
     
     private static NotificationService instance;
@@ -352,23 +353,26 @@ public class NotificationService extends NotificationListenerService {
         }
 
         SharedPreferences prefs = getSharedPreferences(BACKFILL_PREFS, MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        long lastRun = prefs.getLong(KEY_SMS_BACKFILL_AT, 0L);
-        if (lastRun > 0 && (now - lastRun) < SMS_BACKFILL_MIN_INTERVAL_MS) {
+        int lastVersion = prefs.getInt(KEY_SMS_BACKFILL_VERSION, 0);
+        if (lastVersion >= SMS_BACKFILL_SCHEMA_VERSION) {
             return;
         }
-        prefs.edit().putLong(KEY_SMS_BACKFILL_AT, now).apply();
+        prefs.edit()
+                .putLong(KEY_SMS_BACKFILL_AT, System.currentTimeMillis())
+                .putInt(KEY_SMS_BACKFILL_VERSION, SMS_BACKFILL_SCHEMA_VERSION)
+                .apply();
 
         new Thread(() -> {
             int scanned = 0;
             int forwarded = 0;
             Cursor cursor = null;
+            Set<String> seen = new HashSet<>();
             try {
-                String[] projection = new String[]{"_id", "address", "body", "date", "type"};
+                String[] projection = new String[]{"_id", "address", "body", "date", "type", "read"};
                 cursor = getContentResolver().query(
                         Uri.parse("content://sms"),
                         projection,
-                        "type IN (1, 2)",
+                        "type = 1",
                         null,
                         "date DESC"
                 );
@@ -379,8 +383,13 @@ public class NotificationService extends NotificationListenerService {
                     String address = cursor.getString(1);
                     String body = cursor.getString(2);
                     long date = cursor.getLong(3);
+                    int type = cursor.getInt(4);
+                    boolean read = cursor.getInt(5) == 1;
                     if (body == null || body.trim().isEmpty()) continue;
                     if (address == null || address.trim().isEmpty()) address = "Unknown";
+                    String normalizedBody = body.trim().replaceAll("\\s+", " ");
+                    String key = address.trim().toLowerCase() + "|" + date + "|" + normalizedBody;
+                    if (!seen.add(key)) continue;
 
                     String title = address;
                     if (isPhoneNumber(address)) {
@@ -388,23 +397,13 @@ public class NotificationService extends NotificationListenerService {
                         if (maybeName != null && !maybeName.trim().isEmpty()) title = maybeName;
                     }
 
-                    String syntheticId = "sms_backfill_" + date + "_" + scanned;
-                    String syntheticKey = "sms_backfill_" + date;
-                    firebaseHelper.sendNotificationToFirestore(
-                            syntheticId,
-                            syntheticKey,
-                            "com.android.mms",
-                            title,
-                            body,
-                            body,
-                            null,
-                            "sms",
-                            date,
-                            "SMS",
-                            false,
-                            null,
+                    firebaseHelper.sendSmsToFirestoreBackfill(
                             address,
-                            title.equals(address) ? null : title
+                            title.equals(address) ? null : title,
+                            body,
+                            date,
+                            read,
+                            type == 2 ? "outgoing" : "incoming"
                     );
                     forwarded++;
                 }

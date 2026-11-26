@@ -97,7 +97,7 @@ export const isProduction = () => ENV === 'production';
 export const APP_INFO = {
   name: 'iRopit',
   bundleId: 'com.iropit.app',
-  version: '1.1.35',
+  version: '1.1.36',
   buildNumber: '1',
 };
 
@@ -150,3 +150,4 @@ export default {
   TIMEOUTS,
   LIMITS,
 };
+

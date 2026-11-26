@@ -1,5 +1,5 @@
 export const APP_NAME = 'iRopit';
-export const APP_VERSION = '1.1.35';
+export const APP_VERSION = '1.1.36';
 
 // Sync intervals
 export const SYNC_INTERVAL = 30000; // 30 seconds
@@ -42,3 +42,4 @@ export const PERMISSIONS_REQUIRED = {
   android: ['android.permission.READ_CONTACTS'],
   ios: [],
 } as const;
+
